@@ -1,0 +1,26 @@
+inherits:
+  - d8b_face_aware_graph_swin_border020_bestacc_earlyloss.yaml
+
+experiment:
+  name: d8b_face_aware_graph_swin_border020_bestacc_earlyloss_schedloss
+
+paths:
+  resolved_output_root: outputs/d8b_face_aware_graph_swin_border020_bestacc_earlyloss_schedloss
+
+output:
+  dir: outputs/d8b_face_aware_graph_swin_border020_bestacc_earlyloss_schedloss
+
+environments:
+  local:
+    paths:
+      resolved_output_root: outputs/d8b_face_aware_graph_swin_border020_bestacc_earlyloss_schedloss
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d8b_face_aware_graph_swin_border020_bestacc_earlyloss_schedloss
+
+scheduler:
+  monitor: val_loss
+  mode: min
+
+logging:
+  run_name: d8b_border020_bestacc_earlyloss_schedloss

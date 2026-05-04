@@ -549,6 +549,7 @@ class D5Trainer:
         val_loader,
         epochs: int,
         monitor: str = "val_macro_f1",
+        scheduler_mode: str = "max",
         checkpoint_monitor: Optional[str] = None,
         checkpoint_mode: str = "max",
         early_stopping_monitor: Optional[str] = None,
@@ -593,7 +594,7 @@ class D5Trainer:
         stale_epochs = 0
         history = []
         start_epoch = int(getattr(self, "start_epoch", 1))
-        print(f"[Metric] scheduler_monitor={monitor}")
+        print(f"[Metric] scheduler_monitor={monitor} mode={_normalize_metric_mode(scheduler_mode)}")
         print(f"[Checkpoint] save_best_metric={checkpoint_monitor} mode={checkpoint_mode}")
         print(f"[EarlyStopping] monitor={early_stopping_monitor} mode={early_stopping_mode}")
         if start_epoch > int(epochs):

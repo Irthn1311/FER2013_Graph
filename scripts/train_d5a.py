@@ -50,7 +50,8 @@ def run_train(config):
     scheduler_cfg = config.get("scheduler", {}) or {}
     checkpoint_cfg = config.get("checkpoint", {}) or {}
     early_stopping_cfg = config.get("early_stopping", {}) or {}
-    scheduler_monitor = training_cfg.get("monitor", scheduler_cfg.get("monitor", "val_macro_f1"))
+    scheduler_monitor = scheduler_cfg.get("monitor", training_cfg.get("monitor", "val_macro_f1"))
+    scheduler_mode = scheduler_cfg.get("mode", "max")
     checkpoint_monitor = checkpoint_cfg.get("save_best_metric", training_cfg.get("monitor", "val_macro_f1"))
     checkpoint_mode = checkpoint_cfg.get("save_best_mode", checkpoint_cfg.get("mode", "max"))
     early_stopping_monitor = early_stopping_cfg.get("monitor", checkpoint_monitor)
@@ -64,6 +65,7 @@ def run_train(config):
         val_loader=val_loader,
         epochs=int(training_cfg.get("epochs", 80)),
         monitor=scheduler_monitor,
+        scheduler_mode=scheduler_mode,
         checkpoint_monitor=checkpoint_monitor,
         checkpoint_mode=checkpoint_mode,
         early_stopping_monitor=early_stopping_monitor,
