@@ -1,0 +1,43 @@
+inherits:
+  - d8b_face_aware_graph_swin_border020.yaml
+
+experiment:
+  name: d8b_face_aware_graph_swin_border020_macro_f1
+
+paths:
+  resolved_output_root: output/d8b_face_aware_graph_swin_border020_macro_f1
+
+output:
+  dir: output/d8b_face_aware_graph_swin_border020_macro_f1
+
+environments:
+  local:
+    paths:
+      resolved_output_root: output/d8b_face_aware_graph_swin_border020_macro_f1
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d8b_face_aware_graph_swin_border020_macro_f1
+
+training:
+  monitor: val_macro_f1
+  early_stopping_patience: 25
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max
+  patience: 25
+
+scheduler:
+  name: ReduceLROnPlateau
+  monitor: val_loss
+  mode: min
+  factor: 0.5
+  patience: 7
+  min_lr: 0.000001
+
+logging:
+  run_name: d8b_border020_macro_f1

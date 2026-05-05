@@ -92,12 +92,19 @@ def _is_improved(value: float, best_value: float, mode: str) -> bool:
     return value < best_value if mode == "min" else value > best_value
 
 
-def _get_metric_value(metrics: Dict[str, float], name: str, fallback_name: str = "val_macro_f1") -> float:
+def _get_metric_value(metrics: Dict[str, float], name: str) -> float:
     if name in metrics:
         return float(metrics[name])
-    fallback = float(metrics.get(fallback_name, 0.0))
-    print(f"[Metric] WARNING: metric {name!r} not found; using {fallback_name}={fallback:.6f}")
-    return fallback
+    available = ", ".join(sorted(metrics.keys()))
+    raise KeyError(f"Metric {name!r} not found. Available metrics: {available}")
+
+
+def _scheduler_requires_monitor(scheduler) -> bool:
+    return isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau)
+
+
+def _scheduler_name(scheduler) -> str:
+    return "none" if scheduler is None else scheduler.__class__.__name__
 
 
 def _cosine_mean_similarity(vectors: torch.Tensor) -> torch.Tensor:
@@ -548,7 +555,7 @@ class D5Trainer:
         train_loader,
         val_loader,
         epochs: int,
-        monitor: str = "val_macro_f1",
+        monitor: Optional[str] = None,
         scheduler_mode: str = "max",
         checkpoint_monitor: Optional[str] = None,
         checkpoint_mode: str = "max",
@@ -582,19 +589,52 @@ class D5Trainer:
             full_epoch_batches = None
             total_train_batches = None
 
-        checkpoint_monitor = str(checkpoint_monitor or monitor)
+        checkpoint_monitor = str(checkpoint_monitor or "val_macro_f1")
         checkpoint_mode = _normalize_metric_mode(checkpoint_mode)
         early_stopping_monitor = str(early_stopping_monitor or checkpoint_monitor)
         early_stopping_mode = _normalize_metric_mode(early_stopping_mode or checkpoint_mode)
+        scheduler_uses_monitor = _scheduler_requires_monitor(self.scheduler)
+        if scheduler_uses_monitor:
+            monitor = str(monitor or "val_loss")
+            scheduler_mode = _normalize_metric_mode(scheduler_mode or "min")
+        else:
+            if self.scheduler is not None and monitor is not None:
+                print(
+                    f"[Scheduler] WARNING: {_scheduler_name(self.scheduler)} steps by epoch; "
+                    f"ignoring scheduler monitor={monitor!r}."
+                )
+            monitor = None
         self.best_metric_name = checkpoint_monitor
         self.best_metric_mode = checkpoint_mode
+        restored_metric_name = getattr(self, "restored_best_metric_name", None)
+        restored_metric_mode = getattr(self, "restored_best_metric_mode", None)
+        if self.best_epoch >= 0 and restored_metric_name and restored_metric_name != checkpoint_monitor:
+            print(
+                f"[Resume] WARNING: checkpoint best metric {restored_metric_name!r} "
+                f"does not match current checkpoint monitor {checkpoint_monitor!r}; "
+                "resetting best metric for the current policy."
+            )
+            self.best_metric = _initial_metric_value(checkpoint_mode)
+            self.best_epoch = -1
+        elif self.best_epoch >= 0 and restored_metric_mode and _normalize_metric_mode(restored_metric_mode) != checkpoint_mode:
+            print(
+                f"[Resume] WARNING: checkpoint best mode {restored_metric_mode!r} "
+                f"does not match current checkpoint mode {checkpoint_mode!r}; "
+                "resetting best metric for the current policy."
+            )
+            self.best_metric = _initial_metric_value(checkpoint_mode)
+            self.best_epoch = -1
         if self.best_epoch < 0:
             self.best_metric = _initial_metric_value(checkpoint_mode)
         best_early_stopping_metric = _initial_metric_value(early_stopping_mode)
         stale_epochs = 0
         history = []
         start_epoch = int(getattr(self, "start_epoch", 1))
-        print(f"[Metric] scheduler_monitor={monitor} mode={_normalize_metric_mode(scheduler_mode)}")
+        print(
+            f"[Scheduler] type={_scheduler_name(self.scheduler)} "
+            f"monitor={monitor if scheduler_uses_monitor else 'epoch'} "
+            f"mode={scheduler_mode if scheduler_uses_monitor else 'n/a'}"
+        )
         print(f"[Checkpoint] save_best_metric={checkpoint_monitor} mode={checkpoint_mode}")
         print(f"[EarlyStopping] monitor={early_stopping_monitor} mode={early_stopping_mode}")
         if start_epoch > int(epochs):
@@ -616,9 +656,10 @@ class D5Trainer:
             val_metrics = self.validate(val_loader, max_val_batches, prefix="val")
             metrics = {"epoch": float(epoch), **train_metrics, **val_metrics}
             metrics.update(lr_metrics_before)
-            monitor_value = _get_metric_value(metrics, monitor)
-            metrics["scheduler_monitor_value"] = monitor_value
-            metrics[f"scheduler_monitor_{monitor}"] = monitor_value
+            monitor_value = _get_metric_value(metrics, monitor) if scheduler_uses_monitor else None
+            if scheduler_uses_monitor:
+                metrics["scheduler_monitor_value"] = float(monitor_value)
+                metrics[f"scheduler_monitor_{monitor}"] = float(monitor_value)
             checkpoint_value = _get_metric_value(metrics, checkpoint_monitor)
             early_stopping_value = _get_metric_value(metrics, early_stopping_monitor)
             metrics["checkpoint_monitor_value"] = checkpoint_value
@@ -661,7 +702,9 @@ class D5Trainer:
                 f"val_loss={metrics.get('val_loss', 0.0):.4f} "
                 f"val_acc={metrics.get('val_accuracy', 0.0):.4f} "
                 f"val_macro_f1={metrics.get('val_macro_f1', 0.0):.4f} | "
+                f"ckpt_monitor={checkpoint_monitor}:{checkpoint_value:.4f} "
                 f"best_{checkpoint_monitor}={self.best_metric:.4f} "
+                f"best_epoch={self.best_epoch} "
                 f"early_{early_stopping_monitor}={best_early_stopping_metric:.4f} "
                 f"sec/batch={metrics.get('train_sec_per_batch', 0.0):.3f}s"
             )
@@ -763,10 +806,15 @@ class D5Trainer:
         elif ckpt_epoch > 0:
             self.best_epoch = ckpt_epoch
 
+        self.restored_best_metric_name = checkpoint.get("best_metric_name")
+        self.restored_best_metric_mode = checkpoint.get("best_metric_mode")
+
         print(
             f"[Resume] loaded {path} epoch={ckpt_epoch} "
             f"start_epoch={getattr(self, 'start_epoch', 1)} "
-            f"best_epoch={self.best_epoch} best_metric={self.best_metric:.6f}"
+            f"best_epoch={self.best_epoch} best_metric={self.best_metric:.6f} "
+            f"best_metric_name={self.restored_best_metric_name} "
+            f"best_metric_mode={self.restored_best_metric_mode}"
         )
         return checkpoint
 

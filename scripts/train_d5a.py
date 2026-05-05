@@ -50,12 +50,23 @@ def run_train(config):
     scheduler_cfg = config.get("scheduler", {}) or {}
     checkpoint_cfg = config.get("checkpoint", {}) or {}
     early_stopping_cfg = config.get("early_stopping", {}) or {}
-    scheduler_monitor = scheduler_cfg.get("monitor", training_cfg.get("monitor", "val_macro_f1"))
-    scheduler_mode = scheduler_cfg.get("mode", "max")
-    checkpoint_monitor = checkpoint_cfg.get("save_best_metric", training_cfg.get("monitor", "val_macro_f1"))
+    classification_monitor = training_cfg.get("monitor", "val_macro_f1")
+    scheduler_name = str(scheduler_cfg.get("name", "")).lower()
+    if scheduler_name == "reducelronplateau":
+        scheduler_monitor = scheduler_cfg.get("monitor", "val_loss")
+        scheduler_mode = scheduler_cfg.get("mode", "min")
+    else:
+        scheduler_monitor = None
+        scheduler_mode = "max"
+        if scheduler_cfg.get("monitor") is not None:
+            print(
+                f"[Scheduler] WARNING: scheduler={scheduler_cfg.get('name')} "
+                f"steps by epoch; ignoring monitor={scheduler_cfg.get('monitor')!r}."
+            )
+    checkpoint_monitor = checkpoint_cfg.get("save_best_metric", classification_monitor)
     checkpoint_mode = checkpoint_cfg.get("save_best_mode", checkpoint_cfg.get("mode", "max"))
-    early_stopping_monitor = early_stopping_cfg.get("monitor", checkpoint_monitor)
-    early_stopping_mode = early_stopping_cfg.get("mode", checkpoint_mode)
+    early_stopping_monitor = early_stopping_cfg.get("monitor", classification_monitor)
+    early_stopping_mode = early_stopping_cfg.get("mode", "max")
     early_stopping_patience = early_stopping_cfg.get(
         "patience",
         training_cfg.get("early_stopping_patience", 20),

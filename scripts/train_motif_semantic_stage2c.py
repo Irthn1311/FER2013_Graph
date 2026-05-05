@@ -444,7 +444,9 @@ def main() -> None:
         row = {**train_metrics, **val_metrics, "epoch": epoch, "lr": optimizer.param_groups[0]["lr"], "current_lambda_supcon": current_lambda_supcon}
         _append_history(history_path, row)
         metric_name = str(training_cfg.get("save_best_metric", "val_macro_f1"))
-        current_metric = float(row.get(metric_name, row["val_macro_f1"]))
+        if metric_name not in row:
+            raise KeyError(f"Configured save_best_metric={metric_name!r} missing from Stage2C metrics")
+        current_metric = float(row[metric_name])
         if current_metric > best_metric:
             best_metric = current_metric
             best_metrics = dict(row)

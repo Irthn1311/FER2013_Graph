@@ -1403,6 +1403,7 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
     best_score = -float("inf")
     best_metrics: Dict[str, float] = {}
     last_metrics: Dict[str, float] = {}
+    print("[Checkpoint] save_best_metric=motif_quality_score mode=max")
     for epoch in range(1, epochs + 1):
         current_strength = _spatial_bias_strength(model_cfg, epoch=epoch)
         if hasattr(model, "set_spatial_bias_strength"):
