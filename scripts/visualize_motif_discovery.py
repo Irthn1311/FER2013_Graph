@@ -22,6 +22,7 @@ from common import apply_cli_overrides, build_dataloader, load_config, resolve_e
 from models.registry import build_model  # noqa: E402
 from training.motif_losses import MotifDiscoveryStage1Loss  # noqa: E402
 from training.trainer import move_to_device, set_seed  # noqa: E402
+from utils.feature_ablation import apply_feature_ablation, assert_feature_dims, log_feature_ablation  # noqa: E402
 from utils.motif_audit import (  # noqa: E402
     audit_motif_outputs,
     compute_border_center_mass,
@@ -178,7 +179,18 @@ def run_visualize(
     seed = int(config.get("training", {}).get("seed", 42))
     set_seed(seed)
     device = resolve_device(config=config)
-    model = build_model(dict(config["model"])).to(device)
+    model_cfg = dict(config["model"])
+    print(f"[Device] selected={device} cuda_available={torch.cuda.is_available()}")
+    if device.type == "cuda":
+        print(f"[Device] gpu={torch.cuda.get_device_name(device.index or torch.cuda.current_device())}")
+    feature_ablation_cfg = dict(config.get("feature_ablation", {}) or {})
+    log_feature_ablation(
+        feature_ablation_cfg,
+        model_node_dim=int(model_cfg.get("node_dim", 7)),
+        model_edge_dim=int(model_cfg.get("edge_dim", 5)),
+        prefix="[FeatureAblation visualize]",
+    )
+    model = build_model(model_cfg).to(device)
     if checkpoint is not None:
         ckpt_path = resolve_existing_path(checkpoint)
         try:
@@ -210,6 +222,12 @@ def run_visualize(
         if saved >= int(max_samples):
             break
         batch = move_to_device(batch, device)
+        batch = apply_feature_ablation(batch, feature_ablation_cfg)
+        assert_feature_dims(
+            batch,
+            node_dim=int(model_cfg.get("node_dim", 7)),
+            edge_dim=int(model_cfg.get("edge_dim", 5)),
+        )
         out = model(batch)
         maps = out["motif_assignment_maps"]
         scores = out["motif_scores"]
@@ -582,6 +600,7 @@ def main() -> None:
     parser.add_argument("--environment", "--env", choices=["local", "kaggle"], default=None)
     parser.add_argument("--graph_repo_path", default=None)
     parser.add_argument("--checkpoint", default=None)
+    parser.add_argument("--output_dir", default=None)
     parser.add_argument("--tag", default=None)
     parser.add_argument("--device", default=None)
     parser.add_argument("--batch_size", type=int, default=None)
@@ -593,6 +612,9 @@ def main() -> None:
     parser.add_argument("--num_workers", type=int, default=None)
     args = parser.parse_args()
     config = apply_cli_overrides(load_config(args.config, environment=args.environment), args)
+    if args.output_dir:
+        config.setdefault("paths", {})["resolved_output_root"] = str(args.output_dir)
+        config.setdefault("output", {})["dir"] = str(args.output_dir)
     if sys.platform.startswith("win") and args.num_workers is None:
         config.setdefault("data", {})["num_workers"] = 0
         config.setdefault("data", {})["persistent_workers"] = False

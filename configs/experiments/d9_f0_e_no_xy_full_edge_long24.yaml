@@ -1,0 +1,32 @@
+inherits:
+  - d9_f0_e_no_xy_full_edge.yaml
+
+experiment:
+  name: d9_f0_e_no_xy_full_edge_long24
+
+paths:
+  resolved_output_root: outputs/d9_f0_e_no_xy_full_edge_long24
+
+output:
+  dir: outputs/d9_f0_e_no_xy_full_edge_long24
+
+environments:
+  local:
+    paths:
+      graph_repo_path: artifacts/graph_repo
+      resolved_output_root: outputs/d9_f0_e_no_xy_full_edge_long24
+
+training:
+  epochs: 24
+
+feature_ablation:
+  enabled: true
+  node_indices: [0, 3, 4, 5, 6]
+  edge_indices: [0, 1, 2, 3, 4]
+
+model:
+  node_dim: 5
+  edge_dim: 5
+
+teacher_alignment:
+  enabled: false

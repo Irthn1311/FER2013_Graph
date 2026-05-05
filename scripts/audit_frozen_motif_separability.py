@@ -23,6 +23,7 @@ for path in (SCRIPT_DIR, PROJECT_ROOT):
 from common import apply_cli_overrides, build_dataloader, load_config, resolve_device, resolve_path, save_config  # noqa: E402
 from evaluation.metrics import classification_report_dict, confusion_matrix_array  # noqa: E402
 from training.trainer import move_to_device, set_seed  # noqa: E402
+from utils.feature_ablation import apply_feature_ablation, assert_feature_dims, log_feature_ablation  # noqa: E402
 from utils.motif_graph_builder import build_motif_graph  # noqa: E402
 from utils.motif_stage1_loader import load_frozen_motif_model  # noqa: E402
 
@@ -74,6 +75,8 @@ def _pool_selected_embeddings(selected_embeddings: torch.Tensor, selected_weight
 def _extract_split(
     *,
     stage1_model: torch.nn.Module,
+    stage1_model_cfg: Dict[str, Any],
+    feature_ablation_cfg: Dict[str, Any],
     loader,
     stage2_cfg: Dict[str, Any],
     device: torch.device,
@@ -93,6 +96,12 @@ def _extract_split(
             if max_batches is not None and batch_idx >= int(max_batches):
                 break
             batch = move_to_device(batch, device)
+            batch = apply_feature_ablation(batch, feature_ablation_cfg)
+            assert_feature_dims(
+                batch,
+                node_dim=int(stage1_model_cfg.get("node_dim", 7)),
+                edge_dim=int(stage1_model_cfg.get("edge_dim", 5)),
+            )
             outputs = {k: v.detach() if torch.is_tensor(v) else v for k, v in stage1_model(batch).items()}
             motif_graph = build_motif_graph(outputs, stage2_cfg)
             embeddings = motif_graph["selected_embeddings"].detach().float().cpu()
@@ -314,11 +323,22 @@ def main() -> None:
     output_root.mkdir(parents=True, exist_ok=True)
     save_config(config, output_root)
 
+    stage1_config = load_config(stage1_cfg["config"], environment=args.environment)
+    stage1_model_cfg = dict(stage1_config.get("model", {}) or {})
+    feature_ablation_cfg = dict(stage1_config.get("feature_ablation", {}) or {})
+    log_feature_ablation(
+        feature_ablation_cfg,
+        model_node_dim=int(stage1_model_cfg.get("node_dim", 7)),
+        model_edge_dim=int(stage1_model_cfg.get("edge_dim", 5)),
+        prefix="[FeatureAblation audit stage1]",
+    )
     stage1_model = load_frozen_motif_model(stage1_cfg["config"], stage1_cfg["checkpoint"], device)
     train_loader = build_dataloader(config, split="train", shuffle=False)
     val_loader = build_dataloader(config, split="val", shuffle=False)
     train = _extract_split(
         stage1_model=stage1_model,
+        stage1_model_cfg=stage1_model_cfg,
+        feature_ablation_cfg=feature_ablation_cfg,
         loader=train_loader,
         stage2_cfg=stage2_cfg,
         device=device,
@@ -327,6 +347,8 @@ def main() -> None:
     )
     val = _extract_split(
         stage1_model=stage1_model,
+        stage1_model_cfg=stage1_model_cfg,
+        feature_ablation_cfg=feature_ablation_cfg,
         loader=val_loader,
         stage2_cfg=stage2_cfg,
         device=device,

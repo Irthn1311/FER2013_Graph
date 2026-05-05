@@ -18,10 +18,11 @@ for path in (SCRIPT_DIR, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from common import apply_cli_overrides, build_dataloader, load_config, resolve_device, resolve_existing_path, resolve_path  # noqa: E402
+from common import apply_cli_overrides, build_dataloader, load_config, resolve_device, resolve_existing_path, resolve_path, save_config  # noqa: E402
 from models.registry import build_model  # noqa: E402
 from training.motif_losses import MotifDiscoveryStage1Loss  # noqa: E402
 from training.trainer import move_to_device, set_seed  # noqa: E402
+from utils.feature_ablation import apply_feature_ablation, assert_feature_dims, log_feature_ablation  # noqa: E402
 
 
 HISTORY_FIELDS = [
@@ -243,9 +244,12 @@ def _synthetic_loader(batch_size: int, num_batches: int, device: torch.device) -
 
 def _update_paths_from_args(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, Any]:
     cfg = dict(config)
+    experiment = dict(cfg.get("experiment", {}) or {})
     paths = dict(cfg.get("paths", {}) or {})
     data = dict(cfg.get("data", {}) or {})
     output = dict(cfg.get("output", {}) or {})
+    if getattr(args, "experiment_name", None):
+        experiment["name"] = str(args.experiment_name)
     if getattr(args, "output_dir", None):
         paths["resolved_output_root"] = str(args.output_dir)
         output["dir"] = str(args.output_dir)
@@ -253,13 +257,18 @@ def _update_paths_from_args(config: Dict[str, Any], args: argparse.Namespace) ->
         paths["resolved_output_root"] = str(output["dir"])
     if data.get("graph_repo_path") and not paths.get("graph_repo_path"):
         paths["graph_repo_path"] = data["graph_repo_path"]
-    if sys.platform.startswith("win") and getattr(args, "num_batches", None) is not None and getattr(args, "num_workers", None) is None:
+    has_batch_limit = any(
+        getattr(args, attr, None) is not None
+        for attr in ("num_batches", "max_train_batches", "max_val_batches")
+    )
+    if sys.platform.startswith("win") and has_batch_limit and getattr(args, "num_workers", None) is None:
         data["num_workers"] = 0
         data["persistent_workers"] = False
         data["prefetch_factor"] = None
     cfg["paths"] = paths
     cfg["data"] = data
     cfg["output"] = output
+    cfg["experiment"] = experiment
     return cfg
 
 
@@ -1160,6 +1169,9 @@ def _run_epoch(
     coverage_boost_active: bool = False,
     soft_border_boost_active: bool = False,
     synthetic: bool = False,
+    feature_ablation_cfg: Dict[str, Any] | None = None,
+    model_node_dim: int = 7,
+    model_edge_dim: int = 5,
 ) -> Dict[str, float]:
     is_train = optimizer is not None
     model.train(mode=is_train)
@@ -1174,6 +1186,8 @@ def _run_epoch(
             break
         if not synthetic:
             batch = move_to_device(batch, device)
+        batch = apply_feature_ablation(batch, feature_ablation_cfg)
+        assert_feature_dims(batch, node_dim=model_node_dim, edge_dim=model_edge_dim)
         if is_train:
             optimizer.zero_grad(set_to_none=True)
         with torch.set_grad_enabled(is_train):
@@ -1270,6 +1284,9 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
     seed = int(config.get("training", {}).get("seed", 42))
     set_seed(seed)
     device = resolve_device(config=config)
+    print(f"[Device] selected={device} cuda_available={torch.cuda.is_available()}")
+    if device.type == "cuda":
+        print(f"[Device] gpu={torch.cuda.get_device_name(device.index or torch.cuda.current_device())}")
     training_cfg = dict(config.get("training", {}) or {})
     audit_cfg = dict(config.get("audit", {}) or {})
     schedule_cfg = dict(config.get("schedule", {}) or {})
@@ -1284,6 +1301,14 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
     history_path = output_root / "logs" / "stage1_history.csv"
 
     model_cfg = dict(config["model"])
+    feature_ablation_cfg = dict(config.get("feature_ablation", {}) or {})
+    log_feature_ablation(
+        feature_ablation_cfg,
+        model_node_dim=int(model_cfg.get("node_dim", 7)),
+        model_edge_dim=int(model_cfg.get("edge_dim", 5)),
+    )
+    save_config(config, output_root)
+    print(f"[Output] resolved_config={output_root / 'resolved_config.yaml'}")
     model = build_model(model_cfg).to(device)
     freeze_pixel_encoder = bool(model_cfg.get("freeze_pixel_encoder", True))
     _set_freeze_pixel_encoder(model, freeze=freeze_pixel_encoder)
@@ -1310,6 +1335,12 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
     epochs = int(getattr(args, "epochs", None) or training_cfg.get("epochs", 50))
     batch_size = int(config.get("data", {}).get("batch_size", 32))
     num_batches = getattr(args, "num_batches", None)
+    max_train_batches = getattr(args, "max_train_batches", None)
+    max_val_batches = getattr(args, "max_val_batches", None)
+    if max_train_batches is None:
+        max_train_batches = training_cfg.get("max_train_batches", num_batches)
+    if max_val_batches is None:
+        max_val_batches = training_cfg.get("max_val_batches", num_batches)
     target_effective_motifs = float(audit_cfg.get("target_effective_motifs", 8))
     train_loader_obj = None
     if args.synthetic:
@@ -1361,6 +1392,9 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
             coverage_boost_active=_coverage_boost_active(schedule_cfg, epoch=1),
             soft_border_boost_active=_soft_border_boost_active(schedule_cfg, epoch=1),
             synthetic=bool(args.synthetic),
+            feature_ablation_cfg=feature_ablation_cfg,
+            model_node_dim=int(model_cfg.get("node_dim", 7)),
+            model_edge_dim=int(model_cfg.get("edge_dim", 5)),
         )
     _write_json(output_root / "logs" / "initial_audit.json", initial_metrics)
     _save_checkpoint(checkpoint_dir / "initial.pth", model, optimizer, 0, -float("inf"), config, initial_metrics)
@@ -1414,7 +1448,7 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
             device=device,
             epoch=epoch,
             split="train",
-            max_batches=num_batches,
+            max_batches=max_train_batches,
             amp=bool(training_cfg.get("amp", True)),
             grad_clip_norm=float(training_cfg.get("grad_clip_norm", 1.0)),
             log_every=int(training_cfg.get("log_every", 20)),
@@ -1433,6 +1467,9 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
             coverage_boost_active=boost_active,
             soft_border_boost_active=soft_boost_active,
             synthetic=bool(args.synthetic),
+            feature_ablation_cfg=feature_ablation_cfg,
+            model_node_dim=int(model_cfg.get("node_dim", 7)),
+            model_edge_dim=int(model_cfg.get("edge_dim", 5)),
         )
         history_rows = [{**{field: "" for field in HISTORY_FIELDS}, **train_metrics, "epoch": epoch, "split": "train"}]
         val_metrics = train_metrics
@@ -1446,7 +1483,7 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
                     device=device,
                     epoch=epoch,
                     split="val",
-                    max_batches=num_batches,
+                    max_batches=max_val_batches,
                     amp=False,
                     grad_clip_norm=0.0,
                     log_every=0,
@@ -1465,6 +1502,9 @@ def run_train(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, flo
                     coverage_boost_active=boost_active,
                     soft_border_boost_active=soft_boost_active,
                     synthetic=bool(args.synthetic),
+                    feature_ablation_cfg=feature_ablation_cfg,
+                    model_node_dim=int(model_cfg.get("node_dim", 7)),
+                    model_edge_dim=int(model_cfg.get("edge_dim", 5)),
                 )
             history_rows.append({**{field: "" for field in HISTORY_FIELDS}, **val_metrics, "epoch": epoch, "split": "val"})
         _append_history(history_path, history_rows)
@@ -1502,8 +1542,11 @@ def main() -> None:
     parser.add_argument("--output_dir", default=None)
     parser.add_argument("--device", default=None)
     parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--experiment_name", default=None)
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--num_batches", type=int, default=None)
+    parser.add_argument("--max_train_batches", type=int, default=None)
+    parser.add_argument("--max_val_batches", type=int, default=None)
     parser.add_argument("--split", default="train")
     parser.add_argument("--val_split", default="val")
     parser.add_argument("--chunk_cache_size", type=int, default=None)
@@ -1512,6 +1555,7 @@ def main() -> None:
     parser.add_argument("--pin_memory", default=None)
     parser.add_argument("--persistent_workers", default=None)
     parser.add_argument("--prefetch_factor", type=int, default=None)
+    parser.add_argument("--no_wandb", action="store_true")
     parser.add_argument("--synthetic", action="store_true", help="Run tiny synthetic smoke training without graph repo.")
     args = parser.parse_args()
     config = apply_cli_overrides(load_config(args.config, environment=args.environment), args)

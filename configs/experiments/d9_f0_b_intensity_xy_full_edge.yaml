@@ -1,0 +1,31 @@
+inherits:
+  - d8m_motif_discovery_stage1g_k16_region_clean.yaml
+
+experiment:
+  name: d9_f0_b_intensity_xy_full_edge
+
+paths:
+  resolved_output_root: outputs/d9_f0_b_intensity_xy_full_edge
+
+output:
+  dir: outputs/d9_f0_b_intensity_xy_full_edge
+
+environments:
+  local:
+    paths:
+      graph_repo_path: artifacts/graph_repo
+      resolved_output_root: outputs/d9_f0_b_intensity_xy_full_edge
+
+feature_ablation:
+  enabled: true
+  original_node_dim: 7
+  original_edge_dim: 5
+  node_indices: [0, 1, 2]
+  edge_indices: [0, 1, 2, 3, 4]
+
+model:
+  node_dim: 3
+  edge_dim: 5
+
+teacher_alignment:
+  enabled: false

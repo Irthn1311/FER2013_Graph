@@ -1,0 +1,36 @@
+inherits:
+  - d9_f0_e_no_xy_full_edge_long24.yaml
+
+experiment:
+  name: d9_f0_e_no_xy_full_edge_kaggle_long24_full
+
+paths:
+  resolved_output_root: /kaggle/working/outputs_d9_f0_be_long24_full/runs/d9_f0_e_no_xy_full_edge_kaggle_long24_full
+
+output:
+  dir: /kaggle/working/outputs_d9_f0_be_long24_full/runs/d9_f0_e_no_xy_full_edge_kaggle_long24_full
+
+environments:
+  kaggle:
+    paths:
+      graph_repo_path: /kaggle/input/YOUR_GRAPH_REPO_DATASET/graph_repo
+      resolved_output_root: /kaggle/working/outputs_d9_f0_be_long24_full/runs/d9_f0_e_no_xy_full_edge_kaggle_long24_full
+
+feature_ablation:
+  enabled: true
+  original_node_dim: 7
+  original_edge_dim: 5
+  node_indices: [0, 3, 4, 5, 6]
+  edge_indices: [0, 1, 2, 3, 4]
+
+model:
+  node_dim: 5
+  edge_dim: 5
+
+teacher_alignment:
+  enabled: false
+
+training:
+  epochs: 24
+  max_train_batches: null
+  max_val_batches: null
