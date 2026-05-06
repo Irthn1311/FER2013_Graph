@@ -7,6 +7,7 @@ from typing import Any, Dict
 from torch import nn
 
 from models.class_pixel_motif_graph_retrieval import ClassPixelMotifGraphRetrieval
+from models.d9_relation_motif_model import D9RelationMotifClassifier
 from models.dual_branch_graph_swin_motif import DualBranchGraphSwinMotifD7
 from models.face_aware_graph_swin_d8b import FaceAwareGraphSwinD8B
 from models.graph_swin_prepart_d6b import GraphSwinPrePartD6BD8A
@@ -38,4 +39,6 @@ def build_model(config: Dict[str, Any]) -> nn.Module:
         return MotifGraphClassifier.from_config(cfg)
     if name in ("motif_semantic_projector", "frozen_motif_semantic_projector"):
         return MotifSemanticProjector.from_config(cfg)
+    if name in ("d9_relation_motif_classifier", "d9_rg_mr", "d9_rg_mr_classifier"):
+        return D9RelationMotifClassifier.from_config(cfg)
     raise ValueError(f"Unknown model: {name}")

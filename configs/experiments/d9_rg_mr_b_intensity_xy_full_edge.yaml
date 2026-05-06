@@ -1,0 +1,147 @@
+experiment:
+  name: d9_rg_mr_b_intensity_xy_full_edge
+
+task_type: classification
+
+paths:
+  graph_repo_path: artifacts/graph_repo
+  resolved_output_root: outputs/d9_rg_mr_b_intensity_xy_full_edge
+
+output:
+  dir: outputs/d9_rg_mr_b_intensity_xy_full_edge
+
+data:
+  graph_repo_path: artifacts/graph_repo
+  num_classes: 7
+  batch_size: 8
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  prefetch_factor: null
+  chunk_cache_size: 4
+
+feature_ablation:
+  enabled: true
+  original_node_dim: 7
+  original_edge_dim: 5
+  node_indices: [0, 1, 2]
+  edge_indices: [0, 1, 2, 3, 4]
+
+model:
+  name: d9_relation_motif_classifier
+  node_dim: 3
+  edge_dim: 5
+  hidden_dim: 64
+  num_classes: 7
+  num_motifs: 16
+  relation_layers: 2
+  image_size: 48
+  dropout: 0.2
+  selection_temperature: 1.0
+
+  relation_encoder:
+    hidden_dim: 64
+    edge_hidden_dim: 64
+    layers: 2
+    aggregation: mean
+    use_attention: false
+    dropout: 0.2
+
+  motif_discovery:
+    num_motifs: 16
+    hidden_dim: 64
+    reuse_stage1_module: true
+    attention_temperature: 1.0
+    use_learnable_logit_scale: true
+    init_logit_scale: 1.0
+    max_logit_scale: 8.0
+    use_spatial_query_bias: false
+    border_width: 4
+
+  motif_relation_classifier:
+    hidden_dim: 64
+    layers: 2
+    dropout: 0.2
+    use_pair_features: true
+    pooling: attention
+
+training:
+  device: auto
+  seed: 42
+  epochs: 60
+  batch_size: 8
+  lr: 0.0003
+  weight_decay: 0.0001
+  optimizer: adamw
+  scheduler: warmup_cosine
+  warmup_epochs: 5
+  min_lr: 0.000001
+  amp: true
+  grad_clip_norm: 1.0
+  class_weights: true
+  val_every: 1
+
+loss:
+  cls_loss: cross_entropy
+  use_class_weights: true
+  class_weight_power: 1.0
+  max_class_weight: 4.0
+  motif_aux_weight: 0.05
+
+motif_loss:
+  lambda_div_map: 0.01
+  lambda_div_emb: 0.005
+  lambda_border: 0.005
+  lambda_area: 0.005
+  lambda_entropy: 0.002
+  lambda_selected_border: 0.0
+  lambda_selected_outer_border: 0.0
+  lambda_selected_foreground: 0.0
+  lambda_region_clean: 0.0
+  min_effective_area: 40.0
+  max_effective_area: 400.0
+  height: 48
+  width: 48
+
+checkpoint:
+  monitor: val_macro_f1
+  mode: max
+
+early_stopping:
+  enabled: true
+  monitor: val_macro_f1
+  mode: max
+  patience: 20
+  min_delta: 0.001
+
+logging:
+  log_interval: 20
+  save_confusion_matrix: true
+  save_motif_samples: true
+  use_wandb: false
+
+environments:
+  local:
+    paths:
+      graph_repo_path: artifacts/graph_repo
+      resolved_output_root: outputs/d9_rg_mr_b_intensity_xy_full_edge
+    data:
+      graph_repo_path: artifacts/graph_repo
+      batch_size: 8
+      num_workers: 0
+      pin_memory: false
+      persistent_workers: false
+      prefetch_factor: null
+  kaggle:
+    paths:
+      graph_repo_path: /kaggle/working/artifacts/graph_repo
+      resolved_output_root: /kaggle/working/outputs/d9_rg_mr_b_intensity_xy_full_edge
+    output:
+      dir: /kaggle/working/outputs/d9_rg_mr_b_intensity_xy_full_edge
+    data:
+      graph_repo_path: /kaggle/working/artifacts/graph_repo
+      batch_size: 16
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
