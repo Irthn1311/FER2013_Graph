@@ -7,9 +7,47 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 from torch import nn
 
-from models.d9_motif_relation_classifier import D9MotifRelationClassifier
+from models.d9_motif_relation_classifier import (
+    D9MotifRelationClassifier,
+    D9PooledMotifMLPClassifier,
+    D9ResidualPairRelationClassifier,
+)
 from models.d9_relation_encoder import EdgeAwarePixelEncoder
 from models.motif_discovery import MotifDiscoveryModule
+
+
+class SimplePixelProjector(nn.Module):
+    """Node projection used by the no-relation D9 ablation."""
+
+    def __init__(self, node_dim: int, hidden_dim: int = 64, dropout: float = 0.2, **_: Any) -> None:
+        super().__init__()
+        self.node_dim = int(node_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.node_proj = nn.Sequential(
+            nn.LayerNorm(self.node_dim),
+            nn.Linear(self.node_dim, self.hidden_dim),
+            nn.GELU(),
+            nn.Dropout(float(dropout)),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.LayerNorm(self.hidden_dim),
+        )
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: Optional[torch.Tensor] = None,
+        edge_attr: Optional[torch.Tensor] = None,
+        node_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        del edge_index, edge_attr
+        if x.ndim != 3:
+            raise ValueError(f"x must be [B, N, D], got {tuple(x.shape)}")
+        if int(x.shape[-1]) != self.node_dim:
+            raise ValueError(f"Expected node_dim={self.node_dim}, got {int(x.shape[-1])}")
+        h = self.node_proj(x)
+        if node_mask is not None:
+            h = h * node_mask.to(device=h.device, dtype=h.dtype).unsqueeze(-1)
+        return h
 
 
 class D9RelationMotifClassifier(nn.Module):
@@ -49,11 +87,19 @@ class D9RelationMotifClassifier(nn.Module):
         enc_cfg.setdefault("hidden_dim", self.hidden_dim)
         enc_cfg.setdefault("layers", int(enc_cfg.pop("relation_layers", relation_layers)))
         enc_cfg.setdefault("dropout", float(dropout))
-        self.pixel_encoder = EdgeAwarePixelEncoder(
-            node_dim=self.node_dim,
-            edge_dim=self.edge_dim,
-            **enc_cfg,
-        )
+        self.relation_encoder_enabled = bool(enc_cfg.pop("enabled", True))
+        if self.relation_encoder_enabled:
+            self.pixel_encoder = EdgeAwarePixelEncoder(
+                node_dim=self.node_dim,
+                edge_dim=self.edge_dim,
+                **enc_cfg,
+            )
+        else:
+            self.pixel_encoder = SimplePixelProjector(
+                node_dim=self.node_dim,
+                hidden_dim=self.hidden_dim,
+                dropout=float(dropout),
+            )
 
         motif_cfg = dict(motif_discovery or {})
         motif_cfg.pop("reuse_stage1_module", None)
@@ -66,13 +112,27 @@ class D9RelationMotifClassifier(nn.Module):
         )
 
         clf_cfg = dict(motif_relation_classifier or {})
+        clf_type = str(clf_cfg.pop("type", "relation")).lower()
         clf_cfg.setdefault("hidden_dim", self.hidden_dim)
         clf_cfg.setdefault("num_classes", self.num_classes)
         clf_cfg.setdefault("dropout", float(dropout))
-        self.motif_relation_classifier = D9MotifRelationClassifier(
-            embedding_dim=self.hidden_dim,
-            **clf_cfg,
-        )
+        if clf_type in {"pooled_mlp", "pooled", "mlp"}:
+            self.motif_relation_classifier = D9PooledMotifMLPClassifier(
+                embedding_dim=self.hidden_dim,
+                **clf_cfg,
+            )
+        elif clf_type in {"residual_pair_relation", "mr_v2_residual", "residual_relation"}:
+            self.motif_relation_classifier = D9ResidualPairRelationClassifier(
+                embedding_dim=self.hidden_dim,
+                **clf_cfg,
+            )
+        elif clf_type in {"relation", "mr", "motif_relation"}:
+            self.motif_relation_classifier = D9MotifRelationClassifier(
+                embedding_dim=self.hidden_dim,
+                **clf_cfg,
+            )
+        else:
+            raise ValueError(f"Unsupported motif_relation_classifier.type={clf_type!r}")
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "D9RelationMotifClassifier":

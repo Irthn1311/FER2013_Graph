@@ -1,0 +1,25 @@
+inherits: d9_tgms_b_distill_a05_t2.yaml
+
+experiment:
+  name: d9_tgms_b_distill_a02_t2
+
+paths:
+  resolved_output_root: outputs/d9_tgms_b_distill_a02_t2
+
+output:
+  dir: outputs/d9_tgms_b_distill_a02_t2
+
+distillation:
+  alpha: 0.2
+
+environments:
+  local:
+    paths:
+      resolved_output_root: outputs/d9_tgms_b_distill_a02_t2
+    output:
+      dir: outputs/d9_tgms_b_distill_a02_t2
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d9_tgms_b_distill_a02_t2
+    output:
+      dir: /kaggle/working/outputs/d9_tgms_b_distill_a02_t2

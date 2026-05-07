@@ -247,3 +247,208 @@ class D9MotifRelationClassifier(nn.Module):
             dim=-1,
         ).to(dtype=motif_embeddings.dtype)
         return torch.nan_to_num(pair_features, nan=0.0, posinf=10.0, neginf=-10.0)
+
+
+class D9PooledMotifMLPClassifier(nn.Module):
+    """Simpler classifier head for testing whether MR message passing causes collapse."""
+
+    def __init__(
+        self,
+        embedding_dim: int,
+        hidden_dim: int = 64,
+        num_classes: int = 7,
+        dropout: float = 0.2,
+        pooling: str = "selection_weighted",
+        **_: Any,
+    ) -> None:
+        super().__init__()
+        self.embedding_dim = int(embedding_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.num_classes = int(num_classes)
+        self.pooling = str(pooling or "selection_weighted").lower()
+        if self.pooling not in {"selection_weighted", "mean"}:
+            raise ValueError(f"Unsupported pooled MLP pooling={self.pooling!r}")
+        self.classifier = nn.Sequential(
+            nn.LayerNorm(self.embedding_dim * 2),
+            nn.Dropout(float(dropout)),
+            nn.Linear(self.embedding_dim * 2, self.hidden_dim),
+            nn.GELU(),
+            nn.Dropout(float(dropout)),
+            nn.Linear(self.hidden_dim, self.num_classes),
+        )
+
+    def forward(
+        self,
+        motif_embeddings: torch.Tensor,
+        motif_maps: torch.Tensor,
+        selection_weights: torch.Tensor | None = None,
+        centers: torch.Tensor | None = None,
+        area: torch.Tensor | None = None,
+        region_masses: torch.Tensor | None = None,
+    ) -> Dict[str, torch.Tensor]:
+        del motif_maps, centers, area, region_masses
+        if motif_embeddings.ndim != 3:
+            raise ValueError(f"motif_embeddings must be [B, K, H], got {tuple(motif_embeddings.shape)}")
+        if int(motif_embeddings.shape[-1]) != self.embedding_dim:
+            raise ValueError(f"Expected embedding_dim={self.embedding_dim}, got {int(motif_embeddings.shape[-1])}")
+        bsz, num_motifs, _ = motif_embeddings.shape
+        if selection_weights is None or self.pooling == "mean":
+            pool_weights = motif_embeddings.new_full((bsz, num_motifs), 1.0 / max(num_motifs, 1))
+        else:
+            pool_weights = selection_weights.to(device=motif_embeddings.device, dtype=motif_embeddings.dtype)
+            pool_weights = pool_weights / pool_weights.sum(dim=1, keepdim=True).clamp_min(1e-8)
+        weighted = (motif_embeddings * pool_weights.unsqueeze(-1)).sum(dim=1)
+        max_pool = motif_embeddings.max(dim=1).values
+        logits = self.classifier(torch.cat([weighted, max_pool], dim=-1))
+        return {
+            "logits": logits,
+            "motif_pool_weights": pool_weights,
+            "motif_relation_attention": None,
+        }
+
+
+class D9ResidualPairRelationClassifier(nn.Module):
+    """Pooled MLP baseline plus a small residual pair-relation branch."""
+
+    def __init__(
+        self,
+        embedding_dim: int,
+        hidden_dim: int = 64,
+        num_classes: int = 7,
+        layers: int = 1,
+        dropout: float = 0.2,
+        pooling: str = "selection_weighted",
+        alpha_init: float = 0.1,
+        **_: Any,
+    ) -> None:
+        super().__init__()
+        self.embedding_dim = int(embedding_dim)
+        self.hidden_dim = int(hidden_dim)
+        self.num_classes = int(num_classes)
+        self.layers = int(layers)
+        self.pooling = str(pooling or "selection_weighted").lower()
+        if self.pooling not in {"selection_weighted", "mean"}:
+            raise ValueError(f"Unsupported residual relation pooling={self.pooling!r}")
+        self.base_classifier = nn.Sequential(
+            nn.LayerNorm(self.embedding_dim * 2),
+            nn.Dropout(float(dropout)),
+            nn.Linear(self.embedding_dim * 2, self.hidden_dim),
+            nn.GELU(),
+            nn.Dropout(float(dropout)),
+            nn.Linear(self.hidden_dim, self.num_classes),
+        )
+        pair_layers = []
+        pair_dim = 13
+        for layer_idx in range(max(self.layers, 1)):
+            in_dim = pair_dim if layer_idx == 0 else self.hidden_dim
+            pair_layers.extend(
+                [
+                    nn.LayerNorm(in_dim),
+                    nn.Linear(in_dim, self.hidden_dim),
+                    nn.GELU(),
+                    nn.Dropout(float(dropout)),
+                ]
+            )
+        self.pair_encoder = nn.Sequential(*pair_layers)
+        self.relation_classifier = nn.Sequential(
+            nn.LayerNorm(self.hidden_dim),
+            nn.Dropout(float(dropout)),
+            nn.Linear(self.hidden_dim, self.num_classes),
+        )
+        self.alpha = nn.Parameter(torch.tensor(float(alpha_init)))
+
+    def forward(
+        self,
+        motif_embeddings: torch.Tensor,
+        motif_maps: torch.Tensor,
+        selection_weights: torch.Tensor | None = None,
+        centers: torch.Tensor | None = None,
+        area: torch.Tensor | None = None,
+        region_masses: torch.Tensor | None = None,
+    ) -> Dict[str, torch.Tensor]:
+        del region_masses
+        if motif_embeddings.ndim != 3:
+            raise ValueError(f"motif_embeddings must be [B, K, H], got {tuple(motif_embeddings.shape)}")
+        if int(motif_embeddings.shape[-1]) != self.embedding_dim:
+            raise ValueError(f"Expected embedding_dim={self.embedding_dim}, got {int(motif_embeddings.shape[-1])}")
+        bsz, num_motifs, _ = motif_embeddings.shape
+        geometry = compute_motif_geometry(motif_maps)
+        centers = geometry["centers"] if centers is None else centers
+        area = geometry["area"] if area is None else area
+        if selection_weights is None or self.pooling == "mean":
+            pool_weights = motif_embeddings.new_full((bsz, num_motifs), 1.0 / max(num_motifs, 1))
+        else:
+            pool_weights = selection_weights.to(device=motif_embeddings.device, dtype=motif_embeddings.dtype)
+            pool_weights = pool_weights / pool_weights.sum(dim=1, keepdim=True).clamp_min(1e-8)
+
+        weighted = (motif_embeddings * pool_weights.unsqueeze(-1)).sum(dim=1)
+        max_pool = motif_embeddings.max(dim=1).values
+        base_logits = self.base_classifier(torch.cat([weighted, max_pool], dim=-1))
+
+        pair_features = self._pair_features(
+            motif_embeddings=motif_embeddings,
+            maps_norm_flat=geometry["maps_norm_flat"],
+            selection_weights=pool_weights,
+            centers=centers,
+            area=area,
+        )
+        pair_h = self.pair_encoder(pair_features)
+        eye = torch.eye(num_motifs, device=motif_embeddings.device, dtype=torch.bool).view(1, num_motifs, num_motifs, 1)
+        pair_mask = (~eye).to(dtype=pair_h.dtype)
+        pair_weight = (pool_weights.unsqueeze(2) * pool_weights.unsqueeze(1)).unsqueeze(-1) * pair_mask
+        relation_summary = (pair_h * pair_weight).sum(dim=(1, 2)) / pair_weight.sum(dim=(1, 2)).clamp_min(1e-8)
+        relation_logits = self.relation_classifier(relation_summary)
+        logits = base_logits + self.alpha.to(dtype=base_logits.dtype) * relation_logits
+        return {
+            "logits": logits,
+            "base_logits": base_logits,
+            "relation_logits": relation_logits,
+            "relation_alpha": self.alpha.detach(),
+            "motif_relation_features": pair_features,
+            "motif_pool_weights": pool_weights,
+            "motif_relation_attention": None,
+        }
+
+    def _pair_features(
+        self,
+        motif_embeddings: torch.Tensor,
+        maps_norm_flat: torch.Tensor,
+        selection_weights: torch.Tensor,
+        centers: torch.Tensor,
+        area: torch.Tensor,
+    ) -> torch.Tensor:
+        ci = centers.unsqueeze(2)
+        cj = centers.unsqueeze(1)
+        dx = cj[..., 0] - ci[..., 0]
+        dy = cj[..., 1] - ci[..., 1]
+        dist = torch.sqrt(dx.square() + dy.square() + 1e-8)
+        sin_angle = dy / dist
+        cos_angle = dx / dist
+        area_i = area.unsqueeze(2)
+        area_j = area.unsqueeze(1)
+        area_ratio = (area_j / area_i.clamp_min(1e-8)).clamp(0.0, 10.0)
+        sel_i = selection_weights.unsqueeze(2)
+        sel_j = selection_weights.unsqueeze(1)
+        emb_i = F.normalize(motif_embeddings.float(), dim=-1, eps=1e-8).unsqueeze(2)
+        emb_j = F.normalize(motif_embeddings.float(), dim=-1, eps=1e-8).unsqueeze(1)
+        emb_cos = (emb_i * emb_j).sum(dim=-1).to(dtype=motif_embeddings.dtype)
+        overlap = torch.bmm(maps_norm_flat, maps_norm_flat.transpose(1, 2)).to(dtype=motif_embeddings.dtype)
+        pair_features = torch.stack(
+            [
+                dx,
+                dy,
+                dist,
+                sin_angle,
+                cos_angle,
+                area_i.expand_as(dx),
+                area_j.expand_as(dx),
+                area_ratio,
+                sel_i.expand_as(dx),
+                sel_j.expand_as(dx),
+                (sel_i * sel_j).expand_as(dx),
+                emb_cos,
+                overlap,
+            ],
+            dim=-1,
+        ).to(dtype=motif_embeddings.dtype)
+        return torch.nan_to_num(pair_features, nan=0.0, posinf=10.0, neginf=-10.0)

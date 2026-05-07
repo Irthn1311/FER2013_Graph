@@ -1,0 +1,19 @@
+inherits: d9_rg_mr_b_intensity_xy_full_edge.yaml
+
+experiment:
+  name: d9_rg_b_mr_v2_residual
+
+paths:
+  resolved_output_root: outputs/d9_rg_b_mr_v2_residual
+
+output:
+  dir: outputs/d9_rg_b_mr_v2_residual
+
+model:
+  motif_relation_classifier:
+    type: residual_pair_relation
+    alpha_init: 0.1
+    hidden_dim: 64
+    layers: 1
+    dropout: 0.2
+    pooling: selection_weighted

@@ -1,0 +1,97 @@
+inherits: d9_rg_b_no_mr_pooled_mlp.yaml
+
+experiment:
+  name: d9_tgms_b_distill_a05_t2
+
+task_type: classification
+
+paths:
+  graph_repo_path: artifacts/graph_repo
+  resolved_output_root: outputs/d9_tgms_b_distill_a05_t2
+
+output:
+  dir: outputs/d9_tgms_b_distill_a05_t2
+
+data:
+  batch_size: 16
+
+feature_ablation:
+  enabled: true
+  node_indices: [0, 1, 2]
+  edge_indices: [0, 1, 2, 3, 4]
+
+model:
+  name: d9_relation_motif_classifier
+  node_dim: 3
+  edge_dim: 5
+  hidden_dim: 64
+  num_classes: 7
+  num_motifs: 16
+  motif_relation_classifier:
+    type: pooled_mlp
+    pooling: selection_weighted
+    use_pair_features: false
+
+distillation:
+  enabled: true
+  teacher_probs_dir: outputs/teacher_probs/d7d8b_ensemble
+  alpha: 0.5
+  temperature: 2.0
+  loss_type: kl
+  use_logits: false
+  confidence_weighting: false
+  confidence_mode: max_prob
+  min_confidence: 0.0
+
+loss:
+  cls_loss: cross_entropy
+  use_class_weights: true
+  motif_aux_weight: 0.05
+
+checkpoint:
+  monitor: val_macro_f1
+  mode: max
+
+early_stopping:
+  enabled: true
+  monitor: val_macro_f1
+  mode: max
+  patience: 20
+  min_delta: 0.001
+
+training:
+  epochs: 30
+  batch_size: 16
+  lr: 0.0003
+  weight_decay: 0.0001
+  optimizer: adamw
+  scheduler: warmup_cosine
+  warmup_epochs: 5
+  min_lr: 0.000001
+  amp: true
+
+environments:
+  local:
+    paths:
+      graph_repo_path: artifacts/graph_repo
+      resolved_output_root: outputs/d9_tgms_b_distill_a05_t2
+    output:
+      dir: outputs/d9_tgms_b_distill_a05_t2
+    data:
+      batch_size: 16
+      num_workers: 0
+      pin_memory: false
+      persistent_workers: false
+      prefetch_factor: null
+  kaggle:
+    paths:
+      graph_repo_path: /kaggle/working/artifacts/graph_repo
+      resolved_output_root: /kaggle/working/outputs/d9_tgms_b_distill_a05_t2
+    output:
+      dir: /kaggle/working/outputs/d9_tgms_b_distill_a05_t2
+    data:
+      batch_size: 16
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2

@@ -1,0 +1,14 @@
+inherits: d9_rg_mr_b_intensity_xy_full_edge.yaml
+
+experiment:
+  name: d9_rg_mr_b_aux0
+
+paths:
+  resolved_output_root: outputs/d9_rg_mr_b_aux0
+
+output:
+  dir: outputs/d9_rg_mr_b_aux0
+
+loss:
+  motif_aux_weight: 0.0
+

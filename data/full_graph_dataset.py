@@ -54,11 +54,14 @@ class FullGraphDataset(Dataset):
         return self.dataset.chunk_index_groups()
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        graph = self.dataset[int(idx)]
+        sample_idx = int(idx)
+        graph = self.dataset[sample_idx]
         if not isinstance(graph, ResolvedPixelGraph):
             raise TypeError("FullGraphDataset expected a resolved graph")
         num_nodes = int(graph.node_features.shape[0])
         return {
+            "sample_idx": torch.tensor(sample_idx, dtype=torch.long),
+            "global_index": torch.tensor(sample_idx, dtype=torch.long),
             "graph_id": torch.tensor(int(graph.graph_id), dtype=torch.long),
             "node_features": graph.node_features.float(),
             "x": graph.node_features.float(),
@@ -125,7 +128,10 @@ def collate_fn_full_graph(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, tor
     y = torch.stack([item["y"] for item in batch], dim=0)
     node_mask = torch.stack([item["node_mask"] for item in batch], dim=0)
     graph_id = torch.stack([item["graph_id"] for item in batch], dim=0)
+    sample_idx = torch.stack([item["sample_idx"] for item in batch], dim=0)
     return {
+        "sample_idx": sample_idx,
+        "global_index": sample_idx,
         "graph_id": graph_id,
         "x": x,
         "node_features": x,

@@ -1,0 +1,17 @@
+inherits: d9_rg_mr_b_intensity_xy_full_edge.yaml
+
+experiment:
+  name: d9_rg_b_no_mr_pooled_mlp
+
+paths:
+  resolved_output_root: outputs/d9_rg_b_no_mr_pooled_mlp
+
+output:
+  dir: outputs/d9_rg_b_no_mr_pooled_mlp
+
+model:
+  motif_relation_classifier:
+    type: pooled_mlp
+    hidden_dim: 64
+    dropout: 0.2
+    pooling: selection_weighted

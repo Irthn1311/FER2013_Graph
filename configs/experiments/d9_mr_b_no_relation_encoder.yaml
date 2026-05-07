@@ -1,0 +1,15 @@
+inherits: d9_rg_mr_b_intensity_xy_full_edge.yaml
+
+experiment:
+  name: d9_mr_b_no_relation_encoder
+
+paths:
+  resolved_output_root: outputs/d9_mr_b_no_relation_encoder
+
+output:
+  dir: outputs/d9_mr_b_no_relation_encoder
+
+model:
+  relation_encoder:
+    enabled: false
+
