@@ -1,0 +1,27 @@
+# Phase 2: Hybrid Regularization (Edge Dropout + Node Noise)
+inherits:
+  - d10_v3_2_cosine_only.yaml
+
+experiment:
+  name: d10_p2_4_hybrid_reg
+
+paths:
+  resolved_output_root: output/d10_p2_4_hybrid_reg
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p2_4_hybrid_reg
+
+model:
+  edge_dropout_p: 0.1
+  node_noise_std: 0.05
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 80
+  min_lr: 0.000001
+
+training:
+  epochs: 80

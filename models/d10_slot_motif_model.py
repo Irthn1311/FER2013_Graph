@@ -261,6 +261,9 @@ class D10SlotMotifModel(nn.Module):
         height: int = 48,
         width: int = 48,
         use_aux_classifier: bool = True,
+        edge_dropout_p: float = 0.0,
+        node_noise_std: float = 0.0,
+        multi_scale_gnn: bool = False,
         **_: Any,
     ) -> None:
         super().__init__()
@@ -274,6 +277,9 @@ class D10SlotMotifModel(nn.Module):
         self.width = int(width)
         self.use_position_encoding = bool(use_position_encoding)
         self.use_aux_classifier = bool(use_aux_classifier)
+        self.edge_dropout_p = float(edge_dropout_p)
+        self.node_noise_std = float(node_noise_std)
+        self.multi_scale_gnn = bool(multi_scale_gnn)
 
         if self.num_nodes != self.height * self.width:
             raise ValueError(
@@ -288,6 +294,20 @@ class D10SlotMotifModel(nn.Module):
             pixel_gnn_layers=int(pixel_gnn_layers),
             dropout=dropout,
         )
+
+        if self.multi_scale_gnn:
+            self.encoder_aux = SharedPixelEncoder(
+                node_dim=self.node_dim,
+                edge_dim=self.edge_dim,
+                hidden_dim=self.hidden_dim,
+                pixel_gnn_layers=int(pixel_gnn_layers) + 1,
+                dropout=dropout,
+            )
+            self.combine_scale = nn.Sequential(
+                nn.Linear(self.hidden_dim * 2, self.hidden_dim),
+                nn.LayerNorm(self.hidden_dim),
+                nn.GELU()
+            )
 
         # 2. Iterative Slot Attention Motif Discovery
         self.slot_attention = IterativeSlotAttention(
@@ -380,10 +400,28 @@ class D10SlotMotifModel(nn.Module):
         if x.shape[1] != self.num_nodes:
             raise ValueError(f"Expected {self.num_nodes} nodes, got {x.shape[1]}")
 
+        # Phase 2: Graph Augmentation
+        if self.training and self.node_noise_std > 0.0:
+            x = x + torch.randn_like(x) * self.node_noise_std
+        if self.training and self.edge_dropout_p > 0.0:
+            mask = torch.rand(edge_index.size(1), device=edge_index.device) > self.edge_dropout_p
+            edge_index = edge_index[:, mask]
+            if edge_attr is not None:
+                if edge_attr.dim() == 2:
+                    edge_attr = edge_attr[mask]
+                elif edge_attr.dim() == 3:
+                    edge_attr = edge_attr[:, mask, :]
+
         # 1. Deep pixel encoding
         h_pixel = self.encoder(
             x, edge_index=edge_index, edge_attr=edge_attr, node_mask=node_mask
         )
+
+        if self.multi_scale_gnn:
+            h_aux = self.encoder_aux(
+                x, edge_index=edge_index, edge_attr=edge_attr, node_mask=node_mask
+            )
+            h_pixel = self.combine_scale(torch.cat([h_pixel, h_aux], dim=-1))
 
         # 2. Iterative slot attention motif discovery
         motif_embeddings, slot_attn_maps = self.slot_attention(

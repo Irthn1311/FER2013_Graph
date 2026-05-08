@@ -1,0 +1,26 @@
+# Phase 2: Node Feature Noise Regularization
+inherits:
+  - d10_v3_2_cosine_only.yaml
+
+experiment:
+  name: d10_p2_3_node_noise
+
+paths:
+  resolved_output_root: output/d10_p2_3_node_noise
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p2_3_node_noise
+
+model:
+  node_noise_std: 0.05
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 80
+  min_lr: 0.000001
+
+training:
+  epochs: 80

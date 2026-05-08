@@ -155,14 +155,23 @@ Total Loss = CE_main + 0.01 × slot_diversity + 0.01 × border_penalty
 
 ## 9. Kế hoạch V3 (Phase 1 Execution)
 
-Đã tạo 7 config V3 để chạy tối đa công suất 7 slot trên Kaggle:
-1. `d10_v3_1_cosine_ls.yaml`: Tiêu chuẩn (GNN 2, Motifs 10, Cosine, LS 0.1).
-2. `d10_v3_2_cosine_only.yaml`: An toàn (Chỉ đổi Cosine scheduler, giữ nguyên V2.2).
-3. `d10_v3_3_full_phase1.yaml`: "Khô máu" (Motifs 12, LR 4e-4, LS 0.1, Dropout 0.25).
-4. `d10_v3_4_focal_ls.yaml`: Focal Loss gamma=2.0 + LS 0.1 (Xử lý class Fear/Disgust).
-5. `d10_v3_5_gnn3.yaml`: Thử nghiệm GNN 3 lớp với LR nhỏ 3e-4 (Depth test).
-6. `d10_v3_6_dim128.yaml`: Thử nghiệm Hidden Dim 128 với LR nhỏ 3e-4 (Width test).
-7. `d10_v3_7_fast_enhanced.yaml`: Nâng cấp bản Fast với Focal Loss và Cosine.
+Đã tạo 7 config V3 để chạy tối đa công suất 7 slot trên Kaggle. Kết quả (80 epochs):
+
+| Kịch bản | Macro F1 | Accuracy | Đánh giá |
+|---|---|---|---|
+| **V3.2 (Cosine Only)** | **0.5456** | 55.39% | **SOTA Mới (F1)**. Thay thế `ReduceLROnPlateau` bằng `CosineWarmup` là một quyết định chính xác. Tăng từ 0.5204 lên 0.5456 mà không cần đổi kiến trúc. |
+| **V3.5 (GNN 3 lớp)** | 0.5332 | **55.75%** | **SOTA Mới (Accuracy)**. Bất ngờ lớn! GNN 3 lớp không bị Oversmoothing như ta tưởng, miễn là dùng LR warmup mượt mà. |
+| **V3.4 (Focal Loss)** | 0.5080 | 53.41% | Thua kém bản chuẩn. Có vẻ Focal Loss ($\gamma=2.0$) đang phạt quá nặng hoặc xung đột nhẹ với Label Smoothing. |
+| **V3.7 (Fast Enhanced)** | 0.5028 | 54.05% | Rất ấn tượng! GNN 1 lớp, Dim 64 nhỏ gọn nhưng tiệm cận sức mạnh của các bản full. |
+| **V3.1 (Motifs 10)** | 0.4984 | 54.22% | Tăng số motif lên 10 không mang lại hiệu quả, 8 motifs dường như là "sweet spot" lý tưởng nhất của D10. |
+| **V3.3 (Motifs 12)** | 0.4970 | 53.47% | Tương tự V3.1, càng nhồi nhiều motif model càng bị bối rối và F1 càng giảm. |
+| **V3.6 (Dim 128)** | 0.1740 | 27.56% | **Sụp đổ (Collapse)**. Dim 128 lại tiếp tục đoán toàn class Happy. Điều này chứng minh ma trận trọng số 128 quá lớn để dùng LR 3e-4, cần phải giảm LR xuống 1e-4 nếu muốn ép Dim 128. |
+
+**Bài học rút ra từ Phase 1:**
+1. **LR Scheduler**: `CosineAnnealingWarmRestarts` vượt trội hoàn toàn so với Plateau. 
+2. **Số lượng Motif**: `8` là con số vàng. 10 hay 12 làm nhiễu sự tập trung.
+3. **GNN Depth**: GNN 3 lớp CÓ THỂ hoạt động và thậm chí cho Accuracy tốt nhất (55.75%).
+4. **Trọng tâm tiếp theo (Phase 2/3)**: Lấy V3.2 hoặc V3.5 làm Base, triển khai DropPath, Residual Slot, và Edge Dropout.
 
 ## 10. Ràng buộc (KHÔNG phá)
 

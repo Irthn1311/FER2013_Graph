@@ -1,0 +1,27 @@
+# Phase 3: Multi-scale GNN (Gộp GNN 2 lớp và GNN 3 lớp)
+inherits:
+  - d10_v3_2_cosine_only.yaml
+
+experiment:
+  name: d10_p2_1_multiscale
+
+paths:
+  resolved_output_root: output/d10_p2_1_multiscale
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p2_1_multiscale
+
+model:
+  multi_scale_gnn: true
+  pixel_gnn_layers: 2 # Auxiliary encoder will automatically have 3 layers
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 80
+  min_lr: 0.000001
+
+training:
+  epochs: 80
