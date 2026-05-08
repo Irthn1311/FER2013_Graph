@@ -1,0 +1,13 @@
+inherits:
+- d10_slot_motif.yaml
+experiment:
+  name: d10_v2_3_gnn1_iter5
+paths:
+  resolved_output_root: output/d10_v2_3_gnn1_iter5
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_v2_3_gnn1_iter5
+model:
+  pixel_gnn_layers: 1
+  slot_iterations: 5

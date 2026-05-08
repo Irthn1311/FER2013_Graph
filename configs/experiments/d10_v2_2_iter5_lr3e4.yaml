@@ -1,0 +1,14 @@
+inherits:
+- d10_slot_motif.yaml
+experiment:
+  name: d10_v2_2_iter5_lr3e4
+paths:
+  resolved_output_root: output/d10_v2_2_iter5_lr3e4
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_v2_2_iter5_lr3e4
+model:
+  slot_iterations: 5
+optimizer:
+  lr: 0.0003
