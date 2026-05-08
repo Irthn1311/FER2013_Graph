@@ -135,7 +135,7 @@ def collate_fn_full_graph(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, tor
         "graph_id": graph_id,
         "x": x,
         "node_features": x,
-        "edge_index": batch[0]["edge_index"].unsqueeze(0).expand(len(batch), -1, -1),
+        "edge_index": batch[0]["edge_index"].unsqueeze(0).expand(len(batch), -1, -1).contiguous(),
         "edge_attr": edge_attr,
         "node_mask": node_mask,
         "y": y,
