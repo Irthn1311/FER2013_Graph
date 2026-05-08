@@ -147,34 +147,24 @@ Total Loss = CE_main + 0.01 × slot_diversity + 0.01 × border_penalty
 ## 8. Roadmap lên 0.70+ Accuracy
 
 ### Phase 1: Hyperparameter Tuning trên nền V2.2 (Mục tiêu: F1 0.56-0.60)
-- [ ] Thử LR warmup (linear 5 epoch) + Cosine Annealing thay ReduceLROnPlateau.
-- [ ] Tăng `num_motifs` từ 8 lên 10-12 (cho phép model phát hiện nhiều sub-regions hơn).
-- [ ] Tăng `motif_relation_layers` từ 1 lên 2 (cho motif "nói chuyện" nhiều hơn).
-- [ ] Label smoothing 0.1 trong CE loss.
-- [ ] Focal Loss (gamma=2) thay CE cho class khó (Disgust, Fear).
+- [x] Thử LR warmup (linear 5 epoch) + Cosine Annealing thay ReduceLROnPlateau.
+- [x] Tăng `num_motifs` từ 8 lên 10-12 (cho phép model phát hiện nhiều sub-regions hơn).
+- [x] Tăng `motif_relation_layers` từ 1 lên 2 (cho motif "nói chuyện" nhiều hơn).
+- [x] Label smoothing 0.1 trong CE loss.
+- [x] Focal Loss (gamma=2) thay CE cho class khó (Disgust, Fear).
 
-### Phase 2: Data & Regularization (Mục tiêu: F1 0.60-0.65)
-- [ ] Augmentation trên graph: Random node feature noise, random edge dropout.
-- [ ] Mixup/CutMix ở cấp graph (trộn 2 graph cùng lúc).
-- [ ] Tăng `dropout` lên 0.3 và thử DropPath trong Transformer.
-- [ ] Stochastic Depth cho GNN layers.
+## 9. Kế hoạch V3 (Phase 1 Execution)
 
-### Phase 3: Architecture Enhancement (Mục tiêu: F1 0.65-0.70)
-- [ ] **Multi-scale GNN**: Thêm nhánh GNN 3 lớp song song với nhánh 2 lớp, concat features trước Slot Attention.
-- [ ] **Cross-Attention Slot Refinement**: Sau khi Slot Attention gom xong, cho motifs attend lại pixel features 1 lần nữa (top-down feedback).
-- [ ] **Residual Slot Connection**: Truyền slot features từ iteration t-1 sang t qua residual path, không chỉ dựa vào GRU.
+Đã tạo 7 config V3 để chạy tối đa công suất 7 slot trên Kaggle:
+1. `d10_v3_1_cosine_ls.yaml`: Tiêu chuẩn (GNN 2, Motifs 10, Cosine, LS 0.1).
+2. `d10_v3_2_cosine_only.yaml`: An toàn (Chỉ đổi Cosine scheduler, giữ nguyên V2.2).
+3. `d10_v3_3_full_phase1.yaml`: "Khô máu" (Motifs 12, LR 4e-4, LS 0.1, Dropout 0.25).
+4. `d10_v3_4_focal_ls.yaml`: Focal Loss gamma=2.0 + LS 0.1 (Xử lý class Fear/Disgust).
+5. `d10_v3_5_gnn3.yaml`: Thử nghiệm GNN 3 lớp với LR nhỏ 3e-4 (Depth test).
+6. `d10_v3_6_dim128.yaml`: Thử nghiệm Hidden Dim 128 với LR nhỏ 3e-4 (Width test).
+7. `d10_v3_7_fast_enhanced.yaml`: Nâng cấp bản Fast với Focal Loss và Cosine.
 
-### Phase 4: Ensemble & Knowledge Distillation (Mục tiêu: Acc 0.70-0.80)
-- [ ] **Ensemble D10 + D7/D8B**: D10 (graph motif) và D7 (Swin region) bổ trợ nhau. Logit averaging hoặc learned fusion.
-- [ ] **Self-Distillation**: Dùng ensemble trên làm teacher, train lại D10 single model bằng KD loss.
-- [ ] **Test-Time Augmentation (TTA)**: Flip, slight rotation trên graph coords.
-
-### Phase 5: Advanced (Stretch goal: Acc 0.80+)
-- [ ] **Contrastive Motif Loss**: Ép motif features của cùng emotion class gần nhau (SupCon).
-- [ ] **Graph Transformer Encoder** thay GNN (self-attention trên toàn bộ pixel, không chỉ neighbors).
-- [ ] **Larger image resolution** (96×96 thay 48×48) nếu rebuild graph_repo.
-
-## 9. Ràng buộc (KHÔNG phá)
+## 10. Ràng buộc (KHÔNG phá)
 
 - ❌ KHÔNG rebuild graph_repo
 - ❌ KHÔNG sửa D5A/D7/D8B code

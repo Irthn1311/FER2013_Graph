@@ -1,0 +1,27 @@
+# D10 V3.5 — Depth Test (3 GNN layers)
+inherits:
+  - d10_v2_2_iter5_lr3e4.yaml
+
+experiment:
+  name: d10_v3_5_gnn3
+
+paths:
+  resolved_output_root: output/d10_v3_5_gnn3
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_v3_5_gnn3
+
+model:
+  num_gnn_layers: 3
+  dropout: 0.15
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 120
+  min_lr: 0.000001
+
+training:
+  epochs: 120

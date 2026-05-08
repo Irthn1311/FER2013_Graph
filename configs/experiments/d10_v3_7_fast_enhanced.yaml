@@ -1,0 +1,30 @@
+# D10 V3.7 — D10 Fast Enhanced
+inherits:
+  - d10_slot_motif_fast.yaml
+
+experiment:
+  name: d10_v3_7_fast_enhanced
+
+paths:
+  resolved_output_root: output/d10_v3_7_fast_enhanced
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_v3_7_fast_enhanced
+
+loss:
+  label_smoothing: 0.1
+  focal_gamma: 2.0
+
+optimizer:
+  lr: 0.0005
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 120
+  min_lr: 0.000001
+
+training:
+  epochs: 120
