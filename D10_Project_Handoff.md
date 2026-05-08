@@ -108,25 +108,31 @@ Total Loss = CE_main + 0.01 × slot_diversity + 0.01 × border_penalty
 | `diag_main_accuracy` | Train accuracy (main head) | Tăng dần |
 | `diag_aux_accuracy` | Train accuracy (aux head) | Tăng dần |
 
-## 7. Kỳ vọng kết quả
+## 7. Kết quả thực tế & Diagnostic (Update 08/05/2026)
 
-| Phase | Macro F1 | Ghi chú |
-|---|---|---|
-| Epoch 1-5 | 0.12-0.18 | Model warming up, motifs chưa sắc |
-| Epoch 10-20 | 0.25-0.35 | Motifs bắt đầu specialize |
-| Epoch 30-50 | 0.35-0.50 | Training stabilizes |
-| Epoch 80-120 | 0.50-0.60+ | Best performance |
+### D10 Fast (Thành công bước đầu - F1 0.5018)
+- **Config**: 1 GNN layer, `hidden=64`, 5 slot iterations.
+- **Test Metric**: Accuracy **54.08%**, Macro F1 **0.5018** (Vượt xa D9 F1=0.17 và D5A F1=0.29).
+- **Nhận xét**: Chạm mốc 0.50 Macro F1 với kiến trúc nhẹ (132K params). Chứng minh Slot Attention đã tự động gom pixel thành các vùng ý nghĩa và dự đoán được đủ 7 class (không chết Disgust/Angry như các bản trước).
+- **Hạn chế**: Điểm của class Fear còn thấp (Recall 25%). Nguyên nhân do 1 lớp GNN có Receptive Field quá hẹp (3x3), không bắt được sự phối hợp toàn mặt (mắt + miệng).
 
-**Nếu epoch 30 mà F1 < 0.20**: cần xem diagnostics, có thể motif vẫn collapse.
+### D10 Standard (Sụp đổ - F1 0.1399)
+- **Config**: 2 GNN layers, `hidden=96`, 3 slot iterations.
+- **Test Metric**: Accuracy **26.00%**, Macro F1 **0.1399** (Sập hoàn toàn).
+- **Nhận xét**: Mode collapse, mô hình đoán Happy tới 2103 lần, bỏ qua hoàn toàn Angry và Disgust (0 prediction).
+- **Nguyên nhân**: 2 lớp GNN trộn features pixel quá sâu (oversmoothing), làm các vùng mặt mất sự khác biệt. Trong khi đó Slot Attention chỉ chạy 3 vòng (3 iterations) nên không đủ thời gian để tách ngược các motif bị rối này ra. Cùng với LR=0.0005 khá cao khiến model tìm đường tắt (đoán toàn class lớn).
 
-## 8. Ablation plan (sau khi có baseline)
+## 8. Kế hoạch V2 (Diagnostic & Fix Oversmoothing)
 
-1. **7D vs 3D features**: Nếu 7D gây noise, thử 3D (giống D9)
-2. **Hidden dim**: 96 vs 128 vs 192
-3. **Num motifs**: 6 vs 8 vs 12
-4. **Slot iterations**: 2 vs 3 vs 5
-5. **GNN layers**: 2 vs 3 vs 4
-6. **Cosine scheduler** thay ReduceLROnPlateau
+Đã tạo 5 config V2 trong thư mục `configs/experiments/` để chạy phân tải song song trên Kaggle nhằm tìm ra điểm cân bằng giữa GNN Depth và Slot Iterations:
+
+1. `d10_v2_1_iter5.yaml`: GNN 2, Iter 5, LR 0.0005 (Tăng vòng lặp slot lên 5 để đủ sức gỡ rối features từ GNN 2 lớp).
+2. `d10_v2_2_iter5_lr3e4.yaml`: GNN 2, Iter 5, LR 0.0003 (Tăng vòng lặp + hạ LR tránh sốc).
+3. `d10_v2_3_gnn1_iter5.yaml`: **[Ưu tiên cao nhất]** GNN 1, Iter 5, `hidden=96` (Về lại kiến trúc 1 lớp GNN thành công của bản Fast, nhưng buff sức mạnh hidden_dim lên 96 để có capacity mạnh hơn).
+4. `d10_v2_4_iter7_lr3e4.yaml`: GNN 2, Iter 7, LR 0.0003 (Ép Slot Attention chạy tới 7 vòng).
+5. `d10_v2_5_gnn1_dim128.yaml`: GNN 1, Iter 5, `hidden=128` (GNN 1 lớp nhưng buff width lên cực lớn).
+
+**Hành động tiếp theo**: Phân tích kết quả của 5 config này để chốt cấu hình D10 Single-model mạnh nhất. Nếu điểm tiếp cận ngưỡng ~60%, tiến hành Ensemble với D7.
 
 ## 9. Ràng buộc (KHÔNG phá)
 
