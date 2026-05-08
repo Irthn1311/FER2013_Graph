@@ -63,23 +63,25 @@ conda run -n fer-graph python -m scripts.train_d5a \
   --no_wandb --device cuda --amp
 ```
 
-### Kaggle (full training — ~6-9 giờ):
+### Kaggle (full training):
 1. Push code lên GitHub (branch main)
 2. Upload notebook `notebooks/kaggle-end-to-end.ipynb` lên Kaggle
-3. Trong Cell 2, set `RUN_MODE = "train_full"`
-4. Chạy tất cả cells
-5. Download output zip
+3. Trong Cell 2, chọn `CONFIG_PATH`:
+   - `d10_slot_motif_fast.yaml`: Default, ~1.5-2 giờ
+   - `d10_slot_motif.yaml`: Nặng hơn, ~3-4 giờ
+4. Set `RUN_MODE = "train_full"`
+5. Chạy tất cả cells
+6. Download output zip
 
-### Kaggle (quick test trước — ~1-2 giờ):
+### Kaggle (quick test trước — ~15 phút):
 - Cell 2: `RUN_MODE = "train_quick"` (30 epochs, capped batches)
 
-### Speed optimizations đã áp dụng:
-- ✅ **AMP** (mixed precision): `amp: true` trong config
-- ✅ **Batch size 64** trên Kaggle (vs 32 trên local)
-- ✅ **pin_memory=true** trên Kaggle
-- ✅ **persistent_workers=true** + **prefetch_factor=2**
-- ✅ **Model nhẹ**: hidden=96, 2 GNN layers (360K params)
-- ✅ **profile_batches=3**: log tốc độ thật để biết thời gian chính xác
+### Speed optimizations đã áp dụng (Giảm từ 13h xuống 1.5h):
+- ✅ **Fast Config**: `hidden=64`, 1 GNN layer, bù lại bằng 5 slot iterations (rất nhẹ)
+- ✅ **Multi-GPU**: `DataParallel` hỗ trợ 2x T4 trên Kaggle (~1.5x speed)
+- ✅ **torch.compile**: Compile GNN encoder thành C++ kernels (~1.5x speed)
+- ✅ **Val Frequency**: Bỏ qua validation ở các epoch trung gian (`val_frequency=3`)
+- ✅ **AMP** (mixed precision) + **Batch size 64** + **pin_memory=true** + **persistent_workers=true**
 
 ## 5. Loss function
 
