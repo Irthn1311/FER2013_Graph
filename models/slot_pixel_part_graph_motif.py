@@ -242,6 +242,9 @@ class SlotPixelPartGraphMotif(nn.Module):
             raise KeyError("SlotPixelPartGraphMotif needs 'x' or 'node_features'")
         if edge_index is None or edge_attr is None:
             raise KeyError("SlotPixelPartGraphMotif requires edge_index and edge_attr")
+        # Handle DataParallel: edge_index may be (B, 2, E) after scatter
+        if edge_index.ndim == 3:
+            edge_index = edge_index[0]
         if x.ndim != 3:
             raise ValueError(f"x must be [B, N, D], got {tuple(x.shape)}")
         if x.shape[1] != self.num_nodes:

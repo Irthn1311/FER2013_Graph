@@ -159,6 +159,9 @@ class D9RelationMotifClassifier(nn.Module):
             raise KeyError("D9RelationMotifClassifier needs 'x' or 'node_features'")
         if edge_index is None or edge_attr is None:
             raise KeyError("D9RelationMotifClassifier requires edge_index and edge_attr")
+        # Handle DataParallel: edge_index may be (B, 2, E) after scatter
+        if edge_index.ndim == 3:
+            edge_index = edge_index[0]
         if int(x.shape[-1]) != self.node_dim:
             raise ValueError(f"Input node dim={int(x.shape[-1])} does not match model node_dim={self.node_dim}")
         if int(edge_attr.shape[-1]) != self.edge_dim:
