@@ -1,0 +1,91 @@
+inherits:
+  - ../d5a.yaml
+
+environment: local
+
+experiment:
+  name: d10_slot_motif
+
+run:
+  mode: train
+  zip_outputs: true
+
+paths:
+  resolved_output_root: output/d10_slot_motif
+
+environments:
+  local:
+    paths:
+      graph_repo_path: artifacts/graph_repo
+      resolved_output_root: output/d10_slot_motif
+  kaggle:
+    paths:
+      csv_root: auto
+      graph_repo_path: /kaggle/working/graph_repo
+      output_root: /kaggle/working/outputs
+      resolved_output_root: /kaggle/working/outputs/d10_slot_motif
+
+data:
+  batch_size: 32
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  prefetch_factor: null
+  chunk_cache_size: 8
+  chunk_aware_shuffle: true
+
+model:
+  name: d10_slot_motif
+  num_classes: 7
+  node_dim: 7
+  edge_dim: 5
+  hidden_dim: 128
+  pixel_gnn_layers: 3
+  num_motifs: 8
+  slot_iterations: 3
+  motif_relation_layers: 1
+  motif_relation_heads: 4
+  dropout: 0.2
+  use_position_encoding: true
+  use_aux_classifier: true
+
+loss:
+  name: d10_slot_motif
+  use_class_weights: true
+  class_counts: [3995, 436, 4097, 7215, 4830, 3171, 4965]
+  class_weight_power: 0.25
+  lambda_cls: 1.0
+  lambda_slot_div: 0.01
+  lambda_border: 0.01
+  lambda_slot_balance: 0.005
+  lambda_slot_smooth: 0.0
+  lambda_aux_ce: 0.3
+  border_width: 3
+  border_loss_type: slot_ratio
+  slot_balance_type: kl_uniform
+
+optimizer:
+  name: adamw
+  lr: 0.0005
+  weight_decay: 0.0001
+
+scheduler:
+  name: ReduceLROnPlateau
+  mode: max
+  monitor: val_macro_f1
+  factor: 0.5
+  patience: 7
+  min_lr: 0.000001
+
+training:
+  device: auto
+  epochs: 120
+  monitor: val_macro_f1
+  early_stopping_patience: 25
+  amp: true
+  amp_init_scale: 1024
+  grad_clip_norm: 3.0
+  profile_batches: 0
+  max_train_batches: null
+  max_val_batches: null
+  max_test_batches: null

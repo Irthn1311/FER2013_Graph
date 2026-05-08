@@ -1,0 +1,172 @@
+inherits: d9_rg_b_no_mr_pooled_mlp.yaml
+
+experiment:
+  name: d9_smr_b
+
+paths:
+  graph_repo_path: artifacts/graph_repo
+  resolved_output_root: outputs/d9_smr_b
+
+output:
+  dir: outputs/d9_smr_b
+
+feature_ablation:
+  enabled: true
+  original_node_dim: 7
+  original_edge_dim: 5
+  node_indices: [0, 1, 2]
+  edge_indices: [0, 1, 2, 3, 4]
+
+model:
+  name: d9_relation_motif_classifier
+  node_dim: 3
+  edge_dim: 5
+  hidden_dim: 64
+  num_classes: 7
+  num_motifs: 16
+  relation_encoder:
+    enabled: true
+    hidden_dim: 64
+    edge_hidden_dim: 64
+    layers: 2
+    aggregation: mean
+    use_attention: false
+    dropout: 0.2
+  motif_relation_classifier:
+    type: pooled_mlp
+    hidden_dim: 64
+    dropout: 0.2
+    pooling: selection_weighted
+    use_pair_features: false
+
+staged:
+  enabled: true
+  motif_score_formula: "selected_foreground - selected_border - 0.2*redundancy - 0.1*map_similarity - 0.1*max(effective_count-8,0)/8"
+
+  warmup:
+    epochs: 8
+    max_train_batches: 300
+    max_val_batches: 100
+    lr: 0.0003
+    monitor: motif_quality_score
+    mode: max
+    cls_weight: 0.0
+    motif_weight: 1.0
+    freeze: none
+
+  classifier:
+    epochs: 20
+    max_train_batches: 300
+    max_val_batches: 100
+    lr: 0.0005
+    monitor: val_macro_f1
+    mode: max
+    cls_weight: 1.0
+    motif_weight: 0.0
+    freeze:
+      freeze_encoder: true
+      freeze_motif: true
+      train_classifier_only: true
+
+  finetune:
+    epochs: 20
+    max_train_batches: 300
+    max_val_batches: 100
+    lr: 0.0001
+    monitor: val_macro_f1
+    mode: max
+    cls_weight: 1.0
+    motif_weight: 0.01
+    freeze:
+      freeze_encoder: true
+      freeze_motif: false
+      train_classifier: true
+      train_motif_queries: true
+
+training:
+  batch_size: 16
+  lr: 0.0003
+  optimizer: adamw
+  weight_decay: 0.0001
+  scheduler: warmup_cosine
+  warmup_epochs: 1
+  min_lr: 0.000001
+  amp: true
+  use_class_weights: true
+  class_weights: true
+  grad_clip_norm: 1.0
+
+data:
+  batch_size: 16
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  prefetch_factor: null
+  chunk_cache_size: 4
+
+loss:
+  cls_loss: cross_entropy
+  use_class_weights: true
+  class_weight_power: 1.0
+  max_class_weight: 4.0
+
+motif_loss:
+  lambda_selected_border: 1.0
+  lambda_selected_outer_border: 0.2
+  lambda_selected_foreground: 0.5
+  lambda_selected_diversity: 0.2
+  lambda_div_map: 0.05
+  lambda_div_emb: 0.01
+  lambda_border: 0.05
+  lambda_outer_border: 0.2
+  lambda_area: 0.02
+  lambda_entropy: 0.1
+  use_outer_border_penalty: true
+  outer_border_width: 6
+  use_face_safe_foreground: true
+  use_center_weighted_foreground: true
+  center_prior_sigma: 0.45
+  face_safe_margin: 0.12
+  min_effective_area: 20.0
+  max_effective_area: 260.0
+  height: 48
+  width: 48
+
+checkpoint:
+  monitor: val_macro_f1
+  mode: max
+
+logging:
+  log_interval: 100
+  save_val_predictions: true
+  save_confusion_matrix: true
+  save_motif_metrics: true
+  visualize_samples: 12
+
+environments:
+  local:
+    paths:
+      graph_repo_path: artifacts/graph_repo
+      resolved_output_root: outputs/d9_smr_b
+    output:
+      dir: outputs/d9_smr_b
+    data:
+      graph_repo_path: artifacts/graph_repo
+      batch_size: 16
+      num_workers: 0
+      pin_memory: false
+      persistent_workers: false
+      prefetch_factor: null
+  kaggle:
+    paths:
+      graph_repo_path: /kaggle/working/graph_repo
+      resolved_output_root: /kaggle/working/outputs/d9_smr_b
+    output:
+      dir: /kaggle/working/outputs/d9_smr_b
+    data:
+      graph_repo_path: /kaggle/working/graph_repo
+      batch_size: 16
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2

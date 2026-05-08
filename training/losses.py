@@ -837,6 +837,52 @@ class D8BFaceAwareLoss(nn.Module):
         return upper.reshape(-1), middle.reshape(-1), lower.reshape(-1)
 
 
+
+class D10SlotMotifLoss(D6HierarchicalMotifLoss):
+    """D10 loss: CE + slot diversity + border + balance + optional auxiliary CE.
+
+    Reuses D6B slot regularizers. Adds auxiliary CE from pooled motif
+    representations to ensure motifs carry classification signal early.
+    """
+
+    def __init__(self, config: Dict[str, Any]) -> None:
+        cfg = dict(config)
+        cfg.setdefault("border_loss_type", "slot_ratio")
+        cfg.setdefault("slot_balance_type", "kl_uniform")
+        super().__init__(cfg)
+        self.lambda_aux_ce = float(cfg.get("lambda_aux_ce", 0.3))
+
+    def forward(
+        self,
+        model_out: Dict[str, torch.Tensor],
+        y: torch.Tensor,
+        batch: Dict[str, torch.Tensor],
+    ) -> Dict[str, torch.Tensor]:
+        out = super().forward(model_out, y, batch)
+        y = y.long()
+
+        # Auxiliary CE from pooled motif classifier
+        aux_logits = model_out.get("aux_logits")
+        if torch.is_tensor(aux_logits) and self.lambda_aux_ce > 0.0:
+            loss_aux_ce = self.ce(aux_logits, y)
+        else:
+            loss_aux_ce = out["loss"].new_zeros(())
+
+        total = out["loss"] + self.lambda_aux_ce * loss_aux_ce
+        out["loss"] = total
+        out["total_loss"] = total
+        out["loss_aux_ce"] = loss_aux_ce
+
+        # Add accuracy diagnostics
+        logits = model_out.get("logits")
+        if torch.is_tensor(logits):
+            out["diag_main_accuracy"] = (logits.argmax(dim=1) == y).float().mean().detach()
+        if torch.is_tensor(aux_logits):
+            out["diag_aux_accuracy"] = (aux_logits.argmax(dim=1) == y).float().mean().detach()
+
+        return out
+
+
 def build_loss(config: Dict[str, Any]) -> nn.Module:
     cfg = dict(config)
     name = str(cfg.get("name", "d5_retrieval")).lower()
@@ -858,4 +904,6 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
         return D8BFaceAwareLoss(cfg)
     if name in ("fixed_motif_classification", "d5b_fixed_motif"):
         return FixedMotifClassificationLoss(cfg)
+    if name in ("d10_slot_motif", "d10_slot_motif_loss"):
+        return D10SlotMotifLoss(cfg)
     raise ValueError(f"Unknown loss: {name}")

@@ -9,6 +9,7 @@ from torch import nn
 from models.class_pixel_motif_graph_retrieval import ClassPixelMotifGraphRetrieval
 from models.d9_relation_motif_model import D9RelationMotifClassifier
 from models.d9_sanity_models import D9SanityGlobalPoolClassifier
+from models.d10_slot_motif_model import D10SlotMotifModel
 from models.dual_branch_graph_swin_motif import DualBranchGraphSwinMotifD7
 from models.face_aware_graph_swin_d8b import FaceAwareGraphSwinD8B
 from models.graph_swin_prepart_d6b import GraphSwinPrePartD6BD8A
@@ -44,4 +45,6 @@ def build_model(config: Dict[str, Any]) -> nn.Module:
         return D9RelationMotifClassifier.from_config(cfg)
     if name in ("d9_sanity_global_pool_classifier", "d9_sanity_global_pool_b"):
         return D9SanityGlobalPoolClassifier.from_config(cfg)
+    if name in ("d10_slot_motif", "d10_slot_motif_model"):
+        return D10SlotMotifModel.from_config(cfg)
     raise ValueError(f"Unknown model: {name}")
