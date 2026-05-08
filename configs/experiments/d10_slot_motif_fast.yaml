@@ -1,0 +1,27 @@
+inherits:
+  - d10_slot_motif.yaml
+
+# D10 FAST variant: same speed as D7, keeps slot attention innovation
+# Trade-off: weaker pixel embeddings but much faster training
+# Hidden=64, 1 GNN layer → identical GNN cost to D7
+# Slot attention (5 iterations) compensates for weaker encoder
+
+experiment:
+  name: d10_slot_motif_fast
+
+paths:
+  resolved_output_root: output/d10_slot_motif_fast
+
+environments:
+  local:
+    paths:
+      resolved_output_root: output/d10_slot_motif_fast
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_slot_motif_fast
+
+model:
+  hidden_dim: 64
+  pixel_gnn_layers: 1
+  slot_iterations: 5
+  num_motifs: 8

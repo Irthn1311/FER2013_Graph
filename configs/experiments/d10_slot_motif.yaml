@@ -18,12 +18,23 @@ environments:
     paths:
       graph_repo_path: artifacts/graph_repo
       resolved_output_root: output/d10_slot_motif
+    data:
+      batch_size: 32
+      num_workers: 0
+      pin_memory: false
+      persistent_workers: false
   kaggle:
     paths:
       csv_root: auto
       graph_repo_path: /kaggle/working/graph_repo
       output_root: /kaggle/working/outputs
       resolved_output_root: /kaggle/working/outputs/d10_slot_motif
+    data:
+      batch_size: 64
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 2
 
 data:
   batch_size: 32
@@ -39,8 +50,8 @@ model:
   num_classes: 7
   node_dim: 7
   edge_dim: 5
-  hidden_dim: 128
-  pixel_gnn_layers: 3
+  hidden_dim: 96
+  pixel_gnn_layers: 2
   num_motifs: 8
   slot_iterations: 3
   motif_relation_layers: 1
@@ -79,7 +90,7 @@ scheduler:
 
 training:
   device: auto
-  epochs: 120
+  epochs: 80
   monitor: val_macro_f1
   early_stopping_patience: 25
   amp: true
@@ -89,3 +100,6 @@ training:
   max_train_batches: null
   max_val_batches: null
   max_test_batches: null
+  multi_gpu: true
+  use_compile: true
+  val_frequency: 3

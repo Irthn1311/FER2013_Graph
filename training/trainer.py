@@ -145,12 +145,49 @@ class D5Trainer:
         amp: bool = False,
         amp_init_scale: float = 65536.0,
         profile_batches: int = 0,
+        multi_gpu: bool = False,
+        use_compile: bool = False,
+        val_frequency: int = 1,
     ) -> None:
-        self.model = model.to(device)
-        self.criterion = criterion.to(device)
+        self.device = torch.device(device)
+        self._raw_model = model  # always the unwrapped model
+
+        # Multi-GPU DataParallel
+        self._multi_gpu = False
+        if (
+            bool(multi_gpu)
+            and self.device.type == "cuda"
+            and torch.cuda.device_count() > 1
+        ):
+            model = model.to(self.device)
+            model = torch.nn.DataParallel(model)
+            self._multi_gpu = True
+            print(
+                f"[Multi-GPU] DataParallel enabled: {torch.cuda.device_count()} GPUs"
+            )
+            for i in range(torch.cuda.device_count()):
+                print(f"  GPU {i}: {torch.cuda.get_device_name(i)}")
+        else:
+            model = model.to(self.device)
+            if bool(multi_gpu) and self.device.type == "cuda":
+                print("[Multi-GPU] requested but only 1 GPU available")
+
+        # torch.compile (PyTorch 2.x+)
+        if bool(use_compile) and hasattr(torch, "compile") and self.device.type == "cuda":
+            try:
+                model = torch.compile(model)
+                print("[Compile] torch.compile enabled (first batch will be slow)")
+            except Exception as exc:
+                print(f"[Compile] torch.compile failed: {exc}")
+        elif bool(use_compile) and self.device.type != "cuda":
+            print("[Compile] torch.compile skipped (only supported on CUDA)")
+        elif bool(use_compile):
+            print("[Compile] torch.compile not available in this PyTorch version")
+
+        self.model = model
+        self.criterion = criterion.to(self.device)
         self.optimizer = optimizer
         self.scheduler = scheduler
-        self.device = torch.device(device)
         self.output_root = Path(output_root)
         self.checkpoint_dir = self.output_root / "checkpoints"
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -160,6 +197,7 @@ class D5Trainer:
         self.best_metric = -float("inf")
         self.best_epoch = -1
         self._logged_train_device = False
+        self.val_frequency = max(1, int(val_frequency))
         self.wandb = None
         if self.use_wandb:
             import wandb
@@ -196,6 +234,8 @@ class D5Trainer:
         first_param = next(self.model.parameters())
         print(f"trainer device: {self.device}")
         print(f"model first parameter device: {first_param.device}")
+        if self.val_frequency > 1:
+            print(f"[ValFreq] validate every {self.val_frequency} epochs")
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -653,7 +693,18 @@ class D5Trainer:
                 total_train_batches=total_train_batches,
                 full_epoch_batches=full_epoch_batches,
             )
-            val_metrics = self.validate(val_loader, max_val_batches, prefix="val")
+            # Skip validation on non-val epochs for speed
+            do_val = (
+                epoch == start_epoch  # always validate first epoch
+                or epoch == int(epochs)  # always validate last epoch
+                or epoch % self.val_frequency == 0  # periodic
+            )
+            if do_val:
+                val_metrics = self.validate(val_loader, max_val_batches, prefix="val")
+            else:
+                val_metrics = {f"val_{k}": v for k, v in self._last_val_metrics.items()} if hasattr(self, '_last_val_metrics') else {}
+            if do_val:
+                self._last_val_metrics = {k.removeprefix("val_"): v for k, v in val_metrics.items()}
             metrics = {"epoch": float(epoch), **train_metrics, **val_metrics}
             metrics.update(lr_metrics_before)
             monitor_value = _get_metric_value(metrics, monitor) if scheduler_uses_monitor else None
@@ -728,9 +779,14 @@ class D5Trainer:
 
     def save_checkpoint(self, filename: str, epoch: int, metrics: Dict[str, float]) -> Path:
         path = self.checkpoint_dir / filename
+        # Save raw model state (unwrap DataParallel if needed)
+        model_to_save = self._raw_model if self._multi_gpu else self.model
+        # Also unwrap torch.compile _orig_mod if present
+        if hasattr(model_to_save, '_orig_mod'):
+            model_to_save = model_to_save._orig_mod
         checkpoint = {
             "epoch": int(epoch),
-            "model_state_dict": self.model.state_dict(),
+            "model_state_dict": model_to_save.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "metrics": metrics,
             "best_metric": float(self.best_metric),

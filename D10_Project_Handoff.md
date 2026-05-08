@@ -2,7 +2,7 @@
 
 > **Last updated**: 2026-05-08
 > **Status**: ✅ Code complete, ready to train
-> **Model**: D10SlotMotifModel
+> **Model**: D10SlotMotifModel (360K params)
 > **Target**: macro F1 ≥ 0.55 (stretch: 0.60+)
 
 ## 1. Tóm tắt kiến trúc
@@ -12,7 +12,7 @@ Pipeline (đúng tinh thần pixel graph → motif → emotion):
 
   Input: 48×48 pixel graph (2304 nodes, 7D features, 5D edges)
      ↓
-  SharedPixelEncoder (3 GNN layers, hidden=128)  ← Deep encoding
+  SharedPixelEncoder (2 GNN layers, hidden=96)  ← Deep encoding
      ↓
   IterativeSlotAttention (K=8 motifs, T=3 iterations)  ← Core innovation
      ↓
@@ -25,7 +25,7 @@ Pipeline (đúng tinh thần pixel graph → motif → emotion):
   Output: logits [B, 7]
 ```
 
-**Total params**: 752,008 (trainable)
+**Total params**: 359,720 (trainable)
 
 ## 2. Tại sao D10 khác D9
 
@@ -33,11 +33,14 @@ Pipeline (đúng tinh thần pixel graph → motif → emotion):
 |---|---|---|
 | Softmax direction | Over pixels (mỗi motif → phân tán khắp ảnh) | Over motifs (mỗi pixel → chọn 1 motif) |
 | Iterations | 1 (one-shot) | 3 (iterative refinement + GRU) |
-| Encoder depth | 1-2 GNN layers | 3 GNN layers |
-| Hidden dim | 64 | 128 |
+| Encoder depth | 1-2 GNN layers | 2 GNN layers (hidden=96) |
+| Hidden dim | 64 | 96 |
 | Num motifs | 16 (quá nhiều, diffuse) | 8 (focused) |
 | Classifier | Pooled MLP | Class-motif attention |
 | Auxiliary loss | Không | Aux CE (mean-pool motifs) |
+| AMP | Không | ✅ Mixed precision |
+| Batch size (Kaggle) | 32 | 64 |
+| Params | ~200K | 360K |
 
 ## 3. Files đã tạo/sửa
 
@@ -57,18 +60,26 @@ Pipeline (đúng tinh thần pixel graph → motif → emotion):
 conda run -n fer-graph python -m scripts.train_d5a \
   --config configs/experiments/d10_slot_motif.yaml \
   --epochs 5 --max_train_batches 20 --max_val_batches 10 \
-  --no_wandb --device cuda
+  --no_wandb --device cuda --amp
 ```
 
-### Kaggle (full training):
+### Kaggle (full training — ~6-9 giờ):
 1. Push code lên GitHub (branch main)
 2. Upload notebook `notebooks/kaggle-end-to-end.ipynb` lên Kaggle
 3. Trong Cell 2, set `RUN_MODE = "train_full"`
 4. Chạy tất cả cells
 5. Download output zip
 
-### Kaggle (quick test trước):
+### Kaggle (quick test trước — ~1-2 giờ):
 - Cell 2: `RUN_MODE = "train_quick"` (30 epochs, capped batches)
+
+### Speed optimizations đã áp dụng:
+- ✅ **AMP** (mixed precision): `amp: true` trong config
+- ✅ **Batch size 64** trên Kaggle (vs 32 trên local)
+- ✅ **pin_memory=true** trên Kaggle
+- ✅ **persistent_workers=true** + **prefetch_factor=2**
+- ✅ **Model nhẹ**: hidden=96, 2 GNN layers (360K params)
+- ✅ **profile_batches=3**: log tốc độ thật để biết thời gian chính xác
 
 ## 5. Loss function
 

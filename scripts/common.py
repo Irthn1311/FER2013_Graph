@@ -404,6 +404,9 @@ def create_trainer(config: Dict[str, Any]) -> D5Trainer:
         amp=bool(training_cfg.get("amp", False)),
         amp_init_scale=float(training_cfg.get("amp_init_scale", 65536.0)),
         profile_batches=int(training_cfg.get("profile_batches", 0)),
+        multi_gpu=bool(training_cfg.get("multi_gpu", False)),
+        use_compile=bool(training_cfg.get("use_compile", False)),
+        val_frequency=int(training_cfg.get("val_frequency", 1)),
     )
 
 
