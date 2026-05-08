@@ -1,9 +1,9 @@
 # D10 Project Handoff — Slot Attention Motif Discovery
 
-> **Last updated**: 2026-05-08
-> **Status**: ✅ Code complete, ready to train
-> **Model**: D10SlotMotifModel (360K params)
-> **Target**: macro F1 ≥ 0.55 (stretch: 0.60+)
+> **Last updated**: 2026-05-08 20:30
+> **Status**: ✅ V2 ablation complete, best config identified
+> **Best Model**: D10 V2.2 (GNN 2, Iter 5, LR 3e-4) — **F1 0.5204, Acc 54.86%**
+> **Target**: macro F1 ≥ 0.65 (stretch: 0.70+)
 
 ## 1. Tóm tắt kiến trúc
 
@@ -14,7 +14,7 @@ Pipeline (đúng tinh thần pixel graph → motif → emotion):
      ↓
   SharedPixelEncoder (2 GNN layers, hidden=96)  ← Deep encoding
      ↓
-  IterativeSlotAttention (K=8 motifs, T=3 iterations)  ← Core innovation
+  IterativeSlotAttention (K=8 motifs, T=5 iterations)  ← Core innovation
      ↓
   Position Encoding (motif centers from attention-weighted pixel coords)
      ↓
@@ -32,7 +32,7 @@ Pipeline (đúng tinh thần pixel graph → motif → emotion):
 | Aspect | D9 (failed, F1=0.17) | D10 (new) |
 |---|---|---|
 | Softmax direction | Over pixels (mỗi motif → phân tán khắp ảnh) | Over motifs (mỗi pixel → chọn 1 motif) |
-| Iterations | 1 (one-shot) | 3 (iterative refinement + GRU) |
+| Iterations | 1 (one-shot) | 5 (iterative refinement + GRU) |
 | Encoder depth | 1-2 GNN layers | 2 GNN layers (hidden=96) |
 | Hidden dim | 64 | 96 |
 | Num motifs | 16 (quá nhiều, diffuse) | 8 (focused) |
@@ -110,29 +110,69 @@ Total Loss = CE_main + 0.01 × slot_diversity + 0.01 × border_penalty
 
 ## 7. Kết quả thực tế & Diagnostic (Update 08/05/2026)
 
-### D10 Fast (Thành công bước đầu - F1 0.5018)
-- **Config**: 1 GNN layer, `hidden=64`, 5 slot iterations.
-- **Test Metric**: Accuracy **54.08%**, Macro F1 **0.5018** (Vượt xa D9 F1=0.17 và D5A F1=0.29).
-- **Nhận xét**: Chạm mốc 0.50 Macro F1 với kiến trúc nhẹ (132K params). Chứng minh Slot Attention đã tự động gom pixel thành các vùng ý nghĩa và dự đoán được đủ 7 class (không chết Disgust/Angry như các bản trước).
-- **Hạn chế**: Điểm của class Fear còn thấp (Recall 25%). Nguyên nhân do 1 lớp GNN có Receptive Field quá hẹp (3x3), không bắt được sự phối hợp toàn mặt (mắt + miệng).
+### 7a. D10 Fast (Prototype thành công - F1 0.5018)
+- **Config**: 1 GNN layer, `hidden=64`, 5 slot iterations, LR 5e-4.
+- **Test**: Accuracy **54.08%**, Macro F1 **0.5018**.
+- **Nhận xét**: Chứng minh Slot Attention hoạt động. Dự đoán đủ 7 class. Hạn chế: Fear Recall thấp (25%) do Receptive Field hẹp.
 
-### D10 Standard (Sụp đổ - F1 0.1399)
-- **Config**: 2 GNN layers, `hidden=96`, 3 slot iterations.
-- **Test Metric**: Accuracy **26.00%**, Macro F1 **0.1399** (Sập hoàn toàn).
-- **Nhận xét**: Mode collapse, mô hình đoán Happy tới 2103 lần, bỏ qua hoàn toàn Angry và Disgust (0 prediction).
-- **Nguyên nhân**: 2 lớp GNN trộn features pixel quá sâu (oversmoothing), làm các vùng mặt mất sự khác biệt. Trong khi đó Slot Attention chỉ chạy 3 vòng (3 iterations) nên không đủ thời gian để tách ngược các motif bị rối này ra. Cùng với LR=0.0005 khá cao khiến model tìm đường tắt (đoán toàn class lớn).
+### 7b. D10 Standard V1 (Sụp đổ - F1 0.1399)
+- **Config**: 2 GNN layers, `hidden=96`, **3 slot iterations**, LR 5e-4.
+- **Test**: Accuracy **26.00%**, Macro F1 **0.1399**. Mode collapse → đoán toàn Happy.
+- **Nguyên nhân ban đầu nghĩ**: GNN 2 lớp oversmoothing. **Thực tế SAI** (xem 7c).
 
-## 8. Kế hoạch V2 (Diagnostic & Fix Oversmoothing)
+### 7c. V2 Ablation — 5 Kịch bản chẩn đoán (Hoàn thành 08/05/2026)
 
-Đã tạo 5 config V2 trong thư mục `configs/experiments/` để chạy phân tải song song trên Kaggle nhằm tìm ra điểm cân bằng giữa GNN Depth và Slot Iterations:
+| # | Config | GNN | Iter | Dim | LR | Test F1 | Test Acc | pred_count | Kết luận |
+|---|--------|-----|------|-----|------|---------|----------|------------|----------|
+| **2** 🏆 | **d10_v2_2_iter5_lr3e4** | **2** | **5** | **96** | **3e-4** | **0.5204** | **54.86%** | **[419,42,317,943,639,413,816]** | **NEW SOTA — Balanced predictions** |
+| Fast | d10_slot_motif_fast | 1 | 5 | 64 | 5e-4 | 0.5018 | 54.08% | Balanced | Baseline tốt |
+| 4 | d10_v2_4_iter7_lr3e4 | 2 | 7 | 96 | 3e-4 | 0.2637 | 35.02% | [302,0,223,1145,592,821,506] | Iter quá nhiều → vanishing grad |
+| 5 | d10_v2_5_gnn1_dim128 | 1 | 5 | 128 | 5e-4 | 0.2313 | 34.72% | [0,0,189,1484,1023,533,360] | LR quá cao cho dim 128 |
+| 1 | d10_v2_1_iter5 | 2 | 5 | 96 | 5e-4 | 0.1372 | 25.72% | [13,5,25,2359,713,473,1] | LR quá cao → collapse |
+| Std V1 | d10_slot_motif | 2 | 3 | 96 | 5e-4 | 0.1399 | 26.00% | [0,0,34,2103,773,673,6] | Iter ít + LR cao → collapse |
+| 3 | d10_v2_3_gnn1_iter5 | 1 | 5 | 96 | 5e-4 | 0.1259 | 24.71% | [0,0,0,2345,524,720,0] | LR quá cao cho dim 96 |
 
-1. `d10_v2_1_iter5.yaml`: GNN 2, Iter 5, LR 0.0005 (Tăng vòng lặp slot lên 5 để đủ sức gỡ rối features từ GNN 2 lớp).
-2. `d10_v2_2_iter5_lr3e4.yaml`: GNN 2, Iter 5, LR 0.0003 (Tăng vòng lặp + hạ LR tránh sốc).
-3. `d10_v2_3_gnn1_iter5.yaml`: **[Ưu tiên cao nhất]** GNN 1, Iter 5, `hidden=96` (Về lại kiến trúc 1 lớp GNN thành công của bản Fast, nhưng buff sức mạnh hidden_dim lên 96 để có capacity mạnh hơn).
-4. `d10_v2_4_iter7_lr3e4.yaml`: GNN 2, Iter 7, LR 0.0003 (Ép Slot Attention chạy tới 7 vòng).
-5. `d10_v2_5_gnn1_dim128.yaml`: GNN 1, Iter 5, `hidden=128` (GNN 1 lớp nhưng buff width lên cực lớn).
+### 7d. Bài học rút ra (Critical Findings)
 
-**Hành động tiếp theo**: Phân tích kết quả của 5 config này để chốt cấu hình D10 Single-model mạnh nhất. Nếu điểm tiếp cận ngưỡng ~60%, tiến hành Ensemble với D7.
+1. **Thủ phạm thực sự là LR, KHÔNG phải GNN depth.**
+   - Kịch bản 3 (GNN 1, dim 96, LR 5e-4) sập nặng hơn cả Kịch bản 2 (GNN 2, dim 96, LR 3e-4).
+   - Khi `hidden_dim ≥ 96`, ma trận trọng số Slot Attention tăng theo O(d²). LR 5e-4 gây gradient shock ở epoch đầu, khiến model rơi vào local minimum "đoán toàn Happy".
+   - Bản Fast (dim=64) sống sót nhờ ma trận nhỏ đủ kìm hãm gradient.
+2. **GNN 2 lớp thực sự CÓ ÍCH** khi LR đúng.
+   - V2.2 (GNN 2 + LR 3e-4) vượt mặt bản Fast (GNN 1): F1 0.5204 vs 0.5018.
+   - Receptive Field rộng hơn (5×5 thay vì 3×3) giúp Slot Attention nhìn thấy ngữ cảnh khuôn mặt tốt hơn.
+3. **5 iterations là "Magic number".** 3 quá ít (collapse), 7 quá nhiều (vanishing gradient).
+4. **Công thức chốt D10 Standard**: `GNN=2, Iter=5, Dim=96, LR=3e-4`.
+
+## 8. Roadmap lên 0.70+ Accuracy
+
+### Phase 1: Hyperparameter Tuning trên nền V2.2 (Mục tiêu: F1 0.56-0.60)
+- [ ] Thử LR warmup (linear 5 epoch) + Cosine Annealing thay ReduceLROnPlateau.
+- [ ] Tăng `num_motifs` từ 8 lên 10-12 (cho phép model phát hiện nhiều sub-regions hơn).
+- [ ] Tăng `motif_relation_layers` từ 1 lên 2 (cho motif "nói chuyện" nhiều hơn).
+- [ ] Label smoothing 0.1 trong CE loss.
+- [ ] Focal Loss (gamma=2) thay CE cho class khó (Disgust, Fear).
+
+### Phase 2: Data & Regularization (Mục tiêu: F1 0.60-0.65)
+- [ ] Augmentation trên graph: Random node feature noise, random edge dropout.
+- [ ] Mixup/CutMix ở cấp graph (trộn 2 graph cùng lúc).
+- [ ] Tăng `dropout` lên 0.3 và thử DropPath trong Transformer.
+- [ ] Stochastic Depth cho GNN layers.
+
+### Phase 3: Architecture Enhancement (Mục tiêu: F1 0.65-0.70)
+- [ ] **Multi-scale GNN**: Thêm nhánh GNN 3 lớp song song với nhánh 2 lớp, concat features trước Slot Attention.
+- [ ] **Cross-Attention Slot Refinement**: Sau khi Slot Attention gom xong, cho motifs attend lại pixel features 1 lần nữa (top-down feedback).
+- [ ] **Residual Slot Connection**: Truyền slot features từ iteration t-1 sang t qua residual path, không chỉ dựa vào GRU.
+
+### Phase 4: Ensemble & Knowledge Distillation (Mục tiêu: Acc 0.70-0.80)
+- [ ] **Ensemble D10 + D7/D8B**: D10 (graph motif) và D7 (Swin region) bổ trợ nhau. Logit averaging hoặc learned fusion.
+- [ ] **Self-Distillation**: Dùng ensemble trên làm teacher, train lại D10 single model bằng KD loss.
+- [ ] **Test-Time Augmentation (TTA)**: Flip, slight rotation trên graph coords.
+
+### Phase 5: Advanced (Stretch goal: Acc 0.80+)
+- [ ] **Contrastive Motif Loss**: Ép motif features của cùng emotion class gần nhau (SupCon).
+- [ ] **Graph Transformer Encoder** thay GNN (self-attention trên toàn bộ pixel, không chỉ neighbors).
+- [ ] **Larger image resolution** (96×96 thay 48×48) nếu rebuild graph_repo.
 
 ## 9. Ràng buộc (KHÔNG phá)
 

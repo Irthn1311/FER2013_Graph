@@ -43,6 +43,21 @@ def build_scheduler(
             T_max=int(cfg.get("t_max", 20)),
             eta_min=float(cfg.get("min_lr", 1e-6)),
         )
+    if str(name).lower() in ("cosine_warmup", "cosinewarmup"):
+        warmup_epochs = int(cfg.get("warmup_epochs", 5))
+        t_max = int(cfg.get("t_max", 120))
+        min_lr = float(cfg.get("min_lr", 1e-6))
+        base_lr = optimizer.defaults["lr"]
+
+        def lr_lambda(epoch: int) -> float:
+            if epoch < warmup_epochs:
+                return max((epoch + 1) / max(warmup_epochs, 1), min_lr / base_lr)
+            progress = (epoch - warmup_epochs) / max(t_max - warmup_epochs, 1)
+            import math
+            cosine_decay = 0.5 * (1.0 + math.cos(math.pi * min(progress, 1.0)))
+            return max(cosine_decay, min_lr / base_lr)
+
+        return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     raise ValueError(f"Unknown scheduler: {name}")
 
 

@@ -1,0 +1,38 @@
+# D10 V3.3 — Phase 1 Full: Cosine Warmup + Label Smoothing + Motifs 12 + LR bump
+# Mục đích: Đẩy tối đa Phase 1 hyperparameter tuning
+inherits:
+  - d10_v2_2_iter5_lr3e4.yaml
+
+experiment:
+  name: d10_v3_3_full_phase1
+
+paths:
+  resolved_output_root: output/d10_v3_3_full_phase1
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_v3_3_full_phase1
+
+model:
+  num_motifs: 12
+  motif_relation_layers: 2
+  dropout: 0.25
+
+loss:
+  label_smoothing: 0.1
+  class_weight_power: 0.3
+  lambda_aux_ce: 0.4
+
+optimizer:
+  lr: 0.0004
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 8
+  t_max: 120
+  min_lr: 0.000001
+
+training:
+  epochs: 120
+  early_stopping_patience: 30

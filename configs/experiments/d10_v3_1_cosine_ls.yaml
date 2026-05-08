@@ -1,0 +1,33 @@
+# D10 V3.1 — Phase 1 Baseline: Cosine Warmup + Label Smoothing
+# Dựa trên V2.2 (GNN 2, Iter 5, LR 3e-4) + cải tiến LR schedule và regularization
+inherits:
+  - d10_v2_2_iter5_lr3e4.yaml
+
+experiment:
+  name: d10_v3_1_cosine_ls
+
+paths:
+  resolved_output_root: output/d10_v3_1_cosine_ls
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_v3_1_cosine_ls
+
+# Tăng motifs 8 -> 10, thêm 1 layer Transformer
+model:
+  num_motifs: 10
+  motif_relation_layers: 2
+
+loss:
+  label_smoothing: 0.1
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 120
+  min_lr: 0.000001
+
+training:
+  epochs: 120
+  early_stopping_patience: 30

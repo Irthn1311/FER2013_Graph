@@ -1,0 +1,25 @@
+# D10 V3.2 — Phase 1 Conservative: Chỉ đổi LR schedule, giữ nguyên kiến trúc V2.2
+# Mục đích: Kiểm tra xem chỉ cần đổi LR schedule thôi đã tăng bao nhiêu
+inherits:
+  - d10_v2_2_iter5_lr3e4.yaml
+
+experiment:
+  name: d10_v3_2_cosine_only
+
+paths:
+  resolved_output_root: output/d10_v3_2_cosine_only
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_v3_2_cosine_only
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 120
+  min_lr: 0.000001
+
+training:
+  epochs: 120
+  early_stopping_patience: 30

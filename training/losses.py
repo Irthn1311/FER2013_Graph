@@ -26,8 +26,9 @@ def compute_class_weights(
 
 
 class WeightedCrossEntropy(nn.Module):
-    def __init__(self, class_weights: Optional[torch.Tensor] = None) -> None:
+    def __init__(self, class_weights: Optional[torch.Tensor] = None, label_smoothing: float = 0.0) -> None:
         super().__init__()
+        self.label_smoothing = float(label_smoothing)
         if class_weights is None:
             self.register_buffer("class_weights", None)
         else:
@@ -37,7 +38,28 @@ class WeightedCrossEntropy(nn.Module):
         weight = self.class_weights
         if weight is not None:
             weight = weight.to(device=logits.device, dtype=logits.dtype)
-        return F.cross_entropy(logits, y.long(), weight=weight)
+        return F.cross_entropy(logits, y.long(), weight=weight, label_smoothing=self.label_smoothing)
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, class_weights: Optional[torch.Tensor] = None, gamma: float = 2.0, label_smoothing: float = 0.0) -> None:
+        super().__init__()
+        self.gamma = float(gamma)
+        self.label_smoothing = float(label_smoothing)
+        if class_weights is None:
+            self.register_buffer("class_weights", None)
+        else:
+            self.register_buffer("class_weights", class_weights.float())
+
+    def forward(self, logits: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        weight = self.class_weights
+        if weight is not None:
+            weight = weight.to(device=logits.device, dtype=logits.dtype)
+        
+        ce_loss = F.cross_entropy(logits, y.long(), weight=weight, label_smoothing=self.label_smoothing, reduction='none')
+        pt = torch.exp(-ce_loss)
+        focal_loss = ((1 - pt) ** self.gamma) * ce_loss
+        return focal_loss.mean()
 
 
 class FixedMotifClassificationLoss(nn.Module):
@@ -236,7 +258,11 @@ class D6HierarchicalMotifLoss(nn.Module):
                 normalize_mean=True,
                 power=float(cfg.get("class_weight_power", 1.0)),
             )
-        self.ce = WeightedCrossEntropy(class_weights)
+        gamma = float(cfg.get("focal_gamma", 0.0))
+        if gamma > 0.0:
+            self.ce = FocalLoss(class_weights, gamma=gamma, label_smoothing=float(cfg.get("label_smoothing", 0.0)))
+        else:
+            self.ce = WeightedCrossEntropy(class_weights, label_smoothing=float(cfg.get("label_smoothing", 0.0)))
         self.register_buffer("border_mask", self._make_border_mask(), persistent=False)
 
     def forward(
