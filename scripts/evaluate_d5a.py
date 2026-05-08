@@ -118,6 +118,7 @@ def main() -> None:
     parser.add_argument("--max_test_batches", type=int, default=None)
     parser.add_argument("--chunk_cache_size", type=int, default=None)
     parser.add_argument("--graph_cache_chunks", type=int, default=None)
+    parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument("--no_wandb", action="store_true")
     args = parser.parse_args()
     config = apply_cli_overrides(load_config(args.config, environment=args.environment), args)
