@@ -15,7 +15,7 @@ environments:
 
 model:
   freeze_classifier: false
-  freeze_encoder: true
+  freeze_encoder: false
 
 loss:
   lambda_cls: 1.0          # Enable CrossEntropy

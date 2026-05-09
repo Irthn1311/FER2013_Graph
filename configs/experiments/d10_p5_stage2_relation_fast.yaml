@@ -10,7 +10,7 @@ environments:
       resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_relation_fast
 model:
   freeze_classifier: false
-  freeze_encoder: true
+  freeze_encoder: false
 loss:
   lambda_cls: 1.0
   lambda_aux_ce: 0.3
