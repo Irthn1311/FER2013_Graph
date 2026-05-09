@@ -23,3 +23,7 @@ checkpoint:
 
 training:
   monitor: val_macro_f1
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max

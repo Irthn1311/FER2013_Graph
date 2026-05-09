@@ -819,7 +819,7 @@ class D5Trainer:
         except TypeError:
             checkpoint = torch.load(path, map_location=self.device)
         state = checkpoint.get("model_state_dict", checkpoint)
-        self.model.load_state_dict(state, strict=bool(strict))
+        self._raw_model.load_state_dict(state, strict=bool(strict))
 
         if load_optimizer and "optimizer_state_dict" in checkpoint:
             self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
