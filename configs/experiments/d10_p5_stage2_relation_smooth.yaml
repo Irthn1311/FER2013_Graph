@@ -15,3 +15,10 @@ loss:
   lambda_cls: 1.0
   lambda_aux_ce: 0.3
   lambda_supcon: 0.0
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+training:
+  monitor: val_macro_f1
