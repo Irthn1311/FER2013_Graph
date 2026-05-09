@@ -8,3 +8,7 @@ environments:
   kaggle:
     paths:
       resolved_output_root: /kaggle/working/outputs/d10_p5_stage1_supcon_focal
+
+checkpoint:
+  save_best_metric: val_loss
+  save_best_mode: min

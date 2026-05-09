@@ -10,3 +10,7 @@ environments:
       resolved_output_root: /kaggle/working/outputs/d10_p5_stage1_supcon_motif6
 model:
   num_motifs: 6
+
+checkpoint:
+  save_best_metric: val_loss
+  save_best_mode: min

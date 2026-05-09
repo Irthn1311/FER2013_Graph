@@ -12,3 +12,7 @@ model:
   hidden_dim: 64
   pixel_gnn_layers: 1
   multi_scale_gnn: false
+
+checkpoint:
+  save_best_metric: val_loss
+  save_best_mode: min

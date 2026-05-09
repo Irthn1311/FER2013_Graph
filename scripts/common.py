@@ -201,7 +201,7 @@ def apply_cli_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dic
         if value is not None:
             paths[attr] = value
             if attr == "output_root":
-                paths.pop("resolved_output_root", None)
+                paths["resolved_output_root"] = value
     if getattr(args, "batch_size", None) is not None:
         data["batch_size"] = int(args.batch_size)
     if getattr(args, "epochs", None) is not None:

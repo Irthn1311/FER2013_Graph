@@ -36,3 +36,7 @@ scheduler:
   warmup_epochs: 5
   t_max: 120
   min_lr: 0.000001
+
+checkpoint:
+  save_best_metric: val_loss
+  save_best_mode: min

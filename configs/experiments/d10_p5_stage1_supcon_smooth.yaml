@@ -10,3 +10,7 @@ environments:
       resolved_output_root: /kaggle/working/outputs/d10_p5_stage1_supcon_smooth
 loss:
   supcon_temperature: 0.2
+
+checkpoint:
+  save_best_metric: val_loss
+  save_best_mode: min
