@@ -1,0 +1,12 @@
+inherits:
+- d10_p3_1_refinement.yaml
+experiment:
+  name: d10_p3_9_deep_gnn
+paths:
+  resolved_output_root: output/d10_p3_9_deep_gnn
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_9_deep_gnn
+model:
+  pixel_gnn_layers: 3

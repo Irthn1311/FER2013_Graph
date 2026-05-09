@@ -1,0 +1,18 @@
+# Phase 3: Slot Refinement with Square Root Class Balancing
+inherits:
+  - d10_p3_1_refinement.yaml
+
+experiment:
+  name: d10_p3_2_refinement_sqrt_weights
+
+paths:
+  resolved_output_root: output/d10_p3_2_refinement_sqrt_weights
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_2_refinement_sqrt_weights
+
+loss:
+  use_class_weights: true
+  class_weight_power: 0.5 # Soften class weights to prevent over-punishing Happy/Neutral

@@ -1,0 +1,12 @@
+inherits:
+- d10_p3_1_refinement.yaml
+experiment:
+  name: d10_p3_3_no_weights
+paths:
+  resolved_output_root: output/d10_p3_3_no_weights
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_3_no_weights
+loss:
+  use_class_weights: false

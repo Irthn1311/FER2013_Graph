@@ -1,0 +1,22 @@
+# Phase 3: Slot Refinement & Residual Connection
+inherits:
+  - d10_p2_1_multiscale.yaml
+
+experiment:
+  name: d10_p3_1_refinement
+
+paths:
+  resolved_output_root: output/d10_p3_1_refinement
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_1_refinement
+
+model:
+  multi_scale_gnn: true
+  residual_slot_connection: true
+  use_slot_refinement: true
+
+training:
+  epochs: 80

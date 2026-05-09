@@ -1,0 +1,12 @@
+inherits:
+- d10_p3_1_refinement.yaml
+experiment:
+  name: d10_p3_7_motif6
+paths:
+  resolved_output_root: output/d10_p3_7_motif6
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_7_motif6
+model:
+  num_motifs: 6

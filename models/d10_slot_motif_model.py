@@ -48,12 +48,14 @@ class IterativeSlotAttention(nn.Module):
         num_iterations: int = 3,
         dropout: float = 0.1,
         eps: float = 1e-8,
+        residual_slot_connection: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_dim = int(hidden_dim)
         self.num_slots = int(num_slots)
         self.num_iterations = int(num_iterations)
         self.eps = float(eps)
+        self.residual_slot_connection = bool(residual_slot_connection)
 
         # Learnable slot initialization
         self.slot_mu = nn.Parameter(torch.randn(1, self.num_slots, self.hidden_dim) * 0.02)
@@ -137,6 +139,9 @@ class IterativeSlotAttention(nn.Module):
                 updates.reshape(-1, self.hidden_dim),
                 slots_prev.reshape(-1, self.hidden_dim),
             ).reshape(bsz, self.num_slots, self.hidden_dim)
+
+            if self.residual_slot_connection:
+                slots = slots + slots_prev
 
             # MLP residual
             slots = slots + self.mlp(self.norm_mlp(slots))
@@ -264,6 +269,8 @@ class D10SlotMotifModel(nn.Module):
         edge_dropout_p: float = 0.0,
         node_noise_std: float = 0.0,
         multi_scale_gnn: bool = False,
+        residual_slot_connection: bool = False,
+        use_slot_refinement: bool = False,
         **_: Any,
     ) -> None:
         super().__init__()
@@ -280,6 +287,8 @@ class D10SlotMotifModel(nn.Module):
         self.edge_dropout_p = float(edge_dropout_p)
         self.node_noise_std = float(node_noise_std)
         self.multi_scale_gnn = bool(multi_scale_gnn)
+        self.residual_slot_connection = bool(residual_slot_connection)
+        self.use_slot_refinement = bool(use_slot_refinement)
 
         if self.num_nodes != self.height * self.width:
             raise ValueError(
@@ -315,7 +324,26 @@ class D10SlotMotifModel(nn.Module):
             num_slots=self.num_motifs,
             num_iterations=int(slot_iterations),
             dropout=dropout,
+            residual_slot_connection=self.residual_slot_connection,
         )
+
+        # 2.5 Cross-Attention Slot Refinement (Phase 3)
+        if self.use_slot_refinement:
+            self.slot_refinement = nn.MultiheadAttention(
+                embed_dim=self.hidden_dim,
+                num_heads=4,
+                dropout=dropout,
+                batch_first=True
+            )
+            self.refinement_norm1 = nn.LayerNorm(self.hidden_dim)
+            self.refinement_norm2 = nn.LayerNorm(self.hidden_dim)
+            self.refinement_mlp = nn.Sequential(
+                nn.Linear(self.hidden_dim, self.hidden_dim * 2),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(self.hidden_dim * 2, self.hidden_dim),
+                nn.Dropout(dropout),
+            )
 
         # 3. Position encoding for motifs (learned from motif center coordinates)
         if self.use_position_encoding:
@@ -444,6 +472,19 @@ class D10SlotMotifModel(nn.Module):
             motif_embeddings = motif_embeddings + self.position_mlp(motif_centers)
         else:
             motif_centers = None
+
+        # Phase 3: Cross-Attention Slot Refinement
+        # Let the motifs attend to the rich pixel features one last time
+        if self.use_slot_refinement:
+            norm_motifs = self.refinement_norm1(motif_embeddings)
+            refined, _ = self.slot_refinement(
+                query=norm_motifs,
+                key=h_pixel,
+                value=h_pixel,
+                key_padding_mask=~node_mask.bool() if node_mask is not None else None
+            )
+            motif_embeddings = motif_embeddings + refined
+            motif_embeddings = motif_embeddings + self.refinement_mlp(self.refinement_norm2(motif_embeddings))
 
         # 4. Motif relation transformer (self-attention between motifs)
         motif_context = self.motif_relation(motif_embeddings)

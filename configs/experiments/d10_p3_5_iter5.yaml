@@ -1,0 +1,12 @@
+inherits:
+- d10_p3_1_refinement.yaml
+experiment:
+  name: d10_p3_5_iter5
+paths:
+  resolved_output_root: output/d10_p3_5_iter5
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_5_iter5
+model:
+  slot_iterations: 5

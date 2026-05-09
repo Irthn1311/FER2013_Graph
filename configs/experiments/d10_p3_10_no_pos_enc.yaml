@@ -1,0 +1,12 @@
+inherits:
+- d10_p3_1_refinement.yaml
+experiment:
+  name: d10_p3_10_no_pos_enc
+paths:
+  resolved_output_root: output/d10_p3_10_no_pos_enc
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_10_no_pos_enc
+model:
+  use_position_encoding: false

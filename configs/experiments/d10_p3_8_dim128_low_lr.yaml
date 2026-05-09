@@ -1,0 +1,14 @@
+inherits:
+- d10_p3_1_refinement.yaml
+experiment:
+  name: d10_p3_8_dim128_low_lr
+paths:
+  resolved_output_root: output/d10_p3_8_dim128_low_lr
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_8_dim128_low_lr
+model:
+  hidden_dim: 128
+optimizer:
+  lr: 0.0001

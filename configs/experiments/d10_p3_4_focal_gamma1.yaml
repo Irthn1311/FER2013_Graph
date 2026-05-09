@@ -1,0 +1,13 @@
+inherits:
+- d10_p3_1_refinement.yaml
+experiment:
+  name: d10_p3_4_focal_gamma1
+paths:
+  resolved_output_root: output/d10_p3_4_focal_gamma1
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p3_4_focal_gamma1
+loss:
+  type: focal
+  focal_gamma: 1.0

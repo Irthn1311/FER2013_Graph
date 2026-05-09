@@ -173,7 +173,22 @@ Total Loss = CE_main + 0.01 × slot_diversity + 0.01 × border_penalty
 3. **GNN Depth**: GNN 3 lớp CÓ THỂ hoạt động và thậm chí cho Accuracy tốt nhất (55.75%).
 4. **Trọng tâm tiếp theo (Phase 2/3)**: Lấy V3.2 hoặc V3.5 làm Base, triển khai DropPath, Residual Slot, và Edge Dropout.
 
-## 10. Ràng buộc (KHÔNG phá)
+## 10. Kết quả Phase 2 & 3 (80 Epochs)
+
+| Kịch bản | Macro F1 | Accuracy | Đánh giá |
+|---|---|---|---|
+| **P2.1 (Multi-scale GNN)** | 0.5342 | **55.87%** | **SOTA Mới (Accuracy)**. Kết hợp GNN 2 và 3 lớp đã đẩy Accuracy lên đỉnh cao mới. Dù F1 hơi giảm so với V3.2, nhưng đây là minh chứng Multi-scale hoạt động rất tốt. |
+| **P2.5 (Multiscale + Reg)** | 0.5168 | 55.59% | Sự vững chãi tuyệt vời. Dù bị ép bởi nhiễu cực mạnh, bộ khung Multi-scale vẫn gánh được Accuracy lên 55.59%. |
+| **P2.2 (Edge Dropout)** | 0.4881 | 53.05% | Regularization làm tụt điểm thê thảm. |
+| **P2.3 (Node Noise)** | 0.4546 | 50.43% | Tụt điểm nghiêm trọng. |
+| **P2.4 (Hybrid Reg)** | 0.4296 | 49.12% | Sụp đổ hoàn toàn. Mô hình hoàn toàn "mù" khi vừa mất cạnh vừa nhiễu node. |
+
+**Bài học cốt lõi từ Phase 2:**
+Mô hình **KHÔNG HỀ BỊ OVERFITTING** vào cấu trúc đồ thị. Ngược lại, dữ liệu đồ thị Pixel Graph vốn dĩ đã rất mỏng manh và rời rạc. Khi ta cố gắng áp dụng thêm Regularization (chặt cạnh, thêm nhiễu), mô hình bị mất tín hiệu trầm trọng và Underfitting hoàn toàn. Do đó:
+- ❌ **Loại bỏ vĩnh viễn** Edge Dropout và Node Noise cho Pixel Graph.
+- ✅ **Giữ lại Multi-scale GNN** vì nó gia tăng sức mạnh biểu diễn.
+
+## 11. Ràng buộc (KHÔNG phá)
 
 - ❌ KHÔNG rebuild graph_repo
 - ❌ KHÔNG sửa D5A/D7/D8B code
