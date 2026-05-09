@@ -1,0 +1,18 @@
+inherits:
+  - d10_p5_stage1_supcon_focal.yaml
+experiment:
+  name: d10_p5_stage2_relation_focal
+paths:
+  resolved_output_root: output/d10_p5_stage2_relation_focal
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_relation_focal
+model:
+  freeze_classifier: false
+  freeze_encoder: true
+loss:
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.0
+  focal_gamma: 1.0

@@ -1,0 +1,17 @@
+inherits:
+  - d10_p5_stage1_supcon_smooth.yaml
+experiment:
+  name: d10_p5_stage2_relation_smooth
+paths:
+  resolved_output_root: output/d10_p5_stage2_relation_smooth
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_relation_smooth
+model:
+  freeze_classifier: false
+  freeze_encoder: true
+loss:
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.0

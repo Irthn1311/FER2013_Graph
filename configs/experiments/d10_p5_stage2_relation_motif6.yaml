@@ -1,0 +1,17 @@
+inherits:
+  - d10_p5_stage1_supcon_motif6.yaml
+experiment:
+  name: d10_p5_stage2_relation_motif6
+paths:
+  resolved_output_root: output/d10_p5_stage2_relation_motif6
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_relation_motif6
+model:
+  freeze_classifier: false
+  freeze_encoder: true
+loss:
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.0

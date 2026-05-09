@@ -418,7 +418,7 @@ class D10SlotMotifModel(nn.Module):
                 for param in self.refinement_mlp.parameters():
                     param.requires_grad = False
             if self.use_position_encoding:
-                for param in self.pos_mlp.parameters():
+                for param in self.position_mlp.parameters():
                     param.requires_grad = False
 
     @classmethod

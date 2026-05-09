@@ -1,0 +1,14 @@
+inherits:
+  - d10_p5_stage1_supcon.yaml
+experiment:
+  name: d10_p5_stage1_supcon_fast
+paths:
+  resolved_output_root: output/d10_p5_stage1_supcon_fast
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p5_stage1_supcon_fast
+model:
+  hidden_dim: 64
+  pixel_gnn_layers: 1
+  multi_scale_gnn: false
