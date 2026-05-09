@@ -271,6 +271,8 @@ class D10SlotMotifModel(nn.Module):
         multi_scale_gnn: bool = False,
         residual_slot_connection: bool = False,
         use_slot_refinement: bool = False,
+        freeze_classifier: bool = False,
+        freeze_encoder: bool = False,
         **_: Any,
     ) -> None:
         super().__init__()
@@ -289,6 +291,8 @@ class D10SlotMotifModel(nn.Module):
         self.multi_scale_gnn = bool(multi_scale_gnn)
         self.residual_slot_connection = bool(residual_slot_connection)
         self.use_slot_refinement = bool(use_slot_refinement)
+        self.freeze_classifier = bool(freeze_classifier)
+        self.freeze_encoder = bool(freeze_encoder)
 
         if self.num_nodes != self.height * self.width:
             raise ValueError(
@@ -384,6 +388,38 @@ class D10SlotMotifModel(nn.Module):
         self.register_buffer(
             "border_mask", self._make_border_mask(border_width=3), persistent=False
         )
+
+        if self.freeze_classifier:
+            for param in self.motif_relation.parameters():
+                param.requires_grad = False
+            for param in self.classifier.parameters():
+                param.requires_grad = False
+            if self.use_aux_classifier:
+                for param in self.aux_classifier.parameters():
+                    param.requires_grad = False
+
+        if self.freeze_encoder:
+            for param in self.encoder.parameters():
+                param.requires_grad = False
+            if self.multi_scale_gnn:
+                for param in self.encoder_aux.parameters():
+                    param.requires_grad = False
+                for param in self.combine_scale.parameters():
+                    param.requires_grad = False
+            for param in self.slot_attention.parameters():
+                param.requires_grad = False
+            if self.use_slot_refinement:
+                for param in self.slot_refinement.parameters():
+                    param.requires_grad = False
+                for param in self.refinement_norm1.parameters():
+                    param.requires_grad = False
+                for param in self.refinement_norm2.parameters():
+                    param.requires_grad = False
+                for param in self.refinement_mlp.parameters():
+                    param.requires_grad = False
+            if self.use_position_encoding:
+                for param in self.pos_mlp.parameters():
+                    param.requires_grad = False
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "D10SlotMotifModel":

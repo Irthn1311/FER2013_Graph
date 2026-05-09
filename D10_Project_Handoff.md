@@ -188,7 +188,36 @@ Mô hình **KHÔNG HỀ BỊ OVERFITTING** vào cấu trúc đồ thị. Ngượ
 - ❌ **Loại bỏ vĩnh viễn** Edge Dropout và Node Noise cho Pixel Graph.
 - ✅ **Giữ lại Multi-scale GNN** vì nó gia tăng sức mạnh biểu diễn.
 
-## 11. Ràng buộc (KHÔNG phá)
+## 11. Kế hoạch Quét Rộng Phase 3 (Đang Chạy)
+
+Sau bài học lớn ở Phase 2 (mô hình bị underfitting chứ không phải overfitting), chúng ta tận dụng 10 slot chạy song song để "quét" (sweep) mọi giới hạn. Tất cả đều dựa trên bộ khung SOTA mới (**P2.1 Multi-scale GNN**) kết hợp với nâng cấp kiến trúc **Cross-Attention Slot Refinement** và **Residual Slot**.
+
+| Config | Ý tưởng cốt lõi | Trạng thái / Kết quả |
+|---|---|---|
+| `d10_p3_5_iter5.yaml` | Tăng số vòng Slot Attention lên 5 (Nhờ có Residual). | 🏆 **F1: 0.5626 \| Acc: 58.21%** (Best F1) |
+| `d10_p3_10_no_pos_enc.yaml` | Tắt Position Encoding, ép học vị trí qua GNN thay vì qua tọa độ. | 🌟 **F1: 0.5593 \| Acc: 58.76%** (SOTA Acc) |
+| `d10_p3_6_no_dropout.yaml` | Tắt hoàn toàn Dropout (`0.0`), để graph bung hết công suất. | **F1: 0.5549 \| Acc: 56.67%** |
+| `d10_p3_1_refinement.yaml` | Bản chuẩn: Refinement + Residual + Multi-scale. | **F1: 0.5516 \| Acc: 57.62%** |
+| `d10_p3_9_deep_gnn.yaml` | Tăng độ sâu GNN lên 3+4 lớp (Thay vì 2+3 lớp). | **F1: 0.5430 \| Acc: 56.90%** |
+| `d10_p3_3_no_weights.yaml` | Bỏ hoàn toàn Class Weights, cày tối đa Accuracy. | **F1: 0.5373 \| Acc: 58.34%** |
+| `d10_p3_4_focal_gamma1.yaml` | Dùng Focal Loss ($\gamma=1.0$) mềm mỏng hơn bản V3.4. | **F1: 0.5269 \| Acc: 56.37%** |
+| `d10_p3_7_motif6.yaml` | Giảm số lượng Motif xuống 6 (gom cụm lớn hơn). | **F1: 0.5189 \| Acc: 55.84%** |
+| `d10_p3_2_refinement_sqrt_weights.yaml` | Làm mềm Class Weights (căn bậc hai) để giảm phạt class Happy. | **F1: 0.5117 \| Acc: 55.36%** |
+| `d10_p3_8_dim128_low_lr.yaml` | Ép Hidden Dim 128 với LR siêu nhỏ `1e-4`. | ❌ **F1: 0.4817 \| Acc: 52.22%** (Collapse) |
+
+**Bài học chấn động từ Phase 3:**
+1. **Iter=5 là chân ái**: Tăng vòng lặp Slot Refinement thực sự giúp Motif sắc nét hơn.
+2. **Positional Encoding gây nhiễu**: Cú sốc lớn nhất! Tắt tọa độ `xy` đi lại giúp Accuracy đạt đỉnh 58.76%. Điều này chứng tỏ GNN đã tự học được vị trí tương đối thông qua các cạnh, còn nhét thêm tọa độ tuyệt đối chỉ làm mô hình Overfit.
+3. **Dim 128 vẫn là "Tử huyệt"**: Dù giảm LR xuống 1e-4, không gian 128 chiều vẫn quá rộng so với dữ liệu Graph của FER2013. Mãi mãi giữ Dim=64 hoặc 96.
+
+## 12. Kế hoạch Phase 5: Supervised Contrastive Motif Loss (SupCon)
+
+Rút kinh nghiệm từ `BaiHocTruocDo.md`: *"Học motif trước, rồi mới học classifier/relation"*. KD (Phase 4) sẽ không hoạt động vì Teacher D7 chưa đủ mạnh. Ta chuyển hẳn sang chiến lược **SupCon + Two-Stage Training**.
+
+- **Giai đoạn 1 (120 Epochs)**: Đóng băng (Freeze) toàn bộ Classifier. Ép mô hình học bằng `InfoNCE SupCon Loss` trên `motif_embeddings` để đẩy các Motif về thành 7 cụm class sắc nét.
+- **Giai đoạn 2 (120 Epochs)**: Tải lại Checkpoint Stage 1. Đóng băng GNN và Slot Attention. Chỉ bật lại Classifier để học phân loại bằng `CrossEntropy` trên đầu vào siêu sạch.
+
+## 13. Ràng buộc (KHÔNG phá)
 
 - ❌ KHÔNG rebuild graph_repo
 - ❌ KHÔNG sửa D5A/D7/D8B code

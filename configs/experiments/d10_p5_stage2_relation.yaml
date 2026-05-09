@@ -1,0 +1,23 @@
+# Phase 5 Stage 2: Semantic Relation Learning (CrossEntropy Only)
+inherits:
+  - d10_p5_stage1_supcon.yaml
+
+experiment:
+  name: d10_p5_stage2_relation
+
+paths:
+  resolved_output_root: output/d10_p5_stage2_relation
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_relation
+
+model:
+  freeze_classifier: false
+  freeze_encoder: true
+
+loss:
+  lambda_cls: 1.0          # Enable CrossEntropy
+  lambda_aux_ce: 0.3       # Enable Aux CrossEntropy
+  lambda_supcon: 0.0       # Disable SupCon (already frozen encoder anyway)

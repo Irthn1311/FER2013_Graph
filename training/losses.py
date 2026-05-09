@@ -877,6 +877,8 @@ class D10SlotMotifLoss(D6HierarchicalMotifLoss):
         cfg.setdefault("slot_balance_type", "kl_uniform")
         super().__init__(cfg)
         self.lambda_aux_ce = float(cfg.get("lambda_aux_ce", 0.3))
+        self.lambda_supcon = float(cfg.get("lambda_supcon", 0.0))
+        self.supcon_temperature = float(cfg.get("supcon_temperature", 0.1))
 
     def forward(
         self,
@@ -895,9 +897,41 @@ class D10SlotMotifLoss(D6HierarchicalMotifLoss):
             loss_aux_ce = out["loss"].new_zeros(())
 
         total = out["loss"] + self.lambda_aux_ce * loss_aux_ce
+        out["loss_aux_ce"] = loss_aux_ce
+
+        # 3. Supervised Contrastive Loss (SupCon) on Motifs
+        motif_embeddings = model_out.get("motif_embeddings")
+        if torch.is_tensor(motif_embeddings) and self.lambda_supcon > 0.0 and y.shape[0] > 1:
+            z = motif_embeddings.mean(dim=1)  # [B, D]
+            z = F.normalize(z, dim=-1, eps=self.eps)
+            temperature = max(self.supcon_temperature, self.eps)
+            sim = (z @ z.transpose(0, 1)) / temperature
+            bsz = sim.shape[0]
+            self_mask = torch.eye(bsz, dtype=torch.bool, device=sim.device)
+            positive_mask = y.view(-1, 1).eq(y.view(1, -1)) & ~self_mask
+            valid_anchor = positive_mask.any(dim=1)
+            
+            if bool(valid_anchor.any()):
+                non_self_logits = sim.masked_fill(self_mask, -float("inf"))
+                max_logits = non_self_logits.max(dim=1, keepdim=True).values
+                max_logits = torch.where(torch.isfinite(max_logits), max_logits, torch.zeros_like(max_logits))
+                stable_logits = sim - max_logits.detach()
+                exp_logits = stable_logits.exp().masked_fill(self_mask, 0.0)
+                log_prob = stable_logits - exp_logits.sum(dim=1, keepdim=True).clamp_min(self.eps).log()
+                
+                pos_float = positive_mask.to(dtype=log_prob.dtype)
+                pos_count = pos_float.sum(dim=1).clamp_min(1.0)
+                per_anchor = -(log_prob * pos_float).sum(dim=1) / pos_count
+                loss_supcon = per_anchor[valid_anchor].mean()
+            else:
+                loss_supcon = out["loss"].new_zeros(())
+        else:
+            loss_supcon = out["loss"].new_zeros(())
+
+        total = total + self.lambda_supcon * loss_supcon
         out["loss"] = total
         out["total_loss"] = total
-        out["loss_aux_ce"] = loss_aux_ce
+        out["loss_supcon"] = loss_supcon
 
         # Add accuracy diagnostics
         logits = model_out.get("logits")

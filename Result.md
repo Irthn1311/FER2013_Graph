@@ -1,5 +1,0 @@
-d7a_graph_swin_window_mha.yaml
-d7a_graph_swin_window4.yaml
-d7a_graph_swin_window8.yaml
-d7a_graph_swin_attn_plus_mean.yaml
-d7a_graph_swin_region_transformer.yaml

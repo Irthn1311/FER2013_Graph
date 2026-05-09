@@ -1,0 +1,38 @@
+# Phase 5 Stage 1: Motif Concept Sculpting (SupCon Only)
+inherits:
+  - d10_p2_1_multiscale.yaml
+
+experiment:
+  name: d10_p5_stage1_supcon
+
+paths:
+  resolved_output_root: output/d10_p5_stage1_supcon
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p5_stage1_supcon
+
+model:
+  slot_iterations: 5
+  use_position_encoding: false
+  multi_scale_gnn: true
+  residual_slot_connection: true
+  use_slot_refinement: true
+  freeze_classifier: true
+
+loss:
+  lambda_cls: 0.0          # Disable CrossEntropy
+  lambda_aux_ce: 0.0       # Disable Aux CrossEntropy
+  lambda_supcon: 1.0       # Enable SupCon
+  supcon_temperature: 0.1
+
+training:
+  epochs: 120
+  early_stopping_patience: 30
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 120
+  min_lr: 0.000001
