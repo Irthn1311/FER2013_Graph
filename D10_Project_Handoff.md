@@ -224,3 +224,29 @@ Rút kinh nghiệm từ `BaiHocTruocDo.md`: *"Học motif trước, rồi mới 
 - ❌ KHÔNG dùng CSV split gốc
 - ✅ graph_repo là nguồn dữ liệu duy nhất
 - ✅ Reuse SharedPixelEncoder, D5Trainer, common.py
+
+## 14. Báo Cáo Thực Thi Phase 5 (Khủng Hoảng & Phục Hồi)
+
+Quá trình thực thi Phase 5 gặp nhiều biến động lớn khi nỗ lực giải quyết vấn đề Slot Collapse và Overfitting.
+
+### 14.1 Run 1 (Baseline Two-Stage)
+- **Cấu hình**: Stage 1 dùng `Mean-Pooled SupCon`. Stage 2 dùng `freeze_encoder: false`, dropout 0.2.
+- **Kết quả**: Test F1 **0.6130**.
+- **Vấn đề**: Bị overfit nặng (Train F1 0.87). Do `freeze_encoder: false`, Stage 2 thực chất phá vỡ một phần Stage 1 và train lại từ đầu. Slot collapse vẫn diễn ra.
+
+### 14.2 Run 2 & Run 3 (Sự thất bại của Per-Slot SupCon)
+- **Hành động**: Viết lại hàm `_contrast_loss` thành Per-Slot SupCon (tính SupCon riêng cho từng slot để ép tách biệt). 
+- **Chạy Run 2**: `freeze_encoder: true` ở Stage 2, thêm heavy regularization (dropout 0.4, label smoothing 0.1, weight decay 0.01). Kết quả F1 sụp xuống **0.4289**. Joint training (CE+SupCon) bị crash và cho F1 **0.3541**.
+- **Chạy Run 3**: Thả lỏng `freeze_encoder: false` và giảm regularization (bản MinReg giống hệt Run 1). Kết quả F1 vẫn thảm hại ở mức **0.4377**.
+- **Chẩn đoán (Post-mortem)**: Bản MinReg của Run 3 giống hệt Run 1 về mọi mặt, ngoại trừ việc dùng Checkpoint Per-Slot SupCon. Điều này chứng minh **Per-Slot SupCon đã phá hủy encoder**. Ép từng vùng trên khuôn mặt (trán, cằm) phải gom cụm theo cảm xúc sinh ra gradient nhiễu, đẩy encoder vào local minimum tồi tệ mà Stage 2 không thể cứu vãn.
+
+### 14.3 Run 4 (Kế Hoạch Phục Hồi)
+Dựa trên bằng chứng từ Run 3, chúng ta nhận ra nền tảng tốt nhất vẫn là Run 1.
+- **Hành động đã làm**: 
+  - `REVERT` code trong `losses.py`: Quay lại `Mean-Pooled SupCon`.
+  - Giữ lại Checkpoint Stage 1 của Run 1.
+- **Cấu hình chạy Run 4 (Chỉ Stage 2)**:
+  - Bản 1 (Moderate Reg): `dropout: 0.25`, `label_smoothing: 0.05`, `weight_decay: 0.0005`, 100 epochs.
+  - Bản 2 (Strong Reg): `dropout: 0.30`, `label_smoothing: 0.08`, `weight_decay: 0.001`, 80 epochs.
+  - Cả hai đều `freeze_encoder: false` (bắt buộc, vì motif chưa đủ tốt để đóng băng).
+- **Kỳ vọng**: Vượt qua mốc 0.6130 bằng cách xử lý dứt điểm Overfitting của Run 1. Khung thời gian chạy: ~3.5h - 4h trên Kaggle.

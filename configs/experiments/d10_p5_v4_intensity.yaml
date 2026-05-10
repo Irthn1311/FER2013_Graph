@@ -1,0 +1,62 @@
+# D10 V4: Pure Intensity Graph (Chống Overfitting bằng Feature Reduction)
+inherits:
+  - d10_p2_1_multiscale.yaml
+
+experiment:
+  name: d10_p5_v4_intensity
+
+paths:
+  graph_repo_path: artifacts/graph_repo_intensity
+  resolved_output_root: output/d10_p5_v4_intensity
+
+environments:
+  kaggle:
+    paths:
+      graph_repo_path: /kaggle/working/graph_repo_intensity
+      resolved_output_root: /kaggle/working/outputs/d10_p5_v4_intensity
+
+graph:
+  # Cắt giảm 6 features nhiễu, chỉ giữ lại pixel gốc!
+  node_feature_names:
+    - intensity
+
+model:
+  node_dim: 1                 # Chuyển từ 7 xuống 1
+  slot_iterations: 5
+  use_position_encoding: false
+  multi_scale_gnn: true
+  residual_slot_connection: true
+  use_slot_refinement: true
+  freeze_classifier: false
+  freeze_encoder: false
+  dropout: 0.3                # Reg vừa phải
+
+loss:
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.0          # Không dùng SupCon
+  label_smoothing: 0.05
+
+optimizer:
+  weight_decay: 0.001
+
+training:
+  epochs: 80
+  early_stopping_patience: 25
+  monitor: val_macro_f1
+  val_frequency: 3
+  batch_size: 128             # Graph nhẹ đi 7 lần -> Tăng batch size để train cực nhanh!
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 80
+  min_lr: 0.000001
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max

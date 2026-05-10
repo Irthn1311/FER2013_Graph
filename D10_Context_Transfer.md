@@ -91,3 +91,37 @@ Thỏa mãn quy tắc vàng: *"Học motif trước, rồi mới học classifie
   - **Logic**: Khóa toàn bộ tầng GNN và Slot Attention. Mở khóa tầng `MotifRelation` và `Classifier` để train bằng `CrossEntropy`. Nhờ đầu vào Motif đã được tách biệt rõ rệt (cluster hóa), bộ phân loại sẽ ngay lập tức vẽ được ranh giới siêu phẳng giữa các cảm xúc khó như Fear và Disgust.
 
 *Chỉ thị cho AI phiên tới:* Khi 10 bản Sweep có kết quả, chọn bản có siêu tham số tốt nhất (vd: Sqrt Weights hoặc Dim 128) để làm nền tảng viết code Phase 5!
+
+## 8. BÁCH KHOA TOÀN THƯ THỬ NGHIỆM TỪ PHASE 5 (TWO-STAGE SUPCON)
+Phase 5 là một hành trình dài và đầy biến động. Mục tiêu ban đầu là giải quyết 2 vấn đề:
+1. **Slot Collapse**: Các slot bị trùng lặp, không học được đặc trưng riêng.
+2. **Overfitting**: Gap giữa Train và Val F1 quá lớn (~0.27).
+
+### 8.1 Lịch Sử Các Lần Chạy (Runs) & Kết Quả
+
+| Run | Cấu hình & Tinh chỉnh | Kết quả (Test F1) | Phân tích cốt lõi |
+|---|---|---|---|
+| **Run 1** (Baseline Two-Stage) | Mean-pooled SupCon ở Stage 1.<br>Stage 2: `freeze_encoder: false`, không có anti-overfitting (dropout=0.2). | **0.6130** | Vượt mốc 0.61 nhưng bị overfitting rất nặng (Train F1 0.87 vs Val F1 0.60). GNN và Slot Attention thực chất bị train lại từ đầu do `freeze_encoder: false`. |
+| **Run 2** (Per-Slot SupCon) | Code `losses.py` đổi thành **Per-slot SupCon**. Thêm `slot_div: 0.1`.<br>Stage 2: `freeze_encoder: true`, heavy reg (dropout=0.4, label_smoothing=0.1, weight_decay=0.01). | **0.4289** | **Thảm họa**. Việc `freeze_encoder: true` khiến classifier không thể nhận được đặc trưng tốt từ encoder. Anti-overfit quá mạnh bóp nghẹt mô hình. |
+| **Run 2** (Joint) | Train 1 mạch CE + Per-slot SupCon đồng thời. Heavy reg tương tự Run 2. Bị crash do `torch.compile` + GRU. | **0.3541** | Sụp đổ hoàn toàn do regularization quá đà và xung đột quá nhiều loại loss cùng lúc. |
+| **Run 3** (Standard & MinReg) | Stage 1 giữ nguyên Per-slot SupCon.<br>Stage 2: Quay lại `freeze_encoder: false`. Thử reg nhẹ (dropout=0.3) và MinReg (giống hệt Run 1). | **0.4377** - **0.4417** | **Bằng chứng chí mạng**. Run 3 MinReg giống hệt Run 1 về mọi mặt ở Stage 2, chỉ khác là checkpoint Stage 1 dùng Per-Slot SupCon thay vì Mean-Pooled. F1 rớt từ 0.6130 xuống 0.4377. |
+
+### 8.2 Chẩn Đoán Cốt Lõi: Tại Sao Per-Slot SupCon Phá Hủy Encoder?
+Ý tưởng Per-Slot SupCon là ép *từng slot* (từng vùng của khuôn mặt) phải gom cụm theo biểu cảm cảm xúc (label).
+Tuy nhiên, điều này **sai về mặt ngữ nghĩa hình ảnh**:
+- Không phải mọi vùng trên khuôn mặt đều chứa cảm xúc. Ví dụ: Slot 1 focus vào *trán* hay *cổ*. Trán/cổ của người buồn và người vui trông giống hệt nhau.
+- Khi ép Slot 1 phải gom cụm theo cảm xúc, Contrastive Loss đã sinh ra các gradient "rác", ép encoder tìm ra các pattern ảo không tồn tại.
+- Hậu quả: Encoder rơi vào local minimum xấu. Representations bị phá vỡ hoàn toàn, khiến Stage 2 (dù có unfreeze) cũng không thể cứu vãn được.
+
+**Khác biệt với Mean-Pooled SupCon (Run 1):**
+Mean-pooled (trung bình 8 slot) nhìn vào *tổng thể khuôn mặt*. Loss chỉ ép tổng thể này gom cụm, do đó mạng nơ-ron tự do chọn vùng nào để focus mà không bị ép uổng.
+
+### 8.3 Con Đường Khắc Phục (Hướng Tới Run 4)
+Dựa trên bằng chứng sắt đá từ Run 3 MinReg, chúng ta đã đưa ra 3 quyết định kỹ thuật tối quan trọng:
+1. **REVERT Code**: Quay về `Mean-Pooled SupCon` trong `losses.py`. Per-slot SupCon chính thức bị loại bỏ.
+2. **Khôi phục Checkpoint**: Stage 1 của Run 1 (Mean-Pooled) là checkpoint tốt nhất hiện tại. Các lần train Stage 2 tiếp theo **BẮT BUỘC** phải dùng checkpoint này.
+3. **Bài toán duy nhất còn lại - Anti-Overfitting**: Vì Run 1 bị overfit, hướng đi duy nhất là chạy Stage 2 (dựa trên checkpoint Run 1) với Regularization **vừa phải** (nằm giữa sự lỏng lẻo của Run 1 và sự khắt khe của Run 2):
+   - `dropout`: 0.25 - 0.30 (thay vì 0.2 hoặc 0.4)
+   - `label_smoothing`: 0.05 - 0.08 (thay vì 0.0 hoặc 0.1)
+   - `weight_decay`: 0.0005 - 0.001 (thay vì 1e-4 hoặc 1e-2)
+   - `freeze_encoder`: false (vẫn cho phép GNN/Slot fine-tune).
