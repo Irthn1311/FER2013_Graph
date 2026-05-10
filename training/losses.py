@@ -899,35 +899,30 @@ class D10SlotMotifLoss(D6HierarchicalMotifLoss):
         total = out["loss"] + self.lambda_aux_ce * loss_aux_ce
         out["loss_aux_ce"] = loss_aux_ce
 
-        # 3. Per-Slot Supervised Contrastive Loss (SupCon) on Motifs
-        # Each slot computes SupCon independently to prevent slot collapse.
-        # Combined with slot_div, each slot attends to different regions
-        # while clustering same-emotion samples together.
+        # 3. Supervised Contrastive Loss (SupCon) on Motifs
         motif_embeddings = model_out.get("motif_embeddings")
         if torch.is_tensor(motif_embeddings) and self.lambda_supcon > 0.0 and y.shape[0] > 1:
+            z = motif_embeddings.mean(dim=1)  # [B, D]
+            z = F.normalize(z, dim=-1, eps=self.eps)
             temperature = max(self.supcon_temperature, self.eps)
-            bsz = y.shape[0]
-            self_mask = torch.eye(bsz, dtype=torch.bool, device=y.device)
+            sim = (z @ z.transpose(0, 1)) / temperature
+            bsz = sim.shape[0]
+            self_mask = torch.eye(bsz, dtype=torch.bool, device=sim.device)
             positive_mask = y.view(-1, 1).eq(y.view(1, -1)) & ~self_mask
             valid_anchor = positive_mask.any(dim=1)
 
             if bool(valid_anchor.any()):
-                K = motif_embeddings.shape[1]  # number of slots
-                slot_losses = []
-                for k in range(K):
-                    z_k = F.normalize(motif_embeddings[:, k, :], dim=-1, eps=self.eps)
-                    sim_k = (z_k @ z_k.transpose(0, 1)) / temperature
-                    non_self = sim_k.masked_fill(self_mask, -float("inf"))
-                    max_val = non_self.max(dim=1, keepdim=True).values
-                    max_val = torch.where(torch.isfinite(max_val), max_val, torch.zeros_like(max_val))
-                    stable = sim_k - max_val.detach()
-                    exp_log = stable.exp().masked_fill(self_mask, 0.0)
-                    log_prob = stable - exp_log.sum(dim=1, keepdim=True).clamp_min(self.eps).log()
-                    pos_float = positive_mask.to(dtype=log_prob.dtype)
-                    pos_count = pos_float.sum(dim=1).clamp_min(1.0)
-                    per_anchor = -(log_prob * pos_float).sum(dim=1) / pos_count
-                    slot_losses.append(per_anchor[valid_anchor].mean())
-                loss_supcon = torch.stack(slot_losses).mean()
+                non_self_logits = sim.masked_fill(self_mask, -float("inf"))
+                max_logits = non_self_logits.max(dim=1, keepdim=True).values
+                max_logits = torch.where(torch.isfinite(max_logits), max_logits, torch.zeros_like(max_logits))
+                stable_logits = sim - max_logits.detach()
+                exp_logits = stable_logits.exp().masked_fill(self_mask, 0.0)
+                log_prob = stable_logits - exp_logits.sum(dim=1, keepdim=True).clamp_min(self.eps).log()
+
+                pos_float = positive_mask.to(dtype=log_prob.dtype)
+                pos_count = pos_float.sum(dim=1).clamp_min(1.0)
+                per_anchor = -(log_prob * pos_float).sum(dim=1) / pos_count
+                loss_supcon = per_anchor[valid_anchor].mean()
             else:
                 loss_supcon = out["loss"].new_zeros(())
         else:

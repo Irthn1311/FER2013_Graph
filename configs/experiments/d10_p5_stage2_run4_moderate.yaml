@@ -1,0 +1,49 @@
+# Run 4 Slot 1: Moderate regularization trên nền Run 1 checkpoint
+# Dùng checkpoint Stage 1 CŨ (mean-pooled SupCon từ Run 1)
+inherits:
+  - d10_p5_stage1_supcon.yaml
+
+experiment:
+  name: d10_p5_stage2_run4_moderate
+
+paths:
+  resolved_output_root: output/d10_p5_stage2_run4_moderate
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_run4_moderate
+
+model:
+  freeze_classifier: false
+  freeze_encoder: false
+  dropout: 0.25
+
+loss:
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.0
+  label_smoothing: 0.05
+
+optimizer:
+  weight_decay: 0.0005
+
+training:
+  epochs: 100
+  early_stopping_patience: 30
+  monitor: val_macro_f1
+  val_frequency: 3
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 100
+  min_lr: 0.000001
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max
