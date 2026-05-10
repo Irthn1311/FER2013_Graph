@@ -1,4 +1,5 @@
-# Phase 5 Stage 2: Semantic Relation Learning (Anti-Overfitting + Hard Class)
+# Phase 5 Stage 2: Semantic Relation Learning (Balanced Regularization)
+# freeze_encoder: false + light anti-overfitting
 inherits:
   - d10_p5_stage1_supcon.yaml
 
@@ -15,30 +16,28 @@ environments:
 
 model:
   freeze_classifier: false
-  freeze_encoder: true       # Keep frozen: Stage 1 now produces good motifs
-  dropout: 0.4               # Anti-overfitting (was 0.2)
+  freeze_encoder: false       # MUST be false - Stage 1 motifs not good enough to freeze
+  dropout: 0.3                # Light regularization (Run1=0.2 overfit, Run2=0.4 underfit)
 
 loss:
   lambda_cls: 1.0
   lambda_aux_ce: 0.3
   lambda_supcon: 0.0
-  label_smoothing: 0.1       # Anti-overfitting
-  focal_gamma: 2.0           # Focus on hard classes (Fear, Sad, Angry)
-  class_weight_power: 0.5    # Boost minority classes more (was 0.25)
+  label_smoothing: 0.05       # Light smoothing (Run2=0.1 was too aggressive)
 
 optimizer:
-  weight_decay: 0.01          # Anti-overfitting (was 0.0001)
+  weight_decay: 0.001         # Moderate (Run1=0.0001 too low, Run2=0.01 too high)
 
 training:
-  epochs: 60                  # Reduced from 120 (was overfitting after ep60)
-  early_stopping_patience: 20
+  epochs: 80                  # Run1 peaked at ep108, give it room
+  early_stopping_patience: 25
   monitor: val_macro_f1
   val_frequency: 3
 
 scheduler:
   name: cosine_warmup
   warmup_epochs: 5
-  t_max: 60                   # Match epochs
+  t_max: 80
   min_lr: 0.000001
 
 checkpoint:

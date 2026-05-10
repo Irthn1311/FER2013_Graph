@@ -1,17 +1,18 @@
-# Phase 5 Joint: Single-stage CE + SupCon + Slot Diversity (no two-stage)
+# Joint Light SupCon: CE chủ đạo, SupCon chỉ hỗ trợ nhẹ
+# Mục đích: Test xem SupCon=0.1 (thay vì 0.3) có cân bằng hơn không
 inherits:
   - d10_p2_1_multiscale.yaml
 
 experiment:
-  name: d10_p5_joint
+  name: d10_p5_joint_light
 
 paths:
-  resolved_output_root: output/d10_p5_joint
+  resolved_output_root: output/d10_p5_joint_light
 
 environments:
   kaggle:
     paths:
-      resolved_output_root: /kaggle/working/outputs/d10_p5_joint
+      resolved_output_root: /kaggle/working/outputs/d10_p5_joint_light
 
 model:
   slot_iterations: 5
@@ -24,11 +25,11 @@ model:
   dropout: 0.3
 
 loss:
-  lambda_cls: 1.0            # CE for classification
-  lambda_aux_ce: 0.3         # Auxiliary CE
-  lambda_supcon: 0.3         # Per-slot SupCon for clustering
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.1         # Nhẹ hơn (Joint dùng 0.3) - CE chiếm ưu thế
   supcon_temperature: 0.07
-  lambda_slot_div: 0.05      # Prevent slot collapse
+  lambda_slot_div: 0.03      # Nhẹ hơn Joint (0.05)
   lambda_slot_balance: 0.005
   label_smoothing: 0.05
 
@@ -40,7 +41,7 @@ training:
   early_stopping_patience: 25
   val_frequency: 3
   monitor: val_macro_f1
-  use_compile: false          # CRITICAL: torch.compile crashes with GRU in SlotAttention
+  use_compile: false
 
 scheduler:
   name: cosine_warmup

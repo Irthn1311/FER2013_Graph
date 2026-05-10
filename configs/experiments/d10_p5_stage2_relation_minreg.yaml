@@ -1,37 +1,48 @@
+# Stage 2 MinReg: Gần giống Run 1 nhưng dùng checkpoint per-slot SupCon
+# Mục đích: Cô lập hiệu quả của per-slot SupCon init
 inherits:
-  - d10_p5_stage1_supcon_smooth.yaml
+  - d10_p5_stage1_supcon.yaml
+
 experiment:
-  name: d10_p5_stage2_relation_smooth
+  name: d10_p5_stage2_relation_minreg
+
 paths:
-  resolved_output_root: output/d10_p5_stage2_relation_smooth
+  resolved_output_root: output/d10_p5_stage2_relation_minreg
+
 environments:
   kaggle:
     paths:
-      resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_relation_smooth
+      resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_relation_minreg
+
 model:
   freeze_classifier: false
   freeze_encoder: false
-  dropout: 0.3
+  dropout: 0.2                # Giống Run 1
+
 loss:
   lambda_cls: 1.0
   lambda_aux_ce: 0.3
   lambda_supcon: 0.0
-  label_smoothing: 0.05
+
 optimizer:
-  weight_decay: 0.001
+  weight_decay: 0.0001        # Giống Run 1
+
 training:
   epochs: 80
   early_stopping_patience: 25
   monitor: val_macro_f1
   val_frequency: 3
+
 scheduler:
   name: cosine_warmup
   warmup_epochs: 5
   t_max: 80
   min_lr: 0.000001
+
 checkpoint:
   save_best_metric: val_macro_f1
   save_best_mode: max
+
 early_stopping:
   monitor: val_macro_f1
   mode: max
