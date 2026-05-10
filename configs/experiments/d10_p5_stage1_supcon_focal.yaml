@@ -9,6 +9,9 @@ environments:
     paths:
       resolved_output_root: /kaggle/working/outputs/d10_p5_stage1_supcon_focal
 
+training:
+  monitor: val_loss
+
 checkpoint:
   save_best_metric: val_loss
   save_best_mode: min
@@ -17,5 +20,3 @@ early_stopping:
   monitor: val_loss
   mode: min
 
-training:
-  monitor: val_loss

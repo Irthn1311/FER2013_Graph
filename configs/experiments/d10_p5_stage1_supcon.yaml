@@ -1,4 +1,4 @@
-# Phase 5 Stage 1: Motif Concept Sculpting (SupCon Only)
+# Phase 5 Stage 1: Motif Concept Sculpting (Per-Slot SupCon + Slot Diversity)
 inherits:
   - d10_p2_1_multiscale.yaml
 
@@ -24,17 +24,20 @@ model:
 loss:
   lambda_cls: 0.0          # Disable CrossEntropy
   lambda_aux_ce: 0.0       # Disable Aux CrossEntropy
-  lambda_supcon: 1.0       # Enable SupCon
-  supcon_temperature: 0.1
+  lambda_supcon: 1.0       # Enable Per-Slot SupCon
+  supcon_temperature: 0.07  # Sharper clustering (was 0.1)
+  lambda_slot_div: 0.1     # CRITICAL: prevent slot collapse
+  lambda_slot_balance: 0.01 # Balanced slot areas
 
 training:
-  epochs: 120
-  early_stopping_patience: 30
+  epochs: 80               # Reduced from 120 for speed
+  early_stopping_patience: 25
+  val_frequency: 5          # Validate every 5 epochs for speed
 
 scheduler:
   name: cosine_warmup
   warmup_epochs: 5
-  t_max: 120
+  t_max: 80                 # Match epochs
   min_lr: 0.000001
 
 checkpoint:

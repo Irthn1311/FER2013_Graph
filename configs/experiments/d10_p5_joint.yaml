@@ -1,0 +1,58 @@
+# Phase 5 Joint: Single-stage CE + SupCon + Slot Diversity (no two-stage)
+inherits:
+  - d10_p2_1_multiscale.yaml
+
+experiment:
+  name: d10_p5_joint
+
+paths:
+  resolved_output_root: output/d10_p5_joint
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_p5_joint
+
+model:
+  slot_iterations: 5
+  use_position_encoding: false
+  multi_scale_gnn: true
+  residual_slot_connection: true
+  use_slot_refinement: true
+  freeze_classifier: false
+  freeze_encoder: false
+  dropout: 0.35
+
+loss:
+  lambda_cls: 1.0            # CE for classification
+  lambda_aux_ce: 0.3         # Auxiliary CE
+  lambda_supcon: 0.3         # Per-slot SupCon for clustering
+  supcon_temperature: 0.07
+  lambda_slot_div: 0.05      # Prevent slot collapse
+  lambda_slot_balance: 0.005
+  label_smoothing: 0.1
+  focal_gamma: 2.0
+  class_weight_power: 0.5
+
+optimizer:
+  weight_decay: 0.005
+
+training:
+  epochs: 80
+  early_stopping_patience: 20
+  val_frequency: 3
+  monitor: val_macro_f1
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 80
+  min_lr: 0.000001
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max

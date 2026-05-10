@@ -11,6 +11,9 @@ environments:
 optimizer:
   lr: 0.0005
 
+training:
+  monitor: val_loss
+
 checkpoint:
   save_best_metric: val_loss
   save_best_mode: min
@@ -19,5 +22,3 @@ early_stopping:
   monitor: val_loss
   mode: min
 
-training:
-  monitor: val_loss

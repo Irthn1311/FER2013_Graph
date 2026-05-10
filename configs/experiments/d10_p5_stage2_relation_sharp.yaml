@@ -10,19 +10,30 @@ environments:
       resolved_output_root: /kaggle/working/outputs/d10_p5_stage2_relation_sharp
 model:
   freeze_classifier: false
-  freeze_encoder: false
+  freeze_encoder: true
+  dropout: 0.4
 loss:
   lambda_cls: 1.0
   lambda_aux_ce: 0.3
   lambda_supcon: 0.0
-
+  label_smoothing: 0.1
+  focal_gamma: 2.0
+  class_weight_power: 0.5
+optimizer:
+  weight_decay: 0.01
+training:
+  epochs: 60
+  early_stopping_patience: 20
+  monitor: val_macro_f1
+  val_frequency: 3
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 60
+  min_lr: 0.000001
 checkpoint:
   save_best_metric: val_macro_f1
   save_best_mode: max
-
-training:
-  monitor: val_macro_f1
-
 early_stopping:
   monitor: val_macro_f1
   mode: max
