@@ -1,0 +1,51 @@
+# Final Stage 1: SupCon trên Đồ thị 7 Features chuẩn
+inherits:
+  - d10_p2_1_multiscale.yaml
+
+experiment:
+  name: d10_final_stage1_supcon
+
+paths:
+  resolved_output_root: output/d10_final_stage1_supcon
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_final_stage1_supcon
+    training:
+      batch_size: 64
+
+model:
+  slot_iterations: 5
+  multi_scale_gnn: true
+  residual_slot_connection: true
+  use_slot_refinement: true
+  freeze_classifier: true     # Đóng băng classifier, chỉ học biểu diễn
+  freeze_encoder: false
+
+loss:
+  lambda_cls: 0.0             # Tắt Cross-Entropy
+  lambda_aux_ce: 0.0
+  lambda_supcon: 1.0          # Bật SupCon Toàn cục (Mean-Pooled)
+  supcon_temperature: 0.1
+  lambda_slot_div: 0.1
+  lambda_slot_balance: 0.01
+
+training:
+  epochs: 80
+  early_stopping_patience: 25
+  val_frequency: 5
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 80
+  min_lr: 0.000001
+
+checkpoint:
+  save_best_metric: val_loss
+  save_best_mode: min
+
+early_stopping:
+  monitor: val_loss
+  mode: min
