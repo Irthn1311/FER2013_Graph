@@ -1,0 +1,65 @@
+# D10 V5: Intensity + Tọa độ (Chống Overfitting nhưng vẫn giữ định hướng không gian)
+inherits:
+  - d10_p2_1_multiscale.yaml
+
+experiment:
+  name: d10_p5_v5_intensity_xy
+
+paths:
+  graph_repo_path: artifacts/graph_repo_intensity_xy
+  resolved_output_root: output/d10_p5_v5_intensity_xy
+
+environments:
+  kaggle:
+    paths:
+      graph_repo_path: /kaggle/working/graph_repo_intensity_xy
+      resolved_output_root: /kaggle/working/outputs/d10_p5_v5_intensity_xy
+    training:
+      batch_size: 64    # Ép cứng 64 để tránh OOM
+
+graph:
+  # Trả lại tọa độ X, Y để GNN biết pixel nằm ở đâu trên mặt
+  node_feature_names:
+    - intensity
+    - x_norm
+    - y_norm
+
+model:
+  node_dim: 3                 # Tăng từ 1 lên 3 (Intensity, X, Y)
+  slot_iterations: 5
+  use_position_encoding: false # Không dùng Fourier, dùng thẳng x_norm, y_norm
+  multi_scale_gnn: true
+  residual_slot_connection: true
+  use_slot_refinement: true
+  freeze_classifier: false
+  freeze_encoder: false
+  dropout: 0.3
+
+loss:
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.0          # Không dùng SupCon
+  label_smoothing: 0.05
+
+optimizer:
+  weight_decay: 0.001
+
+training:
+  epochs: 80
+  early_stopping_patience: 25
+  monitor: val_macro_f1
+  val_frequency: 3
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 80
+  min_lr: 0.000001
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max
