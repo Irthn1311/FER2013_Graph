@@ -1,0 +1,6 @@
+{
+  "source_graph_repo": "artifacts/graph-repo/graph_repo",
+  "sample_split": "test",
+  "graph_id": 0,
+  "note": "Schematic uses a small grid for readability; real graph has 2304 nodes."
+}

@@ -1,0 +1,30 @@
+[
+  {
+    "source": "output/graph_input_audit/figures/node_feature_histograms/train_intensity.png",
+    "label": "Intensity"
+  },
+  {
+    "source": "output/graph_input_audit/figures/node_feature_histograms/train_x_norm.png",
+    "label": "x_norm"
+  },
+  {
+    "source": "output/graph_input_audit/figures/node_feature_histograms/train_y_norm.png",
+    "label": "y_norm"
+  },
+  {
+    "source": "output/graph_input_audit/figures/node_feature_histograms/train_gx.png",
+    "label": "gx"
+  },
+  {
+    "source": "output/graph_input_audit/figures/node_feature_histograms/train_gy.png",
+    "label": "gy"
+  },
+  {
+    "source": "output/graph_input_audit/figures/node_feature_histograms/train_grad_mag.png",
+    "label": "grad_mag"
+  },
+  {
+    "source": "output/graph_input_audit/figures/node_feature_histograms/train_local_contrast.png",
+    "label": "local_contrast"
+  }
+]

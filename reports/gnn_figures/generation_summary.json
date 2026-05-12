@@ -1,0 +1,260 @@
+{
+  "output_dir": "reports/gnn_figures",
+  "created_count": 63,
+  "skipped_count": 0,
+  "created": [
+    [
+      "reports/gnn_figures/version_name_mapping.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/gnn_macro_f1_progression.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/gnn_macro_f1_progression_source.json",
+      "JSON source/evidence"
+    ],
+    [
+      "reports/gnn_figures/gnn_macro_f1_progression.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/d10_phase5_comparison.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/d10_phase5_comparison.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/confidence_d10_supcon_best.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/confusion_matrix_d10_supcon_best.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/confusion_matrix_d10_supcon_best_normalized.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/confusion_matrix_d10_supcon_best.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/confusion_matrix_d10_supcon_best_normalized.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/confusion_matrix_d10_moderate_reg.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/confusion_matrix_d10_moderate_reg_normalized.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/confusion_matrix_d10_moderate_reg.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/confusion_matrix_d10_moderate_reg_normalized.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/top_confusion_pairs_d10_supcon_best.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/top_confusion_pairs_d10_supcon_best.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/classification_report_d10_supcon_best.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/hard_classes_f1_d10_supcon_best.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/training_history_d10_supcon_best.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/train_val_macro_f1_d10_supcon_best.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/overfitting_gap_d10_supcon_best.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/overfitting_gap_d10_supcon_best.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/train_val_loss_d10_supcon_best.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/confidence_correct_vs_wrong.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/confidence_by_class.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/top2_margin_wrong_examples.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/correct_examples_d10_supcon_best.png",
+      "D10 evaluation correct examples from outputs/d10_slot_motif_full_outputs/d10_p5_standard/d10_p5_stage2_relation_outputs_lan2/evaluation/correct_examples.png"
+    ],
+    [
+      "reports/gnn_figures/wrong_examples_d10_supcon_best.png",
+      "D10 evaluation wrong examples from outputs/d10_slot_motif_full_outputs/d10_p5_standard/d10_p5_stage2_relation_outputs_lan2/evaluation/wrong_examples.png"
+    ],
+    [
+      "reports/gnn_figures/wrong_examples_d10_supcon_best.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/wrong_fear_as_sad_or_surprise.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/wrong_fear_as_sad_or_surprise.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/wrong_sad_as_neutral_or_fear.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/wrong_sad_as_neutral_or_fear.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/wrong_disgust_cases.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/wrong_disgust_cases.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/ambiguous_wrong_examples.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/ambiguous_wrong_examples.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/high_confidence_wrong_examples.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/high_confidence_wrong_examples.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/d10_attention_check.json",
+      "JSON source/evidence"
+    ],
+    [
+      "reports/gnn_figures/legacy_motif_visualization/d6b_class_part_attn_grid.png",
+      "legacy motif visualization copied from output/d6b_class_part_graph_motif/figures/d6_class_part_attention/class_part_attn_grid.png"
+    ],
+    [
+      "reports/gnn_figures/legacy_motif_visualization/d6b_class_part_attn_avg_by_true_class.png",
+      "legacy motif visualization copied from output/d6b_class_part_graph_motif/figures/d6_class_part_attention/class_part_attn_avg_by_true_class.png"
+    ],
+    [
+      "reports/gnn_figures/legacy_motif_visualization/d6b_class_pixel_motif_trueclass_avg.png",
+      "legacy motif visualization copied from output/d6b_class_part_graph_motif/figures/d6_class_motif_maps/class_pixel_motif_trueclass_avg.png"
+    ],
+    [
+      "reports/gnn_figures/legacy_motif_visualization/d9_clean_motif_overlay.png",
+      "legacy motif visualization copied from outputs/d9_f0_b_intensity_xy_full_edge/figures/motif_discovery_best/clean_motif_overlay.png"
+    ],
+    [
+      "reports/gnn_figures/legacy_motif_visualization/d9_selected_motif_overlay.png",
+      "legacy motif visualization copied from outputs/d9_f0_b_intensity_xy_full_edge/figures/motif_discovery_best/selected_motif_overlay.png"
+    ],
+    [
+      "reports/gnn_figures/legacy_motif_visualization/d9_motif_sample_000_top_maps.png",
+      "legacy motif visualization copied from outputs/d9_f0_b_intensity_xy_full_edge/figures/motif_discovery_best/motif_sample_000_top_maps.png"
+    ],
+    [
+      "reports/gnn_figures/legacy_motif_visualization/legacy_motif_visualization_sources.csv",
+      "CSV source/evidence"
+    ],
+    [
+      "reports/gnn_figures/pixel_graph_concept.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/pixel_graph_concept_source.json",
+      "JSON source/evidence"
+    ],
+    [
+      "reports/gnn_figures/node_feature_maps_sample.png",
+      "graph input feature map sample from output/graph_input_audit/figures/feature_maps_samples/sample_train_0_19950_feature_maps.png"
+    ],
+    [
+      "reports/gnn_figures/node_feature_histograms.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/node_feature_histograms.sources.json",
+      "JSON source/evidence"
+    ],
+    [
+      "reports/gnn_figures/edge_feature_histograms.png",
+      "PNG figure"
+    ],
+    [
+      "reports/gnn_figures/edge_feature_histograms.sources.json",
+      "JSON source/evidence"
+    ],
+    [
+      "reports/gnn_figures/README.md",
+      "README describing figures and sources"
+    ],
+    [
+      "reports/gnn_figures/slot_attention_examples_d10_supcon_best.png",
+      "D10 attention figure/source from checkpoint inference"
+    ],
+    [
+      "reports/gnn_figures/slot_attention_examples_d10_supcon_best.csv",
+      "D10 attention figure/source from checkpoint inference"
+    ],
+    [
+      "reports/gnn_figures/class_motif_attention_examples_d10_supcon_best.png",
+      "D10 attention figure/source from checkpoint inference"
+    ],
+    [
+      "reports/gnn_figures/class_motif_attention_examples_d10_supcon_best.csv",
+      "D10 attention figure/source from checkpoint inference"
+    ],
+    [
+      "reports/gnn_figures/slot_attention_wrong_cases.png",
+      "D10 attention figure/source from checkpoint inference"
+    ],
+    [
+      "reports/gnn_figures/slot_attention_wrong_cases.csv",
+      "D10 attention figure/source from checkpoint inference"
+    ],
+    [
+      "reports/gnn_figures/d10_attention_check.json",
+      "D10 attention figure/source from checkpoint inference"
+    ]
+  ],
+  "skipped": []
+}

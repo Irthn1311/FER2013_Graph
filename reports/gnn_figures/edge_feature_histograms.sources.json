@@ -1,0 +1,22 @@
+[
+  {
+    "source": "output/graph_input_audit/figures/edge_feature_histograms/train_dx.png",
+    "label": "dx"
+  },
+  {
+    "source": "output/graph_input_audit/figures/edge_feature_histograms/train_dy.png",
+    "label": "dy"
+  },
+  {
+    "source": "output/graph_input_audit/figures/edge_feature_histograms/train_dist.png",
+    "label": "dist"
+  },
+  {
+    "source": "output/graph_input_audit/figures/edge_feature_histograms/train_delta_intensity.png",
+    "label": "delta_intensity"
+  },
+  {
+    "source": "output/graph_input_audit/figures/edge_feature_histograms/train_intensity_similarity.png",
+    "label": "intensity_similarity"
+  }
+]

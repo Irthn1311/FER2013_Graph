@@ -1,0 +1,25 @@
+{
+  "model_forward_returns": [
+    "slot_attn_maps",
+    "class_motif_attn"
+  ],
+  "checkpoint": "outputs/d10_slot_motif_full_outputs/d10_p5_standard/d10_p5_stage2_relation_outputs_lan2/checkpoints/best.pth",
+  "config": "outputs/d10_slot_motif_full_outputs/d10_p5_standard/d10_p5_stage2_relation_outputs_lan2/resolved_config.yaml",
+  "graph_repo": "artifacts/graph-repo/graph_repo",
+  "selected_graph_ids": [
+    3461,
+    2397,
+    868,
+    1418,
+    912,
+    2249,
+    1418,
+    2249,
+    2343,
+    1091,
+    2976,
+    1949
+  ],
+  "status": "created",
+  "note": "Inference only on existing test graph_repo; no training."
+}

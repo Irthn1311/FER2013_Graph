@@ -1,0 +1,74 @@
+[
+  {
+    "report_name": "Baseline Motif-GNN",
+    "output_path": "output/d5a",
+    "best_epoch": 21.0,
+    "accuracy": 0.40540540540540543,
+    "macro_f1": 0.2926539537047689,
+    "weighted_f1": 0.35873429710672905,
+    "metrics_path": "output/d5a/evaluation/metrics.json"
+  },
+  {
+    "report_name": "Hierarchical Motif-GNN",
+    "output_path": "output/d6a_slot_pixel_part_graph_motif",
+    "best_epoch": 40.0,
+    "accuracy": 0.5310671496238507,
+    "macro_f1": 0.48878139085463995,
+    "weighted_f1": 0.5261745138822453,
+    "metrics_path": "output/d6a_slot_pixel_part_graph_motif/evaluation/metrics.json"
+  },
+  {
+    "report_name": "Refined Part-Motif GNN",
+    "output_path": "output/d6b_class_part_graph_motif_border075_long150",
+    "best_epoch": 130.0,
+    "accuracy": 0.5589300640847032,
+    "macro_f1": 0.5251746684248442,
+    "weighted_f1": 0.5519523837407514,
+    "metrics_path": "output/d6b_class_part_graph_motif_border075_long150/evaluation/metrics.json"
+  },
+  {
+    "report_name": "D9 Motif Pooling",
+    "output_path": "outputs/d9_rg_b_no_mr_pooled_mlp_diag20_cap300v100",
+    "best_epoch": 18,
+    "accuracy": 0.22125,
+    "macro_f1": 0.167418567328483,
+    "weighted_f1": 0.19838897325835686,
+    "metrics_path": "outputs/d9_rg_b_no_mr_pooled_mlp_diag20_cap300v100/metrics/val_metrics.json"
+  },
+  {
+    "report_name": "D10 Slot-Attention Fast",
+    "output_path": "outputs/d10_slot_motif_full_outputs/d10_slot_motif_fast/20260508_092631",
+    "best_epoch": 78.0,
+    "accuracy": 0.5408191696851491,
+    "macro_f1": 0.5017776974338849,
+    "weighted_f1": 0.5295476193396977,
+    "metrics_path": "outputs/d10_slot_motif_full_outputs/d10_slot_motif_fast/20260508_092631/evaluation/metrics.json"
+  },
+  {
+    "report_name": "D10 Slot Refinement",
+    "output_path": "outputs/d10_slot_motif_full_outputs/d10_p3_5_iter5",
+    "best_epoch": 80.0,
+    "accuracy": 0.5820562830872109,
+    "macro_f1": 0.5626299769588442,
+    "weighted_f1": 0.5734782087341518,
+    "metrics_path": "outputs/d10_slot_motif_full_outputs/d10_p3_5_iter5/evaluation/metrics.json"
+  },
+  {
+    "report_name": "D10 SupCon Best",
+    "output_path": "outputs/d10_slot_motif_full_outputs/d10_p5_standard/d10_p5_stage2_relation_outputs_lan2",
+    "best_epoch": 108.0,
+    "accuracy": 0.619671217609362,
+    "macro_f1": 0.6129592105606596,
+    "weighted_f1": 0.6158203317774446,
+    "metrics_path": "outputs/d10_slot_motif_full_outputs/d10_p5_standard/d10_p5_stage2_relation_outputs_lan2/evaluation/metrics.json"
+  },
+  {
+    "report_name": "D10 SupCon Moderate-Reg",
+    "output_path": "outputs/d10_slot_motif_full_outputs/d10_p5_run4/d10_p5_stage2_run4_moderate",
+    "best_epoch": 99.0,
+    "accuracy": 0.620785734187796,
+    "macro_f1": 0.605223688573684,
+    "weighted_f1": 0.6159629090956007,
+    "metrics_path": "outputs/d10_slot_motif_full_outputs/d10_p5_run4/d10_p5_stage2_run4_moderate/evaluation/metrics.json"
+  }
+]
