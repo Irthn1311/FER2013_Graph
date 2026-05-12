@@ -309,4 +309,6 @@ class D11GlobalLocalModel(nn.Module):
     def from_config(cls, config: Dict[str, Any]) -> 'D11GlobalLocalModel':
         cfg = dict(config)
         cfg.pop('name', None)
+        for key in ("height", "width", "connectivity", "edge_hidden_dim", "gnn_layers"):
+            cfg.pop(key, None)
         return cls(**cfg)
