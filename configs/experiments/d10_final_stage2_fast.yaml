@@ -1,0 +1,54 @@
+# Bản tăng tốc: Kế thừa luôn Stage 1 từ Kaggle, chỉ chạy Fine-tuning
+inherits:
+  - d10_p2_1_multiscale.yaml
+
+experiment:
+  name: d10_final_stage2_fast
+
+paths:
+  resolved_output_root: output/d10_final_stage2_fast
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_final_stage2_fast
+    training:
+      batch_size: 64
+
+model:
+  freeze_classifier: false
+  freeze_encoder: false       
+  dropout: 0.25                # Tăng nhẹ từ 0.2 lên 0.25 để chống học vẹt
+
+loss:
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.0          
+  label_smoothing: 0.05       # Tinh hoa chống nhãn nhiễu
+  lambda_slot_div: 0.01       # Giữ giống y hệt bản 0.6130
+  lambda_slot_balance: 0.005  # Giữ giống y hệt bản 0.6130
+
+optimizer:
+  weight_decay: 0.0001        # Bắt buộc giữ 1e-4
+
+training:
+  epochs: 120                 # Bản cũ đạt đỉnh ở Epoch 108
+  early_stopping_patience: 30
+  val_frequency: 3
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 120
+  min_lr: 0.000001
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max
+
+init_checkpoint:
+  path: /kaggle/input/datasets/irthn1311/d10-p5-stage1-supcon-outputs/best.pth
