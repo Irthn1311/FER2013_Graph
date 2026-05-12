@@ -19,6 +19,8 @@ model:
   freeze_classifier: false
   freeze_encoder: false       
   dropout: 0.25                # Tăng nhẹ từ 0.2 lên 0.25 để chống học vẹt
+  use_position_encoding: false # KHỚP VỚI CHECKPOINT KAGGLE
+  use_slot_refinement: true    # KHỚP VỚI CHECKPOINT KAGGLE
 
 loss:
   lambda_cls: 1.0
