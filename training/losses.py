@@ -966,4 +966,53 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
         return FixedMotifClassificationLoss(cfg)
     if name in ("d10_slot_motif", "d10_slot_motif_loss"):
         return D10SlotMotifLoss(cfg)
+    if name in ("d11_global_local", "d11_global_local_loss"):
+        return D11GlobalLocalLoss(cfg)
     raise ValueError(f"Unknown loss: {name}")
+
+class D11GlobalLocalLoss(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        cfg = dict(config)
+        self.lambda_local = float(cfg.get('lambda_local', 0.5))
+        self.lambda_spatial = float(cfg.get('lambda_spatial', 1.0))
+        label_smoothing = float(cfg.get('label_smoothing', 0.1))
+        self.ce = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        
+    def forward(self, model_out, y, batch):
+        import torch.nn.functional as F
+        y = y.long()
+        logits = model_out.get('logits')
+        loss_fusion = self.ce(logits, y)
+        
+        logits_local = model_out.get('logits_local')
+        if logits_local is not None and self.lambda_local > 0.0:
+            loss_local = self.ce(logits_local, y)
+        else:
+            loss_local = logits.new_zeros(())
+            
+        center_of_mass = model_out.get('center_of_mass') # [B, K, 2]
+        if center_of_mass is not None and self.lambda_spatial > 0.0:
+            cx = center_of_mass[:, :, 0]
+            cy = center_of_mass[:, :, 1]
+            loss_sp_01_x = F.relu(cx[:, 0:2] - 0.5).mean()
+            loss_sp_01_y = F.relu(cy[:, 0:2] - 0.5).mean()
+            loss_sp_23_x = F.relu(0.5 - cx[:, 2:4]).mean()
+            loss_sp_23_y = F.relu(cy[:, 2:4] - 0.5).mean()
+            loss_sp_45_y = F.relu(0.5 - cy[:, 4:6]).mean()
+            loss_spatial = loss_sp_01_x + loss_sp_01_y + loss_sp_23_x + loss_sp_23_y + loss_sp_45_y
+        else:
+            loss_spatial = logits.new_zeros(())
+            
+        total = loss_fusion + self.lambda_local * loss_local + self.lambda_spatial * loss_spatial
+        
+        out = {
+            'loss': total,
+            'loss_fusion': loss_fusion,
+            'loss_local_aux': loss_local,
+            'loss_spatial_prior': loss_spatial,
+            'diag_main_accuracy': (logits.argmax(dim=1) == y).float().mean().detach()
+        }
+        if logits_local is not None:
+            out['diag_local_accuracy'] = (logits_local.argmax(dim=1) == y).float().mean().detach()
+        return out

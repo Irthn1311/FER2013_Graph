@@ -10,6 +10,7 @@ from models.class_pixel_motif_graph_retrieval import ClassPixelMotifGraphRetriev
 from models.d9_relation_motif_model import D9RelationMotifClassifier
 from models.d9_sanity_models import D9SanityGlobalPoolClassifier
 from models.d10_slot_motif_model import D10SlotMotifModel
+from models.d11_global_local_model import D11GlobalLocalModel
 from models.dual_branch_graph_swin_motif import DualBranchGraphSwinMotifD7
 from models.face_aware_graph_swin_d8b import FaceAwareGraphSwinD8B
 from models.graph_swin_prepart_d6b import GraphSwinPrePartD6BD8A
@@ -47,4 +48,6 @@ def build_model(config: Dict[str, Any]) -> nn.Module:
         return D9SanityGlobalPoolClassifier.from_config(cfg)
     if name in ("d10_slot_motif", "d10_slot_motif_model"):
         return D10SlotMotifModel.from_config(cfg)
+    if name in ("d11_global_local", "d11_global_local_model"):
+        return D11GlobalLocalModel.from_config(cfg)
     raise ValueError(f"Unknown model: {name}")
