@@ -253,6 +253,9 @@ class D11GlobalLocalModel(nn.Module):
             
         bsz = batch_vector.max().item() + 1 if batch_vector is not None else x.shape[0]
             
+        if edge_index is not None and edge_index.ndim == 3:
+            edge_index = edge_index[0]
+            
         # 2. GNN Encoding
         encoded_x = self.encoder(x, edge_index, edge_attr) # [B*N, D]
         
