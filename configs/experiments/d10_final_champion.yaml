@@ -1,0 +1,50 @@
+inherits:
+  - d10_p2_1_multiscale.yaml
+
+experiment:
+  name: d10_final_champion
+
+paths:
+  resolved_output_root: output/d10_final_champion
+
+environments:
+  kaggle:
+    paths:
+      resolved_output_root: /kaggle/working/outputs/d10_final_champion
+    training:
+      batch_size: 64
+
+model:
+  freeze_classifier: false
+  freeze_encoder: false
+  dropout: 0.3                
+
+loss:
+  lambda_cls: 1.0
+  lambda_aux_ce: 0.3
+  lambda_supcon: 0.0          
+  label_smoothing: 0.05       
+  lambda_slot_div: 0.1
+  lambda_slot_balance: 0.01
+
+optimizer:
+  weight_decay: 0.0001        
+
+training:
+  epochs: 80
+  early_stopping_patience: 25
+  val_frequency: 3
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 80
+  min_lr: 0.000001
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max
