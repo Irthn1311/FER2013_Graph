@@ -10,7 +10,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.utils import to_dense_batch
 
 # Kế thừa duy nhất từ hệ sinh thái cũ là GNN Encoder (để đảm bảo tính tương đồng về receptive field)
 # Nếu muốn độc lập hoàn toàn, có thể copy mã nguồn của SharedPixelEncoder vào đây.
@@ -257,10 +256,13 @@ class D11GlobalLocalModel(nn.Module):
         # 2. GNN Encoding
         encoded_x = self.encoder(x, edge_index, edge_attr) # [B*N, D]
         
-        # Rã (Dense Batch) từ [B*N, D] về [B, N, D]
+        # Dense representation for Slot Attention & Gather
         if x.dim() == 2 and batch_vector is not None:
-            dense_x, mask = to_dense_batch(encoded_x, batch_vector) # [B, N, D]
-            dense_raw_x, _ = to_dense_batch(x, batch_vector)
+            batch_size = int(batch_vector.max().item()) + 1
+            num_nodes = x.shape[0] // batch_size
+            dense_x = encoded_x.reshape(batch_size, num_nodes, -1)
+            dense_raw_x = x.reshape(batch_size, num_nodes, -1)
+            mask = torch.ones(batch_size, num_nodes, dtype=torch.bool, device=x.device)
         else:
             dense_x = encoded_x
             dense_raw_x = x
