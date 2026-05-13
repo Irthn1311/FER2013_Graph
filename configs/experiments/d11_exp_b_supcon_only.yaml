@@ -1,5 +1,5 @@
 run:
-  config_name: d11_full_1stage
+  config_name: d11_exp_b_supcon_only
   output_root: outputs/d11_experiments
   seed: 42
 data:

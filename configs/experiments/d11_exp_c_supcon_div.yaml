@@ -1,5 +1,5 @@
 run:
-  config_name: d11_full_1stage
+  config_name: d11_exp_c_supcon_div
   output_root: outputs/d11_experiments
   seed: 42
 data:
@@ -23,7 +23,8 @@ loss:
   lambda_spatial: 1.0
   label_smoothing: 0.1
   lambda_supcon: 0.1
-  lambda_div: 0.0
+  lambda_div: 0.02
+  diversity_margin: 0.3
   warmup_epochs: 5.0
 optimizer:
   name: adamw
