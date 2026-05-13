@@ -226,6 +226,14 @@ class D11GlobalLocalModel(nn.Module):
             nn.Linear(hidden_dim, num_classes)
         )
         
+        # SupCon Projection Head (for pooled local_raw)
+        self.supcon_proj = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(hidden_dim, hidden_dim)
+        )
+        
         # Main Classifier (Nhìn Fusion)
         self.classifier = nn.Sequential(
             nn.LayerNorm(hidden_dim),
@@ -297,6 +305,10 @@ class D11GlobalLocalModel(nn.Module):
         local_raw_pooled = self.motif_relation(local_raw).mean(dim=1)
         logits_local = self.aux_classifier(local_raw_pooled)
         
+        # SupCon Projection
+        local_raw_mean = local_raw.mean(dim=1) # [B, D]
+        local_raw_proj = self.supcon_proj(local_raw_mean) # [B, D]
+
         # Trả về Dict để Trainer tự tính các Loss
         return {
             "logits": logits_fusion,
@@ -305,7 +317,9 @@ class D11GlobalLocalModel(nn.Module):
             "slot_attn": slot_attn,
             "virtual_attn": virtual_attn,
             "gamma": gamma,
-            "beta": beta
+            "beta": beta,
+            "local_raw": local_raw,
+            "local_raw_proj": local_raw_proj
         }
 
     @classmethod

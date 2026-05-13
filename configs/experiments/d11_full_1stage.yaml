@@ -19,9 +19,12 @@ model:
   use_global_branch: true
 loss:
   name: d11_global_local_loss
-  lambda_local: 0.5
+  lambda_local: 0.3
   lambda_spatial: 1.0
   label_smoothing: 0.1
+  lambda_supcon: 0.1
+  lambda_div: 0.05
+  warmup_epochs: 5.0
 optimizer:
   name: adamw
   lr: 0.0002
