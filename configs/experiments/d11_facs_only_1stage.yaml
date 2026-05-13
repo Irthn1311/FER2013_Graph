@@ -2,7 +2,6 @@ run:
   config_name: d11_facs_only_1stage
   output_root: outputs/d11_experiments
   seed: 42
-  use_wandb: true
 data:
   batch_size: 128
   num_workers: 4
@@ -40,3 +39,7 @@ trainer:
   checkpoint_monitor: val_macro_f1
   checkpoint_mode: max
   use_compile: true
+logging:
+  use_wandb: true
+  project: FER-GRAPH
+  entity: phucga15062005
