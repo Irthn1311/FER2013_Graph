@@ -976,21 +976,33 @@ class D11GlobalLocalLoss(nn.Module):
         cfg = dict(config)
         self.lambda_local = float(cfg.get('lambda_local', 0.5))
         self.lambda_spatial = float(cfg.get('lambda_spatial', 1.0))
+        self.lambda_supcon = float(cfg.get('lambda_supcon', 0.1))
+        self.lambda_div = float(cfg.get('lambda_div', 0.05))
+        self.diversity_margin = float(cfg.get('diversity_margin', 0.3))
+        self.warmup_epochs = float(cfg.get('warmup_epochs', 5.0))
+        self.current_epoch = 0.0
+        
         label_smoothing = float(cfg.get('label_smoothing', 0.1))
         self.ce = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
         
+        from training.supcon_loss import SupervisedContrastiveLoss
+        self.supcon = SupervisedContrastiveLoss(temperature=0.1)
+
+    def set_epoch(self, epoch: float):
+        self.current_epoch = float(epoch)
+
     def forward(self, model_out, y, batch):
         import torch.nn.functional as F
         y = y.long()
         logits = model_out.get('logits')
         loss_fusion = self.ce(logits, y)
-        
+
         logits_local = model_out.get('logits_local')
         if logits_local is not None and self.lambda_local > 0.0:
             loss_local = self.ce(logits_local, y)
         else:
             loss_local = logits.new_zeros(())
-            
+
         center_of_mass = model_out.get('center_of_mass') # [B, K, 2]
         if center_of_mass is not None and self.lambda_spatial > 0.0:
             cx = center_of_mass[:, :, 0]
@@ -1003,14 +1015,43 @@ class D11GlobalLocalLoss(nn.Module):
             loss_spatial = loss_sp_01_x + loss_sp_01_y + loss_sp_23_x + loss_sp_23_y + loss_sp_45_y
         else:
             loss_spatial = logits.new_zeros(())
+
+        # SupCon Loss
+        local_raw_proj = model_out.get('local_raw_proj')
+        warmup_factor = 0.0
+        loss_supcon_val = logits.new_zeros(())
+        if local_raw_proj is not None and self.lambda_supcon > 0.0:
+            loss_supcon_val = self.supcon(local_raw_proj, y)
+            warmup_factor = min(1.0, max(1.0, self.current_epoch) / max(1.0, self.warmup_epochs))
+            loss_supcon = loss_supcon_val * warmup_factor
+        else:
+            loss_supcon = logits.new_zeros(())
             
-        total = loss_fusion + self.lambda_local * loss_local + self.lambda_spatial * loss_spatial
-        
+        # Slot Diversity Loss
+        local_raw = model_out.get('local_raw') # [B, K, D]
+        if local_raw is not None and self.lambda_div > 0.0:
+            z_norm = F.normalize(local_raw, dim=-1) # [B, K, D]
+            sim_matrix = torch.bmm(z_norm, z_norm.transpose(1, 2)) # [B, K, K]
+            K = local_raw.size(1)
+            eye = torch.eye(K, device=local_raw.device).unsqueeze(0)
+            # Mask out diagonal completely by making it highly negative
+            masked_sim = sim_matrix - eye * 999.0
+            # Apply margin to off-diagonal
+            loss_div = F.relu(masked_sim - self.diversity_margin).mean()
+        else:
+            loss_div = logits.new_zeros(())
+
+        total = loss_fusion + self.lambda_local * loss_local + self.lambda_spatial * loss_spatial + self.lambda_supcon * loss_supcon + self.lambda_div * loss_div
+
         out = {
             'loss': total,
             'loss_fusion': loss_fusion,
             'loss_local_aux': loss_local,
             'loss_spatial_prior': loss_spatial,
+            'loss_supcon': loss_supcon,
+            'loss_supcon_raw': loss_supcon_val,
+            'effective_lambda_supcon': logits.new_tensor(self.lambda_supcon * warmup_factor),
+            'loss_div': loss_div,
             'diag_main_accuracy': (logits.argmax(dim=1) == y).float().mean().detach()
         }
         if logits_local is not None:

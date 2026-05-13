@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+from scripts.log_experiment import log_experiment
 import sys
 from pathlib import Path
 
@@ -86,6 +87,10 @@ def run_train(config):
         max_val_batches=training_cfg.get("max_val_batches"),
     )
     print(f"Training done best_epoch={result['best_epoch']} best_metric={result['best_metric']:.6f}")
+    try:
+        log_experiment(trainer.output_dir)
+    except Exception as e:
+        print(f"Failed to log experiment: {e}")
     return result
 
 
