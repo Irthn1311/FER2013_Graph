@@ -943,6 +943,143 @@ class D10SlotMotifLoss(D6HierarchicalMotifLoss):
         return out
 
 
+class D12GlobalLocalMotifLoss(nn.Module):
+    """D12A loss: scheduled main/local CE + SupCon + margin slot diversity."""
+
+    def __init__(self, config: Dict[str, Any]) -> None:
+        super().__init__()
+        cfg = dict(config)
+        self.lambda_local = float(cfg.get("lambda_local", 0.3))
+        self.lambda_supcon = float(cfg.get("lambda_supcon", 0.1))
+        self.lambda_div = float(cfg.get("lambda_div", 0.02))
+        self.diversity_margin = float(cfg.get("diversity_margin", 0.3))
+        self.lambda_spatial = float(cfg.get("lambda_spatial", 0.0))
+        self.supcon_warmup_epochs = float(cfg.get("supcon_warmup_epochs", cfg.get("warmup_epochs", 5.0)))
+        self.ce_warmup_epochs = float(cfg.get("ce_warmup_epochs", 30.0))
+        self.current_epoch: Optional[float] = None
+
+        class_weights = None
+        if cfg.get("use_class_weights", True):
+            counts = cfg.get("class_counts")
+            if counts is None:
+                raise ValueError("loss.use_class_weights=true requires loss.class_counts")
+            class_weights = compute_class_weights(
+                counts,
+                normalize_mean=True,
+                power=float(cfg.get("class_weight_power", 1.0)),
+            )
+        self.ce = WeightedCrossEntropy(
+            class_weights=class_weights,
+            label_smoothing=float(cfg.get("label_smoothing", 0.1)),
+        )
+        from training.supcon_loss import SupervisedContrastiveLoss
+
+        self.supcon = SupervisedContrastiveLoss(
+            temperature=float(cfg.get("supcon_temperature", 0.2))
+        )
+
+    def set_epoch(self, epoch: float) -> None:
+        self.current_epoch = float(epoch)
+
+    def _epoch_from_batch(self, batch: Dict[str, torch.Tensor]) -> Optional[float]:
+        value = batch.get("epoch") if isinstance(batch, dict) else None
+        if torch.is_tensor(value):
+            return float(value.detach().flatten()[0].item())
+        if value is not None:
+            return float(value)
+        return self.current_epoch
+
+    def _warmup_factor(self, epoch: Optional[float], warmup_epochs: float) -> float:
+        if epoch is None or warmup_epochs <= 0.0:
+            return 1.0
+        return min(1.0, max(0.0, float(epoch)) / max(1.0, float(warmup_epochs)))
+
+    def forward(
+        self,
+        model_out: Dict[str, torch.Tensor],
+        y: torch.Tensor,
+        batch: Dict[str, torch.Tensor],
+    ) -> Dict[str, torch.Tensor]:
+        y = y.long()
+        logits = model_out["logits"]
+        logits_local = model_out.get("logits_local")
+        epoch = self._epoch_from_batch(batch)
+        ce_factor = self._warmup_factor(epoch, self.ce_warmup_epochs)
+        supcon_factor = self._warmup_factor(epoch, self.supcon_warmup_epochs)
+
+        loss_ce_main_raw = self.ce(logits, y)
+        loss_ce_main = loss_ce_main_raw * ce_factor
+        if torch.is_tensor(logits_local):
+            loss_local_raw = self.ce(logits_local, y)
+            loss_local = loss_local_raw * ce_factor
+        else:
+            loss_local_raw = logits.new_zeros(())
+            loss_local = logits.new_zeros(())
+
+        supcon_features = model_out.get("motif_supcon", model_out.get("supcon_features"))
+        if torch.is_tensor(supcon_features) and self.lambda_supcon > 0.0:
+            loss_supcon = self.supcon(supcon_features, y)
+        else:
+            loss_supcon = logits.new_zeros(())
+        effective_lambda_supcon = self.lambda_supcon * supcon_factor
+
+        motif_embeddings = model_out.get("motif_embeddings", model_out.get("local_raw"))
+        if torch.is_tensor(motif_embeddings) and self.lambda_div > 0.0:
+            z = F.normalize(motif_embeddings.float(), dim=-1, eps=1e-8)
+            sim = torch.bmm(z, z.transpose(1, 2))
+            num_slots = sim.shape[1]
+            off_diag = sim.masked_select(
+                ~torch.eye(num_slots, dtype=torch.bool, device=sim.device).unsqueeze(0)
+            )
+            loss_div = F.relu(off_diag - self.diversity_margin).mean().to(dtype=logits.dtype)
+        else:
+            loss_div = logits.new_zeros(())
+
+        loss_spatial = self._spatial_loss(model_out, logits)
+        total = (
+            loss_ce_main
+            + self.lambda_local * loss_local
+            + effective_lambda_supcon * loss_supcon
+            + self.lambda_div * loss_div
+            + self.lambda_spatial * loss_spatial
+        )
+        out = {
+            "loss": total,
+            "total_loss": total,
+            "loss_ce": loss_ce_main,
+            "loss_ce_raw": loss_ce_main_raw,
+            "loss_local": loss_local,
+            "loss_local_raw": loss_local_raw,
+            "loss_supcon": loss_supcon,
+            "loss_div": loss_div,
+            "loss_spatial": loss_spatial,
+            "effective_lambda_supcon": logits.new_tensor(effective_lambda_supcon),
+            "effective_ce_factor": logits.new_tensor(ce_factor),
+            "diag_main_accuracy": (logits.argmax(dim=1) == y).float().mean().detach(),
+        }
+        if torch.is_tensor(logits_local):
+            out["diag_local_accuracy"] = (logits_local.argmax(dim=1) == y).float().mean().detach()
+        return out
+
+    def _spatial_loss(
+        self,
+        model_out: Dict[str, torch.Tensor],
+        logits: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.lambda_spatial <= 0.0:
+            return logits.new_zeros(())
+        centers = model_out.get("slot_centers", model_out.get("part_centers"))
+        if not torch.is_tensor(centers) or centers.shape[1] <= 1:
+            return logits.new_zeros(())
+        diff = centers.unsqueeze(2) - centers.unsqueeze(1)
+        dist = diff.pow(2).sum(dim=-1).sqrt()
+        num_slots = dist.shape[1]
+        off_diag = dist.masked_select(
+            ~torch.eye(num_slots, dtype=torch.bool, device=dist.device).unsqueeze(0)
+        )
+        return F.relu(0.10 - off_diag).mean().to(dtype=logits.dtype)
+
+
 def build_loss(config: Dict[str, Any]) -> nn.Module:
     cfg = dict(config)
     name = str(cfg.get("name", "d5_retrieval")).lower()
@@ -968,6 +1105,8 @@ def build_loss(config: Dict[str, Any]) -> nn.Module:
         return D10SlotMotifLoss(cfg)
     if name in ("d11_global_local", "d11_global_local_loss"):
         return D11GlobalLocalLoss(cfg)
+    if name in ("d12_global_local_motif", "d12_global_local_motif_loss"):
+        return D12GlobalLocalMotifLoss(cfg)
     raise ValueError(f"Unknown loss: {name}")
 
 class D11GlobalLocalLoss(nn.Module):

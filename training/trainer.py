@@ -551,8 +551,10 @@ class D5Trainer:
         totals: Dict[str, float] = {}
         y_true = []
         y_pred = []
+        y_pred_local = []
         count = 0
         pred_count = torch.zeros(7, dtype=torch.long)
+        pred_count_local = torch.zeros(7, dtype=torch.long)
         start_time = time.perf_counter()
         for batch_idx, batch in enumerate(tqdm(loader, desc=prefix, leave=False)):
             if max_batches is not None and batch_idx >= int(max_batches):
@@ -568,6 +570,13 @@ class D5Trainer:
             y_true.extend(batch["y"].detach().cpu().tolist())
             y_pred.extend(pred.detach().cpu().tolist())
             pred_count += torch.bincount(pred.detach().cpu(), minlength=7)
+            logits_local = out.get("logits_local")
+            if torch.is_tensor(logits_local):
+                if not torch.isfinite(logits_local).all():
+                    raise FloatingPointError(f"Non-finite local logits during {prefix} at batch {batch_idx}")
+                pred_local = logits_local.argmax(dim=1)
+                y_pred_local.extend(pred_local.detach().cpu().tolist())
+                pred_count_local += torch.bincount(pred_local.detach().cpu(), minlength=7)
             for key, value in loss_dict.items():
                 totals[key] = totals.get(key, 0.0) + _to_float(value)
             self._add_diagnostics(totals, out.get("diagnostics", {}))
@@ -584,10 +593,19 @@ class D5Trainer:
             "weighted_f1": 0.0,
         }
         metrics.update({f"{prefix}_{k}": float(v) for k, v in cls_metrics.items()})
+        if y_pred_local and len(y_pred_local) == len(y_true):
+            local_metrics = compute_metrics(y_true, y_pred_local)
+            metrics[f"{prefix}_acc_local"] = float(local_metrics["accuracy"])
+            metrics[f"{prefix}_accuracy_local"] = float(local_metrics["accuracy"])
+            metrics[f"{prefix}_macro_f1_local"] = float(local_metrics["macro_f1"])
+            metrics[f"{prefix}_weighted_f1_local"] = float(local_metrics["weighted_f1"])
         self._add_selected_class_metrics(metrics, prefix, y_true, y_pred, pred_count)
         metrics[f"{prefix}_batches"] = float(count)
         for i, c in enumerate(pred_count.tolist()):
             metrics[f"{prefix}_pred_count_{i}"] = float(c)
+        if y_pred_local and len(y_pred_local) == len(y_true):
+            for i, c in enumerate(pred_count_local.tolist()):
+                metrics[f"{prefix}_pred_count_local_{i}"] = float(c)
         return metrics
 
     def fit(
@@ -700,6 +718,8 @@ class D5Trainer:
                 or epoch % self.val_frequency == 0  # periodic
             )
             if do_val:
+                if hasattr(self.criterion, "set_epoch"):
+                    self.criterion.set_epoch(epoch)
                 val_metrics = self.validate(val_loader, max_val_batches, prefix="val")
             else:
                 val_metrics = {f"val_{k}": v for k, v in self._last_val_metrics.items()} if hasattr(self, '_last_val_metrics') else {}

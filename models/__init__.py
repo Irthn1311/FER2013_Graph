@@ -10,6 +10,7 @@ if str(_PACKAGE_PARENT) not in sys.path:
 from models.class_pixel_motif_graph_retrieval import ClassPixelMotifGraphRetrieval
 from models.d10_slot_motif_model import D10SlotMotifModel
 from models.d11_global_local_model import D11GlobalLocalModel
+from models.d12_global_local_motif_model import D12GlobalLocalMotifModel
 from models.dual_branch_graph_swin_motif import DualBranchGraphSwinMotifD7
 from models.face_aware_graph_swin_d8b import FaceAwareGraphSwinD8B
 from models.fixed_motif_classifier import FixedMotifMLPClassifier
@@ -24,6 +25,7 @@ __all__ = [
     "ClassPixelMotifGraphRetrieval",
     "D10SlotMotifModel",
     "D11GlobalLocalModel",
+    "D12GlobalLocalMotifModel",
     "DualBranchGraphSwinMotifD7",
     "FaceAwareGraphSwinD8B",
     "FixedMotifMLPClassifier",
