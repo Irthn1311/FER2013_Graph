@@ -46,6 +46,7 @@ trainer:
   checkpoint_monitor: val_macro_f1
   checkpoint_mode: max
   use_compile: true
+  early_stopping_patience: 80
 logging:
   use_wandb: true
   project: FER-GRAPH
