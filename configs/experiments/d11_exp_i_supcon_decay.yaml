@@ -1,0 +1,53 @@
+run:
+  config_name: d11_exp_i_supcon_decay
+  output_root: outputs/d11_experiments
+  seed: 42
+data:
+  batch_size: 128
+  num_workers: 4
+  chunk_aware_shuffle: true
+  chunk_cache_size: 8
+  pin_memory: true
+  persistent_workers: true
+model:
+  name: d11_global_local_model
+  hidden_dim: 128
+  num_slots: 8
+  slot_iters: 3
+  global_dim: 64
+  global_dropout: 0.3
+  use_global_branch: true
+loss:
+  name: d11_global_local_loss
+  lambda_local: 0.3
+  lambda_spatial: 1.0
+  label_smoothing: 0.1
+  lambda_supcon: 0.2
+  lambda_div: 0.02
+  diversity_margin: 0.3
+  warmup_epochs: 5.0
+  ce_warmup_epochs: 20.0
+  supcon_decay_epochs: 40.0
+optimizer:
+  name: adamw
+  lr: 0.0002
+  weight_decay: 0.0001
+  betas:
+  - 0.9
+  - 0.999
+scheduler:
+  name: cosine
+  t_max: 80
+  eta_min: 1.0e-05
+trainer:
+  epochs: 80
+  val_frequency: 1
+  amp: true
+  multi_gpu: true
+  checkpoint_monitor: val_macro_f1
+  checkpoint_mode: max
+  use_compile: true
+logging:
+  use_wandb: true
+  project: FER-GRAPH
+  entity: phucga15062005

@@ -974,12 +974,14 @@ class D11GlobalLocalLoss(nn.Module):
     def __init__(self, config):
         super().__init__()
         cfg = dict(config)
-        self.lambda_local = float(cfg.get('lambda_local', 0.5))
+        self.lambda_local_base = float(cfg.get('lambda_local', 0.5))
         self.lambda_spatial = float(cfg.get('lambda_spatial', 1.0))
-        self.lambda_supcon = float(cfg.get('lambda_supcon', 0.1))
+        self.lambda_supcon_base = float(cfg.get('lambda_supcon', 0.1))
         self.lambda_div = float(cfg.get('lambda_div', 0.05))
         self.diversity_margin = float(cfg.get('diversity_margin', 0.3))
         self.warmup_epochs = float(cfg.get('warmup_epochs', 5.0))
+        self.ce_warmup_epochs = float(cfg.get('ce_warmup_epochs', 0.0))
+        self.supcon_decay_epochs = float(cfg.get('supcon_decay_epochs', 0.0))
         self.current_epoch = 0.0
         
         label_smoothing = float(cfg.get('label_smoothing', 0.1))
@@ -995,10 +997,24 @@ class D11GlobalLocalLoss(nn.Module):
         import torch.nn.functional as F
         y = y.long()
         logits = model_out.get('logits')
-        loss_fusion = self.ce(logits, y)
+        loss_fusion_raw = self.ce(logits, y)
+
+        # CE Scheduling (Pseudo 2-Stage)
+        if self.ce_warmup_epochs > 0:
+            if self.current_epoch < self.ce_warmup_epochs:
+                # Trễ hoàn toàn CE ở nửa đầu (Hard Freeze) hoặc Tăng dần (Soft Warmup)
+                # Dùng Linear Soft Warmup:
+                ce_factor = self.current_epoch / max(1.0, self.ce_warmup_epochs)
+            else:
+                ce_factor = 1.0
+        else:
+            ce_factor = 1.0
+            
+        loss_fusion = loss_fusion_raw * ce_factor
+        lambda_local = self.lambda_local_base * ce_factor
 
         logits_local = model_out.get('logits_local')
-        if logits_local is not None and self.lambda_local > 0.0:
+        if logits_local is not None and lambda_local > 0.0:
             loss_local = self.ce(logits_local, y)
         else:
             loss_local = logits.new_zeros(())
@@ -1016,14 +1032,22 @@ class D11GlobalLocalLoss(nn.Module):
         else:
             loss_spatial = logits.new_zeros(())
 
-        # SupCon Loss
+        # SupCon Scheduling
         local_raw_proj = model_out.get('local_raw_proj')
-        warmup_factor = 0.0
+        supcon_warmup_factor = min(1.0, max(1.0, self.current_epoch) / max(1.0, self.warmup_epochs))
+        
+        # Optionally decay SupCon after motifs are formed
+        if self.supcon_decay_epochs > 0 and self.current_epoch > self.supcon_decay_epochs:
+            decay_factor = max(0.0, 1.0 - (self.current_epoch - self.supcon_decay_epochs) / 20.0)
+        else:
+            decay_factor = 1.0
+            
+        effective_lambda_supcon = self.lambda_supcon_base * supcon_warmup_factor * decay_factor
+        
         loss_supcon_val = logits.new_zeros(())
-        if local_raw_proj is not None and self.lambda_supcon > 0.0:
+        if local_raw_proj is not None and effective_lambda_supcon > 0.0:
             loss_supcon_val = self.supcon(local_raw_proj, y)
-            warmup_factor = min(1.0, max(1.0, self.current_epoch) / max(1.0, self.warmup_epochs))
-            loss_supcon = loss_supcon_val * warmup_factor
+            loss_supcon = loss_supcon_val * effective_lambda_supcon
         else:
             loss_supcon = logits.new_zeros(())
             
@@ -1034,23 +1058,22 @@ class D11GlobalLocalLoss(nn.Module):
             sim_matrix = torch.bmm(z_norm, z_norm.transpose(1, 2)) # [B, K, K]
             K = local_raw.size(1)
             eye = torch.eye(K, device=local_raw.device).unsqueeze(0)
-            # Mask out diagonal completely by making it highly negative
             masked_sim = sim_matrix - eye * 999.0
-            # Apply margin to off-diagonal
             loss_div = F.relu(masked_sim - self.diversity_margin).mean()
         else:
             loss_div = logits.new_zeros(())
 
-        total = loss_fusion + self.lambda_local * loss_local + self.lambda_spatial * loss_spatial + self.lambda_supcon * loss_supcon + self.lambda_div * loss_div
+        total = loss_fusion + lambda_local * loss_local + self.lambda_spatial * loss_spatial + loss_supcon + self.lambda_div * loss_div
 
         out = {
             'loss': total,
             'loss_fusion': loss_fusion,
-            'loss_local_aux': loss_local,
+            'loss_local_aux': lambda_local * loss_local,
             'loss_spatial_prior': loss_spatial,
             'loss_supcon': loss_supcon,
             'loss_supcon_raw': loss_supcon_val,
-            'effective_lambda_supcon': logits.new_tensor(self.lambda_supcon * warmup_factor),
+            'effective_lambda_supcon': logits.new_tensor(effective_lambda_supcon),
+            'effective_ce_factor': logits.new_tensor(ce_factor),
             'loss_div': loss_div,
             'diag_main_accuracy': (logits.argmax(dim=1) == y).float().mean().detach()
         }
