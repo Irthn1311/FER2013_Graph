@@ -29,7 +29,7 @@ graph:
 
 data:
   dataset: fer2013
-  batch_size: 96
+  batch_size: 64
   num_workers: 2
   pin_memory: true
   persistent_workers: true
@@ -92,7 +92,7 @@ scheduler:
 
 training:
   epochs: 100
-  batch_size: 96
+  batch_size: 64
   num_workers: 2
   pin_memory: true
   persistent_workers: true
