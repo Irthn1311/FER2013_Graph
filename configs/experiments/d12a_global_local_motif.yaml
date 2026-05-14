@@ -104,8 +104,10 @@ training:
   min_lr: 0.000001
   monitor: val_macro_f1
   mode: max
-  early_stopping_patience: 10 
+  early_stopping_patience: 10
   amp: true
+  multi_gpu: true
+  use_compile: true
   device: auto
   grad_clip_norm: 5.0
   max_train_batches: null

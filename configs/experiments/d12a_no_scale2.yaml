@@ -106,6 +106,8 @@ training:
   mode: max
   early_stopping_patience: 25
   amp: true
+  multi_gpu: true
+  use_compile: true
   device: auto
   grad_clip_norm: 5.0
   max_train_batches: null
