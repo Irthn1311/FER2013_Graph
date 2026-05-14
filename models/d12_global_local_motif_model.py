@@ -100,16 +100,16 @@ class ContextAwareEdgeGatedLayer(nn.Module):
         msg_input = torch.cat([h_src, edge_emb], dim=-1)
         msg = self.msg_mlp(msg_input) * gate
 
-        numerator = h.new_zeros((bsz, num_nodes, hidden_dim))
+        numerator = msg.new_zeros((bsz, num_nodes, hidden_dim))
         numerator.index_add_(1, dst, msg)
         if self.use_gate_norm:
-            denom = h.new_zeros((bsz, num_nodes, hidden_dim))
+            denom = gate.new_zeros((bsz, num_nodes, hidden_dim))
             denom.index_add_(1, dst, gate)
             agg = numerator / denom.clamp_min(self.eps)
         else:
             degree = h.new_zeros((num_nodes,))
             degree.index_add_(0, dst, torch.ones_like(dst, dtype=h.dtype))
-            agg = numerator / degree.view(1, -1, 1).clamp_min(1.0)
+            agg = numerator / degree.to(dtype=numerator.dtype).view(1, -1, 1).clamp_min(1.0)
 
         update = self.update_mlp(torch.cat([h, agg], dim=-1))
         h_new = self.norm_msg(h + self.dropout(update))
