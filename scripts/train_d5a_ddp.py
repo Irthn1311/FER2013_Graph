@@ -40,6 +40,7 @@ from common import (  # noqa: E402
     resolve_path,
     save_config,
 )
+from data.ddp_chunk_aware_sampler import DDPChunkAwareBatchSampler  # noqa: E402
 from data.full_graph_dataset import FullGraphDataset, collate_fn_full_graph  # noqa: E402
 from evaluation.metrics import compute_metrics  # noqa: E402
 from scripts.log_experiment import log_experiment  # noqa: E402
@@ -152,6 +153,17 @@ def _cfg_bool(value: Any, default: bool = False) -> bool:
     return bool(value)
 
 
+def _parse_optional_bool(value: Optional[str]) -> Optional[bool]:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise ValueError(f"Expected 'true' or 'false', got {value!r}")
+
+
 def _set_nested(config: Dict[str, Any], section: str, key: str, value: Any) -> None:
     config.setdefault(section, {})[key] = value
 
@@ -179,9 +191,15 @@ def apply_ddp_runtime_overrides(
     data_cfg = dict(cfg.get("data", {}) or {})
     training_cfg = dict(cfg.get("training", {}) or {})
     logging_cfg = dict(cfg.get("logging", {}) or {})
+    ddp_cfg = dict(cfg.get("ddp", {}) or {})
 
     data_cfg["batch_size"] = int(per_rank_batch_size)
     data_cfg["chunk_aware_shuffle"] = False
+    if args.ddp_chunk_aware is not None:
+        data_cfg["ddp_chunk_aware"] = bool(args.ddp_chunk_aware)
+    else:
+        data_cfg.setdefault("ddp_chunk_aware", True)
+    data_cfg.setdefault("ddp_drop_last_batches", True)
     training_cfg["batch_size"] = int(global_batch_size)
     training_cfg["global_batch_size"] = int(global_batch_size)
     training_cfg["per_rank_batch_size"] = int(per_rank_batch_size)
@@ -203,16 +221,20 @@ def apply_ddp_runtime_overrides(
     cfg["data"] = data_cfg
     cfg["training"] = training_cfg
     cfg["logging"] = logging_cfg
-    cfg.setdefault("ddp", {})
-    cfg["ddp"].update(
+    ddp_cfg.update(
         {
             "enabled": True,
             "backend": "nccl",
-            "find_unused_parameters": True,
             "rank0_full_validation": True,
             "chunk_aware_shuffle_forced_off": True,
         }
     )
+    find_unused_override = _parse_optional_bool(args.find_unused_parameters)
+    if find_unused_override is not None:
+        ddp_cfg["find_unused_parameters"] = find_unused_override
+    else:
+        ddp_cfg.setdefault("find_unused_parameters", True)
+    cfg["ddp"] = ddp_cfg
     return cfg
 
 
@@ -224,7 +246,7 @@ def build_ddp_dataloader(
     rank: int,
     world_size: int,
     distributed_train: bool,
-) -> tuple[DataLoader, Optional[DistributedSampler]]:
+) -> tuple[DataLoader, Optional[Any]]:
     paths = config.get("paths", {}) or {}
     data_cfg = config.get("data", {}) or {}
     training_cfg = config.get("training", {}) or {}
@@ -252,40 +274,79 @@ def build_ddp_dataloader(
     prefetch_factor_cfg = data_cfg.get("prefetch_factor", training_cfg.get("prefetch_factor"))
     prefetch_factor = int(prefetch_factor_cfg) if (prefetch_factor_cfg is not None and num_workers > 0) else None
 
-    sampler: Optional[DistributedSampler] = None
+    sampler: Optional[Any] = None
+    batch_sampler: Optional[DDPChunkAwareBatchSampler] = None
     shuffle = False
     if distributed_train:
-        sampler = DistributedSampler(
-            dataset,
-            num_replicas=world_size,
-            rank=rank,
-            shuffle=True,
-            seed=int(training_cfg.get("seed", config.get("run", {}).get("seed", 42))),
-            drop_last=False,
-        )
+        if _cfg_bool(data_cfg.get("ddp_chunk_aware", True), True):
+            batch_sampler = DDPChunkAwareBatchSampler(
+                dataset,
+                batch_size=int(batch_size),
+                num_replicas=world_size,
+                rank=rank,
+                shuffle_chunks=_cfg_bool(data_cfg.get("shuffle_chunks", True), True),
+                shuffle_within_chunk=_cfg_bool(data_cfg.get("shuffle_within_chunk", True), True),
+                drop_last=False,
+                seed=int(training_cfg.get("seed", config.get("run", {}).get("seed", 42))),
+                ddp_drop_last_batches=_cfg_bool(data_cfg.get("ddp_drop_last_batches", True), True),
+            )
+            sampler = batch_sampler
+        else:
+            sampler = DistributedSampler(
+                dataset,
+                num_replicas=world_size,
+                rank=rank,
+                shuffle=True,
+                seed=int(training_cfg.get("seed", config.get("run", {}).get("seed", 42))),
+                drop_last=False,
+            )
     elif split == "train":
         shuffle = True
 
     kwargs: Dict[str, Any] = {
-        "batch_size": int(batch_size),
-        "shuffle": shuffle,
-        "sampler": sampler,
         "num_workers": num_workers,
         "pin_memory": pin_memory,
         "persistent_workers": persistent_workers,
         "collate_fn": collate_fn_full_graph,
     }
+    if batch_sampler is not None:
+        kwargs["batch_sampler"] = batch_sampler
+    else:
+        kwargs["batch_size"] = int(batch_size)
+        kwargs["shuffle"] = shuffle
+        kwargs["sampler"] = sampler
     if prefetch_factor is not None:
         kwargs["prefetch_factor"] = prefetch_factor
     loader = DataLoader(dataset, **kwargs)
     if _is_rank0():
+        if batch_sampler is not None:
+            summary = batch_sampler.summary(epoch=0)
+            print(
+                "[DDP ChunkAware] "
+                "enabled=True "
+                f"num_chunks={summary['num_chunks']} "
+                f"chunk_sizes_min_mean_max="
+                f"{summary['chunk_size_min']}/{summary['chunk_size_mean']:.2f}/{summary['chunk_size_max']} "
+                f"total_samples={summary['total_samples']} "
+                f"rank0_chunk_count={summary['rank_chunk_counts'][0]} "
+                f"rank1_chunk_count={summary['rank_chunk_counts'][1] if world_size > 1 else 0} "
+                f"per_rank_batch_size={batch_size} "
+                f"batches_per_rank_before={summary['batches_before_balance']} "
+                f"batches_per_rank_after={summary['batches_after_balance']} "
+                f"truncated_batches={summary['truncated_batches']} "
+                f"ddp_drop_last_batches={batch_sampler.ddp_drop_last_batches} "
+                f"shuffle_chunks={batch_sampler.shuffle_chunks} "
+                f"shuffle_within_chunk={batch_sampler.shuffle_within_chunk}"
+            )
+        else:
+            print("[DDP ChunkAware] enabled=False")
         print(
             f"[DDP DataLoader split={split}] "
             f"num_samples={len(dataset)} batch_size={batch_size} "
             f"num_workers={num_workers} pin_memory={pin_memory} "
             f"persistent_workers={persistent_workers} prefetch_factor={prefetch_factor} "
-            f"chunk_cache_size={chunk_cache_size} distributed_sampler={sampler is not None} "
-            f"chunk_aware_sampler=False batches_per_epoch={len(loader)}"
+            f"chunk_cache_size={chunk_cache_size} distributed_sampler={isinstance(sampler, DistributedSampler)} "
+            f"chunk_aware_sampler={batch_sampler is not None} batches_per_epoch={len(loader)}"
         )
     return loader, sampler
 
@@ -668,7 +729,7 @@ class DDPPhase1Trainer:
         self,
         *,
         train_loader: DataLoader,
-        train_sampler: DistributedSampler,
+        train_sampler: Any,
         val_loader: Optional[DataLoader],
         epochs: int,
         max_train_batches: Optional[int],
@@ -695,7 +756,6 @@ class DDPPhase1Trainer:
         best_early = _initial_metric_value(early_mode)
         stale_epochs = 0
         history = []
-        full_epoch_batches = len(train_loader)
         if self.is_rank0:
             print(
                 f"[Scheduler] type={_scheduler_name(self.scheduler)} "
@@ -706,7 +766,9 @@ class DDPPhase1Trainer:
             print(f"[EarlyStopping] monitor={early_monitor} mode={early_mode}")
 
         for epoch in range(1, int(epochs) + 1):
-            train_sampler.set_epoch(epoch)
+            if hasattr(train_sampler, "set_epoch"):
+                train_sampler.set_epoch(epoch)
+            full_epoch_batches = len(train_loader)
             lr_before = _optimizer_lr_metrics(self.optimizer)
             train_metrics = self.train_one_epoch(
                 train_loader,
@@ -882,6 +944,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_val_batches", type=int, default=None)
     parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument("--chunk_cache_size", type=int, default=None)
+    parser.add_argument("--ddp_chunk_aware", dest="ddp_chunk_aware", action="store_true")
+    parser.add_argument("--no_ddp_chunk_aware", dest="ddp_chunk_aware", action="store_false")
+    parser.set_defaults(ddp_chunk_aware=None)
+    parser.add_argument("--find_unused_parameters", choices=["true", "false"], default=None)
     parser.add_argument("--no_wandb", action="store_true")
     parser.add_argument("--amp", action="store_true", default=False)
     parser.add_argument("--no_amp", action="store_true", default=False)
@@ -936,10 +1002,14 @@ def main() -> None:
         config.setdefault("paths", {})["resolved_output_root"] = str(output_root)
 
         if rank == 0:
+            find_unused_parameters = _cfg_bool(
+                config.get("ddp", {}).get("find_unused_parameters", True),
+                True,
+            )
             print(
                 "[DDP Setup] "
                 f"rank={rank} local_rank={local_rank} world_size={world_size} "
-                f"device={device} backend=nccl find_unused_parameters=True"
+                f"device={device} backend=nccl find_unused_parameters={find_unused_parameters}"
             )
             print(
                 "[DDP Batch] "
@@ -947,7 +1017,11 @@ def main() -> None:
                 f"per_rank_batch_size={per_rank_batch_size} "
                 f"world_size={world_size}"
             )
-            print("[DDP Phase1] chunk_aware_shuffle forced off; torch.compile disabled")
+            print(
+                "[DDP Phase1.5] "
+                f"ddp_chunk_aware={_cfg_bool(config.get('data', {}).get('ddp_chunk_aware', True), True)} "
+                "torch.compile disabled"
+            )
 
         seed = int(config.get("training", {}).get("seed", config.get("run", {}).get("seed", 42)))
         random.seed(seed + rank)
@@ -982,10 +1056,16 @@ def main() -> None:
             model,
             device_ids=[local_rank],
             output_device=local_rank,
-            find_unused_parameters=True,
+            find_unused_parameters=_cfg_bool(
+                config.get("ddp", {}).get("find_unused_parameters", True),
+                True,
+            ),
         )
         if rank == 0:
-            print("[DDP Model] DistributedDataParallel wrapped with find_unused_parameters=True")
+            print(
+                "[DDP Model] DistributedDataParallel wrapped with "
+                f"find_unused_parameters={_cfg_bool(config.get('ddp', {}).get('find_unused_parameters', True), True)}"
+            )
 
         trainer = DDPPhase1Trainer(
             model=ddp_model,

@@ -33,3 +33,10 @@ training:
 
 logging:
   use_wandb: false
+
+ddp:
+  enabled: true
+  backend: nccl
+  find_unused_parameters: true
+  rank0_full_validation: true
+  chunk_aware_shuffle_forced_off: true

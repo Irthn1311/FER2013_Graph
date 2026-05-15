@@ -1,0 +1,7 @@
+inherits: d12a_stable_ce_first_ddp_b64_amp_chunkaware.yaml
+
+run:
+  config_name: d12a_stable_ce_first_ddp_b64_amp_chunkaware_fast
+
+ddp:
+  find_unused_parameters: false

@@ -1,0 +1,22 @@
+inherits: d12a_stable_ce_first_ddp_b64_amp.yaml
+
+run:
+  config_name: d12a_stable_ce_first_ddp_b64_amp_chunkaware
+
+data:
+  chunk_cache_size: 4
+  graph_cache_chunks: 4
+  ddp_chunk_aware: true
+  shuffle_chunks: true
+  shuffle_within_chunk: true
+  ddp_drop_last_batches: true
+
+training:
+  batch_size: 64
+  amp: true
+  use_compile: false
+  torch_compile: false
+  num_workers: 2
+
+ddp:
+  find_unused_parameters: true
