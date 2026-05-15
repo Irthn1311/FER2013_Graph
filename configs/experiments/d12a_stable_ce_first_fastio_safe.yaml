@@ -112,7 +112,7 @@ training:
   early_stopping_patience: 12
   amp: true
   multi_gpu: true
-  use_compile: true
+  use_compile: false
   device: auto
   grad_clip_norm: 1.0
   profile_batches: 20

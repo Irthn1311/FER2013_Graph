@@ -29,11 +29,12 @@ graph:
 
 data:
   dataset: fer2013
-  batch_size: 32
+  batch_size: 64
   num_workers: 2
   pin_memory: true
   persistent_workers: true
-  chunk_cache_size: 8
+  chunk_cache_size: 4
+  graph_cache_chunks: 4
   chunk_aware_shuffle: true
   node_dim: 7
   edge_dim: 5
@@ -92,7 +93,7 @@ scheduler:
 
 training:
   epochs: 100
-  batch_size: 32
+  batch_size: 64
   num_workers: 2
   pin_memory: true
   persistent_workers: true
@@ -107,7 +108,7 @@ training:
   early_stopping_patience: 25
   amp: true
   multi_gpu: true
-  use_compile: true
+  use_compile: false
   device: auto
   grad_clip_norm: 5.0
   max_train_batches: null

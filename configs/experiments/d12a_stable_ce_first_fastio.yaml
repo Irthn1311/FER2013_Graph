@@ -30,12 +30,12 @@ graph:
 data:
   dataset: fer2013
   batch_size: 64
-  num_workers: 4
+  num_workers: 2
   pin_memory: true
   persistent_workers: true
   prefetch_factor: 2
-  chunk_cache_size: 8
-  graph_cache_chunks: 8
+  chunk_cache_size: 4
+  graph_cache_chunks: 4
   chunk_aware_shuffle: true
   shuffle_chunks: true
   shuffle_within_chunk: true
@@ -97,7 +97,7 @@ scheduler:
 training:
   epochs: 15
   batch_size: 64
-  num_workers: 4
+  num_workers: 2
   pin_memory: true
   persistent_workers: true
   prefetch_factor: 2
@@ -110,9 +110,9 @@ training:
   monitor: val_macro_f1
   mode: max
   early_stopping_patience: 12
-  amp: false
+  amp: true
   multi_gpu: true
-  use_compile: true
+  use_compile: false
   device: auto
   grad_clip_norm: 1.0
   profile_batches: 20
