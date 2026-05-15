@@ -110,7 +110,7 @@ training:
   monitor: val_macro_f1
   mode: max
   early_stopping_patience: 12
-  amp: false
+  amp: true
   multi_gpu: true
   use_compile: true
   device: auto
