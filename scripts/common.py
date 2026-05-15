@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import random
 import sys
@@ -204,6 +205,7 @@ def apply_cli_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dic
                 paths["resolved_output_root"] = value
     if getattr(args, "batch_size", None) is not None:
         data["batch_size"] = int(args.batch_size)
+        training["batch_size"] = int(args.batch_size)
     if getattr(args, "epochs", None) is not None:
         training["epochs"] = int(args.epochs)
     if getattr(args, "device", None) is not None:
@@ -224,6 +226,7 @@ def apply_cli_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dic
     # --- DataLoader overrides ---
     if getattr(args, "num_workers", None) is not None:
         data["num_workers"] = int(args.num_workers)
+        training["num_workers"] = int(args.num_workers)
     # pin_memory: CLI passes string "true"/"false" or bool
     _pin = getattr(args, "pin_memory", None)
     if _pin is not None:
@@ -231,14 +234,17 @@ def apply_cli_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dic
             data["pin_memory"] = _pin.strip().lower() in ("1", "true", "yes")
         else:
             data["pin_memory"] = bool(_pin)
+        training["pin_memory"] = data["pin_memory"]
     _pw = getattr(args, "persistent_workers", None)
     if _pw is not None:
         if isinstance(_pw, str):
             data["persistent_workers"] = _pw.strip().lower() in ("1", "true", "yes")
         else:
             data["persistent_workers"] = bool(_pw)
+        training["persistent_workers"] = data["persistent_workers"]
     if getattr(args, "prefetch_factor", None) is not None:
         data["prefetch_factor"] = int(args.prefetch_factor)
+        training["prefetch_factor"] = int(args.prefetch_factor)
     if getattr(args, "chunk_cache_size", None) is not None:
         data["chunk_cache_size"] = int(args.chunk_cache_size)
         data.pop("graph_cache_chunks", None)
@@ -273,23 +279,44 @@ def build_dataloader(
 ) -> DataLoader:
     paths = config.get("paths", {})
     data_cfg = config.get("data", {})
+    training_cfg = config.get("training", {})
     repo = resolve_path(paths.get("graph_repo_path", "artifacts/graph_repo"))
+
+    def _cfg_value(key: str, default: Any = None) -> Any:
+        if key in data_cfg:
+            return data_cfg.get(key)
+        return training_cfg.get(key, default)
+
+    def _cfg_bool(key: str, default: bool = False) -> bool:
+        value = _cfg_value(key, default)
+        if isinstance(value, str):
+            return value.strip().lower() in ("1", "true", "yes", "y", "on")
+        return bool(value)
+
     chunk_cache_size = int(data_cfg.get("chunk_cache_size", data_cfg.get("graph_cache_chunks", 0)) or 0)
+    graph_cache_chunks = data_cfg.get("graph_cache_chunks", None)
+    if graph_cache_chunks is not None and chunk_cache_size <= 0:
+        chunk_cache_size = int(graph_cache_chunks or 0)
     dataset = FullGraphDataset(
         repo_root=repo,
         split=split,
         chunk_cache_size=chunk_cache_size,
+        graph_cache_chunks=int(graph_cache_chunks) if graph_cache_chunks is not None else None,
     )
-    num_workers = int(data_cfg.get("num_workers", 0))
-    pin_memory = bool(data_cfg.get("pin_memory", False))
-    persistent_workers_cfg = bool(data_cfg.get("persistent_workers", False))
+    num_workers = int(_cfg_value("num_workers", 0) or 0)
+    pin_memory = _cfg_bool("pin_memory", False)
+    persistent_workers_cfg = _cfg_bool("persistent_workers", False)
     persistent_workers = persistent_workers_cfg and num_workers > 0
     if persistent_workers_cfg and num_workers == 0:
         print("[DataLoader] WARNING: persistent_workers=True ignored because num_workers=0")
-    prefetch_factor_cfg = data_cfg.get("prefetch_factor", None)
+    prefetch_factor_cfg = _cfg_value("prefetch_factor", None)
     prefetch_factor = int(prefetch_factor_cfg) if (prefetch_factor_cfg is not None and num_workers > 0) else None
-    batch_size = int(data_cfg.get("batch_size", 16))
-    chunk_aware_shuffle = bool(data_cfg.get("chunk_aware_shuffle", False))
+    if prefetch_factor_cfg is not None and num_workers == 0:
+        print("[DataLoader] WARNING: prefetch_factor ignored because num_workers=0")
+    batch_size = int(data_cfg.get("batch_size", training_cfg.get("batch_size", 16)) or 16)
+    chunk_aware_shuffle = _cfg_bool("chunk_aware_shuffle", False)
+    shuffle_chunks = _cfg_bool("shuffle_chunks", True)
+    shuffle_within_chunk = _cfg_bool("shuffle_within_chunk", True)
     use_chunk_aware_sampler = bool(split == "train" and shuffle and chunk_aware_shuffle)
     loader_kwargs: Dict[str, Any] = dict(
         num_workers=num_workers,
@@ -301,19 +328,28 @@ def build_dataloader(
         loader_kwargs["batch_sampler"] = ChunkAwareBatchSampler(
             dataset=dataset,
             batch_size=batch_size,
-            shuffle_chunks=True,
-            shuffle_within_chunk=True,
+            shuffle_chunks=shuffle_chunks,
+            shuffle_within_chunk=shuffle_within_chunk,
         )
     else:
         loader_kwargs["batch_size"] = batch_size
         loader_kwargs["shuffle"] = bool(shuffle)
     if prefetch_factor is not None:
         loader_kwargs["prefetch_factor"] = prefetch_factor
+    batches_per_epoch = len(loader_kwargs["batch_sampler"]) if use_chunk_aware_sampler else math.ceil(len(dataset) / batch_size)
     print(
-        f"[DataLoader split={split}] batch_size={batch_size} "
-        f"num_workers={num_workers} pin_memory={pin_memory} "
-        f"persistent_workers={persistent_workers} prefetch_factor={prefetch_factor} "
-        f"chunk_aware_shuffle={use_chunk_aware_sampler}"
+        f"[DataLoader split={split}] "
+        f"num_samples={len(dataset)} "
+        f"batch_size={batch_size} "
+        f"num_workers={num_workers} "
+        f"pin_memory={pin_memory} "
+        f"persistent_workers={persistent_workers} "
+        f"prefetch_factor={prefetch_factor} "
+        f"chunk_cache_size={chunk_cache_size} "
+        f"chunk_aware_sampler={use_chunk_aware_sampler} "
+        f"shuffle_chunks={shuffle_chunks if use_chunk_aware_sampler else 'n/a'} "
+        f"shuffle_within_chunk={shuffle_within_chunk if use_chunk_aware_sampler else 'n/a'} "
+        f"batches_per_epoch={batches_per_epoch}"
     )
     return DataLoader(dataset, **loader_kwargs)
 

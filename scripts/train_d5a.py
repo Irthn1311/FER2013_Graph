@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import shutil
-from scripts.log_experiment import log_experiment
 import sys
 from pathlib import Path
 
@@ -14,6 +13,7 @@ for path in (SCRIPT_DIR, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from scripts.log_experiment import log_experiment
 from common import apply_cli_overrides, build_dataloader, create_trainer, load_config
 
 
