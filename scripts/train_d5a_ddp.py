@@ -244,6 +244,12 @@ def apply_ddp_runtime_overrides(
     data_cfg.setdefault("graph_cache_chunks", data_cfg.get("chunk_cache_size", 4))
     if args.no_wandb:
         logging_cfg["use_wandb"] = False
+    if getattr(args, "wandb", False):
+        logging_cfg["use_wandb"] = True
+    if getattr(args, "wandb_project", None) is not None:
+        logging_cfg["project"] = str(args.wandb_project)
+    if getattr(args, "wandb_entity", None) is not None:
+        logging_cfg["entity"] = str(args.wandb_entity)
 
     cfg["data"] = data_cfg
     cfg["training"] = training_cfg
@@ -1002,6 +1008,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no_ddp_chunk_aware", dest="ddp_chunk_aware", action="store_false")
     parser.set_defaults(ddp_chunk_aware=None)
     parser.add_argument("--find_unused_parameters", choices=["true", "false"], default=None)
+    parser.add_argument("--wandb", action="store_true")
+    parser.add_argument("--wandb_project", default=None)
+    parser.add_argument("--wandb_entity", default=None)
     parser.add_argument("--no_wandb", action="store_true")
     parser.add_argument("--amp", action="store_true", default=False)
     parser.add_argument("--no_amp", action="store_true", default=False)
