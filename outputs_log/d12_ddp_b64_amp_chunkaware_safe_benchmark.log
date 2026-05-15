@@ -1,0 +1,4747 @@
+W0515 07:07:48.096000 64 torch/distributed/run.py:852] 
+W0515 07:07:48.096000 64 torch/distributed/run.py:852] *****************************************
+W0515 07:07:48.096000 64 torch/distributed/run.py:852] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0515 07:07:48.096000 64 torch/distributed/run.py:852] *****************************************
+[W515 07:07:48.532287291 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W515 07:07:51.804311382 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W515 07:07:51.804899422 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[Output] run_dir=/kaggle/working/outputs/d12_ddp_b64_amp_chunkaware_safe_benchmark/d12a_stable_ce_first_ddp_b64_amp_chunkaware/20260515_070751
+[DDP Setup] rank=0 local_rank=0 world_size=2 device=cuda:0 backend=nccl find_unused_parameters=True
+[DDP Batch] global_batch_size=64 per_rank_batch_size=32 world_size=2
+[DDP Phase1.5] ddp_chunk_aware=True torch.compile disabled
+[FullGraphDataset train]
+chunk_cache_size=4
+num_chunks=58
+num_samples=28709
+[FullGraphDataset train] chunk cache enabled (max_chunks=4)
+[DDP ChunkAware] enabled=True num_chunks=58 chunk_sizes_min_mean_max=209/494.98/500 total_samples=28709 rank0_chunk_count=29 rank1_chunk_count=29 per_rank_batch_size=32 batches_per_rank_before=[455, 464] batches_per_rank_after=[455, 455] truncated_batches=[0, 9] ddp_drop_last_batches=True shuffle_chunks=True shuffle_within_chunk=True
+[DDP DataLoader split=train] num_samples=28709 batch_size=32 num_workers=2 pin_memory=True persistent_workers=True prefetch_factor=2 chunk_cache_size=4 distributed_sampler=False chunk_aware_sampler=True batches_per_epoch=455
+[FullGraphDataset val]
+chunk_cache_size=4
+num_chunks=8
+num_samples=3589
+[FullGraphDataset val] chunk cache enabled (max_chunks=4)
+[DDP ChunkAware] enabled=False
+[DDP DataLoader split=val] num_samples=3589 batch_size=64 num_workers=2 pin_memory=True persistent_workers=True prefetch_factor=2 chunk_cache_size=4 distributed_sampler=False chunk_aware_sampler=False batches_per_epoch=57
+--- torch version: 2.10.0+cu128
+--- cuda available: True
+--- cuda device count: 2
+--- selected device: cuda:0
+--- gpu name: Tesla T4
+--- current cuda device: 0
+[DDP Model] DistributedDataParallel wrapped with find_unused_parameters=True
+/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py:380: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  self.scaler = torch.cuda.amp.GradScaler(
+/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py:380: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  self.scaler = torch.cuda.amp.GradScaler(
+[DDP AMP] amp_enabled=True init_scale=65536.0
+[Scheduler] type=LambdaLR monitor=epoch mode=n/a
+[Checkpoint] save_best_metric=val_macro_f1 mode=max
+[EarlyStopping] monitor=val_macro_f1 mode=max
+
+train 1 rank0:   0%|          | 0/455 [00:00<?, ?it/s][SPEED_BENCH] first_batch_x_shape=[32, 2304, 7]
+[SPEED_BENCH] first_batch_edge_attr_shape=[32, 17860, 5]
+[SPEED_BENCH] ddp_per_rank_bs_mismatch=False (rank0 batch=32, expected=32)
+[rank1]:[W515 07:07:59.741463876 reducer.cpp:1500] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
+[rank0]:[W515 07:07:59.741467703 reducer.cpp:1500] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
+train tensor devices: x=cuda:0 edge_index=cuda:0 edge_attr=cuda:0 y=cuda:0 logits=cuda:0 loss=cuda:0
+[PROFILE rank=0 batch=0]
+  data_time      =0.5270s
+  to_device_time =0.0030s
+  forward_time   =1.5375s
+  loss_time      =0.1251s
+  backward_time  =0.4111s
+  optimizer_time =0.2408s
+  batch_time     =2.3192s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.291
+  cuda_max_allocated_gb=9.564
+
+train 1 rank0:   0%|          | 0/455 [00:02<?, ?it/s, loss=2.5377]
+train 1 rank0:   0%|          | 1/455 [00:02<21:44,  2.87s/it, loss=2.5377][PROFILE rank=0 batch=1]
+  data_time      =0.0007s
+  to_device_time =0.0039s
+  forward_time   =0.3394s
+  loss_time      =0.0019s
+  backward_time  =0.2957s
+  optimizer_time =0.0088s
+  batch_time     =0.6532s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.640
+
+train 1 rank0:   0%|          | 1/455 [00:03<21:44,  2.87s/it, loss=2.5927]
+train 1 rank0:   0%|          | 2/455 [00:03<11:51,  1.57s/it, loss=2.5927][PROFILE rank=0 batch=2]
+  data_time      =0.0006s
+  to_device_time =0.0040s
+  forward_time   =0.3447s
+  loss_time      =0.0018s
+  backward_time  =0.2962s
+  optimizer_time =0.0056s
+  batch_time     =0.6533s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   0%|          | 2/455 [00:04<11:51,  1.57s/it, loss=2.5298]
+train 1 rank0:   1%|          | 3/455 [00:04<08:41,  1.15s/it, loss=2.5298][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3421s
+  loss_time      =0.0019s
+  backward_time  =0.2964s
+  optimizer_time =0.0058s
+  batch_time     =0.6534s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   1%|          | 3/455 [00:04<08:41,  1.15s/it, loss=2.5714]
+train 1 rank0:   1%|          | 4/455 [00:04<07:11,  1.04it/s, loss=2.5714][PROFILE rank=0 batch=4]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3475s
+  loss_time      =0.0018s
+  backward_time  =0.2974s
+  optimizer_time =0.0058s
+  batch_time     =0.6584s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   1%|          | 4/455 [00:05<07:11,  1.04it/s, loss=2.5304]
+train 1 rank0:   1%|          | 5/455 [00:05<06:22,  1.18it/s, loss=2.5304][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3469s
+  loss_time      =0.0021s
+  backward_time  =0.2991s
+  optimizer_time =0.0062s
+  batch_time     =0.6595s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   1%|          | 5/455 [00:06<06:22,  1.18it/s, loss=2.5311]
+train 1 rank0:   1%|â–         | 6/455 [00:06<05:53,  1.27it/s, loss=2.5311][PROFILE rank=0 batch=6]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3457s
+  loss_time      =0.0018s
+  backward_time  =0.2971s
+  optimizer_time =0.0070s
+  batch_time     =0.6568s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   1%|â–         | 6/455 [00:06<05:53,  1.27it/s, loss=2.5331]
+train 1 rank0:   2%|â–         | 7/455 [00:06<05:34,  1.34it/s, loss=2.5331][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0033s
+  forward_time   =0.3459s
+  loss_time      =0.0019s
+  backward_time  =0.2969s
+  optimizer_time =0.0057s
+  batch_time     =0.6548s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   2%|â–         | 7/455 [00:07<05:34,  1.34it/s, loss=2.5583]
+train 1 rank0:   2%|â–         | 8/455 [00:07<05:20,  1.39it/s, loss=2.5583][PROFILE rank=0 batch=8]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3463s
+  loss_time      =0.0018s
+  backward_time  =0.2964s
+  optimizer_time =0.0055s
+  batch_time     =0.6563s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   2%|â–         | 8/455 [00:08<05:20,  1.39it/s, loss=2.5584]
+train 1 rank0:   2%|â–         | 9/455 [00:08<05:11,  1.43it/s, loss=2.5584][PROFILE rank=0 batch=9]
+  data_time      =0.0004s
+  to_device_time =0.0041s
+  forward_time   =0.3469s
+  loss_time      =0.0018s
+  backward_time  =0.2994s
+  optimizer_time =0.0056s
+  batch_time     =0.6586s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   2%|â–         | 9/455 [00:08<05:11,  1.43it/s, loss=2.5548]
+train 1 rank0:   2%|â–         | 10/455 [00:08<05:06,  1.45it/s, loss=2.5548][PROFILE rank=0 batch=10]
+  data_time      =0.0035s
+  to_device_time =0.0037s
+  forward_time   =0.3431s
+  loss_time      =0.0018s
+  backward_time  =0.2964s
+  optimizer_time =0.0059s
+  batch_time     =0.6532s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   2%|â–         | 10/455 [00:09<05:06,  1.45it/s, loss=2.5362]
+train 1 rank0:   2%|â–         | 11/455 [00:09<05:01,  1.47it/s, loss=2.5362][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3484s
+  loss_time      =0.0020s
+  backward_time  =0.2971s
+  optimizer_time =0.0054s
+  batch_time     =0.6579s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   2%|â–         | 11/455 [00:10<05:01,  1.47it/s, loss=2.5595]
+train 1 rank0:   3%|â–Ž         | 12/455 [00:10<04:58,  1.48it/s, loss=2.5595][PROFILE rank=0 batch=12]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3565s
+  loss_time      =0.0035s
+  backward_time  =0.3200s
+  optimizer_time =0.0057s
+  batch_time     =0.6911s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   3%|â–Ž         | 12/455 [00:10<04:58,  1.48it/s, loss=2.5921]
+train 1 rank0:   3%|â–Ž         | 13/455 [00:10<05:00,  1.47it/s, loss=2.5921][PROFILE rank=0 batch=13]
+  data_time      =0.0008s
+  to_device_time =0.0039s
+  forward_time   =0.3473s
+  loss_time      =0.0019s
+  backward_time  =0.2970s
+  optimizer_time =0.0061s
+  batch_time     =0.6573s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   3%|â–Ž         | 13/455 [00:11<05:00,  1.47it/s, loss=2.5589]
+train 1 rank0:   3%|â–Ž         | 14/455 [00:11<04:57,  1.48it/s, loss=2.5589][PROFILE rank=0 batch=14]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3454s
+  loss_time      =0.0020s
+  backward_time  =0.2972s
+  optimizer_time =0.0058s
+  batch_time     =0.6563s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   3%|â–Ž         | 14/455 [00:12<04:57,  1.48it/s, loss=2.5498]
+train 1 rank0:   3%|â–Ž         | 15/455 [00:12<04:54,  1.49it/s, loss=2.5498][PROFILE rank=0 batch=15]
+  data_time      =0.0006s
+  to_device_time =0.0025s
+  forward_time   =0.2203s
+  loss_time      =0.0021s
+  backward_time  =0.1997s
+  optimizer_time =0.0056s
+  batch_time     =0.4314s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   3%|â–Ž         | 15/455 [00:12<04:54,  1.49it/s, loss=2.5359]
+train 1 rank0:   4%|â–Ž         | 16/455 [00:12<04:23,  1.67it/s, loss=2.5359][PROFILE rank=0 batch=16]
+  data_time      =0.0014s
+  to_device_time =0.0038s
+  forward_time   =0.3447s
+  loss_time      =0.0019s
+  backward_time  =0.2971s
+  optimizer_time =0.0055s
+  batch_time     =0.6549s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   4%|â–Ž         | 16/455 [00:13<04:23,  1.67it/s, loss=2.5617]
+train 1 rank0:   4%|â–Ž         | 17/455 [00:13<04:30,  1.62it/s, loss=2.5617][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3492s
+  loss_time      =0.0018s
+  backward_time  =0.2976s
+  optimizer_time =0.0058s
+  batch_time     =0.6595s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   4%|â–Ž         | 17/455 [00:13<04:30,  1.62it/s, loss=2.5212]
+train 1 rank0:   4%|â–         | 18/455 [00:13<04:35,  1.58it/s, loss=2.5212][PROFILE rank=0 batch=18]
+  data_time      =0.0035s
+  to_device_time =0.0037s
+  forward_time   =0.3488s
+  loss_time      =0.0019s
+  backward_time  =0.2978s
+  optimizer_time =0.0060s
+  batch_time     =0.6594s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+train 1 rank0:   4%|â–         | 18/455 [00:14<04:35,  1.58it/s, loss=2.5211]
+train 1 rank0:   4%|â–         | 19/455 [00:14<04:39,  1.56it/s, loss=2.5211][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3468s
+  loss_time      =0.0021s
+  backward_time  =0.2982s
+  optimizer_time =0.0061s
+  batch_time     =0.6582s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =11.299
+  cuda_max_allocated_gb=9.642
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0272s
+  avg_to_device_time =0.0038s
+  avg_forward_time   =0.3997s
+  avg_loss_time      =0.0082s
+  avg_backward_time  =0.2992s
+  avg_optimizer_time =0.0177s
+  avg_batch_time     =0.7301s
+  estimated_full_epoch_minutes=5.54
+
+train 1 rank0:   4%|â–         | 19/455 [00:15<04:39,  1.56it/s, loss=2.5267]
+train 1 rank0:   4%|â–         | 20/455 [00:15<04:41,  1.54it/s, loss=2.5267]
+train 1 rank0:   4%|â–         | 20/455 [00:15<04:41,  1.54it/s, loss=2.5574]
+train 1 rank0:   5%|â–         | 21/455 [00:15<04:43,  1.53it/s, loss=2.5574]
+train 1 rank0:   5%|â–         | 21/455 [00:16<04:43,  1.53it/s, loss=2.5324]
+train 1 rank0:   5%|â–         | 22/455 [00:16<04:44,  1.52it/s, loss=2.5324]
+train 1 rank0:   5%|â–         | 22/455 [00:17<04:44,  1.52it/s, loss=2.5700]
+train 1 rank0:   5%|â–Œ         | 23/455 [00:17<04:46,  1.51it/s, loss=2.5700]
+train 1 rank0:   5%|â–Œ         | 23/455 [00:17<04:46,  1.51it/s, loss=2.5473]
+train 1 rank0:   5%|â–Œ         | 24/455 [00:17<04:45,  1.51it/s, loss=2.5473]
+train 1 rank0:   5%|â–Œ         | 24/455 [00:18<04:45,  1.51it/s, loss=2.5437]
+train 1 rank0:   5%|â–Œ         | 25/455 [00:18<04:44,  1.51it/s, loss=2.5437]
+train 1 rank0:   5%|â–Œ         | 25/455 [00:19<04:44,  1.51it/s, loss=2.4987]
+train 1 rank0:   6%|â–Œ         | 26/455 [00:19<04:44,  1.51it/s, loss=2.4987]
+train 1 rank0:   6%|â–Œ         | 26/455 [00:19<04:44,  1.51it/s, loss=2.5117]
+train 1 rank0:   6%|â–Œ         | 27/455 [00:19<04:43,  1.51it/s, loss=2.5117]
+train 1 rank0:   6%|â–Œ         | 27/455 [00:20<04:43,  1.51it/s, loss=2.5688]
+train 1 rank0:   6%|â–Œ         | 28/455 [00:20<04:43,  1.51it/s, loss=2.5688]
+train 1 rank0:   6%|â–Œ         | 28/455 [00:21<04:43,  1.51it/s, loss=2.5353]
+train 1 rank0:   6%|â–‹         | 29/455 [00:21<04:42,  1.51it/s, loss=2.5353]
+train 1 rank0:   6%|â–‹         | 29/455 [00:21<04:42,  1.51it/s, loss=2.5694]
+train 1 rank0:   7%|â–‹         | 30/455 [00:21<04:42,  1.50it/s, loss=2.5694]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:01<01:09,  1.25s/it]
+val:   4%|â–Ž         | 2/57 [00:01<00:49,  1.10it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:43,  1.24it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:39,  1.33it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:37,  1.37it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:36,  1.41it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:35,  1.43it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:34,  1.43it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:33,  1.45it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:32,  1.45it/s]
+                                                    
+Epoch 001/015 | loss=2.5427 acc=0.1419 macro_f1=0.1334 | val_loss=2.5330 val_acc=0.1391 val_macro_f1=0.0880 | ckpt_monitor=val_macro_f1:0.0880 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.731s cuda_rankmax=9.643GB
+          val pred_count: [390, 66, 72, 78, 16, 6, 12]
+          checkpoint improvement: best_epoch=1
+          early stopping monitor improved
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 2 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.6750s
+  to_device_time =0.0039s
+  forward_time   =0.3529s
+  loss_time      =0.0013s
+  backward_time  =0.3017s
+  optimizer_time =0.0064s
+  batch_time     =0.6692s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5241]
+train 2 rank0:   0%|          | 1/455 [00:01<10:11,  1.35s/it, loss=2.5241][PROFILE rank=0 batch=1]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3529s
+  loss_time      =0.0019s
+  backward_time  =0.2999s
+  optimizer_time =0.0058s
+  batch_time     =0.6654s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   0%|          | 1/455 [00:02<10:11,  1.35s/it, loss=2.5443]
+train 2 rank0:   0%|          | 2/455 [00:02<07:09,  1.05it/s, loss=2.5443][PROFILE rank=0 batch=2]
+  data_time      =0.0004s
+  to_device_time =0.0048s
+  forward_time   =0.3528s
+  loss_time      =0.0018s
+  backward_time  =0.3005s
+  optimizer_time =0.0058s
+  batch_time     =0.6667s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   0%|          | 2/455 [00:02<07:09,  1.05it/s, loss=2.5529]
+train 2 rank0:   1%|          | 3/455 [00:02<06:11,  1.22it/s, loss=2.5529][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3532s
+  loss_time      =0.0018s
+  backward_time  =0.3008s
+  optimizer_time =0.0055s
+  batch_time     =0.6662s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   1%|          | 3/455 [00:03<06:11,  1.22it/s, loss=2.5928]
+train 2 rank0:   1%|          | 4/455 [00:03<05:43,  1.31it/s, loss=2.5928][PROFILE rank=0 batch=4]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3536s
+  loss_time      =0.0018s
+  backward_time  =0.3009s
+  optimizer_time =0.0059s
+  batch_time     =0.6674s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   1%|          | 4/455 [00:04<05:43,  1.31it/s, loss=2.5249]
+train 2 rank0:   1%|          | 5/455 [00:04<05:27,  1.37it/s, loss=2.5249][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3554s
+  loss_time      =0.0019s
+  backward_time  =0.2999s
+  optimizer_time =0.0055s
+  batch_time     =0.6678s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   1%|          | 5/455 [00:04<05:27,  1.37it/s, loss=2.5377]
+train 2 rank0:   1%|â–         | 6/455 [00:04<05:18,  1.41it/s, loss=2.5377][PROFILE rank=0 batch=6]
+  data_time      =0.0003s
+  to_device_time =0.0054s
+  forward_time   =0.3557s
+  loss_time      =0.0018s
+  backward_time  =0.3019s
+  optimizer_time =0.0057s
+  batch_time     =0.6715s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   1%|â–         | 6/455 [00:05<05:18,  1.41it/s, loss=2.5345]
+train 2 rank0:   2%|â–         | 7/455 [00:05<05:12,  1.43it/s, loss=2.5345][PROFILE rank=0 batch=7]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3568s
+  loss_time      =0.0018s
+  backward_time  =0.3010s
+  optimizer_time =0.0054s
+  batch_time     =0.6698s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   2%|â–         | 7/455 [00:06<05:12,  1.43it/s, loss=2.5662]
+train 2 rank0:   2%|â–         | 8/455 [00:06<05:08,  1.45it/s, loss=2.5662][PROFILE rank=0 batch=8]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3584s
+  loss_time      =0.0018s
+  backward_time  =0.3007s
+  optimizer_time =0.0055s
+  batch_time     =0.6714s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   2%|â–         | 8/455 [00:06<05:08,  1.45it/s, loss=2.5634]
+train 2 rank0:   2%|â–         | 9/455 [00:06<05:05,  1.46it/s, loss=2.5634][PROFILE rank=0 batch=9]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3562s
+  loss_time      =0.0020s
+  backward_time  =0.3013s
+  optimizer_time =0.0118s
+  batch_time     =0.6765s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   2%|â–         | 9/455 [00:07<05:05,  1.46it/s, loss=2.5410]
+train 2 rank0:   2%|â–         | 10/455 [00:07<05:04,  1.46it/s, loss=2.5410][PROFILE rank=0 batch=10]
+  data_time      =0.0017s
+  to_device_time =0.0044s
+  forward_time   =0.3559s
+  loss_time      =0.0018s
+  backward_time  =0.3019s
+  optimizer_time =0.0061s
+  batch_time     =0.6713s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   2%|â–         | 10/455 [00:08<05:04,  1.46it/s, loss=2.5302]
+train 2 rank0:   2%|â–         | 11/455 [00:08<05:02,  1.47it/s, loss=2.5302][PROFILE rank=0 batch=11]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3557s
+  loss_time      =0.0018s
+  backward_time  =0.3010s
+  optimizer_time =0.0057s
+  batch_time     =0.6691s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   2%|â–         | 11/455 [00:08<05:02,  1.47it/s, loss=2.5267]
+train 2 rank0:   3%|â–Ž         | 12/455 [00:08<05:00,  1.47it/s, loss=2.5267][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3581s
+  loss_time      =0.0019s
+  backward_time  =0.3183s
+  optimizer_time =0.0062s
+  batch_time     =0.6908s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   3%|â–Ž         | 12/455 [00:09<05:00,  1.47it/s, loss=2.5278]
+train 2 rank0:   3%|â–Ž         | 13/455 [00:09<05:02,  1.46it/s, loss=2.5278][PROFILE rank=0 batch=13]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3593s
+  loss_time      =0.0027s
+  backward_time  =0.3043s
+  optimizer_time =0.0094s
+  batch_time     =0.6809s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   3%|â–Ž         | 13/455 [00:10<05:02,  1.46it/s, loss=2.5775]
+train 2 rank0:   3%|â–Ž         | 14/455 [00:10<05:01,  1.46it/s, loss=2.5775][PROFILE rank=0 batch=14]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3571s
+  loss_time      =0.0019s
+  backward_time  =0.3025s
+  optimizer_time =0.0062s
+  batch_time     =0.6725s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   3%|â–Ž         | 14/455 [00:10<05:01,  1.46it/s, loss=2.5420]
+train 2 rank0:   3%|â–Ž         | 15/455 [00:10<05:00,  1.47it/s, loss=2.5420][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0024s
+  forward_time   =0.2251s
+  loss_time      =0.0019s
+  backward_time  =0.1976s
+  optimizer_time =0.0056s
+  batch_time     =0.4335s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   3%|â–Ž         | 15/455 [00:11<05:00,  1.47it/s, loss=2.5865]
+train 2 rank0:   4%|â–Ž         | 16/455 [00:11<04:27,  1.64it/s, loss=2.5865][PROFILE rank=0 batch=16]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3599s
+  loss_time      =0.0021s
+  backward_time  =0.3025s
+  optimizer_time =0.0056s
+  batch_time     =0.6749s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   4%|â–Ž         | 16/455 [00:11<04:27,  1.64it/s, loss=2.5517]
+train 2 rank0:   4%|â–Ž         | 17/455 [00:11<04:35,  1.59it/s, loss=2.5517][PROFILE rank=0 batch=17]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3587s
+  loss_time      =0.0019s
+  backward_time  =0.3036s
+  optimizer_time =0.0063s
+  batch_time     =0.6753s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   4%|â–Ž         | 17/455 [00:12<04:35,  1.59it/s, loss=2.5553]
+train 2 rank0:   4%|â–         | 18/455 [00:12<04:41,  1.55it/s, loss=2.5553][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0041s
+  forward_time   =0.3582s
+  loss_time      =0.0020s
+  backward_time  =0.3034s
+  optimizer_time =0.0096s
+  batch_time     =0.6784s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 2 rank0:   4%|â–         | 18/455 [00:13<04:41,  1.55it/s, loss=2.5347]
+train 2 rank0:   4%|â–         | 19/455 [00:13<04:46,  1.52it/s, loss=2.5347][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3607s
+  loss_time      =0.0020s
+  backward_time  =0.3050s
+  optimizer_time =0.0058s
+  batch_time     =0.6784s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0343s
+  avg_to_device_time =0.0039s
+  avg_forward_time   =0.3498s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.2974s
+  avg_optimizer_time =0.0065s
+  avg_batch_time     =0.6609s
+  estimated_full_epoch_minutes=5.01
+
+train 2 rank0:   4%|â–         | 19/455 [00:13<04:46,  1.52it/s, loss=2.5548]
+train 2 rank0:   4%|â–         | 20/455 [00:13<04:48,  1.51it/s, loss=2.5548]
+train 2 rank0:   4%|â–         | 20/455 [00:14<04:48,  1.51it/s, loss=2.5452]
+train 2 rank0:   5%|â–         | 21/455 [00:14<04:49,  1.50it/s, loss=2.5452]
+train 2 rank0:   5%|â–         | 21/455 [00:15<04:49,  1.50it/s, loss=2.5538]
+train 2 rank0:   5%|â–         | 22/455 [00:15<04:50,  1.49it/s, loss=2.5538]
+train 2 rank0:   5%|â–         | 22/455 [00:16<04:50,  1.49it/s, loss=2.5383]
+train 2 rank0:   5%|â–Œ         | 23/455 [00:16<04:50,  1.49it/s, loss=2.5383]
+train 2 rank0:   5%|â–Œ         | 23/455 [00:16<04:50,  1.49it/s, loss=2.5434]
+train 2 rank0:   5%|â–Œ         | 24/455 [00:16<04:50,  1.48it/s, loss=2.5434]
+train 2 rank0:   5%|â–Œ         | 24/455 [00:17<04:50,  1.48it/s, loss=2.5539]
+train 2 rank0:   5%|â–Œ         | 25/455 [00:17<04:50,  1.48it/s, loss=2.5539]
+train 2 rank0:   5%|â–Œ         | 25/455 [00:18<04:50,  1.48it/s, loss=2.5539]
+train 2 rank0:   6%|â–Œ         | 26/455 [00:18<04:50,  1.48it/s, loss=2.5539]
+train 2 rank0:   6%|â–Œ         | 26/455 [00:18<04:50,  1.48it/s, loss=2.5449]
+train 2 rank0:   6%|â–Œ         | 27/455 [00:18<04:50,  1.48it/s, loss=2.5449]
+train 2 rank0:   6%|â–Œ         | 27/455 [00:19<04:50,  1.48it/s, loss=2.5404]
+train 2 rank0:   6%|â–Œ         | 28/455 [00:19<04:49,  1.47it/s, loss=2.5404]
+train 2 rank0:   6%|â–Œ         | 28/455 [00:20<04:49,  1.47it/s, loss=2.5375]
+train 2 rank0:   6%|â–‹         | 29/455 [00:20<04:49,  1.47it/s, loss=2.5375]
+train 2 rank0:   6%|â–‹         | 29/455 [00:20<04:49,  1.47it/s, loss=2.5247]
+train 2 rank0:   7%|â–‹         | 30/455 [00:20<04:48,  1.47it/s, loss=2.5247]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:52,  1.07it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:43,  1.26it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:40,  1.33it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:38,  1.37it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:37,  1.39it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:36,  1.40it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:35,  1.41it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:05<00:34,  1.41it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:33,  1.42it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:33,  1.42it/s]
+                                                    
+Epoch 002/015 | loss=2.5468 acc=0.1366 macro_f1=0.1302 | val_loss=2.5331 val_acc=0.1422 val_macro_f1=0.0829 | ckpt_monitor=val_macro_f1:0.0829 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.693s cuda_rankmax=9.643GB
+          val pred_count: [434, 77, 31, 7, 86, 5, 0]
+          no improvement: 1/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 3 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.3147s
+  to_device_time =0.0022s
+  forward_time   =0.3736s
+  loss_time      =0.0013s
+  backward_time  =0.3052s
+  optimizer_time =0.0058s
+  batch_time     =0.7009s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5434]
+train 3 rank0:   0%|          | 1/455 [00:01<07:42,  1.02s/it, loss=2.5434][PROFILE rank=0 batch=1]
+  data_time      =0.0006s
+  to_device_time =0.0037s
+  forward_time   =0.3653s
+  loss_time      =0.0018s
+  backward_time  =0.3062s
+  optimizer_time =0.0062s
+  batch_time     =0.6841s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   0%|          | 1/455 [00:01<07:42,  1.02s/it, loss=2.5460]
+train 3 rank0:   0%|          | 2/455 [00:01<06:13,  1.21it/s, loss=2.5460][PROFILE rank=0 batch=2]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3609s
+  loss_time      =0.0019s
+  backward_time  =0.3059s
+  optimizer_time =0.0065s
+  batch_time     =0.6801s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   0%|          | 2/455 [00:02<06:13,  1.21it/s, loss=2.5411]
+train 3 rank0:   1%|          | 3/455 [00:02<05:43,  1.32it/s, loss=2.5411][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3665s
+  loss_time      =0.0019s
+  backward_time  =0.3064s
+  optimizer_time =0.0062s
+  batch_time     =0.6856s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   1%|          | 3/455 [00:03<05:43,  1.32it/s, loss=2.5436]
+train 3 rank0:   1%|          | 4/455 [00:03<05:30,  1.37it/s, loss=2.5436][PROFILE rank=0 batch=4]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3655s
+  loss_time      =0.0018s
+  backward_time  =0.3068s
+  optimizer_time =0.0057s
+  batch_time     =0.6847s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   1%|          | 4/455 [00:03<05:30,  1.37it/s, loss=2.5101]
+train 3 rank0:   1%|          | 5/455 [00:03<05:22,  1.40it/s, loss=2.5101][PROFILE rank=0 batch=5]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3666s
+  loss_time      =0.0020s
+  backward_time  =0.3078s
+  optimizer_time =0.0058s
+  batch_time     =0.6870s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   1%|          | 5/455 [00:04<05:22,  1.40it/s, loss=2.5697]
+train 3 rank0:   1%|â–         | 6/455 [00:04<05:17,  1.41it/s, loss=2.5697][PROFILE rank=0 batch=6]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3662s
+  loss_time      =0.0019s
+  backward_time  =0.3078s
+  optimizer_time =0.0057s
+  batch_time     =0.6866s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   1%|â–         | 6/455 [00:05<05:17,  1.41it/s, loss=2.5347]
+train 3 rank0:   2%|â–         | 7/455 [00:05<05:14,  1.42it/s, loss=2.5347][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3652s
+  loss_time      =0.0019s
+  backward_time  =0.3080s
+  optimizer_time =0.0058s
+  batch_time     =0.6858s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   2%|â–         | 7/455 [00:05<05:14,  1.42it/s, loss=2.5476]
+train 3 rank0:   2%|â–         | 8/455 [00:05<05:11,  1.43it/s, loss=2.5476][PROFILE rank=0 batch=8]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3650s
+  loss_time      =0.0018s
+  backward_time  =0.3071s
+  optimizer_time =0.0059s
+  batch_time     =0.6847s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   2%|â–         | 8/455 [00:06<05:11,  1.43it/s, loss=2.5390]
+train 3 rank0:   2%|â–         | 9/455 [00:06<05:10,  1.44it/s, loss=2.5390][PROFILE rank=0 batch=9]
+  data_time      =0.0006s
+  to_device_time =0.0037s
+  forward_time   =0.3651s
+  loss_time      =0.0018s
+  backward_time  =0.3072s
+  optimizer_time =0.0061s
+  batch_time     =0.6851s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   2%|â–         | 9/455 [00:07<05:10,  1.44it/s, loss=2.5582]
+train 3 rank0:   2%|â–         | 10/455 [00:07<05:08,  1.44it/s, loss=2.5582][PROFILE rank=0 batch=10]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3660s
+  loss_time      =0.0018s
+  backward_time  =0.3072s
+  optimizer_time =0.0057s
+  batch_time     =0.6857s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   2%|â–         | 10/455 [00:07<05:08,  1.44it/s, loss=2.5426]
+train 3 rank0:   2%|â–         | 11/455 [00:07<05:07,  1.44it/s, loss=2.5426][PROFILE rank=0 batch=11]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3663s
+  loss_time      =0.0020s
+  backward_time  =0.3082s
+  optimizer_time =0.0057s
+  batch_time     =0.6872s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   2%|â–         | 11/455 [00:08<05:07,  1.44it/s, loss=2.5587]
+train 3 rank0:   3%|â–Ž         | 12/455 [00:08<05:06,  1.45it/s, loss=2.5587][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3686s
+  loss_time      =0.0018s
+  backward_time  =0.3096s
+  optimizer_time =0.0101s
+  batch_time     =0.6952s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   3%|â–Ž         | 12/455 [00:09<05:06,  1.45it/s, loss=2.5712]
+train 3 rank0:   3%|â–Ž         | 13/455 [00:09<05:06,  1.44it/s, loss=2.5712][PROFILE rank=0 batch=13]
+  data_time      =0.0004s
+  to_device_time =0.0038s
+  forward_time   =0.3666s
+  loss_time      =0.0019s
+  backward_time  =0.3092s
+  optimizer_time =0.0056s
+  batch_time     =0.6884s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   3%|â–Ž         | 13/455 [00:09<05:06,  1.44it/s, loss=2.5457]
+train 3 rank0:   3%|â–Ž         | 14/455 [00:09<05:05,  1.44it/s, loss=2.5457][PROFILE rank=0 batch=14]
+  data_time      =0.0004s
+  to_device_time =0.0038s
+  forward_time   =0.3687s
+  loss_time      =0.0018s
+  backward_time  =0.3089s
+  optimizer_time =0.0058s
+  batch_time     =0.6899s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   3%|â–Ž         | 14/455 [00:10<05:05,  1.44it/s, loss=2.5410]
+train 3 rank0:   3%|â–Ž         | 15/455 [00:10<05:05,  1.44it/s, loss=2.5410][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0023s
+  forward_time   =0.2299s
+  loss_time      =0.0018s
+  backward_time  =0.2012s
+  optimizer_time =0.0053s
+  batch_time     =0.4416s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   3%|â–Ž         | 15/455 [00:11<05:05,  1.44it/s, loss=2.5141]
+train 3 rank0:   4%|â–Ž         | 16/455 [00:11<04:31,  1.62it/s, loss=2.5141][PROFILE rank=0 batch=16]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3686s
+  loss_time      =0.0018s
+  backward_time  =0.3085s
+  optimizer_time =0.0054s
+  batch_time     =0.6891s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   4%|â–Ž         | 16/455 [00:11<04:31,  1.62it/s, loss=2.5297]
+train 3 rank0:   4%|â–Ž         | 17/455 [00:11<04:40,  1.56it/s, loss=2.5297][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3713s
+  loss_time      =0.0018s
+  backward_time  =0.3098s
+  optimizer_time =0.0054s
+  batch_time     =0.6933s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   4%|â–Ž         | 17/455 [00:12<04:40,  1.56it/s, loss=2.5641]
+train 3 rank0:   4%|â–         | 18/455 [00:12<04:47,  1.52it/s, loss=2.5641][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3686s
+  loss_time      =0.0019s
+  backward_time  =0.3111s
+  optimizer_time =0.0060s
+  batch_time     =0.6924s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 3 rank0:   4%|â–         | 18/455 [00:13<04:47,  1.52it/s, loss=2.5457]
+train 3 rank0:   4%|â–         | 19/455 [00:13<04:51,  1.49it/s, loss=2.5457][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3677s
+  loss_time      =0.0018s
+  backward_time  =0.3098s
+  optimizer_time =0.0059s
+  batch_time     =0.6902s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0162s
+  avg_to_device_time =0.0037s
+  avg_forward_time   =0.3601s
+  avg_loss_time      =0.0018s
+  avg_backward_time  =0.3026s
+  avg_optimizer_time =0.0060s
+  avg_batch_time     =0.6759s
+  estimated_full_epoch_minutes=5.13
+
+train 3 rank0:   4%|â–         | 19/455 [00:13<04:51,  1.49it/s, loss=2.5375]
+train 3 rank0:   4%|â–         | 20/455 [00:13<04:54,  1.48it/s, loss=2.5375]
+train 3 rank0:   4%|â–         | 20/455 [00:14<04:54,  1.48it/s, loss=2.5316]
+train 3 rank0:   5%|â–         | 21/455 [00:14<04:56,  1.47it/s, loss=2.5316]
+train 3 rank0:   5%|â–         | 21/455 [00:15<04:56,  1.47it/s, loss=2.5032]
+train 3 rank0:   5%|â–         | 22/455 [00:15<04:57,  1.46it/s, loss=2.5032]
+train 3 rank0:   5%|â–         | 22/455 [00:15<04:57,  1.46it/s, loss=2.5196]
+train 3 rank0:   5%|â–Œ         | 23/455 [00:15<04:57,  1.45it/s, loss=2.5196]
+train 3 rank0:   5%|â–Œ         | 23/455 [00:16<04:57,  1.45it/s, loss=2.5549]
+train 3 rank0:   5%|â–Œ         | 24/455 [00:16<04:58,  1.45it/s, loss=2.5549]
+train 3 rank0:   5%|â–Œ         | 24/455 [00:17<04:58,  1.45it/s, loss=2.5594]
+train 3 rank0:   5%|â–Œ         | 25/455 [00:17<04:58,  1.44it/s, loss=2.5594]
+train 3 rank0:   5%|â–Œ         | 25/455 [00:18<04:58,  1.44it/s, loss=2.5162]
+train 3 rank0:   6%|â–Œ         | 26/455 [00:18<04:58,  1.44it/s, loss=2.5162]
+train 3 rank0:   6%|â–Œ         | 26/455 [00:18<04:58,  1.44it/s, loss=2.5500]
+train 3 rank0:   6%|â–Œ         | 27/455 [00:18<04:58,  1.43it/s, loss=2.5500]
+train 3 rank0:   6%|â–Œ         | 27/455 [00:19<04:58,  1.43it/s, loss=2.5275]
+train 3 rank0:   6%|â–Œ         | 28/455 [00:19<04:58,  1.43it/s, loss=2.5275]
+train 3 rank0:   6%|â–Œ         | 28/455 [00:20<04:58,  1.43it/s, loss=2.5246]
+train 3 rank0:   6%|â–‹         | 29/455 [00:20<04:57,  1.43it/s, loss=2.5246]
+train 3 rank0:   6%|â–‹         | 29/455 [00:20<04:57,  1.43it/s, loss=2.5306]
+train 3 rank0:   7%|â–‹         | 30/455 [00:20<04:57,  1.43it/s, loss=2.5306]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:50,  1.11it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:43,  1.25it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:41,  1.29it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:40,  1.32it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:38,  1.34it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:37,  1.34it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:36,  1.35it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:36,  1.36it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:35,  1.36it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:34,  1.36it/s]
+                                                    
+Epoch 003/015 | loss=2.5400 acc=0.1282 macro_f1=0.1172 | val_loss=2.5331 val_acc=0.1094 val_macro_f1=0.0768 | ckpt_monitor=val_macro_f1:0.0768 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.697s cuda_rankmax=9.643GB
+          val pred_count: [257, 109, 102, 23, 148, 1, 0]
+          no improvement: 2/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 4 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.3124s
+  to_device_time =0.0038s
+  forward_time   =0.3694s
+  loss_time      =0.0013s
+  backward_time  =0.3285s
+  optimizer_time =0.0062s
+  batch_time     =0.7123s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5587]
+train 4 rank0:   0%|          | 1/455 [00:01<07:46,  1.03s/it, loss=2.5587][PROFILE rank=0 batch=1]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3765s
+  loss_time      =0.0019s
+  backward_time  =0.3248s
+  optimizer_time =0.0057s
+  batch_time     =0.7139s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   0%|          | 1/455 [00:01<07:46,  1.03s/it, loss=2.5600]
+train 4 rank0:   0%|          | 2/455 [00:01<06:22,  1.18it/s, loss=2.5600][PROFILE rank=0 batch=2]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3785s
+  loss_time      =0.0017s
+  backward_time  =0.3245s
+  optimizer_time =0.0063s
+  batch_time     =0.7160s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   0%|          | 2/455 [00:02<06:22,  1.18it/s, loss=2.5650]
+train 4 rank0:   1%|          | 3/455 [00:02<05:56,  1.27it/s, loss=2.5650][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3770s
+  loss_time      =0.0019s
+  backward_time  =0.3249s
+  optimizer_time =0.0067s
+  batch_time     =0.7153s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   1%|          | 3/455 [00:03<05:56,  1.27it/s, loss=2.5428]
+train 4 rank0:   1%|          | 4/455 [00:03<05:43,  1.31it/s, loss=2.5428][PROFILE rank=0 batch=4]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3825s
+  loss_time      =0.0019s
+  backward_time  =0.3276s
+  optimizer_time =0.0058s
+  batch_time     =0.7228s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   1%|          | 4/455 [00:03<05:43,  1.31it/s, loss=2.5249]
+train 4 rank0:   1%|          | 5/455 [00:03<05:36,  1.34it/s, loss=2.5249][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3794s
+  loss_time      =0.0018s
+  backward_time  =0.3270s
+  optimizer_time =0.0054s
+  batch_time     =0.7186s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   1%|          | 5/455 [00:04<05:36,  1.34it/s, loss=2.5406]
+train 4 rank0:   1%|â–         | 6/455 [00:04<05:32,  1.35it/s, loss=2.5406][PROFILE rank=0 batch=6]
+  data_time      =0.0030s
+  to_device_time =0.0049s
+  forward_time   =0.3799s
+  loss_time      =0.0019s
+  backward_time  =0.3269s
+  optimizer_time =0.0057s
+  batch_time     =0.7205s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   1%|â–         | 6/455 [00:05<05:32,  1.35it/s, loss=2.5320]
+train 4 rank0:   2%|â–         | 7/455 [00:05<05:29,  1.36it/s, loss=2.5320][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3808s
+  loss_time      =0.0018s
+  backward_time  =0.3261s
+  optimizer_time =0.0057s
+  batch_time     =0.7194s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   2%|â–         | 7/455 [00:06<05:29,  1.36it/s, loss=2.5420]
+train 4 rank0:   2%|â–         | 8/455 [00:06<05:26,  1.37it/s, loss=2.5420][PROFILE rank=0 batch=8]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3828s
+  loss_time      =0.0018s
+  backward_time  =0.3302s
+  optimizer_time =0.0061s
+  batch_time     =0.7259s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   2%|â–         | 8/455 [00:06<05:26,  1.37it/s, loss=2.5468]
+train 4 rank0:   2%|â–         | 9/455 [00:06<05:26,  1.37it/s, loss=2.5468][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3849s
+  loss_time      =0.0019s
+  backward_time  =0.3291s
+  optimizer_time =0.0057s
+  batch_time     =0.7265s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   2%|â–         | 9/455 [00:07<05:26,  1.37it/s, loss=2.5659]
+train 4 rank0:   2%|â–         | 10/455 [00:07<05:25,  1.37it/s, loss=2.5659][PROFILE rank=0 batch=10]
+  data_time      =0.0004s
+  to_device_time =0.0038s
+  forward_time   =0.3856s
+  loss_time      =0.0019s
+  backward_time  =0.3296s
+  optimizer_time =0.0059s
+  batch_time     =0.7280s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   2%|â–         | 10/455 [00:08<05:25,  1.37it/s, loss=2.5586]
+train 4 rank0:   2%|â–         | 11/455 [00:08<05:24,  1.37it/s, loss=2.5586][PROFILE rank=0 batch=11]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3840s
+  loss_time      =0.0018s
+  backward_time  =0.3297s
+  optimizer_time =0.0058s
+  batch_time     =0.7264s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   2%|â–         | 11/455 [00:09<05:24,  1.37it/s, loss=2.5355]
+train 4 rank0:   3%|â–Ž         | 12/455 [00:09<05:23,  1.37it/s, loss=2.5355][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3844s
+  loss_time      =0.0019s
+  backward_time  =0.3308s
+  optimizer_time =0.0056s
+  batch_time     =0.7274s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   3%|â–Ž         | 12/455 [00:09<05:23,  1.37it/s, loss=2.5871]
+train 4 rank0:   3%|â–Ž         | 13/455 [00:09<05:23,  1.37it/s, loss=2.5871][PROFILE rank=0 batch=13]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3874s
+  loss_time      =0.0019s
+  backward_time  =0.3302s
+  optimizer_time =0.0117s
+  batch_time     =0.7362s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   3%|â–Ž         | 13/455 [00:10<05:23,  1.37it/s, loss=2.5117]
+train 4 rank0:   3%|â–Ž         | 14/455 [00:10<05:23,  1.36it/s, loss=2.5117][PROFILE rank=0 batch=14]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3849s
+  loss_time      =0.0019s
+  backward_time  =0.3352s
+  optimizer_time =0.0059s
+  batch_time     =0.7337s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   3%|â–Ž         | 14/455 [00:11<05:23,  1.36it/s, loss=2.4975]
+train 4 rank0:   3%|â–Ž         | 15/455 [00:11<05:23,  1.36it/s, loss=2.4975][PROFILE rank=0 batch=15]
+  data_time      =0.0006s
+  to_device_time =0.0023s
+  forward_time   =0.2444s
+  loss_time      =0.0020s
+  backward_time  =0.2123s
+  optimizer_time =0.0055s
+  batch_time     =0.4676s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   3%|â–Ž         | 15/455 [00:11<05:23,  1.36it/s, loss=2.5245]
+train 4 rank0:   4%|â–Ž         | 16/455 [00:11<04:47,  1.52it/s, loss=2.5245][PROFILE rank=0 batch=16]
+  data_time      =0.0003s
+  to_device_time =0.0038s
+  forward_time   =0.3902s
+  loss_time      =0.0019s
+  backward_time  =0.3401s
+  optimizer_time =0.0055s
+  batch_time     =0.7425s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   4%|â–Ž         | 16/455 [00:12<04:47,  1.52it/s, loss=2.5218]
+train 4 rank0:   4%|â–Ž         | 17/455 [00:12<04:59,  1.46it/s, loss=2.5218][PROFILE rank=0 batch=17]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3894s
+  loss_time      =0.0018s
+  backward_time  =0.3318s
+  optimizer_time =0.0055s
+  batch_time     =0.7333s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   4%|â–Ž         | 17/455 [00:13<04:59,  1.46it/s, loss=2.5286]
+train 4 rank0:   4%|â–         | 18/455 [00:13<05:05,  1.43it/s, loss=2.5286][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3884s
+  loss_time      =0.0019s
+  backward_time  =0.3423s
+  optimizer_time =0.0055s
+  batch_time     =0.7429s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 4 rank0:   4%|â–         | 18/455 [00:13<05:05,  1.43it/s, loss=2.5232]
+train 4 rank0:   4%|â–         | 19/455 [00:13<05:11,  1.40it/s, loss=2.5232][PROFILE rank=0 batch=19]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3898s
+  loss_time      =0.0019s
+  backward_time  =0.3320s
+  optimizer_time =0.0055s
+  batch_time     =0.7340s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0162s
+  avg_to_device_time =0.0038s
+  avg_forward_time   =0.3760s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3242s
+  avg_optimizer_time =0.0061s
+  avg_batch_time     =0.7132s
+  estimated_full_epoch_minutes=5.41
+
+train 4 rank0:   4%|â–         | 19/455 [00:14<05:11,  1.40it/s, loss=2.5563]
+train 4 rank0:   4%|â–         | 20/455 [00:14<05:13,  1.39it/s, loss=2.5563]
+train 4 rank0:   4%|â–         | 20/455 [00:15<05:13,  1.39it/s, loss=2.5225]
+train 4 rank0:   5%|â–         | 21/455 [00:15<05:16,  1.37it/s, loss=2.5225]
+train 4 rank0:   5%|â–         | 21/455 [00:16<05:16,  1.37it/s, loss=2.5516]
+train 4 rank0:   5%|â–         | 22/455 [00:16<05:18,  1.36it/s, loss=2.5516]
+train 4 rank0:   5%|â–         | 22/455 [00:16<05:18,  1.36it/s, loss=2.5296]
+train 4 rank0:   5%|â–Œ         | 23/455 [00:16<05:19,  1.35it/s, loss=2.5296]
+train 4 rank0:   5%|â–Œ         | 23/455 [00:17<05:19,  1.35it/s, loss=2.5405]
+train 4 rank0:   5%|â–Œ         | 24/455 [00:17<05:20,  1.35it/s, loss=2.5405]
+train 4 rank0:   5%|â–Œ         | 24/455 [00:18<05:20,  1.35it/s, loss=2.5389]
+train 4 rank0:   5%|â–Œ         | 25/455 [00:18<05:20,  1.34it/s, loss=2.5389]
+train 4 rank0:   5%|â–Œ         | 25/455 [00:19<05:20,  1.34it/s, loss=2.5314]
+train 4 rank0:   6%|â–Œ         | 26/455 [00:19<05:19,  1.34it/s, loss=2.5314]
+train 4 rank0:   6%|â–Œ         | 26/455 [00:19<05:19,  1.34it/s, loss=2.5282]
+train 4 rank0:   6%|â–Œ         | 27/455 [00:19<05:18,  1.34it/s, loss=2.5282]
+train 4 rank0:   6%|â–Œ         | 27/455 [00:20<05:18,  1.34it/s, loss=2.5150]
+train 4 rank0:   6%|â–Œ         | 28/455 [00:20<05:18,  1.34it/s, loss=2.5150]
+train 4 rank0:   6%|â–Œ         | 28/455 [00:21<05:18,  1.34it/s, loss=2.5638]
+train 4 rank0:   6%|â–‹         | 29/455 [00:21<05:18,  1.34it/s, loss=2.5638]
+train 4 rank0:   6%|â–‹         | 29/455 [00:22<05:18,  1.34it/s, loss=2.5177]
+train 4 rank0:   7%|â–‹         | 30/455 [00:22<05:18,  1.33it/s, loss=2.5177]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:52,  1.06it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:46,  1.18it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:44,  1.23it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:42,  1.25it/s]
+val:   9%|â–‰         | 5/57 [00:04<00:41,  1.27it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:40,  1.27it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:39,  1.27it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:38,  1.27it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:07<00:37,  1.26it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:08<00:37,  1.26it/s]
+                                                    
+Epoch 004/015 | loss=2.5392 acc=0.1429 macro_f1=0.1326 | val_loss=2.5331 val_acc=0.1250 val_macro_f1=0.0586 | ckpt_monitor=val_macro_f1:0.0586 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.739s cuda_rankmax=9.643GB
+          val pred_count: [486, 96, 19, 20, 4, 12, 3]
+          no improvement: 3/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 5 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.3177s
+  to_device_time =0.0079s
+  forward_time   =0.3917s
+  loss_time      =0.0013s
+  backward_time  =0.3492s
+  optimizer_time =0.0055s
+  batch_time     =0.7587s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5634]
+train 5 rank0:   0%|          | 1/455 [00:01<08:09,  1.08s/it, loss=2.5634][PROFILE rank=0 batch=1]
+  data_time      =0.0005s
+  to_device_time =0.0041s
+  forward_time   =0.3986s
+  loss_time      =0.0018s
+  backward_time  =0.3539s
+  optimizer_time =0.0057s
+  batch_time     =0.7652s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   0%|          | 1/455 [00:01<08:09,  1.08s/it, loss=2.5550]
+train 5 rank0:   0%|          | 2/455 [00:01<06:46,  1.12it/s, loss=2.5550][PROFILE rank=0 batch=2]
+  data_time      =0.0032s
+  to_device_time =0.0037s
+  forward_time   =0.3963s
+  loss_time      =0.0018s
+  backward_time  =0.3535s
+  optimizer_time =0.0063s
+  batch_time     =0.7628s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   0%|          | 2/455 [00:02<06:46,  1.12it/s, loss=2.5490]
+train 5 rank0:   1%|          | 3/455 [00:02<06:18,  1.19it/s, loss=2.5490][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.4034s
+  loss_time      =0.0019s
+  backward_time  =0.3518s
+  optimizer_time =0.0058s
+  batch_time     =0.7680s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   1%|          | 3/455 [00:03<06:18,  1.19it/s, loss=2.5668]
+train 5 rank0:   1%|          | 4/455 [00:03<06:06,  1.23it/s, loss=2.5668][PROFILE rank=0 batch=4]
+  data_time      =0.0004s
+  to_device_time =0.0040s
+  forward_time   =0.3975s
+  loss_time      =0.0020s
+  backward_time  =0.3525s
+  optimizer_time =0.0056s
+  batch_time     =0.7627s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   1%|          | 4/455 [00:04<06:06,  1.23it/s, loss=2.5324]
+train 5 rank0:   1%|          | 5/455 [00:04<05:57,  1.26it/s, loss=2.5324][PROFILE rank=0 batch=5]
+  data_time      =0.0032s
+  to_device_time =0.0037s
+  forward_time   =0.3991s
+  loss_time      =0.0018s
+  backward_time  =0.3531s
+  optimizer_time =0.0061s
+  batch_time     =0.7650s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   1%|          | 5/455 [00:04<05:57,  1.26it/s, loss=2.5263]
+train 5 rank0:   1%|â–         | 6/455 [00:04<05:53,  1.27it/s, loss=2.5263][PROFILE rank=0 batch=6]
+  data_time      =0.0005s
+  to_device_time =0.0041s
+  forward_time   =0.3971s
+  loss_time      =0.0018s
+  backward_time  =0.3421s
+  optimizer_time =0.0055s
+  batch_time     =0.7516s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   1%|â–         | 6/455 [00:05<05:53,  1.27it/s, loss=2.5606]
+train 5 rank0:   2%|â–         | 7/455 [00:05<05:47,  1.29it/s, loss=2.5606][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3977s
+  loss_time      =0.0019s
+  backward_time  =0.3509s
+  optimizer_time =0.0055s
+  batch_time     =0.7611s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   2%|â–         | 7/455 [00:06<05:47,  1.29it/s, loss=2.4901]
+train 5 rank0:   2%|â–         | 8/455 [00:06<05:45,  1.29it/s, loss=2.4901][PROFILE rank=0 batch=8]
+  data_time      =0.0003s
+  to_device_time =0.0040s
+  forward_time   =0.3976s
+  loss_time      =0.0020s
+  backward_time  =0.3436s
+  optimizer_time =0.0053s
+  batch_time     =0.7536s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   2%|â–         | 8/455 [00:07<05:45,  1.29it/s, loss=2.5163]
+train 5 rank0:   2%|â–         | 9/455 [00:07<05:42,  1.30it/s, loss=2.5163][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3963s
+  loss_time      =0.0019s
+  backward_time  =0.3498s
+  optimizer_time =0.0056s
+  batch_time     =0.7586s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   2%|â–         | 9/455 [00:07<05:42,  1.30it/s, loss=2.5831]
+train 5 rank0:   2%|â–         | 10/455 [00:07<05:40,  1.31it/s, loss=2.5831][PROFILE rank=0 batch=10]
+  data_time      =0.0004s
+  to_device_time =0.0040s
+  forward_time   =0.3959s
+  loss_time      =0.0018s
+  backward_time  =0.3386s
+  optimizer_time =0.0058s
+  batch_time     =0.7471s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   2%|â–         | 10/455 [00:08<05:40,  1.31it/s, loss=2.5460]
+train 5 rank0:   2%|â–         | 11/455 [00:08<05:37,  1.31it/s, loss=2.5460][PROFILE rank=0 batch=11]
+  data_time      =0.0002s
+  to_device_time =0.0040s
+  forward_time   =0.3951s
+  loss_time      =0.0019s
+  backward_time  =0.3384s
+  optimizer_time =0.0057s
+  batch_time     =0.7462s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   2%|â–         | 11/455 [00:09<05:37,  1.31it/s, loss=2.5769]
+train 5 rank0:   3%|â–Ž         | 12/455 [00:09<05:35,  1.32it/s, loss=2.5769][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3955s
+  loss_time      =0.0019s
+  backward_time  =0.3377s
+  optimizer_time =0.0056s
+  batch_time     =0.7457s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   3%|â–Ž         | 12/455 [00:10<05:35,  1.32it/s, loss=2.5440]
+train 5 rank0:   3%|â–Ž         | 13/455 [00:10<05:33,  1.32it/s, loss=2.5440][PROFILE rank=0 batch=13]
+  data_time      =0.0017s
+  to_device_time =0.0037s
+  forward_time   =0.3941s
+  loss_time      =0.0022s
+  backward_time  =0.3377s
+  optimizer_time =0.0077s
+  batch_time     =0.7467s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   3%|â–Ž         | 13/455 [00:10<05:33,  1.32it/s, loss=2.5489]
+train 5 rank0:   3%|â–Ž         | 14/455 [00:10<05:32,  1.33it/s, loss=2.5489][PROFILE rank=0 batch=14]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3935s
+  loss_time      =0.0020s
+  backward_time  =0.3361s
+  optimizer_time =0.0058s
+  batch_time     =0.7424s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   3%|â–Ž         | 14/455 [00:11<05:32,  1.33it/s, loss=2.5390]
+train 5 rank0:   3%|â–Ž         | 15/455 [00:11<05:30,  1.33it/s, loss=2.5390][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0023s
+  forward_time   =0.2433s
+  loss_time      =0.0020s
+  backward_time  =0.2149s
+  optimizer_time =0.0060s
+  batch_time     =0.4698s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   3%|â–Ž         | 15/455 [00:12<05:30,  1.33it/s, loss=2.5094]
+train 5 rank0:   4%|â–Ž         | 16/455 [00:12<04:53,  1.50it/s, loss=2.5094][PROFILE rank=0 batch=16]
+  data_time      =0.0003s
+  to_device_time =0.0040s
+  forward_time   =0.3879s
+  loss_time      =0.0018s
+  backward_time  =0.3368s
+  optimizer_time =0.0055s
+  batch_time     =0.7370s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   4%|â–Ž         | 16/455 [00:12<04:53,  1.50it/s, loss=2.5523]
+train 5 rank0:   4%|â–Ž         | 17/455 [00:12<05:02,  1.45it/s, loss=2.5523][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3906s
+  loss_time      =0.0019s
+  backward_time  =0.3433s
+  optimizer_time =0.0058s
+  batch_time     =0.7466s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   4%|â–Ž         | 17/455 [00:13<05:02,  1.45it/s, loss=2.5446]
+train 5 rank0:   4%|â–         | 18/455 [00:13<05:09,  1.41it/s, loss=2.5446][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3913s
+  loss_time      =0.0018s
+  backward_time  =0.3416s
+  optimizer_time =0.0058s
+  batch_time     =0.7455s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 5 rank0:   4%|â–         | 18/455 [00:14<05:09,  1.41it/s, loss=2.5528]
+train 5 rank0:   4%|â–         | 19/455 [00:14<05:14,  1.39it/s, loss=2.5528][PROFILE rank=0 batch=19]
+  data_time      =0.0004s
+  to_device_time =0.0040s
+  forward_time   =0.3892s
+  loss_time      =0.0019s
+  backward_time  =0.3417s
+  optimizer_time =0.0056s
+  batch_time     =0.7433s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0167s
+  avg_to_device_time =0.0041s
+  avg_forward_time   =0.3876s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3384s
+  avg_optimizer_time =0.0058s
+  avg_batch_time     =0.7389s
+  estimated_full_epoch_minutes=5.60
+
+train 5 rank0:   4%|â–         | 19/455 [00:15<05:14,  1.39it/s, loss=2.5159]
+train 5 rank0:   4%|â–         | 20/455 [00:15<05:16,  1.37it/s, loss=2.5159]
+train 5 rank0:   4%|â–         | 20/455 [00:15<05:16,  1.37it/s, loss=2.5421]
+train 5 rank0:   5%|â–         | 21/455 [00:15<05:17,  1.37it/s, loss=2.5421]
+train 5 rank0:   5%|â–         | 21/455 [00:16<05:17,  1.37it/s, loss=2.4981]
+train 5 rank0:   5%|â–         | 22/455 [00:16<05:17,  1.36it/s, loss=2.4981]
+train 5 rank0:   5%|â–         | 22/455 [00:17<05:17,  1.36it/s, loss=2.5302]
+train 5 rank0:   5%|â–Œ         | 23/455 [00:17<05:17,  1.36it/s, loss=2.5302]
+train 5 rank0:   5%|â–Œ         | 23/455 [00:18<05:17,  1.36it/s, loss=2.5535]
+train 5 rank0:   5%|â–Œ         | 24/455 [00:18<05:16,  1.36it/s, loss=2.5535]
+train 5 rank0:   5%|â–Œ         | 24/455 [00:18<05:16,  1.36it/s, loss=2.5552]
+train 5 rank0:   5%|â–Œ         | 25/455 [00:18<05:15,  1.36it/s, loss=2.5552]
+train 5 rank0:   5%|â–Œ         | 25/455 [00:19<05:15,  1.36it/s, loss=2.5741]
+train 5 rank0:   6%|â–Œ         | 26/455 [00:19<05:14,  1.36it/s, loss=2.5741]
+train 5 rank0:   6%|â–Œ         | 26/455 [00:20<05:14,  1.36it/s, loss=2.5577]
+train 5 rank0:   6%|â–Œ         | 27/455 [00:20<05:13,  1.36it/s, loss=2.5577]
+train 5 rank0:   6%|â–Œ         | 27/455 [00:21<05:13,  1.36it/s, loss=2.5634]
+train 5 rank0:   6%|â–Œ         | 28/455 [00:21<05:13,  1.36it/s, loss=2.5634]
+train 5 rank0:   6%|â–Œ         | 28/455 [00:21<05:13,  1.36it/s, loss=2.5232]
+train 5 rank0:   6%|â–‹         | 29/455 [00:21<05:11,  1.37it/s, loss=2.5232]
+train 5 rank0:   6%|â–‹         | 29/455 [00:22<05:11,  1.37it/s, loss=2.5809]
+train 5 rank0:   7%|â–‹         | 30/455 [00:22<05:10,  1.37it/s, loss=2.5809]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:55,  1.02it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:46,  1.18it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:43,  1.25it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.28it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:40,  1.30it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.31it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:37,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.33it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 005/015 | loss=2.5430 acc=0.1361 macro_f1=0.1253 | val_loss=2.5330 val_acc=0.1484 val_macro_f1=0.0473 | ckpt_monitor=val_macro_f1:0.0473 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.751s cuda_rankmax=9.643GB
+          val pred_count: [590, 8, 30, 7, 3, 2, 0]
+          no improvement: 4/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 6 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.4042s
+  to_device_time =0.0069s
+  forward_time   =0.3726s
+  loss_time      =0.0013s
+  backward_time  =0.3199s
+  optimizer_time =0.0055s
+  batch_time     =0.7091s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5385]
+train 6 rank0:   0%|          | 1/455 [00:01<08:26,  1.11s/it, loss=2.5385][PROFILE rank=0 batch=1]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3801s
+  loss_time      =0.0018s
+  backward_time  =0.3189s
+  optimizer_time =0.0060s
+  batch_time     =0.7119s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   0%|          | 1/455 [00:01<08:26,  1.11s/it, loss=2.5370]
+train 6 rank0:   0%|          | 2/455 [00:01<06:38,  1.14it/s, loss=2.5370][PROFILE rank=0 batch=2]
+  data_time      =0.0005s
+  to_device_time =0.0023s
+  forward_time   =0.3779s
+  loss_time      =0.0018s
+  backward_time  =0.3181s
+  optimizer_time =0.0056s
+  batch_time     =0.7066s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   0%|          | 2/455 [00:02<06:38,  1.14it/s, loss=2.5231]
+train 6 rank0:   1%|          | 3/455 [00:02<06:02,  1.25it/s, loss=2.5231][PROFILE rank=0 batch=3]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3769s
+  loss_time      =0.0020s
+  backward_time  =0.3182s
+  optimizer_time =0.0061s
+  batch_time     =0.7081s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   1%|          | 3/455 [00:03<06:02,  1.25it/s, loss=2.5343]
+train 6 rank0:   1%|          | 4/455 [00:03<05:45,  1.30it/s, loss=2.5343][PROFILE rank=0 batch=4]
+  data_time      =0.0006s
+  to_device_time =0.0036s
+  forward_time   =0.3792s
+  loss_time      =0.0018s
+  backward_time  =0.3215s
+  optimizer_time =0.0064s
+  batch_time     =0.7138s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   1%|          | 4/455 [00:03<05:45,  1.30it/s, loss=2.5382]
+train 6 rank0:   1%|          | 5/455 [00:03<05:37,  1.34it/s, loss=2.5382][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3768s
+  loss_time      =0.0020s
+  backward_time  =0.3192s
+  optimizer_time =0.0059s
+  batch_time     =0.7089s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   1%|          | 5/455 [00:04<05:37,  1.34it/s, loss=2.5417]
+train 6 rank0:   1%|â–         | 6/455 [00:04<05:30,  1.36it/s, loss=2.5417][PROFILE rank=0 batch=6]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3787s
+  loss_time      =0.0019s
+  backward_time  =0.3200s
+  optimizer_time =0.0055s
+  batch_time     =0.7111s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   1%|â–         | 6/455 [00:05<05:30,  1.36it/s, loss=2.5354]
+train 6 rank0:   2%|â–         | 7/455 [00:05<05:26,  1.37it/s, loss=2.5354][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3764s
+  loss_time      =0.0018s
+  backward_time  =0.3180s
+  optimizer_time =0.0055s
+  batch_time     =0.7068s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   2%|â–         | 7/455 [00:06<05:26,  1.37it/s, loss=2.5515]
+train 6 rank0:   2%|â–         | 8/455 [00:06<05:23,  1.38it/s, loss=2.5515][PROFILE rank=0 batch=8]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3781s
+  loss_time      =0.0019s
+  backward_time  =0.3162s
+  optimizer_time =0.0057s
+  batch_time     =0.7069s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   2%|â–         | 8/455 [00:06<05:23,  1.38it/s, loss=2.5336]
+train 6 rank0:   2%|â–         | 9/455 [00:06<05:20,  1.39it/s, loss=2.5336][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3783s
+  loss_time      =0.0020s
+  backward_time  =0.3195s
+  optimizer_time =0.0057s
+  batch_time     =0.7103s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   2%|â–         | 9/455 [00:07<05:20,  1.39it/s, loss=2.5507]
+train 6 rank0:   2%|â–         | 10/455 [00:07<05:19,  1.39it/s, loss=2.5507][PROFILE rank=0 batch=10]
+  data_time      =0.0004s
+  to_device_time =0.0041s
+  forward_time   =0.3793s
+  loss_time      =0.0018s
+  backward_time  =0.3190s
+  optimizer_time =0.0057s
+  batch_time     =0.7109s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   2%|â–         | 10/455 [00:08<05:19,  1.39it/s, loss=2.5301]
+train 6 rank0:   2%|â–         | 11/455 [00:08<05:18,  1.40it/s, loss=2.5301][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3750s
+  loss_time      =0.0027s
+  backward_time  =0.3196s
+  optimizer_time =0.0056s
+  batch_time     =0.7079s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   2%|â–         | 11/455 [00:08<05:18,  1.40it/s, loss=2.5501]
+train 6 rank0:   3%|â–Ž         | 12/455 [00:08<05:16,  1.40it/s, loss=2.5501][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3799s
+  loss_time      =0.0019s
+  backward_time  =0.3185s
+  optimizer_time =0.0056s
+  batch_time     =0.7108s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   3%|â–Ž         | 12/455 [00:09<05:16,  1.40it/s, loss=2.5670]
+train 6 rank0:   3%|â–Ž         | 13/455 [00:09<05:15,  1.40it/s, loss=2.5670][PROFILE rank=0 batch=13]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3801s
+  loss_time      =0.0021s
+  backward_time  =0.3146s
+  optimizer_time =0.0056s
+  batch_time     =0.7073s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   3%|â–Ž         | 13/455 [00:10<05:15,  1.40it/s, loss=2.5303]
+train 6 rank0:   3%|â–Ž         | 14/455 [00:10<05:14,  1.40it/s, loss=2.5303][PROFILE rank=0 batch=14]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3768s
+  loss_time      =0.0019s
+  backward_time  =0.3167s
+  optimizer_time =0.0059s
+  batch_time     =0.7062s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   3%|â–Ž         | 14/455 [00:11<05:14,  1.40it/s, loss=2.5440]
+train 6 rank0:   3%|â–Ž         | 15/455 [00:11<05:13,  1.40it/s, loss=2.5440][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0024s
+  forward_time   =0.2380s
+  loss_time      =0.0019s
+  backward_time  =0.2059s
+  optimizer_time =0.0056s
+  batch_time     =0.4549s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   3%|â–Ž         | 15/455 [00:11<05:13,  1.40it/s, loss=2.5398]
+train 6 rank0:   4%|â–Ž         | 16/455 [00:11<04:39,  1.57it/s, loss=2.5398][PROFILE rank=0 batch=16]
+  data_time      =0.0014s
+  to_device_time =0.0037s
+  forward_time   =0.3761s
+  loss_time      =0.0018s
+  backward_time  =0.3183s
+  optimizer_time =0.0060s
+  batch_time     =0.7070s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   4%|â–Ž         | 16/455 [00:12<04:39,  1.57it/s, loss=2.5329]
+train 6 rank0:   4%|â–Ž         | 17/455 [00:12<04:48,  1.52it/s, loss=2.5329][PROFILE rank=0 batch=17]
+  data_time      =0.0003s
+  to_device_time =0.0041s
+  forward_time   =0.3800s
+  loss_time      =0.0019s
+  backward_time  =0.3185s
+  optimizer_time =0.0055s
+  batch_time     =0.7111s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   4%|â–Ž         | 17/455 [00:12<04:48,  1.52it/s, loss=2.5426]
+train 6 rank0:   4%|â–         | 18/455 [00:12<04:55,  1.48it/s, loss=2.5426][PROFILE rank=0 batch=18]
+  data_time      =0.0004s
+  to_device_time =0.0040s
+  forward_time   =0.3769s
+  loss_time      =0.0018s
+  backward_time  =0.3175s
+  optimizer_time =0.0058s
+  batch_time     =0.7071s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 6 rank0:   4%|â–         | 18/455 [00:13<04:55,  1.48it/s, loss=2.5295]
+train 6 rank0:   4%|â–         | 19/455 [00:13<04:59,  1.46it/s, loss=2.5295][PROFILE rank=0 batch=19]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3765s
+  loss_time      =0.0019s
+  backward_time  =0.3174s
+  optimizer_time =0.0060s
+  batch_time     =0.7068s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0207s
+  avg_to_device_time =0.0039s
+  avg_forward_time   =0.3707s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3128s
+  avg_optimizer_time =0.0058s
+  avg_batch_time     =0.6962s
+  estimated_full_epoch_minutes=5.28
+
+train 6 rank0:   4%|â–         | 19/455 [00:14<04:59,  1.46it/s, loss=2.5252]
+train 6 rank0:   4%|â–         | 20/455 [00:14<05:01,  1.44it/s, loss=2.5252]
+train 6 rank0:   4%|â–         | 20/455 [00:15<05:01,  1.44it/s, loss=2.5485]
+train 6 rank0:   5%|â–         | 21/455 [00:15<05:03,  1.43it/s, loss=2.5485]
+train 6 rank0:   5%|â–         | 21/455 [00:15<05:03,  1.43it/s, loss=2.5452]
+train 6 rank0:   5%|â–         | 22/455 [00:15<05:03,  1.42it/s, loss=2.5452]
+train 6 rank0:   5%|â–         | 22/455 [00:16<05:03,  1.42it/s, loss=2.5329]
+train 6 rank0:   5%|â–Œ         | 23/455 [00:16<05:04,  1.42it/s, loss=2.5329]
+train 6 rank0:   5%|â–Œ         | 23/455 [00:17<05:04,  1.42it/s, loss=2.5199]
+train 6 rank0:   5%|â–Œ         | 24/455 [00:17<05:05,  1.41it/s, loss=2.5199]
+train 6 rank0:   5%|â–Œ         | 24/455 [00:17<05:05,  1.41it/s, loss=2.5478]
+train 6 rank0:   5%|â–Œ         | 25/455 [00:17<05:04,  1.41it/s, loss=2.5478]
+train 6 rank0:   5%|â–Œ         | 25/455 [00:18<05:04,  1.41it/s, loss=2.5549]
+train 6 rank0:   6%|â–Œ         | 26/455 [00:18<05:04,  1.41it/s, loss=2.5549]
+train 6 rank0:   6%|â–Œ         | 26/455 [00:19<05:04,  1.41it/s, loss=2.5356]
+train 6 rank0:   6%|â–Œ         | 27/455 [00:19<05:04,  1.41it/s, loss=2.5356]
+train 6 rank0:   6%|â–Œ         | 27/455 [00:20<05:04,  1.41it/s, loss=2.5199]
+train 6 rank0:   6%|â–Œ         | 28/455 [00:20<05:04,  1.40it/s, loss=2.5199]
+train 6 rank0:   6%|â–Œ         | 28/455 [00:20<05:04,  1.40it/s, loss=2.5575]
+train 6 rank0:   6%|â–‹         | 29/455 [00:20<05:03,  1.40it/s, loss=2.5575]
+train 6 rank0:   6%|â–‹         | 29/455 [00:21<05:03,  1.40it/s, loss=2.5406]
+train 6 rank0:   7%|â–‹         | 30/455 [00:21<05:04,  1.40it/s, loss=2.5406]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:52,  1.08it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:45,  1.21it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:42,  1.27it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.29it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:39,  1.30it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.31it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:37,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.33it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 006/015 | loss=2.5396 acc=0.1466 macro_f1=0.1363 | val_loss=2.5331 val_acc=0.1141 val_macro_f1=0.0838 | ckpt_monitor=val_macro_f1:0.0838 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.719s cuda_rankmax=9.643GB
+          val pred_count: [292, 205, 64, 61, 13, 5, 0]
+          no improvement: 5/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 7 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.2802s
+  to_device_time =0.0039s
+  forward_time   =0.3886s
+  loss_time      =0.0023s
+  backward_time  =0.3286s
+  optimizer_time =0.0059s
+  batch_time     =0.7308s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5365]
+train 7 rank0:   0%|          | 1/455 [00:01<07:40,  1.01s/it, loss=2.5365][PROFILE rank=0 batch=1]
+  data_time      =0.0014s
+  to_device_time =0.0037s
+  forward_time   =0.3827s
+  loss_time      =0.0018s
+  backward_time  =0.3272s
+  optimizer_time =0.0057s
+  batch_time     =0.7222s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   0%|          | 1/455 [00:01<07:40,  1.01s/it, loss=2.5293]
+train 7 rank0:   0%|          | 2/455 [00:01<06:22,  1.18it/s, loss=2.5293][PROFILE rank=0 batch=2]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3877s
+  loss_time      =0.0018s
+  backward_time  =0.3286s
+  optimizer_time =0.0057s
+  batch_time     =0.7288s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   0%|          | 2/455 [00:02<06:22,  1.18it/s, loss=2.5463]
+train 7 rank0:   1%|          | 3/455 [00:02<05:58,  1.26it/s, loss=2.5463][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3876s
+  loss_time      =0.0018s
+  backward_time  =0.3287s
+  optimizer_time =0.0057s
+  batch_time     =0.7289s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   1%|          | 3/455 [00:03<05:58,  1.26it/s, loss=2.5383]
+train 7 rank0:   1%|          | 4/455 [00:03<05:47,  1.30it/s, loss=2.5383][PROFILE rank=0 batch=4]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3864s
+  loss_time      =0.0019s
+  backward_time  =0.3287s
+  optimizer_time =0.0054s
+  batch_time     =0.7273s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   1%|          | 4/455 [00:03<05:47,  1.30it/s, loss=2.5266]
+train 7 rank0:   1%|          | 5/455 [00:03<05:39,  1.32it/s, loss=2.5266][PROFILE rank=0 batch=5]
+  data_time      =0.0002s
+  to_device_time =0.0040s
+  forward_time   =0.3862s
+  loss_time      =0.0018s
+  backward_time  =0.3300s
+  optimizer_time =0.0061s
+  batch_time     =0.7292s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   1%|          | 5/455 [00:04<05:39,  1.32it/s, loss=2.5343]
+train 7 rank0:   1%|â–         | 6/455 [00:04<05:35,  1.34it/s, loss=2.5343][PROFILE rank=0 batch=6]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3843s
+  loss_time      =0.0020s
+  backward_time  =0.3286s
+  optimizer_time =0.0065s
+  batch_time     =0.7265s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   1%|â–         | 6/455 [00:05<05:35,  1.34it/s, loss=2.5426]
+train 7 rank0:   2%|â–         | 7/455 [00:05<05:32,  1.35it/s, loss=2.5426][PROFILE rank=0 batch=7]
+  data_time      =0.0028s
+  to_device_time =0.0037s
+  forward_time   =0.3836s
+  loss_time      =0.0018s
+  backward_time  =0.3285s
+  optimizer_time =0.0056s
+  batch_time     =0.7244s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   2%|â–         | 7/455 [00:06<05:32,  1.35it/s, loss=2.5226]
+train 7 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5226][PROFILE rank=0 batch=8]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3862s
+  loss_time      =0.0018s
+  backward_time  =0.3293s
+  optimizer_time =0.0059s
+  batch_time     =0.7282s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5389]
+train 7 rank0:   2%|â–         | 9/455 [00:06<05:28,  1.36it/s, loss=2.5389][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3897s
+  loss_time      =0.0019s
+  backward_time  =0.3319s
+  optimizer_time =0.0059s
+  batch_time     =0.7344s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   2%|â–         | 9/455 [00:07<05:28,  1.36it/s, loss=2.5129]
+train 7 rank0:   2%|â–         | 10/455 [00:07<05:27,  1.36it/s, loss=2.5129][PROFILE rank=0 batch=10]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3870s
+  loss_time      =0.0019s
+  backward_time  =0.3361s
+  optimizer_time =0.0059s
+  batch_time     =0.7359s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   2%|â–         | 10/455 [00:08<05:27,  1.36it/s, loss=2.5685]
+train 7 rank0:   2%|â–         | 11/455 [00:08<05:27,  1.36it/s, loss=2.5685][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3871s
+  loss_time      =0.0018s
+  backward_time  =0.3298s
+  optimizer_time =0.0059s
+  batch_time     =0.7295s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   2%|â–         | 11/455 [00:09<05:27,  1.36it/s, loss=2.5662]
+train 7 rank0:   3%|â–Ž         | 12/455 [00:09<05:26,  1.36it/s, loss=2.5662][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3894s
+  loss_time      =0.0018s
+  backward_time  =0.3392s
+  optimizer_time =0.0060s
+  batch_time     =0.7415s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   3%|â–Ž         | 12/455 [00:09<05:26,  1.36it/s, loss=2.5476]
+train 7 rank0:   3%|â–Ž         | 13/455 [00:09<05:26,  1.35it/s, loss=2.5476][PROFILE rank=0 batch=13]
+  data_time      =0.0003s
+  to_device_time =0.0038s
+  forward_time   =0.3905s
+  loss_time      =0.0019s
+  backward_time  =0.3304s
+  optimizer_time =0.0058s
+  batch_time     =0.7336s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   3%|â–Ž         | 13/455 [00:10<05:26,  1.35it/s, loss=2.5458]
+train 7 rank0:   3%|â–Ž         | 14/455 [00:10<05:25,  1.35it/s, loss=2.5458][PROFILE rank=0 batch=14]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3879s
+  loss_time      =0.0018s
+  backward_time  =0.3401s
+  optimizer_time =0.0062s
+  batch_time     =0.7411s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   3%|â–Ž         | 14/455 [00:11<05:25,  1.35it/s, loss=2.5217]
+train 7 rank0:   3%|â–Ž         | 15/455 [00:11<05:25,  1.35it/s, loss=2.5217][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0024s
+  forward_time   =0.2435s
+  loss_time      =0.0018s
+  backward_time  =0.2146s
+  optimizer_time =0.0057s
+  batch_time     =0.4692s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   3%|â–Ž         | 15/455 [00:11<05:25,  1.35it/s, loss=2.5608]
+train 7 rank0:   4%|â–Ž         | 16/455 [00:11<04:49,  1.52it/s, loss=2.5608][PROFILE rank=0 batch=16]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3882s
+  loss_time      =0.0019s
+  backward_time  =0.3387s
+  optimizer_time =0.0054s
+  batch_time     =0.7389s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   4%|â–Ž         | 16/455 [00:12<04:49,  1.52it/s, loss=2.5523]
+train 7 rank0:   4%|â–Ž         | 17/455 [00:12<04:59,  1.46it/s, loss=2.5523][PROFILE rank=0 batch=17]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3912s
+  loss_time      =0.0023s
+  backward_time  =0.3342s
+  optimizer_time =0.0057s
+  batch_time     =0.7383s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   4%|â–Ž         | 17/455 [00:13<04:59,  1.46it/s, loss=2.5508]
+train 7 rank0:   4%|â–         | 18/455 [00:13<05:06,  1.42it/s, loss=2.5508][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3896s
+  loss_time      =0.0019s
+  backward_time  =0.3342s
+  optimizer_time =0.0056s
+  batch_time     =0.7362s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 7 rank0:   4%|â–         | 18/455 [00:13<05:06,  1.42it/s, loss=2.5352]
+train 7 rank0:   4%|â–         | 19/455 [00:13<05:11,  1.40it/s, loss=2.5352][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3902s
+  loss_time      =0.0019s
+  backward_time  =0.3424s
+  optimizer_time =0.0056s
+  batch_time     =0.7451s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0146s
+  avg_to_device_time =0.0038s
+  avg_forward_time   =0.3804s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3265s
+  avg_optimizer_time =0.0058s
+  avg_batch_time     =0.7195s
+  estimated_full_epoch_minutes=5.46
+
+train 7 rank0:   4%|â–         | 19/455 [00:14<05:11,  1.40it/s, loss=2.5555]
+train 7 rank0:   4%|â–         | 20/455 [00:14<05:14,  1.38it/s, loss=2.5555]
+train 7 rank0:   4%|â–         | 20/455 [00:15<05:14,  1.38it/s, loss=2.5284]
+train 7 rank0:   5%|â–         | 21/455 [00:15<05:17,  1.37it/s, loss=2.5284]
+train 7 rank0:   5%|â–         | 21/455 [00:16<05:17,  1.37it/s, loss=2.5335]
+train 7 rank0:   5%|â–         | 22/455 [00:16<05:19,  1.36it/s, loss=2.5335]
+train 7 rank0:   5%|â–         | 22/455 [00:16<05:19,  1.36it/s, loss=2.5543]
+train 7 rank0:   5%|â–Œ         | 23/455 [00:16<05:20,  1.35it/s, loss=2.5543]
+train 7 rank0:   5%|â–Œ         | 23/455 [00:17<05:20,  1.35it/s, loss=2.5326]
+train 7 rank0:   5%|â–Œ         | 24/455 [00:17<05:20,  1.34it/s, loss=2.5326]
+train 7 rank0:   5%|â–Œ         | 24/455 [00:18<05:20,  1.34it/s, loss=2.5149]
+train 7 rank0:   5%|â–Œ         | 25/455 [00:18<05:20,  1.34it/s, loss=2.5149]
+train 7 rank0:   5%|â–Œ         | 25/455 [00:19<05:20,  1.34it/s, loss=2.5109]
+train 7 rank0:   6%|â–Œ         | 26/455 [00:19<05:20,  1.34it/s, loss=2.5109]
+train 7 rank0:   6%|â–Œ         | 26/455 [00:19<05:20,  1.34it/s, loss=2.5187]
+train 7 rank0:   6%|â–Œ         | 27/455 [00:19<05:19,  1.34it/s, loss=2.5187]
+train 7 rank0:   6%|â–Œ         | 27/455 [00:20<05:19,  1.34it/s, loss=2.5467]
+train 7 rank0:   6%|â–Œ         | 28/455 [00:20<05:19,  1.34it/s, loss=2.5467]
+train 7 rank0:   6%|â–Œ         | 28/455 [00:21<05:19,  1.34it/s, loss=2.5207]
+train 7 rank0:   6%|â–‹         | 29/455 [00:21<05:18,  1.34it/s, loss=2.5207]
+train 7 rank0:   6%|â–‹         | 29/455 [00:22<05:18,  1.34it/s, loss=2.5292]
+train 7 rank0:   7%|â–‹         | 30/455 [00:22<05:18,  1.34it/s, loss=2.5292]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:53,  1.04it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:46,  1.18it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:43,  1.23it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:42,  1.26it/s]
+val:   9%|â–‰         | 5/57 [00:04<00:40,  1.27it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:39,  1.28it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:38,  1.29it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:37,  1.29it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:07<00:37,  1.29it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:36,  1.30it/s]
+                                                    
+Epoch 007/015 | loss=2.5373 acc=0.1551 macro_f1=0.1433 | val_loss=2.5331 val_acc=0.1156 val_macro_f1=0.0757 | ckpt_monitor=val_macro_f1:0.0757 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.743s cuda_rankmax=9.643GB
+          val pred_count: [341, 223, 35, 24, 8, 3, 6]
+          no improvement: 6/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 8 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.3209s
+  to_device_time =0.0057s
+  forward_time   =0.3823s
+  loss_time      =0.0014s
+  backward_time  =0.3281s
+  optimizer_time =0.0090s
+  batch_time     =0.7279s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5157]
+train 8 rank0:   0%|          | 1/455 [00:01<07:58,  1.05s/it, loss=2.5157][PROFILE rank=0 batch=1]
+  data_time      =0.0006s
+  to_device_time =0.0056s
+  forward_time   =0.3854s
+  loss_time      =0.0018s
+  backward_time  =0.3309s
+  optimizer_time =0.0061s
+  batch_time     =0.7309s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   0%|          | 1/455 [00:01<07:58,  1.05s/it, loss=2.5426]
+train 8 rank0:   0%|          | 2/455 [00:01<06:32,  1.15it/s, loss=2.5426][PROFILE rank=0 batch=2]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3856s
+  loss_time      =0.0018s
+  backward_time  =0.3298s
+  optimizer_time =0.0061s
+  batch_time     =0.7282s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   0%|          | 2/455 [00:02<06:32,  1.15it/s, loss=2.5504]
+train 8 rank0:   1%|          | 3/455 [00:02<06:03,  1.24it/s, loss=2.5504][PROFILE rank=0 batch=3]
+  data_time      =0.0003s
+  to_device_time =0.0039s
+  forward_time   =0.3828s
+  loss_time      =0.0018s
+  backward_time  =0.3353s
+  optimizer_time =0.0054s
+  batch_time     =0.7302s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   1%|          | 3/455 [00:03<06:03,  1.24it/s, loss=2.5208]
+train 8 rank0:   1%|          | 4/455 [00:03<05:50,  1.29it/s, loss=2.5208][PROFILE rank=0 batch=4]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3885s
+  loss_time      =0.0018s
+  backward_time  =0.3289s
+  optimizer_time =0.0056s
+  batch_time     =0.7297s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   1%|          | 4/455 [00:03<05:50,  1.29it/s, loss=2.5517]
+train 8 rank0:   1%|          | 5/455 [00:03<05:42,  1.31it/s, loss=2.5517][PROFILE rank=0 batch=5]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3854s
+  loss_time      =0.0019s
+  backward_time  =0.3294s
+  optimizer_time =0.0058s
+  batch_time     =0.7275s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   1%|          | 5/455 [00:04<05:42,  1.31it/s, loss=2.5318]
+train 8 rank0:   1%|â–         | 6/455 [00:04<05:37,  1.33it/s, loss=2.5318][PROFILE rank=0 batch=6]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3846s
+  loss_time      =0.0020s
+  backward_time  =0.3287s
+  optimizer_time =0.0057s
+  batch_time     =0.7258s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   1%|â–         | 6/455 [00:05<05:37,  1.33it/s, loss=2.5252]
+train 8 rank0:   2%|â–         | 7/455 [00:05<05:33,  1.34it/s, loss=2.5252][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3849s
+  loss_time      =0.0019s
+  backward_time  =0.3298s
+  optimizer_time =0.0062s
+  batch_time     =0.7277s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   2%|â–         | 7/455 [00:06<05:33,  1.34it/s, loss=2.5236]
+train 8 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5236][PROFILE rank=0 batch=8]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3863s
+  loss_time      =0.0021s
+  backward_time  =0.3268s
+  optimizer_time =0.0054s
+  batch_time     =0.7256s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5153]
+train 8 rank0:   2%|â–         | 9/455 [00:06<05:28,  1.36it/s, loss=2.5153][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3871s
+  loss_time      =0.0019s
+  backward_time  =0.3294s
+  optimizer_time =0.0059s
+  batch_time     =0.7291s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   2%|â–         | 9/455 [00:07<05:28,  1.36it/s, loss=2.5409]
+train 8 rank0:   2%|â–         | 10/455 [00:07<05:27,  1.36it/s, loss=2.5409][PROFILE rank=0 batch=10]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3865s
+  loss_time      =0.0019s
+  backward_time  =0.3338s
+  optimizer_time =0.0057s
+  batch_time     =0.7326s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   2%|â–         | 10/455 [00:08<05:27,  1.36it/s, loss=2.5656]
+train 8 rank0:   2%|â–         | 11/455 [00:08<05:26,  1.36it/s, loss=2.5656][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0035s
+  forward_time   =0.3845s
+  loss_time      =0.0019s
+  backward_time  =0.3313s
+  optimizer_time =0.0055s
+  batch_time     =0.7278s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   2%|â–         | 11/455 [00:09<05:26,  1.36it/s, loss=2.5542]
+train 8 rank0:   3%|â–Ž         | 12/455 [00:09<05:25,  1.36it/s, loss=2.5542][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0041s
+  forward_time   =0.3862s
+  loss_time      =0.0018s
+  backward_time  =0.3299s
+  optimizer_time =0.0057s
+  batch_time     =0.7287s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   3%|â–Ž         | 12/455 [00:09<05:25,  1.36it/s, loss=2.5495]
+train 8 rank0:   3%|â–Ž         | 13/455 [00:09<05:24,  1.36it/s, loss=2.5495][PROFILE rank=0 batch=13]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3859s
+  loss_time      =0.0019s
+  backward_time  =0.3281s
+  optimizer_time =0.0058s
+  batch_time     =0.7265s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   3%|â–Ž         | 13/455 [00:10<05:24,  1.36it/s, loss=2.5320]
+train 8 rank0:   3%|â–Ž         | 14/455 [00:10<05:23,  1.37it/s, loss=2.5320][PROFILE rank=0 batch=14]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3849s
+  loss_time      =0.0021s
+  backward_time  =0.3284s
+  optimizer_time =0.0066s
+  batch_time     =0.7270s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   3%|â–Ž         | 14/455 [00:11<05:23,  1.37it/s, loss=2.5412]
+train 8 rank0:   3%|â–Ž         | 15/455 [00:11<05:22,  1.37it/s, loss=2.5412][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0024s
+  forward_time   =0.2404s
+  loss_time      =0.0019s
+  backward_time  =0.2106s
+  optimizer_time =0.0055s
+  batch_time     =0.4618s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   3%|â–Ž         | 15/455 [00:11<05:22,  1.37it/s, loss=2.5167]
+train 8 rank0:   4%|â–Ž         | 16/455 [00:11<04:46,  1.53it/s, loss=2.5167][PROFILE rank=0 batch=16]
+  data_time      =0.0002s
+  to_device_time =0.0040s
+  forward_time   =0.3841s
+  loss_time      =0.0018s
+  backward_time  =0.3281s
+  optimizer_time =0.0060s
+  batch_time     =0.7250s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   4%|â–Ž         | 16/455 [00:12<04:46,  1.53it/s, loss=2.5256]
+train 8 rank0:   4%|â–Ž         | 17/455 [00:12<04:55,  1.48it/s, loss=2.5256][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3838s
+  loss_time      =0.0018s
+  backward_time  =0.3287s
+  optimizer_time =0.0056s
+  batch_time     =0.7248s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   4%|â–Ž         | 17/455 [00:13<04:55,  1.48it/s, loss=2.5454]
+train 8 rank0:   4%|â–         | 18/455 [00:13<05:01,  1.45it/s, loss=2.5454][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3853s
+  loss_time      =0.0019s
+  backward_time  =0.3279s
+  optimizer_time =0.0055s
+  batch_time     =0.7256s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 8 rank0:   4%|â–         | 18/455 [00:13<05:01,  1.45it/s, loss=2.5605]
+train 8 rank0:   4%|â–         | 19/455 [00:13<05:06,  1.42it/s, loss=2.5605][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3859s
+  loss_time      =0.0021s
+  backward_time  =0.3284s
+  optimizer_time =0.0057s
+  batch_time     =0.7269s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0165s
+  avg_to_device_time =0.0040s
+  avg_forward_time   =0.3780s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3236s
+  avg_optimizer_time =0.0059s
+  avg_batch_time     =0.7145s
+  estimated_full_epoch_minutes=5.42
+
+train 8 rank0:   4%|â–         | 19/455 [00:14<05:06,  1.42it/s, loss=2.5597]
+train 8 rank0:   4%|â–         | 20/455 [00:14<05:09,  1.41it/s, loss=2.5597]
+train 8 rank0:   4%|â–         | 20/455 [00:15<05:09,  1.41it/s, loss=2.5395]
+train 8 rank0:   5%|â–         | 21/455 [00:15<05:10,  1.40it/s, loss=2.5395]
+train 8 rank0:   5%|â–         | 21/455 [00:16<05:10,  1.40it/s, loss=2.5377]
+train 8 rank0:   5%|â–         | 22/455 [00:16<05:11,  1.39it/s, loss=2.5377]
+train 8 rank0:   5%|â–         | 22/455 [00:16<05:11,  1.39it/s, loss=2.5428]
+train 8 rank0:   5%|â–Œ         | 23/455 [00:16<05:11,  1.39it/s, loss=2.5428]
+train 8 rank0:   5%|â–Œ         | 23/455 [00:17<05:11,  1.39it/s, loss=2.5243]
+train 8 rank0:   5%|â–Œ         | 24/455 [00:17<05:10,  1.39it/s, loss=2.5243]
+train 8 rank0:   5%|â–Œ         | 24/455 [00:18<05:10,  1.39it/s, loss=2.5227]
+train 8 rank0:   5%|â–Œ         | 25/455 [00:18<05:10,  1.38it/s, loss=2.5227]
+train 8 rank0:   5%|â–Œ         | 25/455 [00:19<05:10,  1.38it/s, loss=2.5352]
+train 8 rank0:   6%|â–Œ         | 26/455 [00:19<05:10,  1.38it/s, loss=2.5352]
+train 8 rank0:   6%|â–Œ         | 26/455 [00:19<05:10,  1.38it/s, loss=2.5331]
+train 8 rank0:   6%|â–Œ         | 27/455 [00:19<05:10,  1.38it/s, loss=2.5331]
+train 8 rank0:   6%|â–Œ         | 27/455 [00:20<05:10,  1.38it/s, loss=2.5558]
+train 8 rank0:   6%|â–Œ         | 28/455 [00:20<05:09,  1.38it/s, loss=2.5558]
+train 8 rank0:   6%|â–Œ         | 28/455 [00:21<05:09,  1.38it/s, loss=2.5370]
+train 8 rank0:   6%|â–‹         | 29/455 [00:21<05:07,  1.38it/s, loss=2.5370]
+train 8 rank0:   6%|â–‹         | 29/455 [00:21<05:07,  1.38it/s, loss=2.5226]
+train 8 rank0:   7%|â–‹         | 30/455 [00:21<05:07,  1.38it/s, loss=2.5226]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:54,  1.03it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:46,  1.19it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:43,  1.25it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.28it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:40,  1.30it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.31it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:37,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.32it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 008/015 | loss=2.5386 acc=0.1424 macro_f1=0.1323 | val_loss=2.5331 val_acc=0.1453 val_macro_f1=0.0826 | ckpt_monitor=val_macro_f1:0.0826 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.732s cuda_rankmax=9.643GB
+          val pred_count: [438, 87, 21, 41, 35, 0, 18]
+          no improvement: 7/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 9 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.2913s
+  to_device_time =0.0022s
+  forward_time   =0.3750s
+  loss_time      =0.0015s
+  backward_time  =0.3234s
+  optimizer_time =0.0060s
+  batch_time     =0.7404s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5447]
+train 9 rank0:   0%|          | 1/455 [00:01<07:49,  1.03s/it, loss=2.5447][PROFILE rank=0 batch=1]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3794s
+  loss_time      =0.0018s
+  backward_time  =0.3237s
+  optimizer_time =0.0059s
+  batch_time     =0.7158s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   0%|          | 1/455 [00:01<07:49,  1.03s/it, loss=2.5224]
+train 9 rank0:   0%|          | 2/455 [00:01<06:24,  1.18it/s, loss=2.5224][PROFILE rank=0 batch=2]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3839s
+  loss_time      =0.0018s
+  backward_time  =0.3232s
+  optimizer_time =0.0085s
+  batch_time     =0.7221s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   0%|          | 2/455 [00:02<06:24,  1.18it/s, loss=2.5324]
+train 9 rank0:   1%|          | 3/455 [00:02<05:58,  1.26it/s, loss=2.5324][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3787s
+  loss_time      =0.0019s
+  backward_time  =0.3216s
+  optimizer_time =0.0056s
+  batch_time     =0.7127s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   1%|          | 3/455 [00:03<05:58,  1.26it/s, loss=2.5549]
+train 9 rank0:   1%|          | 4/455 [00:03<05:43,  1.31it/s, loss=2.5549][PROFILE rank=0 batch=4]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3819s
+  loss_time      =0.0018s
+  backward_time  =0.3267s
+  optimizer_time =0.0062s
+  batch_time     =0.7215s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   1%|          | 4/455 [00:03<05:43,  1.31it/s, loss=2.5285]
+train 9 rank0:   1%|          | 5/455 [00:03<05:37,  1.33it/s, loss=2.5285][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3794s
+  loss_time      =0.0019s
+  backward_time  =0.3227s
+  optimizer_time =0.0061s
+  batch_time     =0.7152s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   1%|          | 5/455 [00:04<05:37,  1.33it/s, loss=2.5286]
+train 9 rank0:   1%|â–         | 6/455 [00:04<05:31,  1.35it/s, loss=2.5286][PROFILE rank=0 batch=6]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3813s
+  loss_time      =0.0020s
+  backward_time  =0.3267s
+  optimizer_time =0.0062s
+  batch_time     =0.7213s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   1%|â–         | 6/455 [00:05<05:31,  1.35it/s, loss=2.5197]
+train 9 rank0:   2%|â–         | 7/455 [00:05<05:29,  1.36it/s, loss=2.5197][PROFILE rank=0 batch=7]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3858s
+  loss_time      =0.0018s
+  backward_time  =0.3261s
+  optimizer_time =0.0058s
+  batch_time     =0.7244s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   2%|â–         | 7/455 [00:06<05:29,  1.36it/s, loss=2.5268]
+train 9 rank0:   2%|â–         | 8/455 [00:06<05:27,  1.37it/s, loss=2.5268][PROFILE rank=0 batch=8]
+  data_time      =0.0007s
+  to_device_time =0.0039s
+  forward_time   =0.3804s
+  loss_time      =0.0018s
+  backward_time  =0.3304s
+  optimizer_time =0.0054s
+  batch_time     =0.7229s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   2%|â–         | 8/455 [00:06<05:27,  1.37it/s, loss=2.5337]
+train 9 rank0:   2%|â–         | 9/455 [00:06<05:25,  1.37it/s, loss=2.5337][PROFILE rank=0 batch=9]
+  data_time      =0.0004s
+  to_device_time =0.0056s
+  forward_time   =0.3811s
+  loss_time      =0.0018s
+  backward_time  =0.3243s
+  optimizer_time =0.0054s
+  batch_time     =0.7192s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   2%|â–         | 9/455 [00:07<05:25,  1.37it/s, loss=2.5287]
+train 9 rank0:   2%|â–         | 10/455 [00:07<05:23,  1.37it/s, loss=2.5287][PROFILE rank=0 batch=10]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3823s
+  loss_time      =0.0019s
+  backward_time  =0.3254s
+  optimizer_time =0.0063s
+  batch_time     =0.7209s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   2%|â–         | 10/455 [00:08<05:23,  1.37it/s, loss=2.5447]
+train 9 rank0:   2%|â–         | 11/455 [00:08<05:22,  1.38it/s, loss=2.5447][PROFILE rank=0 batch=11]
+  data_time      =0.0004s
+  to_device_time =0.0038s
+  forward_time   =0.3792s
+  loss_time      =0.0021s
+  backward_time  =0.3224s
+  optimizer_time =0.0058s
+  batch_time     =0.7143s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   2%|â–         | 11/455 [00:08<05:22,  1.38it/s, loss=2.5257]
+train 9 rank0:   3%|â–Ž         | 12/455 [00:08<05:20,  1.38it/s, loss=2.5257][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3836s
+  loss_time      =0.0018s
+  backward_time  =0.3250s
+  optimizer_time =0.0058s
+  batch_time     =0.7213s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   3%|â–Ž         | 12/455 [00:09<05:20,  1.38it/s, loss=2.5356]
+train 9 rank0:   3%|â–Ž         | 13/455 [00:09<05:20,  1.38it/s, loss=2.5356][PROFILE rank=0 batch=13]
+  data_time      =0.0005s
+  to_device_time =0.0041s
+  forward_time   =0.3798s
+  loss_time      =0.0019s
+  backward_time  =0.3232s
+  optimizer_time =0.0055s
+  batch_time     =0.7156s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   3%|â–Ž         | 13/455 [00:10<05:20,  1.38it/s, loss=2.5359]
+train 9 rank0:   3%|â–Ž         | 14/455 [00:10<05:18,  1.38it/s, loss=2.5359][PROFILE rank=0 batch=14]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3800s
+  loss_time      =0.0018s
+  backward_time  =0.3237s
+  optimizer_time =0.0054s
+  batch_time     =0.7159s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   3%|â–Ž         | 14/455 [00:11<05:18,  1.38it/s, loss=2.5396]
+train 9 rank0:   3%|â–Ž         | 15/455 [00:11<05:17,  1.38it/s, loss=2.5396][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0024s
+  forward_time   =0.2385s
+  loss_time      =0.0017s
+  backward_time  =0.2071s
+  optimizer_time =0.0055s
+  batch_time     =0.4563s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   3%|â–Ž         | 15/455 [00:11<05:17,  1.38it/s, loss=2.5285]
+train 9 rank0:   4%|â–Ž         | 16/455 [00:11<04:42,  1.55it/s, loss=2.5285][PROFILE rank=0 batch=16]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3777s
+  loss_time      =0.0018s
+  backward_time  =0.3265s
+  optimizer_time =0.0054s
+  batch_time     =0.7163s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   4%|â–Ž         | 16/455 [00:12<04:42,  1.55it/s, loss=2.5515]
+train 9 rank0:   4%|â–Ž         | 17/455 [00:12<04:51,  1.50it/s, loss=2.5515][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3803s
+  loss_time      =0.0019s
+  backward_time  =0.3260s
+  optimizer_time =0.0055s
+  batch_time     =0.7188s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   4%|â–Ž         | 17/455 [00:13<04:51,  1.50it/s, loss=2.5306]
+train 9 rank0:   4%|â–         | 18/455 [00:13<04:58,  1.46it/s, loss=2.5306][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3836s
+  loss_time      =0.0018s
+  backward_time  =0.3228s
+  optimizer_time =0.0056s
+  batch_time     =0.7187s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 9 rank0:   4%|â–         | 18/455 [00:13<04:58,  1.46it/s, loss=2.5566]
+train 9 rank0:   4%|â–         | 19/455 [00:13<05:02,  1.44it/s, loss=2.5566][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3834s
+  loss_time      =0.0018s
+  backward_time  =0.3264s
+  optimizer_time =0.0054s
+  batch_time     =0.7219s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0151s
+  avg_to_device_time =0.0038s
+  avg_forward_time   =0.3738s
+  avg_loss_time      =0.0018s
+  avg_backward_time  =0.3189s
+  avg_optimizer_time =0.0059s
+  avg_batch_time     =0.7068s
+  estimated_full_epoch_minutes=5.36
+
+train 9 rank0:   4%|â–         | 19/455 [00:14<05:02,  1.44it/s, loss=2.5347]
+train 9 rank0:   4%|â–         | 20/455 [00:14<05:06,  1.42it/s, loss=2.5347]
+train 9 rank0:   4%|â–         | 20/455 [00:15<05:06,  1.42it/s, loss=2.5420]
+train 9 rank0:   5%|â–         | 21/455 [00:15<05:08,  1.41it/s, loss=2.5420]
+train 9 rank0:   5%|â–         | 21/455 [00:15<05:08,  1.41it/s, loss=2.5543]
+train 9 rank0:   5%|â–         | 22/455 [00:15<05:08,  1.40it/s, loss=2.5543]
+train 9 rank0:   5%|â–         | 22/455 [00:16<05:08,  1.40it/s, loss=2.5114]
+train 9 rank0:   5%|â–Œ         | 23/455 [00:16<05:09,  1.40it/s, loss=2.5114]
+train 9 rank0:   5%|â–Œ         | 23/455 [00:17<05:09,  1.40it/s, loss=2.5317]
+train 9 rank0:   5%|â–Œ         | 24/455 [00:17<05:10,  1.39it/s, loss=2.5317]
+train 9 rank0:   5%|â–Œ         | 24/455 [00:18<05:10,  1.39it/s, loss=2.5425]
+train 9 rank0:   5%|â–Œ         | 25/455 [00:18<05:10,  1.38it/s, loss=2.5425]
+train 9 rank0:   5%|â–Œ         | 25/455 [00:18<05:10,  1.38it/s, loss=2.5341]
+train 9 rank0:   6%|â–Œ         | 26/455 [00:18<05:10,  1.38it/s, loss=2.5341]
+train 9 rank0:   6%|â–Œ         | 26/455 [00:19<05:10,  1.38it/s, loss=2.5251]
+train 9 rank0:   6%|â–Œ         | 27/455 [00:19<05:09,  1.38it/s, loss=2.5251]
+train 9 rank0:   6%|â–Œ         | 27/455 [00:20<05:09,  1.38it/s, loss=2.5443]
+train 9 rank0:   6%|â–Œ         | 28/455 [00:20<05:09,  1.38it/s, loss=2.5443]
+train 9 rank0:   6%|â–Œ         | 28/455 [00:21<05:09,  1.38it/s, loss=2.5317]
+train 9 rank0:   6%|â–‹         | 29/455 [00:21<05:08,  1.38it/s, loss=2.5317]
+train 9 rank0:   6%|â–‹         | 29/455 [00:21<05:08,  1.38it/s, loss=2.5358]
+train 9 rank0:   7%|â–‹         | 30/455 [00:21<05:08,  1.38it/s, loss=2.5358]
+                                                                            
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:51,  1.08it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:45,  1.22it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:42,  1.27it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.29it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:39,  1.31it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.32it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:36,  1.33it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.33it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 009/015 | loss=2.5349 acc=0.1382 macro_f1=0.1276 | val_loss=2.5331 val_acc=0.1281 val_macro_f1=0.0687 | ckpt_monitor=val_macro_f1:0.0687 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.726s cuda_rankmax=9.643GB
+          val pred_count: [456, 100, 22, 40, 17, 5, 0]
+          no improvement: 8/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 10 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.3439s
+  to_device_time =0.0057s
+  forward_time   =0.3861s
+  loss_time      =0.0013s
+  backward_time  =0.3293s
+  optimizer_time =0.0060s
+  batch_time     =0.7302s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5332]
+train 10 rank0:   0%|          | 1/455 [00:01<08:08,  1.08s/it, loss=2.5332][PROFILE rank=0 batch=1]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3850s
+  loss_time      =0.0018s
+  backward_time  =0.3275s
+  optimizer_time =0.0059s
+  batch_time     =0.7253s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   0%|          | 1/455 [00:01<08:08,  1.08s/it, loss=2.5191]
+train 10 rank0:   0%|          | 2/455 [00:01<06:35,  1.15it/s, loss=2.5191][PROFILE rank=0 batch=2]
+  data_time      =0.0035s
+  to_device_time =0.0037s
+  forward_time   =0.3833s
+  loss_time      =0.0018s
+  backward_time  =0.3270s
+  optimizer_time =0.0062s
+  batch_time     =0.7232s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   0%|          | 2/455 [00:02<06:35,  1.15it/s, loss=2.5236]
+train 10 rank0:   1%|          | 3/455 [00:02<06:04,  1.24it/s, loss=2.5236][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3843s
+  loss_time      =0.0018s
+  backward_time  =0.3281s
+  optimizer_time =0.0062s
+  batch_time     =0.7252s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   1%|          | 3/455 [00:03<06:04,  1.24it/s, loss=2.5391]
+train 10 rank0:   1%|          | 4/455 [00:03<05:50,  1.29it/s, loss=2.5391][PROFILE rank=0 batch=4]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3853s
+  loss_time      =0.0020s
+  backward_time  =0.3278s
+  optimizer_time =0.0066s
+  batch_time     =0.7267s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   1%|          | 4/455 [00:03<05:50,  1.29it/s, loss=2.5379]
+train 10 rank0:   1%|          | 5/455 [00:03<05:41,  1.32it/s, loss=2.5379][PROFILE rank=0 batch=5]
+  data_time      =0.0006s
+  to_device_time =0.0040s
+  forward_time   =0.3836s
+  loss_time      =0.0019s
+  backward_time  =0.3274s
+  optimizer_time =0.0060s
+  batch_time     =0.7242s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   1%|          | 5/455 [00:04<05:41,  1.32it/s, loss=2.5341]
+train 10 rank0:   1%|â–         | 6/455 [00:04<05:36,  1.34it/s, loss=2.5341][PROFILE rank=0 batch=6]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3847s
+  loss_time      =0.0020s
+  backward_time  =0.3282s
+  optimizer_time =0.0062s
+  batch_time     =0.7260s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   1%|â–         | 6/455 [00:05<05:36,  1.34it/s, loss=2.5459]
+train 10 rank0:   2%|â–         | 7/455 [00:05<05:32,  1.35it/s, loss=2.5459][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3845s
+  loss_time      =0.0018s
+  backward_time  =0.3282s
+  optimizer_time =0.0060s
+  batch_time     =0.7254s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   2%|â–         | 7/455 [00:06<05:32,  1.35it/s, loss=2.5207]
+train 10 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5207][PROFILE rank=0 batch=8]
+  data_time      =0.0002s
+  to_device_time =0.0040s
+  forward_time   =0.3848s
+  loss_time      =0.0018s
+  backward_time  =0.3302s
+  optimizer_time =0.0058s
+  batch_time     =0.7277s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5149]
+train 10 rank0:   2%|â–         | 9/455 [00:06<05:28,  1.36it/s, loss=2.5149][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3847s
+  loss_time      =0.0022s
+  backward_time  =0.3282s
+  optimizer_time =0.0058s
+  batch_time     =0.7257s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   2%|â–         | 9/455 [00:07<05:28,  1.36it/s, loss=2.5265]
+train 10 rank0:   2%|â–         | 10/455 [00:07<05:26,  1.36it/s, loss=2.5265][PROFILE rank=0 batch=10]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3857s
+  loss_time      =0.0019s
+  backward_time  =0.3263s
+  optimizer_time =0.0062s
+  batch_time     =0.7249s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   2%|â–         | 10/455 [00:08<05:26,  1.36it/s, loss=2.5378]
+train 10 rank0:   2%|â–         | 11/455 [00:08<05:25,  1.37it/s, loss=2.5378][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3858s
+  loss_time      =0.0022s
+  backward_time  =0.3280s
+  optimizer_time =0.0061s
+  batch_time     =0.7270s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   2%|â–         | 11/455 [00:09<05:25,  1.37it/s, loss=2.5459]
+train 10 rank0:   3%|â–Ž         | 12/455 [00:09<05:24,  1.37it/s, loss=2.5459][PROFILE rank=0 batch=12]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3843s
+  loss_time      =0.0019s
+  backward_time  =0.3271s
+  optimizer_time =0.0058s
+  batch_time     =0.7242s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   3%|â–Ž         | 12/455 [00:09<05:24,  1.37it/s, loss=2.5349]
+train 10 rank0:   3%|â–Ž         | 13/455 [00:09<05:23,  1.37it/s, loss=2.5349][PROFILE rank=0 batch=13]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3881s
+  loss_time      =0.0018s
+  backward_time  =0.3271s
+  optimizer_time =0.0057s
+  batch_time     =0.7277s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   3%|â–Ž         | 13/455 [00:10<05:23,  1.37it/s, loss=2.5383]
+train 10 rank0:   3%|â–Ž         | 14/455 [00:10<05:22,  1.37it/s, loss=2.5383][PROFILE rank=0 batch=14]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3906s
+  loss_time      =0.0029s
+  backward_time  =0.3393s
+  optimizer_time =0.0056s
+  batch_time     =0.7439s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   3%|â–Ž         | 14/455 [00:11<05:22,  1.37it/s, loss=2.5505]
+train 10 rank0:   3%|â–Ž         | 15/455 [00:11<05:23,  1.36it/s, loss=2.5505][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0026s
+  forward_time   =0.2417s
+  loss_time      =0.0018s
+  backward_time  =0.2089s
+  optimizer_time =0.0058s
+  batch_time     =0.4617s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   3%|â–Ž         | 15/455 [00:11<05:23,  1.36it/s, loss=2.5069]
+train 10 rank0:   4%|â–Ž         | 16/455 [00:11<04:47,  1.53it/s, loss=2.5069][PROFILE rank=0 batch=16]
+  data_time      =0.0006s
+  to_device_time =0.0040s
+  forward_time   =0.3865s
+  loss_time      =0.0019s
+  backward_time  =0.3300s
+  optimizer_time =0.0057s
+  batch_time     =0.7290s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   4%|â–Ž         | 16/455 [00:12<04:47,  1.53it/s, loss=2.5591]
+train 10 rank0:   4%|â–Ž         | 17/455 [00:12<04:57,  1.47it/s, loss=2.5591][PROFILE rank=0 batch=17]
+  data_time      =0.0006s
+  to_device_time =0.0037s
+  forward_time   =0.3871s
+  loss_time      =0.0019s
+  backward_time  =0.3276s
+  optimizer_time =0.0059s
+  batch_time     =0.7271s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   4%|â–Ž         | 17/455 [00:13<04:57,  1.47it/s, loss=2.5437]
+train 10 rank0:   4%|â–         | 18/455 [00:13<05:03,  1.44it/s, loss=2.5437][PROFILE rank=0 batch=18]
+  data_time      =0.0019s
+  to_device_time =0.0037s
+  forward_time   =0.3873s
+  loss_time      =0.0019s
+  backward_time  =0.3286s
+  optimizer_time =0.0060s
+  batch_time     =0.7287s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 10 rank0:   4%|â–         | 18/455 [00:13<05:03,  1.44it/s, loss=2.5331]
+train 10 rank0:   4%|â–         | 19/455 [00:13<05:07,  1.42it/s, loss=2.5331][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3866s
+  loss_time      =0.0019s
+  backward_time  =0.3306s
+  optimizer_time =0.0061s
+  batch_time     =0.7301s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0179s
+  avg_to_device_time =0.0038s
+  avg_forward_time   =0.3785s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3228s
+  avg_optimizer_time =0.0060s
+  avg_batch_time     =0.7142s
+  estimated_full_epoch_minutes=5.42
+
+train 10 rank0:   4%|â–         | 19/455 [00:14<05:07,  1.42it/s, loss=2.5355]
+train 10 rank0:   4%|â–         | 20/455 [00:14<05:10,  1.40it/s, loss=2.5355]
+train 10 rank0:   4%|â–         | 20/455 [00:15<05:10,  1.40it/s, loss=2.5410]
+train 10 rank0:   5%|â–         | 21/455 [00:15<05:11,  1.39it/s, loss=2.5410]
+train 10 rank0:   5%|â–         | 21/455 [00:16<05:11,  1.39it/s, loss=2.5433]
+train 10 rank0:   5%|â–         | 22/455 [00:16<05:12,  1.39it/s, loss=2.5433]
+train 10 rank0:   5%|â–         | 22/455 [00:16<05:12,  1.39it/s, loss=2.5307]
+train 10 rank0:   5%|â–Œ         | 23/455 [00:16<05:12,  1.38it/s, loss=2.5307]
+train 10 rank0:   5%|â–Œ         | 23/455 [00:17<05:12,  1.38it/s, loss=2.5362]
+train 10 rank0:   5%|â–Œ         | 24/455 [00:17<05:12,  1.38it/s, loss=2.5362]
+train 10 rank0:   5%|â–Œ         | 24/455 [00:18<05:12,  1.38it/s, loss=2.5446]
+train 10 rank0:   5%|â–Œ         | 25/455 [00:18<05:12,  1.38it/s, loss=2.5446]
+train 10 rank0:   5%|â–Œ         | 25/455 [00:19<05:12,  1.38it/s, loss=2.5480]
+train 10 rank0:   6%|â–Œ         | 26/455 [00:19<05:12,  1.37it/s, loss=2.5480]
+train 10 rank0:   6%|â–Œ         | 26/455 [00:19<05:12,  1.37it/s, loss=2.5272]
+train 10 rank0:   6%|â–Œ         | 27/455 [00:19<05:12,  1.37it/s, loss=2.5272]
+train 10 rank0:   6%|â–Œ         | 27/455 [00:20<05:12,  1.37it/s, loss=2.5378]
+train 10 rank0:   6%|â–Œ         | 28/455 [00:20<05:11,  1.37it/s, loss=2.5378]
+train 10 rank0:   6%|â–Œ         | 28/455 [00:21<05:11,  1.37it/s, loss=2.5385]
+train 10 rank0:   6%|â–‹         | 29/455 [00:21<05:13,  1.36it/s, loss=2.5385]
+train 10 rank0:   6%|â–‹         | 29/455 [00:22<05:13,  1.36it/s, loss=2.5316]
+train 10 rank0:   7%|â–‹         | 30/455 [00:22<05:12,  1.36it/s, loss=2.5316]
+                                                                             
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:54,  1.04it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:46,  1.19it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:43,  1.25it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.28it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:39,  1.30it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.31it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:37,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.33it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 010/015 | loss=2.5372 acc=0.1440 macro_f1=0.1322 | val_loss=2.5331 val_acc=0.1391 val_macro_f1=0.0793 | ckpt_monitor=val_macro_f1:0.0793 best_val_macro_f1=0.0880 best_epoch=1 early_val_macro_f1=0.0880 sec/batch=0.735s cuda_rankmax=9.643GB
+          val pred_count: [417, 55, 75, 67, 17, 9, 0]
+          no improvement: 9/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 11 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.3225s
+  to_device_time =0.0057s
+  forward_time   =0.3791s
+  loss_time      =0.0013s
+  backward_time  =0.3249s
+  optimizer_time =0.0091s
+  batch_time     =0.7225s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5289]
+train 11 rank0:   0%|          | 1/455 [00:01<07:56,  1.05s/it, loss=2.5289][PROFILE rank=0 batch=1]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3831s
+  loss_time      =0.0018s
+  backward_time  =0.3256s
+  optimizer_time =0.0061s
+  batch_time     =0.7217s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   0%|          | 1/455 [00:01<07:56,  1.05s/it, loss=2.5109]
+train 11 rank0:   0%|          | 2/455 [00:01<06:28,  1.16it/s, loss=2.5109][PROFILE rank=0 batch=2]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3838s
+  loss_time      =0.0017s
+  backward_time  =0.3287s
+  optimizer_time =0.0063s
+  batch_time     =0.7255s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   0%|          | 2/455 [00:02<06:28,  1.16it/s, loss=2.5546]
+train 11 rank0:   1%|          | 3/455 [00:02<06:01,  1.25it/s, loss=2.5546][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3855s
+  loss_time      =0.0018s
+  backward_time  =0.3285s
+  optimizer_time =0.0060s
+  batch_time     =0.7269s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   1%|          | 3/455 [00:03<06:01,  1.25it/s, loss=2.5049]
+train 11 rank0:   1%|          | 4/455 [00:03<05:48,  1.29it/s, loss=2.5049][PROFILE rank=0 batch=4]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3852s
+  loss_time      =0.0019s
+  backward_time  =0.3286s
+  optimizer_time =0.0055s
+  batch_time     =0.7260s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   1%|          | 4/455 [00:03<05:48,  1.29it/s, loss=2.5352]
+train 11 rank0:   1%|          | 5/455 [00:03<05:40,  1.32it/s, loss=2.5352][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3879s
+  loss_time      =0.0018s
+  backward_time  =0.3276s
+  optimizer_time =0.0055s
+  batch_time     =0.7279s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   1%|          | 5/455 [00:04<05:40,  1.32it/s, loss=2.5439]
+train 11 rank0:   1%|â–         | 6/455 [00:04<05:35,  1.34it/s, loss=2.5439][PROFILE rank=0 batch=6]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3866s
+  loss_time      =0.0021s
+  backward_time  =0.3318s
+  optimizer_time =0.0061s
+  batch_time     =0.7315s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   1%|â–         | 6/455 [00:05<05:35,  1.34it/s, loss=2.5318]
+train 11 rank0:   2%|â–         | 7/455 [00:05<05:33,  1.34it/s, loss=2.5318][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3823s
+  loss_time      =0.0018s
+  backward_time  =0.3285s
+  optimizer_time =0.0055s
+  batch_time     =0.7228s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   2%|â–         | 7/455 [00:06<05:33,  1.34it/s, loss=2.5545]
+train 11 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5545][PROFILE rank=0 batch=8]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3859s
+  loss_time      =0.0019s
+  backward_time  =0.3307s
+  optimizer_time =0.0062s
+  batch_time     =0.7297s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5330]
+train 11 rank0:   2%|â–         | 9/455 [00:06<05:28,  1.36it/s, loss=2.5330][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3864s
+  loss_time      =0.0018s
+  backward_time  =0.3285s
+  optimizer_time =0.0059s
+  batch_time     =0.7277s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   2%|â–         | 9/455 [00:07<05:28,  1.36it/s, loss=2.5317]
+train 11 rank0:   2%|â–         | 10/455 [00:07<05:27,  1.36it/s, loss=2.5317][PROFILE rank=0 batch=10]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3868s
+  loss_time      =0.0019s
+  backward_time  =0.3280s
+  optimizer_time =0.0055s
+  batch_time     =0.7271s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   2%|â–         | 10/455 [00:08<05:27,  1.36it/s, loss=2.5457]
+train 11 rank0:   2%|â–         | 11/455 [00:08<05:25,  1.36it/s, loss=2.5457][PROFILE rank=0 batch=11]
+  data_time      =0.0019s
+  to_device_time =0.0037s
+  forward_time   =0.3862s
+  loss_time      =0.0018s
+  backward_time  =0.3281s
+  optimizer_time =0.0060s
+  batch_time     =0.7268s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   2%|â–         | 11/455 [00:09<05:25,  1.36it/s, loss=2.5475]
+train 11 rank0:   3%|â–Ž         | 12/455 [00:09<05:24,  1.36it/s, loss=2.5475][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3853s
+  loss_time      =0.0019s
+  backward_time  =0.3294s
+  optimizer_time =0.0055s
+  batch_time     =0.7270s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   3%|â–Ž         | 12/455 [00:09<05:24,  1.36it/s, loss=2.5296]
+train 11 rank0:   3%|â–Ž         | 13/455 [00:09<05:23,  1.37it/s, loss=2.5296][PROFILE rank=0 batch=13]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3860s
+  loss_time      =0.0019s
+  backward_time  =0.3296s
+  optimizer_time =0.0069s
+  batch_time     =0.7293s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   3%|â–Ž         | 13/455 [00:10<05:23,  1.37it/s, loss=2.5178]
+train 11 rank0:   3%|â–Ž         | 14/455 [00:10<05:23,  1.36it/s, loss=2.5178][PROFILE rank=0 batch=14]
+  data_time      =0.0013s
+  to_device_time =0.0037s
+  forward_time   =0.3843s
+  loss_time      =0.0019s
+  backward_time  =0.3273s
+  optimizer_time =0.0060s
+  batch_time     =0.7245s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   3%|â–Ž         | 14/455 [00:11<05:23,  1.36it/s, loss=2.5500]
+train 11 rank0:   3%|â–Ž         | 15/455 [00:11<05:21,  1.37it/s, loss=2.5500][PROFILE rank=0 batch=15]
+  data_time      =0.0004s
+  to_device_time =0.0023s
+  forward_time   =0.2419s
+  loss_time      =0.0019s
+  backward_time  =0.2090s
+  optimizer_time =0.0059s
+  batch_time     =0.4620s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   3%|â–Ž         | 15/455 [00:11<05:21,  1.37it/s, loss=2.5280]
+train 11 rank0:   4%|â–Ž         | 16/455 [00:11<04:46,  1.53it/s, loss=2.5280][PROFILE rank=0 batch=16]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3839s
+  loss_time      =0.0019s
+  backward_time  =0.3321s
+  optimizer_time =0.0063s
+  batch_time     =0.7291s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   4%|â–Ž         | 16/455 [00:12<04:46,  1.53it/s, loss=2.5568]
+train 11 rank0:   4%|â–Ž         | 17/455 [00:12<04:56,  1.48it/s, loss=2.5568][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3854s
+  loss_time      =0.0020s
+  backward_time  =0.3291s
+  optimizer_time =0.0060s
+  batch_time     =0.7274s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   4%|â–Ž         | 17/455 [00:13<04:56,  1.48it/s, loss=2.5429]
+train 11 rank0:   4%|â–         | 18/455 [00:13<05:02,  1.44it/s, loss=2.5429][PROFILE rank=0 batch=18]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3869s
+  loss_time      =0.0020s
+  backward_time  =0.3290s
+  optimizer_time =0.0059s
+  batch_time     =0.7287s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 11 rank0:   4%|â–         | 18/455 [00:13<05:02,  1.44it/s, loss=2.5303]
+train 11 rank0:   4%|â–         | 19/455 [00:13<05:07,  1.42it/s, loss=2.5303][PROFILE rank=0 batch=19]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3860s
+  loss_time      =0.0018s
+  backward_time  =0.3273s
+  optimizer_time =0.0060s
+  batch_time     =0.7261s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0167s
+  avg_to_device_time =0.0039s
+  avg_forward_time   =0.3779s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3226s
+  avg_optimizer_time =0.0061s
+  avg_batch_time     =0.7135s
+  estimated_full_epoch_minutes=5.41
+
+train 11 rank0:   4%|â–         | 19/455 [00:14<05:07,  1.42it/s, loss=2.5368]
+train 11 rank0:   4%|â–         | 20/455 [00:14<05:09,  1.40it/s, loss=2.5368]
+train 11 rank0:   4%|â–         | 20/455 [00:15<05:09,  1.40it/s, loss=2.5461]
+train 11 rank0:   5%|â–         | 21/455 [00:15<05:11,  1.39it/s, loss=2.5461]
+train 11 rank0:   5%|â–         | 21/455 [00:16<05:11,  1.39it/s, loss=2.5247]
+train 11 rank0:   5%|â–         | 22/455 [00:16<05:12,  1.39it/s, loss=2.5247]
+train 11 rank0:   5%|â–         | 22/455 [00:16<05:12,  1.39it/s, loss=2.5408]
+train 11 rank0:   5%|â–Œ         | 23/455 [00:16<05:12,  1.38it/s, loss=2.5408]
+train 11 rank0:   5%|â–Œ         | 23/455 [00:17<05:12,  1.38it/s, loss=2.5378]
+train 11 rank0:   5%|â–Œ         | 24/455 [00:17<05:13,  1.38it/s, loss=2.5378]
+train 11 rank0:   5%|â–Œ         | 24/455 [00:18<05:13,  1.38it/s, loss=2.5373]
+train 11 rank0:   5%|â–Œ         | 25/455 [00:18<05:12,  1.37it/s, loss=2.5373]
+train 11 rank0:   5%|â–Œ         | 25/455 [00:19<05:12,  1.37it/s, loss=2.5244]
+train 11 rank0:   6%|â–Œ         | 26/455 [00:19<05:12,  1.37it/s, loss=2.5244]
+train 11 rank0:   6%|â–Œ         | 26/455 [00:19<05:12,  1.37it/s, loss=2.5346]
+train 11 rank0:   6%|â–Œ         | 27/455 [00:19<05:12,  1.37it/s, loss=2.5346]
+train 11 rank0:   6%|â–Œ         | 27/455 [00:20<05:12,  1.37it/s, loss=2.5372]
+train 11 rank0:   6%|â–Œ         | 28/455 [00:20<05:11,  1.37it/s, loss=2.5372]
+train 11 rank0:   6%|â–Œ         | 28/455 [00:21<05:11,  1.37it/s, loss=2.5306]
+train 11 rank0:   6%|â–‹         | 29/455 [00:21<05:14,  1.36it/s, loss=2.5306]
+train 11 rank0:   6%|â–‹         | 29/455 [00:22<05:14,  1.36it/s, loss=2.5336]
+train 11 rank0:   7%|â–‹         | 30/455 [00:22<05:12,  1.36it/s, loss=2.5336]
+                                                                             
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:51,  1.08it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:45,  1.22it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:42,  1.27it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:40,  1.29it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:39,  1.31it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.32it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:36,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.33it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 011/015 | loss=2.5342 acc=0.1593 macro_f1=0.1459 | val_loss=2.5331 val_acc=0.1406 val_macro_f1=0.0904 | ckpt_monitor=val_macro_f1:0.0904 best_val_macro_f1=0.0904 best_epoch=11 early_val_macro_f1=0.0904 sec/batch=0.734s cuda_rankmax=9.643GB
+          val pred_count: [340, 55, 105, 113, 15, 11, 1]
+          checkpoint improvement: best_epoch=11
+          early stopping monitor improved
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 12 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.3289s
+  to_device_time =0.0042s
+  forward_time   =0.3805s
+  loss_time      =0.0013s
+  backward_time  =0.3293s
+  optimizer_time =0.0060s
+  batch_time     =0.7277s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5364]
+train 12 rank0:   0%|          | 1/455 [00:01<08:00,  1.06s/it, loss=2.5364][PROFILE rank=0 batch=1]
+  data_time      =0.0005s
+  to_device_time =0.0022s
+  forward_time   =0.3843s
+  loss_time      =0.0018s
+  backward_time  =0.3293s
+  optimizer_time =0.0057s
+  batch_time     =0.7242s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   0%|          | 1/455 [00:01<08:00,  1.06s/it, loss=2.5158]
+train 12 rank0:   0%|          | 2/455 [00:01<06:31,  1.16it/s, loss=2.5158][PROFILE rank=0 batch=2]
+  data_time      =0.0005s
+  to_device_time =0.0053s
+  forward_time   =0.3822s
+  loss_time      =0.0019s
+  backward_time  =0.3272s
+  optimizer_time =0.0061s
+  batch_time     =0.7237s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   0%|          | 2/455 [00:02<06:31,  1.16it/s, loss=2.5168]
+train 12 rank0:   1%|          | 3/455 [00:02<06:02,  1.25it/s, loss=2.5168][PROFILE rank=0 batch=3]
+  data_time      =0.0002s
+  to_device_time =0.0040s
+  forward_time   =0.3809s
+  loss_time      =0.0018s
+  backward_time  =0.3267s
+  optimizer_time =0.0064s
+  batch_time     =0.7210s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   1%|          | 3/455 [00:03<06:02,  1.25it/s, loss=2.5208]
+train 12 rank0:   1%|          | 4/455 [00:03<05:47,  1.30it/s, loss=2.5208][PROFILE rank=0 batch=4]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3846s
+  loss_time      =0.0017s
+  backward_time  =0.3248s
+  optimizer_time =0.0057s
+  batch_time     =0.7219s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   1%|          | 4/455 [00:03<05:47,  1.30it/s, loss=2.5383]
+train 12 rank0:   1%|          | 5/455 [00:03<05:39,  1.33it/s, loss=2.5383][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3819s
+  loss_time      =0.0018s
+  backward_time  =0.3271s
+  optimizer_time =0.0059s
+  batch_time     =0.7217s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   1%|          | 5/455 [00:04<05:39,  1.33it/s, loss=2.5362]
+train 12 rank0:   1%|â–         | 6/455 [00:04<05:34,  1.34it/s, loss=2.5362][PROFILE rank=0 batch=6]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3841s
+  loss_time      =0.0018s
+  backward_time  =0.3290s
+  optimizer_time =0.0058s
+  batch_time     =0.7258s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   1%|â–         | 6/455 [00:05<05:34,  1.34it/s, loss=2.5460]
+train 12 rank0:   2%|â–         | 7/455 [00:05<05:31,  1.35it/s, loss=2.5460][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3869s
+  loss_time      =0.0020s
+  backward_time  =0.3275s
+  optimizer_time =0.0059s
+  batch_time     =0.7273s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   2%|â–         | 7/455 [00:06<05:31,  1.35it/s, loss=2.5247]
+train 12 rank0:   2%|â–         | 8/455 [00:06<05:29,  1.36it/s, loss=2.5247][PROFILE rank=0 batch=8]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3848s
+  loss_time      =0.0017s
+  backward_time  =0.3303s
+  optimizer_time =0.0054s
+  batch_time     =0.7272s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   2%|â–         | 8/455 [00:06<05:29,  1.36it/s, loss=2.5202]
+train 12 rank0:   2%|â–         | 9/455 [00:06<05:27,  1.36it/s, loss=2.5202][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3828s
+  loss_time      =0.0018s
+  backward_time  =0.3276s
+  optimizer_time =0.0053s
+  batch_time     =0.7224s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   2%|â–         | 9/455 [00:07<05:27,  1.36it/s, loss=2.5380]
+train 12 rank0:   2%|â–         | 10/455 [00:07<05:25,  1.37it/s, loss=2.5380][PROFILE rank=0 batch=10]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3854s
+  loss_time      =0.0018s
+  backward_time  =0.3272s
+  optimizer_time =0.0054s
+  batch_time     =0.7246s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   2%|â–         | 10/455 [00:08<05:25,  1.37it/s, loss=2.5400]
+train 12 rank0:   2%|â–         | 11/455 [00:08<05:24,  1.37it/s, loss=2.5400][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3861s
+  loss_time      =0.0018s
+  backward_time  =0.3308s
+  optimizer_time =0.0057s
+  batch_time     =0.7291s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   2%|â–         | 11/455 [00:09<05:24,  1.37it/s, loss=2.5506]
+train 12 rank0:   3%|â–Ž         | 12/455 [00:09<05:24,  1.37it/s, loss=2.5506][PROFILE rank=0 batch=12]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3861s
+  loss_time      =0.0018s
+  backward_time  =0.3281s
+  optimizer_time =0.0055s
+  batch_time     =0.7265s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   3%|â–Ž         | 12/455 [00:09<05:24,  1.37it/s, loss=2.5573]
+train 12 rank0:   3%|â–Ž         | 13/455 [00:09<05:23,  1.37it/s, loss=2.5573][PROFILE rank=0 batch=13]
+  data_time      =0.0013s
+  to_device_time =0.0037s
+  forward_time   =0.3855s
+  loss_time      =0.0018s
+  backward_time  =0.3316s
+  optimizer_time =0.0066s
+  batch_time     =0.7303s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   3%|â–Ž         | 13/455 [00:10<05:23,  1.37it/s, loss=2.5642]
+train 12 rank0:   3%|â–Ž         | 14/455 [00:10<05:22,  1.37it/s, loss=2.5642][PROFILE rank=0 batch=14]
+  data_time      =0.0004s
+  to_device_time =0.0040s
+  forward_time   =0.3865s
+  loss_time      =0.0032s
+  backward_time  =0.3384s
+  optimizer_time =0.0060s
+  batch_time     =0.7394s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   3%|â–Ž         | 14/455 [00:11<05:22,  1.37it/s, loss=2.5468]
+train 12 rank0:   3%|â–Ž         | 15/455 [00:11<05:23,  1.36it/s, loss=2.5468][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0023s
+  forward_time   =0.2405s
+  loss_time      =0.0018s
+  backward_time  =0.2080s
+  optimizer_time =0.0055s
+  batch_time     =0.4592s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   3%|â–Ž         | 15/455 [00:11<05:23,  1.36it/s, loss=2.5520]
+train 12 rank0:   4%|â–Ž         | 16/455 [00:11<04:46,  1.53it/s, loss=2.5520][PROFILE rank=0 batch=16]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3824s
+  loss_time      =0.0021s
+  backward_time  =0.3273s
+  optimizer_time =0.0057s
+  batch_time     =0.7223s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   4%|â–Ž         | 16/455 [00:12<04:46,  1.53it/s, loss=2.5430]
+train 12 rank0:   4%|â–Ž         | 17/455 [00:12<04:55,  1.48it/s, loss=2.5430][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3835s
+  loss_time      =0.0019s
+  backward_time  =0.3298s
+  optimizer_time =0.0058s
+  batch_time     =0.7259s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   4%|â–Ž         | 17/455 [00:13<04:55,  1.48it/s, loss=2.5194]
+train 12 rank0:   4%|â–         | 18/455 [00:13<05:02,  1.45it/s, loss=2.5194][PROFILE rank=0 batch=18]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3835s
+  loss_time      =0.0019s
+  backward_time  =0.3267s
+  optimizer_time =0.0057s
+  batch_time     =0.7228s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 12 rank0:   4%|â–         | 18/455 [00:13<05:02,  1.45it/s, loss=2.5349]
+train 12 rank0:   4%|â–         | 19/455 [00:13<05:06,  1.42it/s, loss=2.5349][PROFILE rank=0 batch=19]
+  data_time      =0.0031s
+  to_device_time =0.0037s
+  forward_time   =0.3849s
+  loss_time      =0.0019s
+  backward_time  =0.3275s
+  optimizer_time =0.0054s
+  batch_time     =0.7245s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0171s
+  avg_to_device_time =0.0038s
+  avg_forward_time   =0.3769s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3227s
+  avg_optimizer_time =0.0058s
+  avg_batch_time     =0.7124s
+  estimated_full_epoch_minutes=5.40
+
+train 12 rank0:   4%|â–         | 19/455 [00:14<05:06,  1.42it/s, loss=2.5568]
+train 12 rank0:   4%|â–         | 20/455 [00:14<05:09,  1.41it/s, loss=2.5568]
+train 12 rank0:   4%|â–         | 20/455 [00:15<05:09,  1.41it/s, loss=2.5542]
+train 12 rank0:   5%|â–         | 21/455 [00:15<05:10,  1.40it/s, loss=2.5542]
+train 12 rank0:   5%|â–         | 21/455 [00:16<05:10,  1.40it/s, loss=2.5184]
+train 12 rank0:   5%|â–         | 22/455 [00:16<05:10,  1.39it/s, loss=2.5184]
+train 12 rank0:   5%|â–         | 22/455 [00:16<05:10,  1.39it/s, loss=2.5438]
+train 12 rank0:   5%|â–Œ         | 23/455 [00:16<05:11,  1.39it/s, loss=2.5438]
+train 12 rank0:   5%|â–Œ         | 23/455 [00:17<05:11,  1.39it/s, loss=2.5447]
+train 12 rank0:   5%|â–Œ         | 24/455 [00:17<05:11,  1.38it/s, loss=2.5447]
+train 12 rank0:   5%|â–Œ         | 24/455 [00:18<05:11,  1.38it/s, loss=2.5177]
+train 12 rank0:   5%|â–Œ         | 25/455 [00:18<05:11,  1.38it/s, loss=2.5177]
+train 12 rank0:   5%|â–Œ         | 25/455 [00:19<05:11,  1.38it/s, loss=2.5437]
+train 12 rank0:   6%|â–Œ         | 26/455 [00:19<05:11,  1.38it/s, loss=2.5437]
+train 12 rank0:   6%|â–Œ         | 26/455 [00:19<05:11,  1.38it/s, loss=2.5286]
+train 12 rank0:   6%|â–Œ         | 27/455 [00:19<05:11,  1.37it/s, loss=2.5286]
+train 12 rank0:   6%|â–Œ         | 27/455 [00:20<05:11,  1.37it/s, loss=2.5336]
+train 12 rank0:   6%|â–Œ         | 28/455 [00:20<05:11,  1.37it/s, loss=2.5336]
+train 12 rank0:   6%|â–Œ         | 28/455 [00:21<05:11,  1.37it/s, loss=2.5516]
+train 12 rank0:   6%|â–‹         | 29/455 [00:21<05:10,  1.37it/s, loss=2.5516]
+train 12 rank0:   6%|â–‹         | 29/455 [00:21<05:10,  1.37it/s, loss=2.5252]
+train 12 rank0:   7%|â–‹         | 30/455 [00:21<05:09,  1.37it/s, loss=2.5252]
+                                                                             
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:52,  1.06it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:45,  1.20it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:42,  1.26it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.29it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:39,  1.30it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.31it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:36,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.33it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 012/015 | loss=2.5354 acc=0.1514 macro_f1=0.1396 | val_loss=2.5331 val_acc=0.1422 val_macro_f1=0.1035 | ckpt_monitor=val_macro_f1:0.1035 best_val_macro_f1=0.1035 best_epoch=12 early_val_macro_f1=0.1035 sec/batch=0.732s cuda_rankmax=9.643GB
+          val pred_count: [221, 50, 136, 168, 16, 23, 26]
+          checkpoint improvement: best_epoch=12
+          early stopping monitor improved
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 13 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.2940s
+  to_device_time =0.0073s
+  forward_time   =0.3861s
+  loss_time      =0.0012s
+  backward_time  =0.3259s
+  optimizer_time =0.0109s
+  batch_time     =0.7331s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5307]
+train 13 rank0:   0%|          | 1/455 [00:01<07:48,  1.03s/it, loss=2.5307][PROFILE rank=0 batch=1]
+  data_time      =0.0004s
+  to_device_time =0.0049s
+  forward_time   =0.3814s
+  loss_time      =0.0018s
+  backward_time  =0.3286s
+  optimizer_time =0.0056s
+  batch_time     =0.7234s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   0%|          | 1/455 [00:01<07:48,  1.03s/it, loss=2.5443]
+train 13 rank0:   0%|          | 2/455 [00:01<06:26,  1.17it/s, loss=2.5443][PROFILE rank=0 batch=2]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3860s
+  loss_time      =0.0018s
+  backward_time  =0.3280s
+  optimizer_time =0.0059s
+  batch_time     =0.7266s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   0%|          | 2/455 [00:02<06:26,  1.17it/s, loss=2.5252]
+train 13 rank0:   1%|          | 3/455 [00:02<06:00,  1.26it/s, loss=2.5252][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3844s
+  loss_time      =0.0021s
+  backward_time  =0.3276s
+  optimizer_time =0.0071s
+  batch_time     =0.7262s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   1%|          | 3/455 [00:03<06:00,  1.26it/s, loss=2.5206]
+train 13 rank0:   1%|          | 4/455 [00:03<05:47,  1.30it/s, loss=2.5206][PROFILE rank=0 batch=4]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3842s
+  loss_time      =0.0019s
+  backward_time  =0.3286s
+  optimizer_time =0.0060s
+  batch_time     =0.7256s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   1%|          | 4/455 [00:03<05:47,  1.30it/s, loss=2.5121]
+train 13 rank0:   1%|          | 5/455 [00:03<05:40,  1.32it/s, loss=2.5121][PROFILE rank=0 batch=5]
+  data_time      =0.0003s
+  to_device_time =0.0047s
+  forward_time   =0.3840s
+  loss_time      =0.0019s
+  backward_time  =0.3276s
+  optimizer_time =0.0057s
+  batch_time     =0.7249s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   1%|          | 5/455 [00:04<05:40,  1.32it/s, loss=2.5229]
+train 13 rank0:   1%|â–         | 6/455 [00:04<05:35,  1.34it/s, loss=2.5229][PROFILE rank=0 batch=6]
+  data_time      =0.0004s
+  to_device_time =0.0040s
+  forward_time   =0.3843s
+  loss_time      =0.0018s
+  backward_time  =0.3299s
+  optimizer_time =0.0058s
+  batch_time     =0.7270s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   1%|â–         | 6/455 [00:05<05:35,  1.34it/s, loss=2.5475]
+train 13 rank0:   2%|â–         | 7/455 [00:05<05:32,  1.35it/s, loss=2.5475][PROFILE rank=0 batch=7]
+  data_time      =0.0004s
+  to_device_time =0.0038s
+  forward_time   =0.3839s
+  loss_time      =0.0018s
+  backward_time  =0.3298s
+  optimizer_time =0.0060s
+  batch_time     =0.7265s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   2%|â–         | 7/455 [00:06<05:32,  1.35it/s, loss=2.5323]
+train 13 rank0:   2%|â–         | 8/455 [00:06<05:29,  1.36it/s, loss=2.5323][PROFILE rank=0 batch=8]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3840s
+  loss_time      =0.0020s
+  backward_time  =0.3278s
+  optimizer_time =0.0066s
+  batch_time     =0.7252s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   2%|â–         | 8/455 [00:06<05:29,  1.36it/s, loss=2.5247]
+train 13 rank0:   2%|â–         | 9/455 [00:06<05:27,  1.36it/s, loss=2.5247][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3832s
+  loss_time      =0.0019s
+  backward_time  =0.3268s
+  optimizer_time =0.0057s
+  batch_time     =0.7225s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   2%|â–         | 9/455 [00:07<05:27,  1.36it/s, loss=2.5160]
+train 13 rank0:   2%|â–         | 10/455 [00:07<05:25,  1.37it/s, loss=2.5160][PROFILE rank=0 batch=10]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3852s
+  loss_time      =0.0020s
+  backward_time  =0.3281s
+  optimizer_time =0.0065s
+  batch_time     =0.7268s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   2%|â–         | 10/455 [00:08<05:25,  1.37it/s, loss=2.5636]
+train 13 rank0:   2%|â–         | 11/455 [00:08<05:24,  1.37it/s, loss=2.5636][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3849s
+  loss_time      =0.0019s
+  backward_time  =0.3321s
+  optimizer_time =0.0062s
+  batch_time     =0.7302s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   2%|â–         | 11/455 [00:09<05:24,  1.37it/s, loss=2.5645]
+train 13 rank0:   3%|â–Ž         | 12/455 [00:09<05:24,  1.37it/s, loss=2.5645][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3846s
+  loss_time      =0.0018s
+  backward_time  =0.3348s
+  optimizer_time =0.0069s
+  batch_time     =0.7333s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   3%|â–Ž         | 12/455 [00:09<05:24,  1.37it/s, loss=2.5518]
+train 13 rank0:   3%|â–Ž         | 13/455 [00:09<05:24,  1.36it/s, loss=2.5518][PROFILE rank=0 batch=13]
+  data_time      =0.0003s
+  to_device_time =0.0039s
+  forward_time   =0.3851s
+  loss_time      =0.0020s
+  backward_time  =0.3269s
+  optimizer_time =0.0060s
+  batch_time     =0.7250s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   3%|â–Ž         | 13/455 [00:10<05:24,  1.36it/s, loss=2.5271]
+train 13 rank0:   3%|â–Ž         | 14/455 [00:10<05:22,  1.37it/s, loss=2.5271][PROFILE rank=0 batch=14]
+  data_time      =0.0006s
+  to_device_time =0.0036s
+  forward_time   =0.3842s
+  loss_time      =0.0019s
+  backward_time  =0.3306s
+  optimizer_time =0.0064s
+  batch_time     =0.7277s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   3%|â–Ž         | 14/455 [00:11<05:22,  1.37it/s, loss=2.5520]
+train 13 rank0:   3%|â–Ž         | 15/455 [00:11<05:22,  1.37it/s, loss=2.5520][PROFILE rank=0 batch=15]
+  data_time      =0.0005s
+  to_device_time =0.0025s
+  forward_time   =0.2421s
+  loss_time      =0.0018s
+  backward_time  =0.2109s
+  optimizer_time =0.0059s
+  batch_time     =0.4643s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   3%|â–Ž         | 15/455 [00:11<05:22,  1.37it/s, loss=2.5552]
+train 13 rank0:   4%|â–Ž         | 16/455 [00:11<04:46,  1.53it/s, loss=2.5552][PROFILE rank=0 batch=16]
+  data_time      =0.0004s
+  to_device_time =0.0040s
+  forward_time   =0.3856s
+  loss_time      =0.0021s
+  backward_time  =0.3273s
+  optimizer_time =0.0059s
+  batch_time     =0.7259s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   4%|â–Ž         | 16/455 [00:12<04:46,  1.53it/s, loss=2.5423]
+train 13 rank0:   4%|â–Ž         | 17/455 [00:12<04:55,  1.48it/s, loss=2.5423][PROFILE rank=0 batch=17]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3836s
+  loss_time      =0.0018s
+  backward_time  =0.3291s
+  optimizer_time =0.0063s
+  batch_time     =0.7258s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   4%|â–Ž         | 17/455 [00:13<04:55,  1.48it/s, loss=2.5424]
+train 13 rank0:   4%|â–         | 18/455 [00:13<05:02,  1.45it/s, loss=2.5424][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3853s
+  loss_time      =0.0018s
+  backward_time  =0.3298s
+  optimizer_time =0.0059s
+  batch_time     =0.7280s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 13 rank0:   4%|â–         | 18/455 [00:13<05:02,  1.45it/s, loss=2.5342]
+train 13 rank0:   4%|â–         | 19/455 [00:13<05:06,  1.42it/s, loss=2.5342][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0040s
+  forward_time   =0.3861s
+  loss_time      =0.0018s
+  backward_time  =0.3283s
+  optimizer_time =0.0056s
+  batch_time     =0.7268s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0151s
+  avg_to_device_time =0.0041s
+  avg_forward_time   =0.3774s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3229s
+  avg_optimizer_time =0.0063s
+  avg_batch_time     =0.7137s
+  estimated_full_epoch_minutes=5.41
+
+train 13 rank0:   4%|â–         | 19/455 [00:14<05:06,  1.42it/s, loss=2.5412]
+train 13 rank0:   4%|â–         | 20/455 [00:14<05:09,  1.41it/s, loss=2.5412]
+train 13 rank0:   4%|â–         | 20/455 [00:15<05:09,  1.41it/s, loss=2.5282]
+train 13 rank0:   5%|â–         | 21/455 [00:15<05:11,  1.39it/s, loss=2.5282]
+train 13 rank0:   5%|â–         | 21/455 [00:16<05:11,  1.39it/s, loss=2.5306]
+train 13 rank0:   5%|â–         | 22/455 [00:16<05:12,  1.39it/s, loss=2.5306]
+train 13 rank0:   5%|â–         | 22/455 [00:16<05:12,  1.39it/s, loss=2.5662]
+train 13 rank0:   5%|â–Œ         | 23/455 [00:16<05:12,  1.38it/s, loss=2.5662]
+train 13 rank0:   5%|â–Œ         | 23/455 [00:17<05:12,  1.38it/s, loss=2.5427]
+train 13 rank0:   5%|â–Œ         | 24/455 [00:17<05:13,  1.38it/s, loss=2.5427]
+train 13 rank0:   5%|â–Œ         | 24/455 [00:18<05:13,  1.38it/s, loss=2.5340]
+train 13 rank0:   5%|â–Œ         | 25/455 [00:18<05:13,  1.37it/s, loss=2.5340]
+train 13 rank0:   5%|â–Œ         | 25/455 [00:19<05:13,  1.37it/s, loss=2.5353]
+train 13 rank0:   6%|â–Œ         | 26/455 [00:19<05:12,  1.37it/s, loss=2.5353]
+train 13 rank0:   6%|â–Œ         | 26/455 [00:19<05:12,  1.37it/s, loss=2.5306]
+train 13 rank0:   6%|â–Œ         | 27/455 [00:19<05:12,  1.37it/s, loss=2.5306]
+train 13 rank0:   6%|â–Œ         | 27/455 [00:20<05:12,  1.37it/s, loss=2.5646]
+train 13 rank0:   6%|â–Œ         | 28/455 [00:20<05:11,  1.37it/s, loss=2.5646]
+train 13 rank0:   6%|â–Œ         | 28/455 [00:21<05:11,  1.37it/s, loss=2.5123]
+train 13 rank0:   6%|â–‹         | 29/455 [00:21<05:11,  1.37it/s, loss=2.5123]
+train 13 rank0:   6%|â–‹         | 29/455 [00:21<05:11,  1.37it/s, loss=2.5514]
+train 13 rank0:   7%|â–‹         | 30/455 [00:21<05:10,  1.37it/s, loss=2.5514]
+                                                                             
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:54,  1.04it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:46,  1.19it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:43,  1.25it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.28it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:40,  1.30it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.31it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:37,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.32it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.32it/s]
+                                                    
+Epoch 013/015 | loss=2.5367 acc=0.1482 macro_f1=0.1342 | val_loss=2.5331 val_acc=0.1797 val_macro_f1=0.1252 | ckpt_monitor=val_macro_f1:0.1252 best_val_macro_f1=0.1252 best_epoch=13 early_val_macro_f1=0.1252 sec/batch=0.733s cuda_rankmax=9.643GB
+          val pred_count: [329, 20, 112, 122, 13, 7, 37]
+          checkpoint improvement: best_epoch=13
+          early stopping monitor improved
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 14 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.3228s
+  to_device_time =0.0075s
+  forward_time   =0.3787s
+  loss_time      =0.0012s
+  backward_time  =0.3253s
+  optimizer_time =0.0061s
+  batch_time     =0.7201s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   0%|          | 0/455 [00:01<?, ?it/s, loss=2.5152]
+train 14 rank0:   0%|          | 1/455 [00:01<07:54,  1.05s/it, loss=2.5152][PROFILE rank=0 batch=1]
+  data_time      =0.0004s
+  to_device_time =0.0041s
+  forward_time   =0.3890s
+  loss_time      =0.0019s
+  backward_time  =0.3323s
+  optimizer_time =0.0062s
+  batch_time     =0.7346s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   0%|          | 1/455 [00:01<07:54,  1.05s/it, loss=2.5298]
+train 14 rank0:   0%|          | 2/455 [00:01<06:32,  1.16it/s, loss=2.5298][PROFILE rank=0 batch=2]
+  data_time      =0.0029s
+  to_device_time =0.0037s
+  forward_time   =0.3827s
+  loss_time      =0.0019s
+  backward_time  =0.3310s
+  optimizer_time =0.0062s
+  batch_time     =0.7267s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   0%|          | 2/455 [00:02<06:32,  1.16it/s, loss=2.5409]
+train 14 rank0:   1%|          | 3/455 [00:02<06:04,  1.24it/s, loss=2.5409][PROFILE rank=0 batch=3]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3861s
+  loss_time      =0.0019s
+  backward_time  =0.3279s
+  optimizer_time =0.0065s
+  batch_time     =0.7272s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   1%|          | 3/455 [00:03<06:04,  1.24it/s, loss=2.5407]
+train 14 rank0:   1%|          | 4/455 [00:03<05:49,  1.29it/s, loss=2.5407][PROFILE rank=0 batch=4]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3856s
+  loss_time      =0.0019s
+  backward_time  =0.3276s
+  optimizer_time =0.0060s
+  batch_time     =0.7260s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   1%|          | 4/455 [00:03<05:49,  1.29it/s, loss=2.5123]
+train 14 rank0:   1%|          | 5/455 [00:03<05:41,  1.32it/s, loss=2.5123][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3848s
+  loss_time      =0.0020s
+  backward_time  =0.3281s
+  optimizer_time =0.0059s
+  batch_time     =0.7256s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   1%|          | 5/455 [00:04<05:41,  1.32it/s, loss=2.5368]
+train 14 rank0:   1%|â–         | 6/455 [00:04<05:36,  1.33it/s, loss=2.5368][PROFILE rank=0 batch=6]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3834s
+  loss_time      =0.0019s
+  backward_time  =0.3295s
+  optimizer_time =0.0056s
+  batch_time     =0.7253s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   1%|â–         | 6/455 [00:05<05:36,  1.33it/s, loss=2.5338]
+train 14 rank0:   2%|â–         | 7/455 [00:05<05:32,  1.35it/s, loss=2.5338][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3857s
+  loss_time      =0.0018s
+  backward_time  =0.3274s
+  optimizer_time =0.0060s
+  batch_time     =0.7258s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   2%|â–         | 7/455 [00:06<05:32,  1.35it/s, loss=2.5482]
+train 14 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5482][PROFILE rank=0 batch=8]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3860s
+  loss_time      =0.0021s
+  backward_time  =0.3287s
+  optimizer_time =0.0055s
+  batch_time     =0.7273s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   2%|â–         | 8/455 [00:06<05:30,  1.35it/s, loss=2.5573]
+train 14 rank0:   2%|â–         | 9/455 [00:06<05:28,  1.36it/s, loss=2.5573][PROFILE rank=0 batch=9]
+  data_time      =0.0004s
+  to_device_time =0.0038s
+  forward_time   =0.3866s
+  loss_time      =0.0019s
+  backward_time  =0.3265s
+  optimizer_time =0.0064s
+  batch_time     =0.7261s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   2%|â–         | 9/455 [00:07<05:28,  1.36it/s, loss=2.5314]
+train 14 rank0:   2%|â–         | 10/455 [00:07<05:26,  1.36it/s, loss=2.5314][PROFILE rank=0 batch=10]
+  data_time      =0.0004s
+  to_device_time =0.0038s
+  forward_time   =0.3845s
+  loss_time      =0.0021s
+  backward_time  =0.3268s
+  optimizer_time =0.0059s
+  batch_time     =0.7242s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   2%|â–         | 10/455 [00:08<05:26,  1.36it/s, loss=2.5495]
+train 14 rank0:   2%|â–         | 11/455 [00:08<05:25,  1.37it/s, loss=2.5495][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3848s
+  loss_time      =0.0019s
+  backward_time  =0.3268s
+  optimizer_time =0.0061s
+  batch_time     =0.7245s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   2%|â–         | 11/455 [00:09<05:25,  1.37it/s, loss=2.5398]
+train 14 rank0:   3%|â–Ž         | 12/455 [00:09<05:23,  1.37it/s, loss=2.5398][PROFILE rank=0 batch=12]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3881s
+  loss_time      =0.0020s
+  backward_time  =0.3262s
+  optimizer_time =0.0059s
+  batch_time     =0.7273s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   3%|â–Ž         | 12/455 [00:09<05:23,  1.37it/s, loss=2.5443]
+train 14 rank0:   3%|â–Ž         | 13/455 [00:09<05:23,  1.37it/s, loss=2.5443][PROFILE rank=0 batch=13]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3841s
+  loss_time      =0.0019s
+  backward_time  =0.3277s
+  optimizer_time =0.0058s
+  batch_time     =0.7246s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   3%|â–Ž         | 13/455 [00:10<05:23,  1.37it/s, loss=2.5386]
+train 14 rank0:   3%|â–Ž         | 14/455 [00:10<05:22,  1.37it/s, loss=2.5386][PROFILE rank=0 batch=14]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3846s
+  loss_time      =0.0020s
+  backward_time  =0.3280s
+  optimizer_time =0.0060s
+  batch_time     =0.7256s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   3%|â–Ž         | 14/455 [00:11<05:22,  1.37it/s, loss=2.5173]
+train 14 rank0:   3%|â–Ž         | 15/455 [00:11<05:21,  1.37it/s, loss=2.5173][PROFILE rank=0 batch=15]
+  data_time      =0.0004s
+  to_device_time =0.0023s
+  forward_time   =0.2430s
+  loss_time      =0.0020s
+  backward_time  =0.2102s
+  optimizer_time =0.0062s
+  batch_time     =0.4649s
+  cuda_allocated_gb    =0.088
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   3%|â–Ž         | 15/455 [00:11<05:21,  1.37it/s, loss=2.5311]
+train 14 rank0:   4%|â–Ž         | 16/455 [00:11<04:46,  1.53it/s, loss=2.5311][PROFILE rank=0 batch=16]
+  data_time      =0.0006s
+  to_device_time =0.0036s
+  forward_time   =0.3842s
+  loss_time      =0.0019s
+  backward_time  =0.3256s
+  optimizer_time =0.0059s
+  batch_time     =0.7224s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   4%|â–Ž         | 16/455 [00:12<04:46,  1.53it/s, loss=2.5452]
+train 14 rank0:   4%|â–Ž         | 17/455 [00:12<04:55,  1.48it/s, loss=2.5452][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0037s
+  forward_time   =0.3857s
+  loss_time      =0.0019s
+  backward_time  =0.3260s
+  optimizer_time =0.0062s
+  batch_time     =0.7247s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   4%|â–Ž         | 17/455 [00:13<04:55,  1.48it/s, loss=2.5311]
+train 14 rank0:   4%|â–         | 18/455 [00:13<05:01,  1.45it/s, loss=2.5311][PROFILE rank=0 batch=18]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3846s
+  loss_time      =0.0023s
+  backward_time  =0.3286s
+  optimizer_time =0.0061s
+  batch_time     =0.7265s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 14 rank0:   4%|â–         | 18/455 [00:13<05:01,  1.45it/s, loss=2.5372]
+train 14 rank0:   4%|â–         | 19/455 [00:13<05:06,  1.42it/s, loss=2.5372][PROFILE rank=0 batch=19]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3844s
+  loss_time      =0.0018s
+  backward_time  =0.3280s
+  optimizer_time =0.0062s
+  batch_time     =0.7254s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0167s
+  avg_to_device_time =0.0039s
+  avg_forward_time   =0.3778s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3219s
+  avg_optimizer_time =0.0061s
+  avg_batch_time     =0.7127s
+  estimated_full_epoch_minutes=5.41
+
+train 14 rank0:   4%|â–         | 19/455 [00:14<05:06,  1.42it/s, loss=2.5395]
+train 14 rank0:   4%|â–         | 20/455 [00:14<05:09,  1.41it/s, loss=2.5395]
+train 14 rank0:   4%|â–         | 20/455 [00:15<05:09,  1.41it/s, loss=2.5385]
+train 14 rank0:   5%|â–         | 21/455 [00:15<05:10,  1.40it/s, loss=2.5385]
+train 14 rank0:   5%|â–         | 21/455 [00:16<05:10,  1.40it/s, loss=2.5546]
+train 14 rank0:   5%|â–         | 22/455 [00:16<05:11,  1.39it/s, loss=2.5546]
+train 14 rank0:   5%|â–         | 22/455 [00:16<05:11,  1.39it/s, loss=2.5335]
+train 14 rank0:   5%|â–Œ         | 23/455 [00:16<05:12,  1.38it/s, loss=2.5335]
+train 14 rank0:   5%|â–Œ         | 23/455 [00:17<05:12,  1.38it/s, loss=2.5449]
+train 14 rank0:   5%|â–Œ         | 24/455 [00:17<05:12,  1.38it/s, loss=2.5449]
+train 14 rank0:   5%|â–Œ         | 24/455 [00:18<05:12,  1.38it/s, loss=2.5118]
+train 14 rank0:   5%|â–Œ         | 25/455 [00:18<05:12,  1.38it/s, loss=2.5118]
+train 14 rank0:   5%|â–Œ         | 25/455 [00:19<05:12,  1.38it/s, loss=2.5170]
+train 14 rank0:   6%|â–Œ         | 26/455 [00:19<05:12,  1.37it/s, loss=2.5170]
+train 14 rank0:   6%|â–Œ         | 26/455 [00:19<05:12,  1.37it/s, loss=2.5147]
+train 14 rank0:   6%|â–Œ         | 27/455 [00:19<05:11,  1.37it/s, loss=2.5147]
+train 14 rank0:   6%|â–Œ         | 27/455 [00:20<05:11,  1.37it/s, loss=2.5190]
+train 14 rank0:   6%|â–Œ         | 28/455 [00:20<05:11,  1.37it/s, loss=2.5190]
+train 14 rank0:   6%|â–Œ         | 28/455 [00:21<05:11,  1.37it/s, loss=2.5412]
+train 14 rank0:   6%|â–‹         | 29/455 [00:21<05:10,  1.37it/s, loss=2.5412]
+train 14 rank0:   6%|â–‹         | 29/455 [00:21<05:10,  1.37it/s, loss=2.5471]
+train 14 rank0:   7%|â–‹         | 30/455 [00:21<05:09,  1.37it/s, loss=2.5471]
+                                                                             
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:55,  1.02it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:46,  1.18it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:43,  1.25it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.28it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:40,  1.30it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.31it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:37,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.33it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 014/015 | loss=2.5354 acc=0.1514 macro_f1=0.1406 | val_loss=2.5331 val_acc=0.1453 val_macro_f1=0.1032 | ckpt_monitor=val_macro_f1:0.1032 best_val_macro_f1=0.1252 best_epoch=13 early_val_macro_f1=0.1252 sec/batch=0.732s cuda_rankmax=9.643GB
+          val pred_count: [408, 19, 85, 83, 8, 11, 26]
+          no improvement: 1/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+train 15 rank0:   0%|          | 0/455 [00:00<?, ?it/s][PROFILE rank=0 batch=0]
+  data_time      =0.2145s
+  to_device_time =0.0023s
+  forward_time   =0.3816s
+  loss_time      =0.0014s
+  backward_time  =0.3261s
+  optimizer_time =0.0104s
+  batch_time     =0.7703s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   0%|          | 0/455 [00:00<?, ?it/s, loss=2.5436]
+train 15 rank0:   0%|          | 1/455 [00:00<07:30,  1.01it/s, loss=2.5436][PROFILE rank=0 batch=1]
+  data_time      =0.0004s
+  to_device_time =0.0037s
+  forward_time   =0.3782s
+  loss_time      =0.0019s
+  backward_time  =0.3266s
+  optimizer_time =0.0059s
+  batch_time     =0.7174s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   0%|          | 1/455 [00:01<07:30,  1.01it/s, loss=2.5216]
+train 15 rank0:   0%|          | 2/455 [00:01<06:17,  1.20it/s, loss=2.5216][PROFILE rank=0 batch=2]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3832s
+  loss_time      =0.0017s
+  backward_time  =0.3276s
+  optimizer_time =0.0061s
+  batch_time     =0.7238s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   0%|          | 2/455 [00:02<06:17,  1.20it/s, loss=2.5484]
+train 15 rank0:   1%|          | 3/455 [00:02<05:54,  1.27it/s, loss=2.5484][PROFILE rank=0 batch=3]
+  data_time      =0.0023s
+  to_device_time =0.0037s
+  forward_time   =0.3840s
+  loss_time      =0.0019s
+  backward_time  =0.3299s
+  optimizer_time =0.0056s
+  batch_time     =0.7262s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   1%|          | 3/455 [00:03<05:54,  1.27it/s, loss=2.5564]
+train 15 rank0:   1%|          | 4/455 [00:03<05:44,  1.31it/s, loss=2.5564][PROFILE rank=0 batch=4]
+  data_time      =0.0004s
+  to_device_time =0.0041s
+  forward_time   =0.3865s
+  loss_time      =0.0019s
+  backward_time  =0.3265s
+  optimizer_time =0.0059s
+  batch_time     =0.7261s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   1%|          | 4/455 [00:03<05:44,  1.31it/s, loss=2.5709]
+train 15 rank0:   1%|          | 5/455 [00:03<05:38,  1.33it/s, loss=2.5709][PROFILE rank=0 batch=5]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3855s
+  loss_time      =0.0019s
+  backward_time  =0.3277s
+  optimizer_time =0.0058s
+  batch_time     =0.7259s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   1%|          | 5/455 [00:04<05:38,  1.33it/s, loss=2.5345]
+train 15 rank0:   1%|â–         | 6/455 [00:04<05:34,  1.34it/s, loss=2.5345][PROFILE rank=0 batch=6]
+  data_time      =0.0005s
+  to_device_time =0.0020s
+  forward_time   =0.2079s
+  loss_time      =0.0019s
+  backward_time  =0.3109s
+  optimizer_time =0.0057s
+  batch_time     =0.6906s
+  cuda_allocated_gb    =0.082
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   1%|â–         | 6/455 [00:05<05:34,  1.34it/s, loss=2.5554]
+train 15 rank0:   2%|â–         | 7/455 [00:05<05:26,  1.37it/s, loss=2.5554][PROFILE rank=0 batch=7]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3774s
+  loss_time      =0.0020s
+  backward_time  =0.3274s
+  optimizer_time =0.0058s
+  batch_time     =0.7176s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   2%|â–         | 7/455 [00:06<05:26,  1.37it/s, loss=2.5391]
+train 15 rank0:   2%|â–         | 8/455 [00:06<05:24,  1.38it/s, loss=2.5391][PROFILE rank=0 batch=8]
+  data_time      =0.0030s
+  to_device_time =0.0036s
+  forward_time   =0.3841s
+  loss_time      =0.0019s
+  backward_time  =0.3270s
+  optimizer_time =0.0056s
+  batch_time     =0.7232s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   2%|â–         | 8/455 [00:06<05:24,  1.38it/s, loss=2.5463]
+train 15 rank0:   2%|â–         | 9/455 [00:06<05:24,  1.38it/s, loss=2.5463][PROFILE rank=0 batch=9]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3868s
+  loss_time      =0.0021s
+  backward_time  =0.3295s
+  optimizer_time =0.0061s
+  batch_time     =0.7294s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   2%|â–         | 9/455 [00:07<05:24,  1.38it/s, loss=2.5301]
+train 15 rank0:   2%|â–         | 10/455 [00:07<05:24,  1.37it/s, loss=2.5301][PROFILE rank=0 batch=10]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3834s
+  loss_time      =0.0018s
+  backward_time  =0.3292s
+  optimizer_time =0.0059s
+  batch_time     =0.7253s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   2%|â–         | 10/455 [00:08<05:24,  1.37it/s, loss=2.5425]
+train 15 rank0:   2%|â–         | 11/455 [00:08<05:23,  1.37it/s, loss=2.5425][PROFILE rank=0 batch=11]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3856s
+  loss_time      =0.0020s
+  backward_time  =0.3275s
+  optimizer_time =0.0055s
+  batch_time     =0.7257s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   2%|â–         | 11/455 [00:08<05:23,  1.37it/s, loss=2.5182]
+train 15 rank0:   3%|â–Ž         | 12/455 [00:08<05:22,  1.37it/s, loss=2.5182][PROFILE rank=0 batch=12]
+  data_time      =0.0006s
+  to_device_time =0.0039s
+  forward_time   =0.3861s
+  loss_time      =0.0019s
+  backward_time  =0.3293s
+  optimizer_time =0.0056s
+  batch_time     =0.7279s
+  cuda_allocated_gb    =0.121
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   3%|â–Ž         | 12/455 [00:09<05:22,  1.37it/s, loss=2.5400]
+train 15 rank0:   3%|â–Ž         | 13/455 [00:09<05:22,  1.37it/s, loss=2.5400][PROFILE rank=0 batch=13]
+  data_time      =0.0003s
+  to_device_time =0.0039s
+  forward_time   =0.3873s
+  loss_time      =0.0020s
+  backward_time  =0.3249s
+  optimizer_time =0.0059s
+  batch_time     =0.7251s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   3%|â–Ž         | 13/455 [00:10<05:22,  1.37it/s, loss=2.5571]
+train 15 rank0:   3%|â–Ž         | 14/455 [00:10<05:21,  1.37it/s, loss=2.5571][PROFILE rank=0 batch=14]
+  data_time      =0.0004s
+  to_device_time =0.0039s
+  forward_time   =0.3857s
+  loss_time      =0.0019s
+  backward_time  =0.3274s
+  optimizer_time =0.0060s
+  batch_time     =0.7262s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   3%|â–Ž         | 14/455 [00:11<05:21,  1.37it/s, loss=2.5364]
+train 15 rank0:   3%|â–Ž         | 15/455 [00:11<05:20,  1.37it/s, loss=2.5364][PROFILE rank=0 batch=15]
+  data_time      =0.0004s
+  to_device_time =0.0037s
+  forward_time   =0.3857s
+  loss_time      =0.0020s
+  backward_time  =0.3274s
+  optimizer_time =0.0060s
+  batch_time     =0.7260s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   3%|â–Ž         | 15/455 [00:11<05:20,  1.37it/s, loss=2.5268]
+train 15 rank0:   4%|â–Ž         | 16/455 [00:11<05:20,  1.37it/s, loss=2.5268][PROFILE rank=0 batch=16]
+  data_time      =0.0005s
+  to_device_time =0.0039s
+  forward_time   =0.3833s
+  loss_time      =0.0019s
+  backward_time  =0.3275s
+  optimizer_time =0.0056s
+  batch_time     =0.7233s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   4%|â–Ž         | 16/455 [00:12<05:20,  1.37it/s, loss=2.5477]
+train 15 rank0:   4%|â–Ž         | 17/455 [00:12<05:19,  1.37it/s, loss=2.5477][PROFILE rank=0 batch=17]
+  data_time      =0.0005s
+  to_device_time =0.0038s
+  forward_time   =0.3820s
+  loss_time      =0.0020s
+  backward_time  =0.3258s
+  optimizer_time =0.0056s
+  batch_time     =0.7203s
+  cuda_allocated_gb    =0.120
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   4%|â–Ž         | 17/455 [00:13<05:19,  1.37it/s, loss=2.5227]
+train 15 rank0:   4%|â–         | 18/455 [00:13<05:17,  1.37it/s, loss=2.5227][PROFILE rank=0 batch=18]
+  data_time      =0.0006s
+  to_device_time =0.0038s
+  forward_time   =0.3839s
+  loss_time      =0.0023s
+  backward_time  =0.3246s
+  optimizer_time =0.0061s
+  batch_time     =0.7220s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+train 15 rank0:   4%|â–         | 18/455 [00:14<05:17,  1.37it/s, loss=2.5303]
+train 15 rank0:   4%|â–         | 19/455 [00:14<05:17,  1.38it/s, loss=2.5303][PROFILE rank=0 batch=19]
+  data_time      =0.0006s
+  to_device_time =0.0037s
+  forward_time   =0.3848s
+  loss_time      =0.0019s
+  backward_time  =0.3242s
+  optimizer_time =0.0059s
+  batch_time     =0.7217s
+  cuda_allocated_gb    =0.119
+  cuda_reserved_gb     =12.936
+  cuda_max_allocated_gb=9.643
+
+[PROFILE average rank=0 first 20 batches (recorded=20)]
+  avg_data_time      =0.0114s
+  avg_to_device_time =0.0037s
+  avg_forward_time   =0.3752s
+  avg_loss_time      =0.0019s
+  avg_backward_time  =0.3264s
+  avg_optimizer_time =0.0061s
+  avg_batch_time     =0.7247s
+  estimated_full_epoch_minutes=5.50
+
+train 15 rank0:   4%|â–         | 19/455 [00:14<05:17,  1.38it/s, loss=2.5237]
+train 15 rank0:   4%|â–         | 20/455 [00:14<05:16,  1.38it/s, loss=2.5237]
+train 15 rank0:   4%|â–         | 20/455 [00:15<05:16,  1.38it/s, loss=2.5084]
+train 15 rank0:   5%|â–         | 21/455 [00:15<05:15,  1.38it/s, loss=2.5084]
+train 15 rank0:   5%|â–         | 21/455 [00:16<05:15,  1.38it/s, loss=2.5192]
+train 15 rank0:   5%|â–         | 22/455 [00:16<05:15,  1.37it/s, loss=2.5192]
+train 15 rank0:   5%|â–         | 22/455 [00:16<05:15,  1.37it/s, loss=2.5244]
+train 15 rank0:   5%|â–Œ         | 23/455 [00:16<05:10,  1.39it/s, loss=2.5244]
+train 15 rank0:   5%|â–Œ         | 23/455 [00:17<05:10,  1.39it/s, loss=2.5446]
+train 15 rank0:   5%|â–Œ         | 24/455 [00:17<05:08,  1.40it/s, loss=2.5446]
+train 15 rank0:   5%|â–Œ         | 24/455 [00:18<05:08,  1.40it/s, loss=2.5343]
+train 15 rank0:   5%|â–Œ         | 25/455 [00:18<05:08,  1.39it/s, loss=2.5343]
+train 15 rank0:   5%|â–Œ         | 25/455 [00:19<05:08,  1.39it/s, loss=2.5222]
+train 15 rank0:   6%|â–Œ         | 26/455 [00:19<05:08,  1.39it/s, loss=2.5222]
+train 15 rank0:   6%|â–Œ         | 26/455 [00:19<05:08,  1.39it/s, loss=2.5403]
+train 15 rank0:   6%|â–Œ         | 27/455 [00:19<05:08,  1.39it/s, loss=2.5403]
+train 15 rank0:   6%|â–Œ         | 27/455 [00:20<05:08,  1.39it/s, loss=2.5316]
+train 15 rank0:   6%|â–Œ         | 28/455 [00:20<05:08,  1.38it/s, loss=2.5316]
+train 15 rank0:   6%|â–Œ         | 28/455 [00:21<05:08,  1.38it/s, loss=2.5342]
+train 15 rank0:   6%|â–‹         | 29/455 [00:21<05:09,  1.38it/s, loss=2.5342]
+train 15 rank0:   6%|â–‹         | 29/455 [00:22<05:09,  1.38it/s, loss=2.5192]
+train 15 rank0:   7%|â–‹         | 30/455 [00:22<05:08,  1.38it/s, loss=2.5192]
+                                                                             
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+
+val:   0%|          | 0/57 [00:00<?, ?it/s]
+val:   2%|â–         | 1/57 [00:00<00:52,  1.06it/s]
+val:   4%|â–Ž         | 2/57 [00:01<00:45,  1.20it/s]
+val:   5%|â–Œ         | 3/57 [00:02<00:42,  1.26it/s]
+val:   7%|â–‹         | 4/57 [00:03<00:41,  1.29it/s]
+val:   9%|â–‰         | 5/57 [00:03<00:39,  1.30it/s]
+val:  11%|â–ˆ         | 6/57 [00:04<00:38,  1.31it/s]
+val:  12%|â–ˆâ–        | 7/57 [00:05<00:37,  1.32it/s]
+val:  14%|â–ˆâ–        | 8/57 [00:06<00:37,  1.32it/s]
+val:  16%|â–ˆâ–Œ        | 9/57 [00:06<00:36,  1.32it/s]
+val:  18%|â–ˆâ–Š        | 10/57 [00:07<00:35,  1.33it/s]
+                                                    
+Epoch 015/015 | loss=2.5363 acc=0.1382 macro_f1=0.1289 | val_loss=2.5331 val_acc=0.1547 val_macro_f1=0.1012 | ckpt_monitor=val_macro_f1:0.1012 best_val_macro_f1=0.1252 best_epoch=13 early_val_macro_f1=0.1252 sec/batch=0.734s cuda_rankmax=9.643GB
+          val pred_count: [388, 35, 72, 96, 7, 4, 38]
+          no improvement: 2/12
+/usr/local/lib/python3.12/dist-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+Training done best_epoch=13 best_metric=0.125173
+Logged d12a_stable_ce_first_ddp_b64_amp_chunkaware to reports/d11_experiments_log.csv

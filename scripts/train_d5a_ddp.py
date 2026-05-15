@@ -131,10 +131,16 @@ def _all_reduce_float(value: float, device: torch.device, op=dist.ReduceOp.SUM) 
 
 
 def _unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
-    if isinstance(model, DistributedDataParallel):
-        model = model.module
-    if hasattr(model, "_orig_mod"):
-        model = model._orig_mod
+    seen = set()
+    while id(model) not in seen:
+        seen.add(id(model))
+        if isinstance(model, DistributedDataParallel):
+            model = model.module
+            continue
+        if hasattr(model, "_orig_mod"):
+            model = model._orig_mod
+            continue
+        break
     return model
 
 
@@ -162,6 +168,15 @@ def _parse_optional_bool(value: Optional[str]) -> Optional[bool]:
     if normalized == "false":
         return False
     raise ValueError(f"Expected 'true' or 'false', got {value!r}")
+
+
+def _compile_inner_model(model: torch.nn.Module) -> torch.nn.Module:
+    if hasattr(model, "compile"):
+        model.compile()
+        return model
+    if hasattr(torch, "compile"):
+        return torch.compile(model)
+    return model
 
 
 def _set_nested(config: Dict[str, Any], section: str, key: str, value: Any) -> None:
@@ -208,7 +223,16 @@ def apply_ddp_runtime_overrides(
     training_cfg["local_rank"] = int(local_rank)
     training_cfg["device"] = str(device)
     training_cfg["multi_gpu"] = False
-    training_cfg["use_compile"] = False
+    if args.use_compile:
+        training_cfg["use_compile"] = True
+    elif args.no_compile:
+        training_cfg["use_compile"] = False
+    else:
+        training_cfg["use_compile"] = _cfg_bool(training_cfg.get("use_compile", False), False)
+    if args.compile_order is not None:
+        training_cfg["compile_order"] = args.compile_order
+    else:
+        training_cfg.setdefault("compile_order", "before_ddp")
     data_cfg["num_workers"] = int(args.num_workers if args.num_workers is not None else data_cfg.get("num_workers", 2))
     training_cfg["num_workers"] = int(data_cfg["num_workers"])
     if args.chunk_cache_size is not None:
@@ -951,6 +975,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no_wandb", action="store_true")
     parser.add_argument("--amp", action="store_true", default=False)
     parser.add_argument("--no_amp", action="store_true", default=False)
+    parser.add_argument("--use_compile", action="store_true", default=False)
+    parser.add_argument("--compile_order", choices=["before_ddp", "after_ddp"], default=None)
     parser.add_argument("--no_compile", action="store_true", default=False)
     return parser.parse_args()
 
@@ -970,6 +996,10 @@ def main() -> None:
             _set_nested(config, "training", "amp", True)
         if args.no_amp:
             _set_nested(config, "training", "amp", False)
+        if args.use_compile:
+            _set_nested(config, "training", "use_compile", True)
+        if args.compile_order is not None:
+            _set_nested(config, "training", "compile_order", args.compile_order)
         if args.no_compile:
             _set_nested(config, "training", "use_compile", False)
 
@@ -1020,7 +1050,7 @@ def main() -> None:
             print(
                 "[DDP Phase1.5] "
                 f"ddp_chunk_aware={_cfg_bool(config.get('data', {}).get('ddp_chunk_aware', True), True)} "
-                "torch.compile disabled"
+                f"torch.compile={_cfg_bool(config.get('training', {}).get('use_compile', False), False)}"
             )
 
         seed = int(config.get("training", {}).get("seed", config.get("run", {}).get("seed", 42)))
@@ -1052,6 +1082,12 @@ def main() -> None:
             model, criterion, optimizer, scheduler, prepared_device = prepare_training_objects(config)
         if prepared_device != device:
             raise RuntimeError(f"Prepared device {prepared_device} does not match DDP device {device}")
+        compile_enabled = _cfg_bool(config.get("training", {}).get("use_compile", False), False)
+        compile_order = str(config.get("training", {}).get("compile_order", "before_ddp"))
+        if compile_enabled and compile_order == "before_ddp":
+            model = _compile_inner_model(model)
+            if rank == 0:
+                print("[Compile] enabled=True order=before_ddp")
         ddp_model = DistributedDataParallel(
             model,
             device_ids=[local_rank],
@@ -1061,6 +1097,15 @@ def main() -> None:
                 True,
             ),
         )
+        if compile_enabled and compile_order == "after_ddp":
+            if hasattr(torch, "compile"):
+                ddp_model = torch.compile(ddp_model)
+                if rank == 0:
+                    print("[Compile] enabled=True order=after_ddp")
+            elif rank == 0:
+                print("[Compile] requested=True order=after_ddp available=False")
+        elif not compile_enabled and rank == 0:
+            print("[Compile] enabled=False order=none")
         if rank == 0:
             print(
                 "[DDP Model] DistributedDataParallel wrapped with "

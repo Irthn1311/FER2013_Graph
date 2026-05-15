@@ -1,0 +1,158 @@
+W0515 07:07:44.730000 64 torch/distributed/run.py:852] 
+W0515 07:07:44.730000 64 torch/distributed/run.py:852] *****************************************
+W0515 07:07:44.730000 64 torch/distributed/run.py:852] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0515 07:07:44.730000 64 torch/distributed/run.py:852] *****************************************
+[W515 07:07:45.865842534 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W515 07:07:48.063720152 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W515 07:07:48.064716736 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[Output] run_dir=/kaggle/working/outputs/d12_ddp_b64_amp_chunkaware_fast_benchmark/d12a_stable_ce_first_ddp_b64_amp_chunkaware_fast/20260515_070748
+[DDP Setup] rank=0 local_rank=0 world_size=2 device=cuda:0 backend=nccl find_unused_parameters=False
+[DDP Batch] global_batch_size=64 per_rank_batch_size=32 world_size=2
+[DDP Phase1.5] ddp_chunk_aware=True torch.compile disabled
+[FullGraphDataset train]
+chunk_cache_size=4
+num_chunks=58
+num_samples=28709
+[FullGraphDataset train] chunk cache enabled (max_chunks=4)
+[DDP ChunkAware] enabled=True num_chunks=58 chunk_sizes_min_mean_max=209/494.98/500 total_samples=28709 rank0_chunk_count=29 rank1_chunk_count=29 per_rank_batch_size=32 batches_per_rank_before=[455, 464] batches_per_rank_after=[455, 455] truncated_batches=[0, 9] ddp_drop_last_batches=True shuffle_chunks=True shuffle_within_chunk=True
+[DDP DataLoader split=train] num_samples=28709 batch_size=32 num_workers=2 pin_memory=True persistent_workers=True prefetch_factor=2 chunk_cache_size=4 distributed_sampler=False chunk_aware_sampler=True batches_per_epoch=455
+[FullGraphDataset val]
+chunk_cache_size=4
+num_chunks=8
+num_samples=3589
+[FullGraphDataset val] chunk cache enabled (max_chunks=4)
+[DDP ChunkAware] enabled=False
+[DDP DataLoader split=val] num_samples=3589 batch_size=64 num_workers=2 pin_memory=True persistent_workers=True prefetch_factor=2 chunk_cache_size=4 distributed_sampler=False chunk_aware_sampler=False batches_per_epoch=57
+--- torch version: 2.10.0+cu128
+--- cuda available: True
+--- cuda device count: 2
+--- selected device: cuda:0
+--- gpu name: Tesla T4
+--- current cuda device: 0
+/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py:380: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  self.scaler = torch.cuda.amp.GradScaler(
+[DDP Model] DistributedDataParallel wrapped with find_unused_parameters=False
+/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py:380: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  self.scaler = torch.cuda.amp.GradScaler(
+[DDP AMP] amp_enabled=True init_scale=65536.0
+[Scheduler] type=LambdaLR monitor=epoch mode=n/a
+[Checkpoint] save_best_metric=val_macro_f1 mode=max
+[EarlyStopping] monitor=val_macro_f1 mode=max
+
+train 1 rank0:   0%|          | 0/455 [00:00<?, ?it/s][SPEED_BENCH] first_batch_x_shape=[32, 2304, 7]
+[SPEED_BENCH] first_batch_edge_attr_shape=[32, 17860, 5]
+[SPEED_BENCH] ddp_per_rank_bs_mismatch=False (rank0 batch=32, expected=32)
+train tensor devices: x=cuda:0 edge_index=cuda:0 edge_attr=cuda:0 y=cuda:0 logits=cuda:0 loss=cuda:0
+[PROFILE rank=0 batch=0]
+  data_time      =0.5627s
+  to_device_time =0.0040s
+  forward_time   =2.1715s
+  loss_time      =0.1944s
+  backward_time  =0.5018s
+  optimizer_time =0.3293s
+  batch_time     =3.2033s
+  cuda_allocated_gb    =0.090
+  cuda_reserved_gb     =11.289
+  cuda_max_allocated_gb=9.564
+
+train 1 rank0:   0%|          | 0/455 [00:03<?, ?it/s, loss=2.5377]
+train 1 rank0:   0%|          | 1/455 [00:03<28:52,  3.82s/it, loss=2.5377]
+                                                                           
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py", line 1098, in <module>
+[rank0]:     main()
+[rank0]:   File "/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py", line 1079, in main
+[rank0]:     result = trainer.fit(
+[rank0]:              ^^^^^^^^^^^^
+[rank0]:   File "/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py", line 773, in fit
+[rank0]:     train_metrics = self.train_one_epoch(
+[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py", line 485, in train_one_epoch
+[rank0]:     out = self.model(batch)
+[rank0]:           ^^^^^^^^^^^^^^^^^
+[rank0]:   File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/usr/local/lib/python3.12/dist-packages/torch/nn/parallel/distributed.py", line 1662, in forward
+[rank0]:     inputs, kwargs = self._pre_forward(*inputs, **kwargs)
+[rank0]:                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/usr/local/lib/python3.12/dist-packages/torch/nn/parallel/distributed.py", line 1551, in _pre_forward
+[rank0]:     if torch.is_grad_enabled() and self.reducer._rebuild_buckets():
+[rank0]:                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]: RuntimeError: Expected to have finished reduction in the prior iteration before starting a new one. This error indicates that your module has parameters that were not used in producing loss. You can enable unused parameter detection by passing the keyword argument `find_unused_parameters=True` to `torch.nn.parallel.DistributedDataParallel`, and by 
+[rank0]: making sure all `forward` function outputs participate in calculating loss. 
+[rank0]: If you already have done the above, then the distributed data parallel module wasn't able to locate the output tensors in the return value of your module's `forward` function. Please include the loss function and the structure of the return value of `forward` of your module when reporting this issue (e.g. list, dict, iterable).
+[rank0]: Parameter indices which did not receive grad for rank 0: 182 183 184 185 186 187
+[rank0]:  In addition, you can set the environment variable TORCH_DISTRIBUTED_DEBUG to either INFO or DETAIL to print out information about which particular parameters did not receive gradient on this rank as part of this error
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py", line 1098, in <module>
+[rank1]:     main()
+[rank1]:   File "/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py", line 1079, in main
+[rank1]:     result = trainer.fit(
+[rank1]:              ^^^^^^^^^^^^
+[rank1]:   File "/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py", line 773, in fit
+[rank1]:     train_metrics = self.train_one_epoch(
+[rank1]:                     ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/kaggle/working/sgu-2026-fer13-graph/scripts/train_d5a_ddp.py", line 485, in train_one_epoch
+[rank1]:     out = self.model(batch)
+[rank1]:           ^^^^^^^^^^^^^^^^^
+[rank1]:   File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/usr/local/lib/python3.12/dist-packages/torch/nn/parallel/distributed.py", line 1662, in forward
+[rank1]:     inputs, kwargs = self._pre_forward(*inputs, **kwargs)
+[rank1]:                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/usr/local/lib/python3.12/dist-packages/torch/nn/parallel/distributed.py", line 1551, in _pre_forward
+[rank1]:     if torch.is_grad_enabled() and self.reducer._rebuild_buckets():
+[rank1]:                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]: RuntimeError: Expected to have finished reduction in the prior iteration before starting a new one. This error indicates that your module has parameters that were not used in producing loss. You can enable unused parameter detection by passing the keyword argument `find_unused_parameters=True` to `torch.nn.parallel.DistributedDataParallel`, and by 
+[rank1]: making sure all `forward` function outputs participate in calculating loss. 
+[rank1]: If you already have done the above, then the distributed data parallel module wasn't able to locate the output tensors in the return value of your module's `forward` function. Please include the loss function and the structure of the return value of `forward` of your module when reporting this issue (e.g. list, dict, iterable).
+[rank1]: Parameter indices which did not receive grad for rank 1: 182 183 184 185 186 187
+[rank1]:  In addition, you can set the environment variable TORCH_DISTRIBUTED_DEBUG to either INFO or DETAIL to print out information about which particular parameters did not receive gradient on this rank as part of this error
+W0515 07:08:14.107000 64 torch/distributed/elastic/multiprocessing/api.py:1010] Sending process 72 closing signal SIGTERM
+E0515 07:08:14.141000 64 torch/distributed/elastic/multiprocessing/api.py:984] failed (exitcode: 1) local_rank: 1 (pid: 73) of binary: /usr/bin/python3
+Traceback (most recent call last):
+  File "/usr/local/bin/torchrun", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 362, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/distributed/run.py", line 991, in main
+    run(args)
+  File "/usr/local/lib/python3.12/dist-packages/torch/distributed/run.py", line 982, in run
+    elastic_launch(
+  File "/usr/local/lib/python3.12/dist-packages/torch/distributed/launcher/api.py", line 170, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/distributed/launcher/api.py", line 317, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+scripts/train_d5a_ddp.py FAILED
+------------------------------------------------------------
+Failures:
+[1]:
+  time      : 2026-05-15_07:08:14
+  host      : fef1e06783a1
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 72)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-05-15_07:08:14
+  host      : fef1e06783a1
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 73)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
