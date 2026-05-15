@@ -1,0 +1,35 @@
+inherits: d12a_stable_ce_first_fastio_safe.yaml
+
+run:
+  config_name: d12a_stable_ce_first_ddp_b64_amp
+  output_root: outputs/d12_experiments
+  seed: 42
+
+data:
+  batch_size: 64
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  chunk_cache_size: 4
+  graph_cache_chunks: 4
+  chunk_aware_shuffle: false
+  shuffle_chunks: true
+  shuffle_within_chunk: true
+
+model:
+  use_global_branch: true
+
+training:
+  batch_size: 64
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  amp: true
+  multi_gpu: false
+  use_compile: false
+  profile_batches: 20
+
+logging:
+  use_wandb: false
