@@ -1,0 +1,49 @@
+inherits:
+  - d12a_stable_ce_first.yaml
+
+run:
+  config_name: d12a_parity_legacy_dp_b64_amp_ce_first
+
+runtime_parity:
+  mode: legacy_dp_b64_amp
+
+model:
+  use_global_branch: true
+  encoder:
+    use_scale2: true
+  slot_iterations: 3
+  residual_slot_connection: false
+
+loss:
+  class_weight_power: 0.25
+  label_smoothing: 0.05
+  lambda_supcon: 0.0
+  lambda_div: 0.0
+  lambda_spatial: 0.0
+  ce_warmup_epochs: 0
+
+training:
+  epochs: 30
+  batch_size: 64
+  early_stopping_patience: 15
+  amp: true
+  multi_gpu: true
+  use_compile: false
+  torch_compile: false
+
+early_stopping:
+  patience: 15
+
+ddp:
+  enabled: false
+
+data:
+  batch_size: 64
+  num_workers: 2
+  chunk_cache_size: 4
+  graph_cache_chunks: 4
+  fixed_batch_size: false
+  ddp_chunk_aware: false
+  ddp_drop_last_batches: false
+  drop_incomplete_batches: false
+  carry_over_leftovers: false

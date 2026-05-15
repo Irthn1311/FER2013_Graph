@@ -45,6 +45,7 @@ from data.full_graph_dataset import FullGraphDataset, collate_fn_full_graph  # n
 from evaluation.metrics import compute_metrics  # noqa: E402
 from scripts.log_experiment import log_experiment  # noqa: E402
 from training.optimizer import step_scheduler  # noqa: E402
+from training.runtime_diagnostics import write_sampler_diagnostics  # noqa: E402
 from training.trainer import (  # noqa: E402
     D5Trainer,
     _cuda_mem_stats,
@@ -1169,6 +1170,21 @@ def main() -> None:
             config=config,
             output_root=output_root,
         )
+        try:
+            diagnostics_path = write_sampler_diagnostics(
+                config=config,
+                output_root=output_root,
+                train_loader=train_loader,
+                sampler=train_sampler,
+                rank=rank,
+                world_size=world_size,
+                device=device,
+            )
+            if rank == 0:
+                print(f"[SamplerDiagnostics] wrote {diagnostics_path}")
+        except Exception as exc:
+            if rank == 0:
+                print(f"[SamplerDiagnostics] failed: {exc}")
         result = trainer.fit(
             train_loader=train_loader,
             train_sampler=train_sampler,

@@ -15,12 +15,24 @@ for path in (SCRIPT_DIR, PROJECT_ROOT):
 
 from scripts.log_experiment import log_experiment
 from common import apply_cli_overrides, build_dataloader, create_trainer, load_config
+from training.runtime_diagnostics import write_sampler_diagnostics
 
 
 def run_train(config):
     train_loader = build_dataloader(config, split="train", shuffle=True)
     val_loader = build_dataloader(config, split="val", shuffle=False)
     trainer = create_trainer(config)
+    try:
+        diagnostics_path = write_sampler_diagnostics(
+            config=config,
+            output_root=trainer.output_root,
+            train_loader=train_loader,
+            rank=0,
+            world_size=1,
+        )
+        print(f"[SamplerDiagnostics] wrote {diagnostics_path}")
+    except Exception as exc:
+        print(f"[SamplerDiagnostics] failed: {exc}")
     resume_cfg = config.get("resume", {}) or {}
     init_cfg = config.get("init_checkpoint", {}) or {}
     if resume_cfg.get("path"):
