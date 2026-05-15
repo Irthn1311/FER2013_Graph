@@ -1,0 +1,37 @@
+inherits:
+  - d12a_stable_ce_first.yaml
+
+run:
+  config_name: d12a_quality_safe_b32_noamp_screen8
+
+training:
+  epochs: 8
+  early_stopping_patience: 8
+  amp: false
+  multi_gpu: true
+  use_compile: false
+  torch_compile: false
+  batch_size: 32
+
+data:
+  batch_size: 32
+  chunk_cache_size: 8
+  graph_cache_chunks: 8
+  fixed_batch_size: false
+  ddp_chunk_aware: false
+  chunk_aware_shuffle: true
+
+loss:
+  lambda_supcon: 0.0
+  lambda_div: 0.0
+  lambda_spatial: 0.0
+  ce_warmup_epochs: 0
+  class_weight_power: 0.25
+  label_smoothing: 0.05
+
+model:
+  use_global_branch: true
+  encoder:
+    use_scale2: true
+  slot_iterations: 3
+  residual_slot_connection: false

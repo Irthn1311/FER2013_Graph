@@ -1,0 +1,40 @@
+inherits:
+  - d12a_stable_ce_first_fastio_safe.yaml
+
+run:
+  config_name: d12a_fastio_safe_screen8
+
+training:
+  epochs: 8
+  early_stopping_patience: 8
+  amp: true
+  multi_gpu: true
+  use_compile: false
+  torch_compile: false
+  batch_size: 64
+  grad_clip_norm: 1.0
+
+data:
+  batch_size: 64
+  chunk_cache_size: 4
+  graph_cache_chunks: 4
+  chunk_aware_shuffle: true
+  shuffle_chunks: true
+  shuffle_within_chunk: true
+  fixed_batch_size: false
+  ddp_chunk_aware: false
+
+loss:
+  lambda_supcon: 0.0
+  lambda_div: 0.0
+  lambda_spatial: 0.0
+  ce_warmup_epochs: 0
+  class_weight_power: 0.25
+  label_smoothing: 0.05
+
+model:
+  use_global_branch: true
+  encoder:
+    use_scale2: true
+  slot_iterations: 3
+  residual_slot_connection: false
