@@ -29,6 +29,18 @@ REQUIRED_OUTPUT_KEYS = (
     "motif_supcon",
 )
 
+REQUIRED_DIAGNOSTIC_KEYS = (
+    "h_pixel_mean",
+    "h_pixel_std",
+    "encoder_gate_mean",
+    "encoder_gate_std",
+    "encoder_gate_min",
+    "encoder_gate_max",
+    "slot_area_entropy",
+    "logits_mean",
+    "logits_std",
+)
+
 
 def make_grid_edge_index(height: int = 48, width: int = 48) -> torch.Tensor:
     offsets = (
@@ -98,6 +110,11 @@ def build_d12_smoke_model(
 def assert_required_keys(out: dict, *, label: str) -> None:
     missing = [key for key in REQUIRED_OUTPUT_KEYS if key not in out]
     assert not missing, f"{label} missing keys: {missing}"
+    missing_diag = [key for key in REQUIRED_DIAGNOSTIC_KEYS if key not in out]
+    assert not missing_diag, f"{label} missing diagnostics: {missing_diag}"
+    diagnostics = out.get("diagnostics", {})
+    missing_diag_dict = [key for key in REQUIRED_DIAGNOSTIC_KEYS if key not in diagnostics]
+    assert not missing_diag_dict, f"{label} diagnostics dict missing: {missing_diag_dict}"
 
 
 def assert_core_shapes(

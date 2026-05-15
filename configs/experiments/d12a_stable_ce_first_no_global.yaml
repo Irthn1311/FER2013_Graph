@@ -1,0 +1,129 @@
+run:
+  config_name: d12a_stable_ce_first_no_global
+  output_root: outputs/d12_experiments
+  seed: 42
+
+paths:
+  csv_root: auto
+  graph_repo_path: artifacts/graph-repo/graph_repo
+  output_root: outputs/d12_experiments
+
+environments:
+  local:
+    paths:
+      csv_root: data
+      graph_repo_path: artifacts/graph-repo/graph_repo
+      output_root: outputs/d12_experiments
+  kaggle:
+    paths:
+      csv_root: auto
+      graph_repo_path: /kaggle/working/artifacts/graph_repo
+      output_root: /kaggle/working/outputs/d12_experiments
+
+graph:
+  height: 48
+  width: 48
+  connectivity: 8
+  normalize_pixels: true
+  intensity_similarity_alpha: 1.0
+
+data:
+  dataset: fer2013
+  batch_size: 32
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  chunk_cache_size: 8
+  chunk_aware_shuffle: true
+  node_dim: 7
+  edge_dim: 5
+
+model:
+  name: d12_global_local_motif
+  num_classes: 7
+  num_nodes: 2304
+  node_dim: 7
+  edge_dim: 5
+  hidden_dim: 96
+  dropout: 0.2
+  encoder:
+    num_layers: 2
+    use_scale2: true
+    scale2_alpha: 1.0
+    use_context_gate: true
+    use_gate_norm: true
+  num_slots: 8
+  slot_iterations: 3
+  residual_slot_connection: false
+  motif_relation_layers: 1
+  motif_relation_heads: 4
+  use_global_branch: false
+  global_dim: 64
+  global_dropout: 0.3
+  supcon_projection_dim: 128
+  height: 48
+  width: 48
+
+loss:
+  name: d12_global_local_motif_loss
+  use_class_weights: true
+  class_counts: [3995, 436, 528, 879, 594, 416, 626]
+  class_weight_power: 0.25
+  label_smoothing: 0.05
+  lambda_local: 0.3
+  lambda_supcon: 0.0
+  lambda_div: 0.0
+  diversity_margin: 0.3
+  lambda_spatial: 0.0
+  supcon_temperature: 0.2
+  supcon_warmup_epochs: 5
+  ce_warmup_epochs: 0
+
+optimizer:
+  name: adamw
+  lr: 0.0001
+  weight_decay: 0.0001
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 3
+  t_max: 15
+  min_lr: 0.000001
+
+training:
+  epochs: 15
+  batch_size: 32
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  optimizer: adamw
+  lr: 0.0001
+  weight_decay: 0.0001
+  scheduler: cosine_warmup
+  warmup_epochs: 3
+  min_lr: 0.000001
+  monitor: val_macro_f1
+  mode: max
+  early_stopping_patience: 12
+  amp: false
+  multi_gpu: true
+  use_compile: true
+  device: auto
+  grad_clip_norm: 1.0
+  max_train_batches: null
+  max_val_batches: null
+  max_test_batches: null
+
+checkpoint:
+  save_best_metric: val_macro_f1
+  save_best_mode: max
+
+early_stopping:
+  monitor: val_macro_f1
+  mode: max
+  patience: 12
+
+logging:
+  use_wandb: false
+  project: FER-GRAPH
+  entity: phucga15062005

@@ -1055,6 +1055,7 @@ class D12GlobalLocalMotifLoss(nn.Module):
             "loss_spatial": loss_spatial,
             "effective_lambda_supcon": logits.new_tensor(effective_lambda_supcon),
             "effective_ce_factor": logits.new_tensor(ce_factor),
+            "effective_ce_weight": logits.new_tensor(ce_factor),
             "diag_main_accuracy": (logits.argmax(dim=1) == y).float().mean().detach(),
         }
         if torch.is_tensor(logits_local):

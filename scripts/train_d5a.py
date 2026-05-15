@@ -88,7 +88,7 @@ def run_train(config):
     )
     print(f"Training done best_epoch={result['best_epoch']} best_metric={result['best_metric']:.6f}")
     try:
-        log_experiment(trainer.output_dir)
+        log_experiment(trainer.output_root)
     except Exception as e:
         print(f"Failed to log experiment: {e}")
     return result

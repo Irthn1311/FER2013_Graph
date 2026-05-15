@@ -293,6 +293,12 @@ class D12PixelEncoder(nn.Module):
         diagnostics["encoder_gate_std"] = torch.stack(
             [v for k, v in diagnostics.items() if k.endswith("gate_std")]
         ).mean()
+        diagnostics["encoder_gate_min"] = torch.stack(
+            [v for k, v in diagnostics.items() if k.endswith("gate_min")]
+        ).amin()
+        diagnostics["encoder_gate_max"] = torch.stack(
+            [v for k, v in diagnostics.items() if k.endswith("gate_max")]
+        ).amax()
         diagnostics["scale2_edge_count"] = x.new_tensor(float(self.scale2_edge_index.shape[1]))
         return h, diagnostics
 
@@ -717,11 +723,22 @@ class D12GlobalLocalMotifModel(nn.Module):
         slot_mass = slot_attn_maps.sum(dim=2).clamp_min(1e-8)
         border_mass_per_slot = border_mass / slot_mass
         slot_area = slot_attn_maps.mean(dim=2)
+        slot_area_norm = slot_area / slot_area.sum(dim=1, keepdim=True).clamp_min(1e-8)
+        slot_area_entropy = -(
+            slot_area_norm * slot_area_norm.clamp_min(1e-8).log()
+        ).sum(dim=1).mean()
 
         diagnostics: Dict[str, torch.Tensor] = {
             "encoder_gate_mean": encoder_diag["encoder_gate_mean"],
             "encoder_gate_std": encoder_diag["encoder_gate_std"],
+            "encoder_gate_min": encoder_diag["encoder_gate_min"],
+            "encoder_gate_max": encoder_diag["encoder_gate_max"],
             "scale2_edge_count": encoder_diag["scale2_edge_count"],
+            "h_pixel_mean": h_pixel.detach().mean(),
+            "h_pixel_std": h_pixel.detach().std(unbiased=False),
+            "slot_area_entropy": slot_area_entropy.detach(),
+            "logits_mean": logits.detach().mean(),
+            "logits_std": logits.detach().std(unbiased=False),
             "slot_area_mean": slot_area.detach().mean(),
             "border_mass_per_slot_mean": border_mass_per_slot.detach().mean(),
         }
@@ -759,6 +776,13 @@ class D12GlobalLocalMotifModel(nn.Module):
             "border_mass_per_slot": border_mass_per_slot,
             "encoder_gate_mean": diagnostics["encoder_gate_mean"],
             "encoder_gate_std": diagnostics["encoder_gate_std"],
+            "encoder_gate_min": diagnostics["encoder_gate_min"],
+            "encoder_gate_max": diagnostics["encoder_gate_max"],
+            "h_pixel_mean": diagnostics["h_pixel_mean"],
+            "h_pixel_std": diagnostics["h_pixel_std"],
+            "slot_area_entropy": diagnostics["slot_area_entropy"],
+            "logits_mean": diagnostics["logits_mean"],
+            "logits_std": diagnostics["logits_std"],
             "scale2_edge_count": diagnostics["scale2_edge_count"],
             "diagnostics": diagnostics,
         }
