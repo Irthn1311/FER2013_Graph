@@ -1,0 +1,38 @@
+# Reusable D12 runtime overlay for the chosen production speed path.
+data:
+  batch_size: 64
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  chunk_cache_size: 4
+  graph_cache_chunks: 4
+  chunk_aware_shuffle: false
+  shuffle_chunks: true
+  shuffle_within_chunk: true
+  ddp_chunk_aware: true
+  fixed_batch_size: true
+  drop_incomplete_batches: true
+  carry_over_leftovers: true
+  ddp_drop_last_batches: true
+
+training:
+  batch_size: 64
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  amp: true
+  multi_gpu: false
+  use_compile: true
+  torch_compile: true
+  compile_order: before_ddp
+
+ddp:
+  enabled: true
+  backend: nccl
+  compile: true
+  compile_order: before_ddp
+  find_unused_parameters: true
+  rank0_full_validation: true
+  chunk_aware_shuffle_forced_off: true

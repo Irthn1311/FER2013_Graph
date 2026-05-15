@@ -956,11 +956,18 @@ class D12GlobalLocalMotifLoss(nn.Module):
         self.lambda_spatial = float(cfg.get("lambda_spatial", 0.0))
         self.supcon_warmup_epochs = float(cfg.get("supcon_warmup_epochs", cfg.get("warmup_epochs", 5.0)))
         self.ce_warmup_epochs = float(cfg.get("ce_warmup_epochs", 30.0))
+        self.label_smoothing = float(cfg.get("label_smoothing", 0.1))
+        self.logit_adjust_tau = float(cfg.get("logit_adjust_tau", 0.0))
+        self.focal_gamma = float(cfg.get("focal_gamma", 0.0))
+        if self.logit_adjust_tau > 0.0 and self.focal_gamma > 0.0:
+            raise ValueError("D12GlobalLocalMotifLoss does not support logit_adjust_tau and focal_gamma together")
+        if self.focal_gamma > 0.0 and self.label_smoothing > 0.0:
+            raise ValueError("D12 focal_gamma currently requires label_smoothing=0.0")
         self.current_epoch: Optional[float] = None
 
         class_weights = None
+        counts = cfg.get("class_counts")
         if cfg.get("use_class_weights", True):
-            counts = cfg.get("class_counts")
             if counts is None:
                 raise ValueError("loss.use_class_weights=true requires loss.class_counts")
             class_weights = compute_class_weights(
@@ -968,9 +975,22 @@ class D12GlobalLocalMotifLoss(nn.Module):
                 normalize_mean=True,
                 power=float(cfg.get("class_weight_power", 1.0)),
             )
+            if not bool(torch.isfinite(class_weights).all()):
+                raise ValueError("D12 class weights must be finite")
+        if self.logit_adjust_tau > 0.0:
+            if counts is None:
+                raise ValueError("loss.logit_adjust_tau > 0 requires loss.class_counts")
+            count_tensor = torch.as_tensor(counts, dtype=torch.float32).clamp_min(1.0)
+            prior = count_tensor / count_tensor.sum().clamp_min(1.0)
+            logit_adjustment = -prior.clamp_min(1e-8).log()
+            if not bool(torch.isfinite(logit_adjustment).all()):
+                raise ValueError("D12 logit adjustment must be finite")
+        else:
+            logit_adjustment = torch.zeros(0, dtype=torch.float32)
+        self.register_buffer("logit_adjustment", logit_adjustment, persistent=False)
         self.ce = WeightedCrossEntropy(
             class_weights=class_weights,
-            label_smoothing=float(cfg.get("label_smoothing", 0.1)),
+            label_smoothing=self.label_smoothing,
         )
         from training.supcon_loss import SupervisedContrastiveLoss
 
@@ -994,6 +1014,32 @@ class D12GlobalLocalMotifLoss(nn.Module):
             return 1.0
         return min(1.0, max(0.0, float(epoch)) / max(1.0, float(warmup_epochs)))
 
+    def _adjust_logits(self, logits: torch.Tensor) -> torch.Tensor:
+        if self.logit_adjust_tau <= 0.0:
+            return logits
+        adjustment = self.logit_adjustment.to(device=logits.device, dtype=logits.dtype)
+        return logits + logits.new_tensor(self.logit_adjust_tau) * adjustment.view(1, -1)
+
+    def _classification_loss(self, logits: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        adjusted_logits = self._adjust_logits(logits)
+        if self.focal_gamma <= 0.0:
+            return self.ce(adjusted_logits, y)
+
+        weight = self.ce.class_weights
+        if weight is not None:
+            weight = weight.to(device=adjusted_logits.device, dtype=adjusted_logits.dtype)
+        ce_per_sample = F.cross_entropy(
+            adjusted_logits,
+            y.long(),
+            weight=weight,
+            label_smoothing=0.0,
+            reduction="none",
+        )
+        log_prob = F.log_softmax(adjusted_logits, dim=1)
+        log_pt = log_prob.gather(1, y.long().view(-1, 1)).squeeze(1)
+        pt = log_pt.exp().clamp(min=0.0, max=1.0)
+        return ((1.0 - pt).pow(self.focal_gamma) * ce_per_sample).mean()
+
     def forward(
         self,
         model_out: Dict[str, torch.Tensor],
@@ -1007,10 +1053,10 @@ class D12GlobalLocalMotifLoss(nn.Module):
         ce_factor = self._warmup_factor(epoch, self.ce_warmup_epochs)
         supcon_factor = self._warmup_factor(epoch, self.supcon_warmup_epochs)
 
-        loss_ce_main_raw = self.ce(logits, y)
+        loss_ce_main_raw = self._classification_loss(logits, y)
         loss_ce_main = loss_ce_main_raw * ce_factor
         if torch.is_tensor(logits_local):
-            loss_local_raw = self.ce(logits_local, y)
+            loss_local_raw = self._classification_loss(logits_local, y)
             loss_local = loss_local_raw * ce_factor
         else:
             loss_local_raw = logits.new_zeros(())
@@ -1056,8 +1102,12 @@ class D12GlobalLocalMotifLoss(nn.Module):
             "effective_lambda_supcon": logits.new_tensor(effective_lambda_supcon),
             "effective_ce_factor": logits.new_tensor(ce_factor),
             "effective_ce_weight": logits.new_tensor(ce_factor),
+            "logit_adjust_tau": logits.new_tensor(self.logit_adjust_tau),
+            "focal_gamma": logits.new_tensor(self.focal_gamma),
             "diag_main_accuracy": (logits.argmax(dim=1) == y).float().mean().detach(),
         }
+        if not torch.isfinite(total):
+            raise FloatingPointError("D12GlobalLocalMotifLoss produced a non-finite loss")
         if torch.is_tensor(logits_local):
             out["diag_local_accuracy"] = (logits_local.argmax(dim=1) == y).float().mean().detach()
         return out

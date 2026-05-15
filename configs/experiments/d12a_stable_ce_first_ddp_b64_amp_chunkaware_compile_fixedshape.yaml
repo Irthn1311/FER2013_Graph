@@ -1,24 +1,6 @@
-inherits: d12a_stable_ce_first_ddp_b64_amp_chunkaware.yaml
+inherits:
+  - d12a_stable_ce_first.yaml
+  - d12a_ddp_compile_fixedshape_runtime.yaml
 
 run:
   config_name: d12a_stable_ce_first_ddp_b64_amp_chunkaware_compile_fixedshape
-
-data:
-  ddp_chunk_aware: true
-  fixed_batch_size: true
-  drop_incomplete_batches: true
-  carry_over_leftovers: true
-  ddp_drop_last_batches: true
-
-training:
-  batch_size: 64
-  amp: true
-  use_compile: true
-  torch_compile: true
-  compile_order: before_ddp
-  num_workers: 2
-
-ddp:
-  compile: true
-  compile_order: before_ddp
-  find_unused_parameters: true

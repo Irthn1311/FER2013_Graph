@@ -1,0 +1,25 @@
+inherits:
+  - d12a_stable_ce_first.yaml
+  - d12a_ddp_compile_fixedshape_runtime.yaml
+
+run:
+  config_name: d12a_ce_balance_w05
+
+model:
+  use_global_branch: true
+  encoder:
+    use_scale2: true
+  slot_iterations: 3
+  residual_slot_connection: false
+
+loss:
+  class_weight_power: 0.5
+  label_smoothing: 0.0
+  lambda_supcon: 0.0
+  lambda_div: 0.0
+  lambda_spatial: 0.0
+  ce_warmup_epochs: 0
+
+training:
+  epochs: 30
+  early_stopping_patience: 15
