@@ -11,6 +11,7 @@ artifacts/
 outputs/
 output/
 output_smoke/
+outputs_log/
 # WandB
 wandb/
 
