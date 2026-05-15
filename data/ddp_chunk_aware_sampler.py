@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from statistics import mean
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator, List, Tuple
 
 from torch.utils.data import Sampler
 
@@ -23,6 +23,9 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
         drop_last: bool = False,
         seed: int = 42,
         ddp_drop_last_batches: bool = True,
+        fixed_batch_size: bool = False,
+        drop_incomplete_batches: bool = False,
+        carry_over_leftovers: bool = False,
     ) -> None:
         self.chunk_indices = dataset.chunk_index_groups()
         self.batch_size = int(batch_size)
@@ -33,6 +36,9 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
         self.drop_last = bool(drop_last)
         self.seed = int(seed)
         self.ddp_drop_last_batches = bool(ddp_drop_last_batches)
+        self.fixed_batch_size = bool(fixed_batch_size)
+        self.drop_incomplete_batches = bool(drop_incomplete_batches)
+        self.carry_over_leftovers = bool(carry_over_leftovers)
         self.epoch = 0
         self._cached_plans: Dict[int, List[List[List[int]]]] = {}
 
@@ -44,6 +50,11 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
             raise ValueError(f"rank must be in [0, {self.num_replicas}), got {rank}")
         if not self.chunk_indices:
             raise ValueError("dataset.chunk_index_groups() returned no chunks")
+        if self.fixed_batch_size and not self.carry_over_leftovers and not self.drop_incomplete_batches:
+            raise ValueError(
+                "fixed_batch_size=True requires carry_over_leftovers=True or "
+                "drop_incomplete_batches=True"
+            )
 
     @property
     def chunk_sizes(self) -> List[int]:
@@ -67,9 +78,7 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
         return chunk_ids
 
     def _chunk_batches(self, chunk_id: int, epoch: int) -> List[List[int]]:
-        indices = list(self.chunk_indices[chunk_id])
-        if self.shuffle_within_chunk:
-            random.Random(self.seed + int(epoch) * 1_000_003 + int(chunk_id)).shuffle(indices)
+        indices = self._chunk_indices(chunk_id, epoch)
         batches: List[List[int]] = []
         for start in range(0, len(indices), self.batch_size):
             batch = indices[start : start + self.batch_size]
@@ -79,11 +88,39 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
                 batches.append(batch)
         return batches
 
-    def _build_rank_batches(self, rank: int, epoch: int) -> List[List[int]]:
+    def _build_rank_batches_with_drops(self, rank: int, epoch: int) -> Tuple[List[List[int]], int]:
         batches: List[List[int]] = []
         rank_chunk_ids = self._chunk_order(epoch)[rank :: self.num_replicas]
+        dropped_samples = 0
+
+        if self.fixed_batch_size and self.carry_over_leftovers:
+            buffer: List[int] = []
+            for chunk_id in rank_chunk_ids:
+                buffer.extend(self._chunk_indices(chunk_id, epoch))
+                while len(buffer) >= self.batch_size:
+                    batches.append(buffer[: self.batch_size])
+                    buffer = buffer[self.batch_size :]
+            dropped_samples = len(buffer)
+            return batches, dropped_samples
+
         for chunk_id in rank_chunk_ids:
-            batches.extend(self._chunk_batches(chunk_id, epoch))
+            chunk_batches = self._chunk_batches(chunk_id, epoch)
+            if self.fixed_batch_size:
+                full_batches = [batch for batch in chunk_batches if len(batch) == self.batch_size]
+                dropped_samples += sum(len(batch) for batch in chunk_batches if len(batch) < self.batch_size)
+                batches.extend(full_batches)
+            else:
+                batches.extend(chunk_batches)
+        return batches, dropped_samples
+
+    def _chunk_indices(self, chunk_id: int, epoch: int) -> List[int]:
+        indices = list(self.chunk_indices[chunk_id])
+        if self.shuffle_within_chunk:
+            random.Random(self.seed + int(epoch) * 1_000_003 + int(chunk_id)).shuffle(indices)
+        return indices
+
+    def _build_rank_batches(self, rank: int, epoch: int) -> List[List[int]]:
+        batches, _ = self._build_rank_batches_with_drops(rank, epoch)
         return batches
 
     def _plans_for_epoch(self, epoch: int) -> List[List[List[int]]]:
@@ -111,9 +148,23 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
             len(chunk_order[rank :: self.num_replicas])
             for rank in range(self.num_replicas)
         ]
-        before = [len(self._build_rank_batches(rank, epoch)) for rank in range(self.num_replicas)]
-        after = [len(rank_batches) for rank_batches in self._plans_for_epoch(epoch)]
+        rank_batches_and_drops = [
+            self._build_rank_batches_with_drops(rank, epoch)
+            for rank in range(self.num_replicas)
+        ]
+        before = [len(rank_batches) for rank_batches, _ in rank_batches_and_drops]
+        after_plans = self._plans_for_epoch(epoch)
+        after = [len(rank_batches) for rank_batches in after_plans]
         chunk_sizes = self.chunk_sizes
+        truncated_batches = [src - dst for src, dst in zip(before, after)]
+        dropped_samples = [
+            dropped_from_incomplete + sum(len(batch) for batch in rank_batches[after_count:])
+            for (rank_batches, dropped_from_incomplete), after_count in zip(rank_batches_and_drops, after)
+        ]
+        unique_batch_sizes = [
+            sorted({len(batch) for batch in rank_batches})
+            for rank_batches in after_plans
+        ]
         return {
             "num_chunks": self.num_chunks,
             "chunk_size_min": min(chunk_sizes),
@@ -123,7 +174,9 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
             "rank_chunk_counts": rank_chunk_counts,
             "batches_before_balance": before,
             "batches_after_balance": after,
-            "truncated_batches": [src - dst for src, dst in zip(before, after)],
+            "truncated_batches": truncated_batches,
+            "dropped_samples_per_rank": dropped_samples,
+            "unique_batch_sizes_per_rank": unique_batch_sizes,
         }
 
     def __iter__(self) -> Iterator[List[int]]:

@@ -215,6 +215,9 @@ def apply_ddp_runtime_overrides(
     else:
         data_cfg.setdefault("ddp_chunk_aware", True)
     data_cfg.setdefault("ddp_drop_last_batches", True)
+    data_cfg.setdefault("fixed_batch_size", False)
+    data_cfg.setdefault("drop_incomplete_batches", False)
+    data_cfg.setdefault("carry_over_leftovers", False)
     training_cfg["batch_size"] = int(global_batch_size)
     training_cfg["global_batch_size"] = int(global_batch_size)
     training_cfg["per_rank_batch_size"] = int(per_rank_batch_size)
@@ -313,6 +316,12 @@ def build_ddp_dataloader(
                 drop_last=False,
                 seed=int(training_cfg.get("seed", config.get("run", {}).get("seed", 42))),
                 ddp_drop_last_batches=_cfg_bool(data_cfg.get("ddp_drop_last_batches", True), True),
+                fixed_batch_size=_cfg_bool(data_cfg.get("fixed_batch_size", False), False),
+                drop_incomplete_batches=_cfg_bool(
+                    data_cfg.get("drop_incomplete_batches", False),
+                    False,
+                ),
+                carry_over_leftovers=_cfg_bool(data_cfg.get("carry_over_leftovers", False), False),
             )
             sampler = batch_sampler
         else:
@@ -361,6 +370,17 @@ def build_ddp_dataloader(
                 f"ddp_drop_last_batches={batch_sampler.ddp_drop_last_batches} "
                 f"shuffle_chunks={batch_sampler.shuffle_chunks} "
                 f"shuffle_within_chunk={batch_sampler.shuffle_within_chunk}"
+            )
+            print(
+                "[DDP ChunkAware FixedShape] "
+                f"fixed_batch_size={batch_sampler.fixed_batch_size} "
+                f"drop_incomplete_batches={batch_sampler.drop_incomplete_batches} "
+                f"carry_over_leftovers={batch_sampler.carry_over_leftovers} "
+                f"per_rank_batch_size={batch_size} "
+                f"dropped_samples_per_rank={summary['dropped_samples_per_rank']} "
+                f"unique_batch_sizes_per_rank={summary['unique_batch_sizes_per_rank']} "
+                f"batches_per_rank_before_balance={summary['batches_before_balance']} "
+                f"batches_per_rank_after_balance={summary['batches_after_balance']}"
             )
         else:
             print("[DDP ChunkAware] enabled=False")
@@ -472,6 +492,15 @@ class DDPPhase1Trainer:
                 break
             is_last = max_batches is not None and batch_idx + 1 >= int(max_batches)
             do_profile = self.is_rank0 and profile_n > 0 and batch_idx < profile_n
+            actual_batch_size = int(batch["x"].shape[0])
+            expected_batch_size = int(self.config["training"]["per_rank_batch_size"])
+            local_fixed_shape_violation = actual_batch_size != expected_batch_size
+            if local_fixed_shape_violation:
+                print(
+                    "[DDP FixedShape Violation] "
+                    f"rank={self.rank} epoch={epoch} batch={batch_idx} "
+                    f"actual_batch_size={actual_batch_size} expected_batch_size={expected_batch_size}"
+                )
 
             if self.is_rank0 and epoch == 1 and batch_idx == 0:
                 print(f"[SPEED_BENCH] first_batch_x_shape={list(batch['x'].shape)}")
@@ -594,6 +623,7 @@ class DDPPhase1Trainer:
                 }
                 print(
                     f"[PROFILE rank=0 batch={batch_idx}]\n"
+                    f"  actual_batch_size={actual_batch_size}\n"
                     f"  data_time      ={times['data']:.4f}s\n"
                     f"  to_device_time ={times['to_device']:.4f}s\n"
                     f"  forward_time   ={times['forward']:.4f}s\n"
@@ -1047,9 +1077,11 @@ def main() -> None:
                 f"per_rank_batch_size={per_rank_batch_size} "
                 f"world_size={world_size}"
             )
+            fixed_batch_size = _cfg_bool(config.get("data", {}).get("fixed_batch_size", False), False)
             print(
-                "[DDP Phase1.5] "
+                f"[DDP Phase{'1.6' if fixed_batch_size else '1.5'}] "
                 f"ddp_chunk_aware={_cfg_bool(config.get('data', {}).get('ddp_chunk_aware', True), True)} "
+                f"fixed_batch_size={fixed_batch_size} "
                 f"torch.compile={_cfg_bool(config.get('training', {}).get('use_compile', False), False)}"
             )
 
