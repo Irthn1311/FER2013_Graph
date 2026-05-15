@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 from statistics import mean
-from typing import Dict, Iterator, List, Tuple
+from typing import Dict, Iterator, List, Mapping, Tuple
 
 from torch.utils.data import Sampler
 
@@ -26,7 +26,14 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
         fixed_batch_size: bool = False,
         drop_incomplete_batches: bool = False,
         carry_over_leftovers: bool = False,
+        target_class_repeat_factors: Mapping[int | str, float] | None = None,
     ) -> None:
+        if target_class_repeat_factors and not hasattr(dataset, "label_at_index"):
+            raise ValueError(
+                "data.target_class_repeat_factors requires dataset.label_at_index(idx); "
+                "this dataset cannot expose labels for repeat sampling"
+            )
+        self.dataset = dataset
         self.chunk_indices = dataset.chunk_index_groups()
         self.batch_size = int(batch_size)
         self.num_replicas = int(num_replicas)
@@ -39,6 +46,7 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
         self.fixed_batch_size = bool(fixed_batch_size)
         self.drop_incomplete_batches = bool(drop_incomplete_batches)
         self.carry_over_leftovers = bool(carry_over_leftovers)
+        self.target_class_repeat_factors = self._normalize_repeat_factors(target_class_repeat_factors or {})
         self.epoch = 0
         self._cached_plans: Dict[int, List[List[List[int]]]] = {}
 
@@ -55,6 +63,18 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
                 "fixed_batch_size=True requires carry_over_leftovers=True or "
                 "drop_incomplete_batches=True"
             )
+
+    @staticmethod
+    def _normalize_repeat_factors(values: Mapping[int | str, float]) -> Dict[int, float]:
+        repeat_factors: Dict[int, float] = {}
+        for key, value in values.items():
+            cls = int(key)
+            factor = float(value)
+            if factor <= 0.0:
+                raise ValueError(f"target_class_repeat_factors[{cls}] must be > 0, got {factor}")
+            if factor != 1.0:
+                repeat_factors[cls] = factor
+        return repeat_factors
 
     @property
     def chunk_sizes(self) -> List[int]:
@@ -115,9 +135,35 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
 
     def _chunk_indices(self, chunk_id: int, epoch: int) -> List[int]:
         indices = list(self.chunk_indices[chunk_id])
+        if self.target_class_repeat_factors:
+            indices = self._repeat_target_indices(indices, chunk_id, epoch)
         if self.shuffle_within_chunk:
             random.Random(self.seed + int(epoch) * 1_000_003 + int(chunk_id)).shuffle(indices)
         return indices
+
+    def _label_for_index(self, sample_idx: int) -> int:
+        return int(self.dataset.label_at_index(int(sample_idx)))
+
+    def _repeat_target_indices(self, indices: List[int], chunk_id: int, epoch: int) -> List[int]:
+        repeated: List[int] = []
+        for sample_idx in indices:
+            label = self._label_for_index(sample_idx)
+            factor = self.target_class_repeat_factors.get(label, 1.0)
+            full_count = int(factor)
+            frac = float(factor) - float(full_count)
+            count = max(1, full_count)
+            if frac > 0.0:
+                rng = random.Random(
+                    self.seed
+                    + int(epoch) * 1_000_003
+                    + int(chunk_id) * 9_176
+                    + int(sample_idx) * 37
+                    + int(label) * 101
+                )
+                if rng.random() < frac:
+                    count += 1
+            repeated.extend([sample_idx] * count)
+        return repeated
 
     def _build_rank_batches(self, rank: int, epoch: int) -> List[List[int]]:
         batches, _ = self._build_rank_batches_with_drops(rank, epoch)
@@ -156,6 +202,10 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
         after_plans = self._plans_for_epoch(epoch)
         after = [len(rank_batches) for rank_batches in after_plans]
         chunk_sizes = self.chunk_sizes
+        expanded_chunk_sizes = [
+            len(self._chunk_indices(chunk_id, epoch))
+            for chunk_id in range(self.num_chunks)
+        ]
         truncated_batches = [src - dst for src, dst in zip(before, after)]
         dropped_samples = [
             dropped_from_incomplete + sum(len(batch) for batch in rank_batches[after_count:])
@@ -165,18 +215,30 @@ class DDPChunkAwareBatchSampler(Sampler[List[int]]):
             sorted({len(batch) for batch in rank_batches})
             for rank_batches in after_plans
         ]
+        label_histograms = []
+        for rank_batches in after_plans:
+            hist: Dict[int, int] = {}
+            for batch in rank_batches:
+                for sample_idx in batch:
+                    label = self._label_for_index(sample_idx)
+                    hist[label] = hist.get(label, 0) + 1
+            label_histograms.append(hist)
         return {
             "num_chunks": self.num_chunks,
             "chunk_size_min": min(chunk_sizes),
             "chunk_size_mean": mean(chunk_sizes),
             "chunk_size_max": max(chunk_sizes),
             "total_samples": self.total_samples,
+            "target_class_repeat_factors": dict(self.target_class_repeat_factors),
+            "repeated_num_indices_total": int(sum(expanded_chunk_sizes) - self.total_samples),
+            "expanded_total_samples": int(sum(expanded_chunk_sizes)),
             "rank_chunk_counts": rank_chunk_counts,
             "batches_before_balance": before,
             "batches_after_balance": after,
             "truncated_batches": truncated_batches,
             "dropped_samples_per_rank": dropped_samples,
             "unique_batch_sizes_per_rank": unique_batch_sizes,
+            "per_rank_label_histogram_estimate": label_histograms,
         }
 
     def __iter__(self) -> Iterator[List[int]]:

@@ -328,6 +328,9 @@ def build_ddp_dataloader(
                     False,
                 ),
                 carry_over_leftovers=_cfg_bool(data_cfg.get("carry_over_leftovers", False), False),
+                target_class_repeat_factors=(
+                    data_cfg.get("target_class_repeat_factors") if split == "train" else None
+                ),
             )
             sampler = batch_sampler
         else:
@@ -367,6 +370,8 @@ def build_ddp_dataloader(
                 f"chunk_sizes_min_mean_max="
                 f"{summary['chunk_size_min']}/{summary['chunk_size_mean']:.2f}/{summary['chunk_size_max']} "
                 f"total_samples={summary['total_samples']} "
+                f"expanded_total_samples={summary['expanded_total_samples']} "
+                f"repeated_num_indices_total={summary['repeated_num_indices_total']} "
                 f"rank0_chunk_count={summary['rank_chunk_counts'][0]} "
                 f"rank1_chunk_count={summary['rank_chunk_counts'][1] if world_size > 1 else 0} "
                 f"per_rank_batch_size={batch_size} "
@@ -375,7 +380,8 @@ def build_ddp_dataloader(
                 f"truncated_batches={summary['truncated_batches']} "
                 f"ddp_drop_last_batches={batch_sampler.ddp_drop_last_batches} "
                 f"shuffle_chunks={batch_sampler.shuffle_chunks} "
-                f"shuffle_within_chunk={batch_sampler.shuffle_within_chunk}"
+                f"shuffle_within_chunk={batch_sampler.shuffle_within_chunk} "
+                f"target_class_repeat_factors={summary['target_class_repeat_factors']}"
             )
             print(
                 "[DDP ChunkAware FixedShape] "
@@ -386,7 +392,8 @@ def build_ddp_dataloader(
                 f"dropped_samples_per_rank={summary['dropped_samples_per_rank']} "
                 f"unique_batch_sizes_per_rank={summary['unique_batch_sizes_per_rank']} "
                 f"batches_per_rank_before_balance={summary['batches_before_balance']} "
-                f"batches_per_rank_after_balance={summary['batches_after_balance']}"
+                f"batches_per_rank_after_balance={summary['batches_after_balance']} "
+                f"per_rank_label_histogram_estimate={summary['per_rank_label_histogram_estimate']}"
             )
         else:
             print("[DDP ChunkAware] enabled=False")

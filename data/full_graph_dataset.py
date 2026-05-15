@@ -53,6 +53,9 @@ class FullGraphDataset(Dataset):
     def chunk_index_groups(self) -> List[List[int]]:
         return self.dataset.chunk_index_groups()
 
+    def label_at_index(self, idx: int) -> int:
+        return self.dataset.label_at_index(idx)
+
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         sample_idx = int(idx)
         graph = self.dataset[sample_idx]

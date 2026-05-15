@@ -954,6 +954,15 @@ class D12GlobalLocalMotifLoss(nn.Module):
         self.lambda_div = float(cfg.get("lambda_div", 0.02))
         self.diversity_margin = float(cfg.get("diversity_margin", 0.3))
         self.lambda_spatial = float(cfg.get("lambda_spatial", 0.0))
+        self.lambda_rare_aux = float(cfg.get("lambda_rare_aux", 0.0))
+        self.lambda_rare_margin = float(cfg.get("lambda_rare_margin", 0.0))
+        self.rare_margin = float(cfg.get("rare_margin", 0.5))
+        self.rare_aux_classes = [int(cls) for cls in cfg.get("rare_aux_classes", [0, 1])]
+        raw_margin_groups = cfg.get("rare_margin_groups", {}) or {}
+        self.rare_margin_groups = {
+            int(rare_cls): [int(conf_cls) for conf_cls in confusers]
+            for rare_cls, confusers in raw_margin_groups.items()
+        }
         self.supcon_warmup_epochs = float(cfg.get("supcon_warmup_epochs", cfg.get("warmup_epochs", 5.0)))
         self.ce_warmup_epochs = float(cfg.get("ce_warmup_epochs", 30.0))
         self.label_smoothing = float(cfg.get("label_smoothing", 0.1))
@@ -988,6 +997,31 @@ class D12GlobalLocalMotifLoss(nn.Module):
         else:
             logit_adjustment = torch.zeros(0, dtype=torch.float32)
         self.register_buffer("logit_adjustment", logit_adjustment, persistent=False)
+        self.register_buffer(
+            "rare_aux_classes_tensor",
+            torch.tensor(self.rare_aux_classes, dtype=torch.long),
+            persistent=False,
+        )
+        if self.lambda_rare_aux > 0.0:
+            if not self.rare_aux_classes:
+                raise ValueError("loss.lambda_rare_aux > 0 requires non-empty loss.rare_aux_classes")
+            pos_weight_cfg = cfg.get("rare_aux_pos_weight")
+            if pos_weight_cfg is not None:
+                rare_aux_pos_weight = torch.as_tensor(pos_weight_cfg, dtype=torch.float32)
+                if rare_aux_pos_weight.numel() != len(self.rare_aux_classes):
+                    raise ValueError("loss.rare_aux_pos_weight must match loss.rare_aux_classes length")
+            else:
+                if counts is None:
+                    raise ValueError("loss.lambda_rare_aux > 0 requires loss.class_counts or rare_aux_pos_weight")
+                count_tensor = torch.as_tensor(counts, dtype=torch.float32).clamp_min(1.0)
+                total_count = count_tensor.sum()
+                rare_counts = count_tensor[self.rare_aux_classes].clamp_min(1.0)
+                rare_aux_pos_weight = ((total_count - rare_counts) / rare_counts).clamp(min=1.0, max=20.0)
+            if not bool(torch.isfinite(rare_aux_pos_weight).all()):
+                raise ValueError("D12 rare aux pos_weight must be finite")
+        else:
+            rare_aux_pos_weight = torch.ones(len(self.rare_aux_classes), dtype=torch.float32)
+        self.register_buffer("rare_aux_pos_weight", rare_aux_pos_weight.float(), persistent=False)
         self.ce = WeightedCrossEntropy(
             class_weights=class_weights,
             label_smoothing=self.label_smoothing,
@@ -1040,6 +1074,53 @@ class D12GlobalLocalMotifLoss(nn.Module):
         pt = log_pt.exp().clamp(min=0.0, max=1.0)
         return ((1.0 - pt).pow(self.focal_gamma) * ce_per_sample).mean()
 
+    def _rare_aux_loss(self, model_out: Dict[str, torch.Tensor], y: torch.Tensor, logits: torch.Tensor) -> torch.Tensor:
+        if self.lambda_rare_aux <= 0.0:
+            return logits.new_zeros(())
+        rare_aux_logits = model_out.get("rare_aux_logits")
+        if not torch.is_tensor(rare_aux_logits):
+            raise KeyError("loss.lambda_rare_aux > 0 requires model_out['rare_aux_logits']")
+        if rare_aux_logits.ndim != 2 or rare_aux_logits.shape[1] != len(self.rare_aux_classes):
+            raise ValueError(
+                "rare_aux_logits must be [B, len(rare_aux_classes)], "
+                f"got {tuple(rare_aux_logits.shape)} for {len(self.rare_aux_classes)} classes"
+            )
+        classes = self.rare_aux_classes_tensor.to(device=y.device)
+        targets = (y.view(-1, 1) == classes.view(1, -1)).to(
+            device=rare_aux_logits.device,
+            dtype=rare_aux_logits.dtype,
+        )
+        pos_weight = self.rare_aux_pos_weight.to(device=rare_aux_logits.device, dtype=rare_aux_logits.dtype)
+        return F.binary_cross_entropy_with_logits(
+            rare_aux_logits,
+            targets,
+            pos_weight=pos_weight,
+        )
+
+    def _rare_margin_loss(self, logits: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        if self.lambda_rare_margin <= 0.0:
+            return logits.new_zeros(())
+        if not self.rare_margin_groups:
+            raise ValueError("loss.lambda_rare_margin > 0 requires loss.rare_margin_groups")
+        losses = []
+        num_classes = logits.shape[1]
+        for rare_cls, confusers in self.rare_margin_groups.items():
+            if rare_cls < 0 or rare_cls >= num_classes:
+                raise ValueError(f"Rare class {rare_cls} outside logits dim={num_classes}")
+            confuser_classes = [cls for cls in confusers if 0 <= cls < num_classes and cls != rare_cls]
+            if not confuser_classes:
+                continue
+            mask = y == int(rare_cls)
+            if not bool(mask.any()):
+                continue
+            true_logit = logits[mask, rare_cls]
+            conf_logits = logits[mask][:, confuser_classes]
+            max_conf = conf_logits.max(dim=1).values
+            losses.append(F.relu(float(self.rare_margin) - (true_logit - max_conf)).mean())
+        if not losses:
+            return logits.new_zeros(())
+        return torch.stack(losses).mean().to(dtype=logits.dtype)
+
     def forward(
         self,
         model_out: Dict[str, torch.Tensor],
@@ -1082,12 +1163,16 @@ class D12GlobalLocalMotifLoss(nn.Module):
             loss_div = logits.new_zeros(())
 
         loss_spatial = self._spatial_loss(model_out, logits)
+        loss_rare_aux = self._rare_aux_loss(model_out, y, logits)
+        loss_rare_margin = self._rare_margin_loss(logits, y)
         total = (
             loss_ce_main
             + self.lambda_local * loss_local
             + effective_lambda_supcon * loss_supcon
             + self.lambda_div * loss_div
             + self.lambda_spatial * loss_spatial
+            + self.lambda_rare_aux * loss_rare_aux
+            + self.lambda_rare_margin * loss_rare_margin
         )
         out = {
             "loss": total,
@@ -1099,11 +1184,15 @@ class D12GlobalLocalMotifLoss(nn.Module):
             "loss_supcon": loss_supcon,
             "loss_div": loss_div,
             "loss_spatial": loss_spatial,
+            "loss_rare_aux": loss_rare_aux,
+            "loss_rare_margin": loss_rare_margin,
             "effective_lambda_supcon": logits.new_tensor(effective_lambda_supcon),
             "effective_ce_factor": logits.new_tensor(ce_factor),
             "effective_ce_weight": logits.new_tensor(ce_factor),
             "logit_adjust_tau": logits.new_tensor(self.logit_adjust_tau),
             "focal_gamma": logits.new_tensor(self.focal_gamma),
+            "lambda_rare_aux": logits.new_tensor(self.lambda_rare_aux),
+            "lambda_rare_margin": logits.new_tensor(self.lambda_rare_margin),
             "diag_main_accuracy": (logits.argmax(dim=1) == y).float().mean().detach(),
         }
         if not torch.isfinite(total):

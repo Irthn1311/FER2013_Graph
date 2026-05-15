@@ -1,0 +1,33 @@
+inherits:
+  - d12a_stable_ce_first.yaml
+  - d12a_ddp_compile_fixedshape_runtime.yaml
+
+run:
+  config_name: d12a_repeat_disgust_rare_aux
+
+data:
+  target_class_repeat_factors:
+    1: 8.0
+
+model:
+  use_global_branch: true
+  encoder:
+    use_scale2: true
+  slot_iterations: 3
+  residual_slot_connection: false
+  use_rare_aux_heads: true
+  rare_aux_classes: [0, 1]
+
+loss:
+  class_weight_power: 0.25
+  label_smoothing: 0.05
+  lambda_rare_aux: 0.2
+  rare_aux_classes: [0, 1]
+  lambda_supcon: 0.0
+  lambda_div: 0.0
+  lambda_spatial: 0.0
+  ce_warmup_epochs: 0
+
+training:
+  epochs: 30
+  early_stopping_patience: 15

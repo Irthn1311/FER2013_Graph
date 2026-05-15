@@ -532,6 +532,9 @@ class D12GlobalLocalMotifModel(nn.Module):
         global_dim: int = 64,
         global_dropout: float = 0.3,
         supcon_projection_dim: int = 128,
+        use_rare_aux_heads: bool = False,
+        rare_aux_classes: Optional[list[int]] = None,
+        rare_aux_hidden_dim: Optional[int] = None,
         height: int = 48,
         width: int = 48,
         **_: Any,
@@ -544,6 +547,8 @@ class D12GlobalLocalMotifModel(nn.Module):
         self.hidden_dim = int(hidden_dim)
         self.num_slots = int(num_slots)
         self.use_global_branch = bool(use_global_branch)
+        self.use_rare_aux_heads = bool(use_rare_aux_heads)
+        self.rare_aux_classes = [int(cls) for cls in (rare_aux_classes or [0, 1])]
         self.global_dim = int(global_dim)
         self.height = int(height)
         self.width = int(width)
@@ -608,6 +613,24 @@ class D12GlobalLocalMotifModel(nn.Module):
             nn.GELU(),
             nn.Dropout(float(dropout)),
             nn.Linear(self.hidden_dim, int(supcon_projection_dim)),
+        )
+        if self.use_rare_aux_heads:
+            rare_hidden = int(rare_aux_hidden_dim or self.hidden_dim)
+            if not self.rare_aux_classes:
+                raise ValueError("use_rare_aux_heads=True requires non-empty rare_aux_classes")
+            self.rare_aux_head = nn.Sequential(
+                nn.LayerNorm(self.hidden_dim),
+                nn.Linear(self.hidden_dim, rare_hidden),
+                nn.GELU(),
+                nn.Dropout(float(dropout)),
+                nn.Linear(rare_hidden, len(self.rare_aux_classes)),
+            )
+        else:
+            self.rare_aux_head = None
+        self.register_buffer(
+            "rare_aux_classes_tensor",
+            torch.tensor(self.rare_aux_classes, dtype=torch.long),
+            persistent=False,
         )
         self.register_buffer("border_mask", self._make_border_mask(border_width=3), persistent=False)
         self.register_buffer("pixel_positions", self._make_pixel_positions(), persistent=False)
@@ -717,6 +740,9 @@ class D12GlobalLocalMotifModel(nn.Module):
         logits, class_motif_attn, class_repr = self.class_head(slots_refined)
         logits_local, class_motif_attn_local, class_repr_local = self.local_head(slots_context)
         motif_supcon = self.supcon_proj(slots_context.mean(dim=1))
+        rare_aux_logits = None
+        if self.rare_aux_head is not None:
+            rare_aux_logits = self.rare_aux_head(slots_context.mean(dim=1))
 
         border_mask = self.border_mask.to(device=slot_attn_maps.device, dtype=slot_attn_maps.dtype)
         border_mass = (slot_attn_maps * border_mask.view(1, 1, -1)).sum(dim=2)
@@ -767,6 +793,8 @@ class D12GlobalLocalMotifModel(nn.Module):
             "beta": beta,
             "motif_supcon": motif_supcon,
             "supcon_features": motif_supcon,
+            "rare_aux_logits": rare_aux_logits,
+            "rare_aux_classes_tensor": self.rare_aux_classes_tensor.to(device=x.device),
             "local_raw_proj": motif_supcon,
             "class_repr": class_repr,
             "class_repr_local": class_repr_local,

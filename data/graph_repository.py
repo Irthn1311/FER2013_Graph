@@ -239,6 +239,10 @@ class ChunkedGraphDataset(Dataset):
             groups[int(chunk_idx)].append(sample_idx)
         return groups
 
+    def label_at_index(self, idx: int) -> int:
+        chunk_idx, offset = self._index[int(idx)]
+        return int(self._get_chunk(chunk_idx)[offset].label)
+
     def _get_chunk(self, chunk_idx: int) -> List[PixelGraphSample]:
         if self.chunk_cache_size <= 0:
             return torch_load(self.chunk_paths[chunk_idx])
