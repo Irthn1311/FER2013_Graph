@@ -152,6 +152,10 @@ class D12PixelEncoder(nn.Module):
         use_gate_norm: bool = True,
         height: int = 48,
         width: int = 48,
+        enable_micro_diagnostics: bool = False,
+        save_attention_maps: bool = False,
+        save_node_similarity: bool = False,
+        diagnostic_max_samples: int = 8,
         **_: Any,
     ) -> None:
         super().__init__()
@@ -164,6 +168,10 @@ class D12PixelEncoder(nn.Module):
         self.height = int(height)
         self.width = int(width)
         self.internal_edge_dim = self.edge_dim + 1
+        self.enable_micro_diagnostics = bool(enable_micro_diagnostics)
+        self.save_attention_maps = bool(save_attention_maps)
+        self.save_node_similarity = bool(save_node_similarity)
+        self.diagnostic_max_samples = max(int(diagnostic_max_samples), 1)
 
         self.input_proj = nn.Sequential(
             nn.LayerNorm(self.node_dim),
@@ -193,6 +201,22 @@ class D12PixelEncoder(nn.Module):
         )
         scale2_edge_index = self._build_scale2_edge_index()
         self.register_buffer("scale2_edge_index", scale2_edge_index, persistent=False)
+
+    def set_micro_diagnostics(
+        self,
+        *,
+        enabled: bool = True,
+        save_node_similarity: Optional[bool] = None,
+        save_attention_maps: Optional[bool] = None,
+        diagnostic_max_samples: Optional[int] = None,
+    ) -> None:
+        self.enable_micro_diagnostics = bool(enabled)
+        if save_node_similarity is not None:
+            self.save_node_similarity = bool(save_node_similarity)
+        if save_attention_maps is not None:
+            self.save_attention_maps = bool(save_attention_maps)
+        if diagnostic_max_samples is not None:
+            self.diagnostic_max_samples = max(int(diagnostic_max_samples), 1)
 
     def _build_scale2_edge_index(self) -> torch.Tensor:
         src_nodes = []
@@ -244,6 +268,93 @@ class D12PixelEncoder(nn.Module):
         dynamic = torch.stack([delta_intensity, intensity_similarity], dim=-1)
         return torch.cat([static, dynamic], dim=-1)
 
+    @staticmethod
+    def _scalar_stats(prefix: str, tensor: torch.Tensor, diagnostics: Dict[str, torch.Tensor]) -> None:
+        value = tensor.detach().float()
+        diagnostics[f"{prefix}_mean"] = value.mean()
+        diagnostics[f"{prefix}_std"] = value.std(unbiased=False)
+
+    def _coords_from_x(self, x: torch.Tensor) -> torch.Tensor:
+        if x.shape[-1] >= 3:
+            return x.detach()[:, :, 1:3].float()
+        ys = torch.linspace(0.0, 1.0, self.height, device=x.device)
+        xs = torch.linspace(0.0, 1.0, self.width, device=x.device)
+        yy, xx = torch.meshgrid(ys, xs, indexing="ij")
+        coords = torch.stack([xx.reshape(-1), yy.reshape(-1)], dim=-1)
+        return coords.unsqueeze(0).expand(x.shape[0], -1, -1)
+
+    @staticmethod
+    def _mean_pairwise_cosine(h: torch.Tensor, mask: torch.Tensor, max_nodes: int = 128) -> torch.Tensor:
+        h = h.detach().float()
+        values = []
+        for sample_idx in range(min(int(h.shape[0]), int(mask.shape[0]))):
+            idx = mask[sample_idx].nonzero(as_tuple=False).flatten()
+            if idx.numel() < 2:
+                continue
+            if idx.numel() > max_nodes:
+                take = torch.linspace(
+                    0,
+                    idx.numel() - 1,
+                    steps=max_nodes,
+                    device=idx.device,
+                ).round().long()
+                idx = idx.index_select(0, take)
+            z = F.normalize(h[sample_idx].index_select(0, idx), dim=-1)
+            sim = z @ z.transpose(0, 1)
+            denom = max(int(idx.numel()) * (int(idx.numel()) - 1), 1)
+            values.append((sim.sum() - sim.diag().sum()) / float(denom))
+        if not values:
+            return h.new_zeros(())
+        return torch.stack(values).mean()
+
+    def _region_masks(self, x: torch.Tensor, node_mask: Optional[torch.Tensor]) -> Dict[str, torch.Tensor]:
+        coords = self._coords_from_x(x)
+        xx = coords[:, :, 0]
+        yy = coords[:, :, 1]
+        valid = torch.ones_like(xx, dtype=torch.bool)
+        if node_mask is not None:
+            valid = node_mask.to(device=x.device, dtype=torch.bool)
+        return {
+            "eye": valid & (yy >= 0.20) & (yy <= 0.45) & (xx >= 0.15) & (xx <= 0.85),
+            "nose_mouth": valid & (yy >= 0.40) & (yy <= 0.75) & (xx >= 0.25) & (xx <= 0.75),
+            "center": valid & (yy >= 0.15) & (yy <= 0.85) & (xx >= 0.15) & (xx <= 0.85),
+            "border": valid & ((xx <= 0.08) | (xx >= 0.92) | (yy <= 0.08) | (yy >= 0.92)),
+        }
+
+    def _add_micro_diagnostics(
+        self,
+        diagnostics: Dict[str, torch.Tensor],
+        *,
+        x: torch.Tensor,
+        node_mask: Optional[torch.Tensor],
+        h_input_proj: torch.Tensor,
+        h_after_scale1: torch.Tensor,
+        h_after_scale2: torch.Tensor,
+        h_pixel_final: torch.Tensor,
+    ) -> None:
+        with torch.no_grad():
+            self._scalar_stats("encoder_input", h_input_proj, diagnostics)
+            self._scalar_stats("encoder_scale1", h_after_scale1, diagnostics)
+            self._scalar_stats("encoder_scale2", h_after_scale2, diagnostics)
+            self._scalar_stats("encoder_final", h_pixel_final, diagnostics)
+            delta = (h_after_scale2.detach().float() - h_after_scale1.detach().float()).norm(dim=-1)
+            scale1_norm = h_after_scale1.detach().float().norm(dim=-1)
+            delta_norm = delta.mean()
+            diagnostics["encoder_scale2_delta_norm"] = delta_norm
+            diagnostics["encoder_scale2_delta_ratio"] = delta_norm / scale1_norm.mean().clamp_min(1e-8)
+
+            if self.save_node_similarity:
+                max_samples = min(self.diagnostic_max_samples, x.shape[0])
+                region_masks = self._region_masks(x[:max_samples], node_mask[:max_samples] if node_mask is not None else None)
+                h1 = h_after_scale1[:max_samples]
+                h2 = h_after_scale2[:max_samples]
+                for region, mask in region_masks.items():
+                    c1 = self._mean_pairwise_cosine(h1, mask, max_nodes=128)
+                    c2 = self._mean_pairwise_cosine(h2, mask, max_nodes=128)
+                    diagnostics[f"cos_{region}_scale1"] = c1
+                    diagnostics[f"cos_{region}_scale2"] = c2
+                    diagnostics[f"cos_{region}_delta"] = c2 - c1
+
     def forward(
         self,
         x: torch.Tensor,
@@ -264,11 +375,16 @@ class D12PixelEncoder(nn.Module):
         h = self.input_proj(x)
         if node_mask is not None:
             h = h * node_mask.to(device=h.device, dtype=h.dtype).unsqueeze(-1)
+        h_input_proj = h
 
         diagnostics: Dict[str, torch.Tensor] = {}
         edge_attr_scale1 = self._with_scale_value(edge_attr, 1.0)
+        h_after_scale1: Optional[torch.Tensor] = None
+        h_after_scale2: Optional[torch.Tensor] = None
         for idx, layer in enumerate(self.scale1_layers):
             h, diag = layer(h, edge_index, edge_attr_scale1, node_mask=node_mask)
+            if idx == 0:
+                h_after_scale1 = h
             diagnostics[f"scale1_layer{idx}_gate_mean"] = diag["gate_mean"]
             diagnostics[f"scale1_layer{idx}_gate_std"] = diag["gate_std"]
             diagnostics[f"scale1_layer{idx}_gate_min"] = diag["gate_min"]
@@ -286,6 +402,8 @@ class D12PixelEncoder(nn.Module):
                 diagnostics[f"scale2_layer{idx}_gate_std"] = diag2["gate_std"]
                 diagnostics[f"scale2_layer{idx}_gate_min"] = diag2["gate_min"]
                 diagnostics[f"scale2_layer{idx}_gate_max"] = diag2["gate_max"]
+                if idx == 0:
+                    h_after_scale2 = h
 
         diagnostics["encoder_gate_mean"] = torch.stack(
             [v for k, v in diagnostics.items() if k.endswith("gate_mean")]
@@ -300,6 +418,18 @@ class D12PixelEncoder(nn.Module):
             [v for k, v in diagnostics.items() if k.endswith("gate_max")]
         ).amax()
         diagnostics["scale2_edge_count"] = x.new_tensor(float(self.scale2_edge_index.shape[1]))
+        if self.enable_micro_diagnostics:
+            h_after_scale1 = h_after_scale1 if h_after_scale1 is not None else h_input_proj
+            h_after_scale2 = h_after_scale2 if h_after_scale2 is not None else h_after_scale1
+            self._add_micro_diagnostics(
+                diagnostics,
+                x=x,
+                node_mask=node_mask,
+                h_input_proj=h_input_proj,
+                h_after_scale1=h_after_scale1,
+                h_after_scale2=h_after_scale2,
+                h_pixel_final=h,
+            )
         return h, diagnostics
 
 
@@ -534,6 +664,11 @@ class D12GlobalLocalMotifModel(nn.Module):
         supcon_projection_dim: int = 128,
         height: int = 48,
         width: int = 48,
+        diagnostics: Optional[Dict[str, Any]] = None,
+        enable_micro_diagnostics: bool = False,
+        save_attention_maps: bool = False,
+        save_node_similarity: bool = False,
+        diagnostic_max_samples: int = 8,
         **_: Any,
     ) -> None:
         super().__init__()
@@ -554,11 +689,27 @@ class D12GlobalLocalMotifModel(nn.Module):
         if self.global_dim != 64:
             raise ValueError("D12A mainline expects global_dim=64")
 
+        diag_cfg = dict(diagnostics or {})
+        enable_micro_diagnostics = bool(
+            diag_cfg.get("enable_micro_diagnostics", enable_micro_diagnostics)
+        )
+        save_attention_maps = bool(diag_cfg.get("save_attention_maps", save_attention_maps))
+        save_node_similarity = bool(diag_cfg.get("save_node_similarity", save_node_similarity))
+        diagnostic_max_samples = int(diag_cfg.get("diagnostic_max_samples", diagnostic_max_samples))
+        self.enable_micro_diagnostics = bool(enable_micro_diagnostics)
+        self.save_attention_maps = bool(save_attention_maps)
+        self.save_node_similarity = bool(save_node_similarity)
+        self.diagnostic_max_samples = max(int(diagnostic_max_samples), 1)
+
         encoder_cfg = dict(encoder or {})
         encoder_cfg.setdefault("num_layers", 2)
         encoder_cfg.setdefault("use_scale2", True)
         encoder_cfg.setdefault("scale2_alpha", 1.0)
         encoder_cfg.setdefault("use_gate_norm", True)
+        encoder_cfg.setdefault("enable_micro_diagnostics", self.enable_micro_diagnostics)
+        encoder_cfg.setdefault("save_attention_maps", self.save_attention_maps)
+        encoder_cfg.setdefault("save_node_similarity", self.save_node_similarity)
+        encoder_cfg.setdefault("diagnostic_max_samples", self.diagnostic_max_samples)
         self.encoder = D12PixelEncoder(
             node_dim=self.node_dim,
             edge_dim=self.edge_dim,
@@ -611,6 +762,28 @@ class D12GlobalLocalMotifModel(nn.Module):
         )
         self.register_buffer("border_mask", self._make_border_mask(border_width=3), persistent=False)
         self.register_buffer("pixel_positions", self._make_pixel_positions(), persistent=False)
+
+    def set_micro_diagnostics(
+        self,
+        *,
+        enabled: bool = True,
+        save_attention_maps: Optional[bool] = None,
+        save_node_similarity: Optional[bool] = None,
+        diagnostic_max_samples: Optional[int] = None,
+    ) -> None:
+        self.enable_micro_diagnostics = bool(enabled)
+        if save_attention_maps is not None:
+            self.save_attention_maps = bool(save_attention_maps)
+        if save_node_similarity is not None:
+            self.save_node_similarity = bool(save_node_similarity)
+        if diagnostic_max_samples is not None:
+            self.diagnostic_max_samples = max(int(diagnostic_max_samples), 1)
+        self.encoder.set_micro_diagnostics(
+            enabled=self.enable_micro_diagnostics,
+            save_attention_maps=self.save_attention_maps,
+            save_node_similarity=self.save_node_similarity,
+            diagnostic_max_samples=self.diagnostic_max_samples,
+        )
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "D12GlobalLocalMotifModel":
@@ -727,6 +900,18 @@ class D12GlobalLocalMotifModel(nn.Module):
         slot_area_entropy = -(
             slot_area_norm * slot_area_norm.clamp_min(1e-8).log()
         ).sum(dim=1).mean()
+        effective_slots = slot_area_entropy.detach().exp()
+        slot_attention_peak = slot_attn_maps.detach().amax(dim=2).mean()
+        slot_attention_entropy_per_slot = -(
+            slot_attn_maps.detach().float()
+            * slot_attn_maps.detach().float().clamp_min(1e-8).log()
+        ).sum(dim=2).mean()
+        class_avg = class_motif_attn.detach().float().mean(dim=0)
+        class_part_similarity_disgust_angry = F.cosine_similarity(
+            class_avg[1].unsqueeze(0),
+            class_avg[0].unsqueeze(0),
+            dim=1,
+        ).squeeze(0)
 
         diagnostics: Dict[str, torch.Tensor] = {
             "encoder_gate_mean": encoder_diag["encoder_gate_mean"],
@@ -740,10 +925,20 @@ class D12GlobalLocalMotifModel(nn.Module):
             "logits_mean": logits.detach().mean(),
             "logits_std": logits.detach().std(unbiased=False),
             "slot_area_mean": slot_area.detach().mean(),
+            "slot_area_std": slot_area.detach().std(unbiased=False),
+            "slot_area_min": slot_area.detach().amin(),
+            "slot_area_max": slot_area.detach().amax(),
+            "slot_attention_peak": slot_attention_peak,
+            "slot_attention_entropy_per_slot": slot_attention_entropy_per_slot,
+            "effective_slots": effective_slots,
+            "class_part_similarity_disgust_angry": class_part_similarity_disgust_angry,
             "border_mass_per_slot_mean": border_mass_per_slot.detach().mean(),
         }
+        for key, value in encoder_diag.items():
+            if key not in diagnostics and torch.is_tensor(value) and value.numel() == 1:
+                diagnostics[key] = value.detach()
 
-        return {
+        out = {
             "logits": logits,
             "logits_local": logits_local,
             "motif_embeddings": slots_context,
@@ -786,3 +981,7 @@ class D12GlobalLocalMotifModel(nn.Module):
             "scale2_edge_count": diagnostics["scale2_edge_count"],
             "diagnostics": diagnostics,
         }
+        for key, value in diagnostics.items():
+            if key not in out and torch.is_tensor(value) and value.numel() == 1:
+                out[key] = value
+        return out

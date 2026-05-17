@@ -31,8 +31,10 @@ def evaluate_model(
     model.eval()
     y_true = []
     y_pred = []
+    y_pred_local = []
     graph_ids = []
     scores = []
+    scores_local = []
     correct_examples = []
     wrong_examples = []
     d6_diag = {
@@ -51,11 +53,19 @@ def evaluate_model(
         out = model(batch)
         logits = out["logits"]
         pred = logits.argmax(dim=1)
+        logits_local = out.get("logits_local")
+        pred_local = None
+        if torch.is_tensor(logits_local):
+            pred_local = logits_local.argmax(dim=1)
         _accumulate_d6_diagnostics(out, d6_diag)
         y_true.extend(batch["y"].detach().cpu().tolist())
         y_pred.extend(pred.detach().cpu().tolist())
+        if pred_local is not None:
+            y_pred_local.extend(pred_local.detach().cpu().tolist())
         graph_ids.extend(batch["graph_id"].detach().cpu().tolist())
         scores.extend(logits.detach().cpu().tolist())
+        if torch.is_tensor(logits_local):
+            scores_local.extend(logits_local.detach().cpu().tolist())
         if len(correct_examples) < collect_examples or len(wrong_examples) < collect_examples:
             x_cpu = batch["x"].detach().cpu()
             y_cpu = batch["y"].detach().cpu()
@@ -81,6 +91,19 @@ def evaluate_model(
     metrics["classification_report"] = classification_report_dict(y_true, y_pred)
     metrics["confusion_matrix"] = confusion_matrix_array(y_true, y_pred)
     metrics["pred_count"] = np.bincount(np.asarray(y_pred, dtype=np.int64), minlength=NUM_CLASSES).tolist()
+    if y_pred_local and len(y_pred_local) == len(y_true):
+        local_metrics = compute_metrics(y_true, y_pred_local)
+        metrics["macro_f1_local"] = float(local_metrics["macro_f1"])
+        metrics["accuracy_local"] = float(local_metrics["accuracy"])
+        metrics["weighted_f1_local"] = float(local_metrics["weighted_f1"])
+        metrics["classification_report_local"] = classification_report_dict(y_true, y_pred_local)
+        metrics["confusion_matrix_local"] = confusion_matrix_array(y_true, y_pred_local)
+        metrics["pred_count_local"] = np.bincount(
+            np.asarray(y_pred_local, dtype=np.int64),
+            minlength=NUM_CLASSES,
+        ).tolist()
+        metrics["y_pred_local"] = y_pred_local
+        metrics["scores_local"] = scores_local
     metrics["y_true"] = y_true
     metrics["y_pred"] = y_pred
     metrics["graph_id"] = graph_ids

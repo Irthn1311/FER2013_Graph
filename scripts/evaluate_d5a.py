@@ -46,6 +46,8 @@ def run_evaluate(config, checkpoint=None):
     correct_path = eval_dir / "correct_examples.png"
     wrong_path = eval_dir / "wrong_examples.png"
     save_confusion_matrix(metrics["confusion_matrix"], cm_path)
+    if metrics.get("confusion_matrix_local") is not None:
+        save_confusion_matrix(metrics["confusion_matrix_local"], eval_dir / "confusion_matrix_local.png")
     save_predictions_csv(metrics, eval_dir / "predictions.csv")
     save_example_grid(metrics.get("correct_examples", []), correct_path, "10 correct predictions")
     save_example_grid(metrics.get("wrong_examples", []), wrong_path, "10 wrong predictions")
@@ -55,7 +57,12 @@ def run_evaluate(config, checkpoint=None):
             "macro_f1": metrics["macro_f1"],
             "weighted_f1": metrics["weighted_f1"],
             "pred_count": metrics["pred_count"],
+            "pred_count_local": metrics.get("pred_count_local"),
+            "accuracy_local": metrics.get("accuracy_local"),
+            "macro_f1_local": metrics.get("macro_f1_local"),
+            "weighted_f1_local": metrics.get("weighted_f1_local"),
             "classification_report": metrics["classification_report"],
+            "classification_report_local": metrics.get("classification_report_local"),
         },
         eval_dir / "metrics.json",
     )
@@ -63,6 +70,8 @@ def run_evaluate(config, checkpoint=None):
         dump_json(metrics["d6b_diagnostics"], eval_dir / "d6b_diagnostics.json")
     report = metrics["classification_report"]
     dump_json(report, eval_dir / "classification_report.json")
+    if metrics.get("classification_report_local"):
+        dump_json(metrics["classification_report_local"], eval_dir / "classification_report_local.json")
     report_lines = []
     for label, values in report.items():
         if isinstance(values, dict):
@@ -85,6 +94,9 @@ def run_evaluate(config, checkpoint=None):
     print(f"Macro F1:    {metrics['macro_f1']:.4f}")
     print(f"Weighted F1: {metrics['weighted_f1']:.4f}")
     print(f"pred_count:  {metrics['pred_count']}")
+    if metrics.get("pred_count_local") is not None:
+        print(f"pred_count_local:  {metrics['pred_count_local']}")
+        print(f"Local Macro F1:    {metrics.get('macro_f1_local', 0.0):.4f}")
     print("\nClassification report:")
     for label, values in report.items():
         if isinstance(values, dict):
