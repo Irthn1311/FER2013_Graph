@@ -12,6 +12,7 @@ outputs/
 output/
 output_smoke/
 outputs_log/
+outputs_image/
 # WandB
 wandb/
 

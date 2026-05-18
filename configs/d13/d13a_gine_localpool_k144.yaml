@@ -1,0 +1,11 @@
+inherits:
+  - d13a_edgeaware_lite_localpool_k144.yaml
+
+run:
+  config_name: d13a_gine_localpool_k144
+
+model:
+  encoder:
+    name: gine
+    jumping_knowledge: gated
+

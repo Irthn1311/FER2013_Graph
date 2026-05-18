@@ -1,0 +1,29 @@
+inherits:
+  - d13a_gine_localpool_k144.yaml
+
+run:
+  config_name: debug_d13a_gine_localpool_k144_5ep
+
+debug: true
+
+paths:
+  output_root: outputs/d13_hierarchical_reduction
+
+data:
+  batch_size: 16
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+
+loss:
+  supcon_weight: 0.0
+
+training:
+  debug: true
+  epochs: 5
+  max_epochs: 5
+  batch_size: 16
+  num_workers: 0
+  early_stopping_patience: 10
+  grad_clip: 1.0
+  amp: false

@@ -1,0 +1,98 @@
+run:
+  config_name: d13a_edgeaware_lite_localpool_k144
+  seed: 42
+
+paths:
+  csv_root: auto
+  graph_repo_path: artifacts/graph-repo/graph_repo
+  output_root: outputs/d13_hierarchical_reduction
+
+environments:
+  local:
+    paths:
+      csv_root: data
+      graph_repo_path: artifacts/graph-repo/graph_repo
+      output_root: outputs/d13_hierarchical_reduction
+  kaggle:
+    paths:
+      csv_root: auto
+      graph_repo_path: /kaggle/working/artifacts/graph_repo
+      output_root: /kaggle/working/outputs/d13_hierarchical_reduction
+
+graph:
+  height: 48
+  width: 48
+  connectivity: 8
+
+data:
+  dataset: fer2013
+  batch_size: 16
+  num_workers: 0
+  pin_memory: false
+  persistent_workers: false
+  chunk_cache_size: 2
+  graph_cache_chunks: 2
+  chunk_aware_shuffle: true
+  node_dim: 7
+  edge_dim: 5
+
+model:
+  name: d13_hierarchical_reduction
+  node_dim: 7
+  edge_dim: 5
+  hidden_dim: 64
+  num_classes: 7
+  pixel_layers: 2
+  region_layers: 2
+  dropout: 0.1
+  encoder:
+    name: edgeaware_lite_v2
+    jumping_knowledge: gated
+  pooling:
+    name: local_assignment
+    grid_size: 12
+    assign_m: 4
+    neighbor_mode: "4"
+  readout_attention: true
+  return_region_embeddings: true
+  return_encoder_layers: true
+
+loss:
+  name: d13_reduction
+  use_class_weights: true
+  class_counts: [3995, 436, 4097, 7215, 4830, 3171, 4965]
+  class_weight_power: 0.25
+  label_smoothing: 0.05
+  pool_entropy_weight: 0.0005
+  pool_balance_weight: 0.001
+  pool_compactness_weight: 0.001
+  pool_area_weight: 0.0005
+  supcon_weight: 0.0
+
+optimizer:
+  name: adamw
+  lr: 0.0003
+  weight_decay: 0.0001
+
+scheduler:
+  name: cosine
+  t_max: 50
+  min_lr: 0.000001
+
+training:
+  seed: 42
+  epochs: 50
+  max_epochs: 50
+  batch_size: 16
+  num_workers: 0
+  monitor: val_macro_f1
+  early_stopping_metric: val_macro_f1
+  early_stopping_patience: 12
+  grad_clip: 1.0
+  amp: false
+  multi_gpu: false
+  use_compile: false
+
+logging:
+  use_wandb: false
+

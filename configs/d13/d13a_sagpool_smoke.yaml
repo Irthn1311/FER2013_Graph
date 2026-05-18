@@ -1,0 +1,18 @@
+inherits:
+  - d13a_edgeaware_lite_localpool_k144.yaml
+
+run:
+  config_name: d13a_sagpool_smoke
+
+model:
+  pooling:
+    name: sagpool/topk
+    ratio: 0.0625
+    assign_m: 4
+
+training:
+  epochs: 2
+  max_train_batches: 2
+  max_val_batches: 2
+  max_test_batches: 2
+
