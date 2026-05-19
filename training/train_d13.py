@@ -168,6 +168,8 @@ def _resume_training_state(
     optimizer: torch.optim.Optimizer,
     scheduler: Any,
     device: torch.device,
+    resume_optimizer_state: bool = True,
+    resume_scheduler_state: bool = True,
 ) -> Dict[str, Any]:
     if not resume_checkpoint:
         return {
@@ -190,10 +192,14 @@ def _resume_training_state(
 
     ckpt = _load_checkpoint_state(resume_path, device)
     model.load_state_dict(ckpt["model_state_dict"])
-    if ckpt.get("optimizer_state_dict") is not None:
+    optimizer_state_loaded = False
+    scheduler_state_loaded = False
+    if resume_optimizer_state and ckpt.get("optimizer_state_dict") is not None:
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
-    if scheduler is not None and ckpt.get("scheduler_state_dict") is not None:
+        optimizer_state_loaded = True
+    if resume_scheduler_state and scheduler is not None and ckpt.get("scheduler_state_dict") is not None:
         scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+        scheduler_state_loaded = True
 
     resume_epoch = int(ckpt.get("epoch", 0))
     best_value = -float("inf")
@@ -221,7 +227,15 @@ def _resume_training_state(
         "best_checkpoint_path": str(best_target if best_target.exists() else best_source),
         "resume_checkpoint": str(resume_path),
         "source_run_root": str(source_run_root),
+        "optimizer_state_loaded": optimizer_state_loaded,
+        "scheduler_state_loaded": scheduler_state_loaded,
     }
+
+
+def _current_lr(optimizer: torch.optim.Optimizer) -> float:
+    if not optimizer.param_groups:
+        return 0.0
+    return float(optimizer.param_groups[0].get("lr", 0.0))
 
 
 def _init_wandb(config: Dict[str, Any], output_root: Path):
@@ -441,7 +455,16 @@ def run_train(
     best_epoch = -1
     stale = 0
     history = []
-    resume_state = _resume_training_state(resume_checkpoint, output_root, model, optimizer, scheduler, device)
+    resume_state = _resume_training_state(
+        resume_checkpoint,
+        output_root,
+        model,
+        optimizer,
+        scheduler,
+        device,
+        resume_optimizer_state=bool(training_cfg.get("resume_optimizer_state", True)),
+        resume_scheduler_state=bool(training_cfg.get("resume_scheduler_state", True)),
+    )
     start_epoch = int(resume_state["start_epoch"])
     if resume_state["enabled"]:
         best_value = float(resume_state["best_value"])
@@ -453,6 +476,9 @@ def run_train(
             "start_epoch": int(start_epoch),
             "source_run_root": str(resume_state["source_run_root"]),
             "carried_best_checkpoint": str(resume_state["best_checkpoint_path"]),
+            "optimizer_state_loaded": bool(resume_state["optimizer_state_loaded"]),
+            "scheduler_state_loaded": bool(resume_state["scheduler_state_loaded"]),
+            "initial_resume_lr": _current_lr(optimizer),
         }
         (output_root / "resume_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
         _append_csv(output_root / "resume_log.csv", metadata)
@@ -483,6 +509,7 @@ def run_train(
                         "target_max_epoch": int(epochs),
                     }
                 )
+            row["lr"] = _current_lr(optimizer)
             row.update({f"train_{k}": v for k, v in train_metrics.items()})
             row.update({f"val_{k}": v for k, v in val_metrics.items()})
             _append_csv(output_root / "train_log.csv", row)
@@ -500,6 +527,7 @@ def run_train(
                     **{f"val/{k}": v for k, v in val_metrics.items()},
                     **{f"pool/train_{k}": v for k, v in train_pool.items()},
                     **{f"pool/val_{k}": v for k, v in val_pool.items()},
+                    "optimizer/lr": row["lr"],
                 },
                 epoch=epoch,
             )
@@ -516,7 +544,7 @@ def run_train(
             print(
                 f"Epoch {epoch:03d}/{epochs:03d} "
                 f"train_loss={train_metrics['loss']:.4f} val_macro_f1={val_metrics['macro_f1']:.4f} "
-                f"best={best_value:.4f}@{best_epoch}"
+                f"best={best_value:.4f}@{best_epoch} lr={row['lr']:.2e}"
             )
             if stale >= patience:
                 print(f"Early stopping after {stale} stale epochs")

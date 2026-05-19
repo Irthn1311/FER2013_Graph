@@ -8,5 +8,7 @@ training:
   epochs: 100
   max_epochs: 100
   early_stopping_metric: val_macro_f1
+  early_stopping_patience: 25
+  resume_optimizer_state: false
+  resume_scheduler_state: false
   amp: false
-
