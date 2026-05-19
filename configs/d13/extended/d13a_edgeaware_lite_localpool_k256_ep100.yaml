@@ -4,6 +4,9 @@ inherits:
 run:
   config_name: d13a_edgeaware_lite_localpool_k256_ep100
 
+optimizer:
+  lr: 0.0001
+
 training:
   epochs: 100
   max_epochs: 100
