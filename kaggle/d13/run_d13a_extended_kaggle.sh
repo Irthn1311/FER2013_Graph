@@ -4,6 +4,10 @@ set -euo pipefail
 run_key="${1:-}"
 
 case "${run_key}" in
+  extended_baseline_k144)
+    config="configs/d13/extended/d13a_edgeaware_lite_localpool_k144_ep100.yaml"
+    source_run="d13a_edgeaware_lite_localpool_k144_outputs"
+    ;;
   extended_k256)
     config="configs/d13/extended/d13a_edgeaware_lite_localpool_k256_ep100.yaml"
     source_run="d13a_edgeaware_lite_localpool_k256_outputs"
@@ -26,7 +30,7 @@ case "${run_key}" in
     ;;
   *)
     echo "Usage: bash kaggle/d13/run_d13a_extended_kaggle.sh <run_key>" >&2
-    echo "Valid run_key: extended_k256 extended_seed3 extended_no_aux extended_anneal_1to05 extended_compact_balance_x2" >&2
+    echo "Valid run_key: extended_baseline_k144 extended_k256 extended_seed3 extended_no_aux extended_anneal_1to05 extended_compact_balance_x2" >&2
     exit 2
     ;;
 esac
@@ -75,4 +79,3 @@ summary = json.loads(Path("${output_dir}/d13_debug_check_summary.json").read_tex
 print("[D13A extended] checker_decision=" + str(summary.get("final_decision")))
 PY
 fi
-

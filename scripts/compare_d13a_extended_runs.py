@@ -18,6 +18,7 @@ import pandas as pd
 
 EMOTION_NAMES = ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
 DEFAULT_EXTENDED_KEYS = {
+    "extended_baseline_k144": "d13a_edgeaware_lite_localpool_k144_outputs",
     "extended_k256": "d13a_edgeaware_lite_localpool_k256_outputs",
     "extended_seed3": "d13a_edgeaware_lite_localpool_k144_seed3_outputs",
     "extended_no_aux": "d13a_edgeaware_lite_localpool_k144_no_aux_outputs",
@@ -366,4 +367,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
