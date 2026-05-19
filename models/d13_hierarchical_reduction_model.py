@@ -166,6 +166,10 @@ class D13HierarchicalReductionModel(nn.Module):
     def from_config(cls, cfg: Dict[str, Any]) -> "D13HierarchicalReductionModel":
         return cls(**dict(cfg))
 
+    def set_epoch(self, epoch: int) -> None:
+        if hasattr(self.reduction, "set_epoch"):
+            self.reduction.set_epoch(epoch)
+
     @staticmethod
     def _dense_to_flat(batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         x = batch.get("x")
@@ -261,4 +265,3 @@ class D13HierarchicalReductionModel(nn.Module):
         if not self.return_region_embeddings:
             output.pop("h_region", None)
         return output
-

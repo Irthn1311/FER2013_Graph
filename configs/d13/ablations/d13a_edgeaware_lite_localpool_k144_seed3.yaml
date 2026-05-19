@@ -1,0 +1,16 @@
+inherits:
+  - ../d13a_edgeaware_lite_localpool_k144.yaml
+
+run:
+  config_name: d13a_edgeaware_lite_localpool_k144_seed3
+
+training:
+  seed: 3
+  epochs: 50
+  max_epochs: 50
+  early_stopping_metric: val_macro_f1
+  amp: false
+
+loss:
+  supcon_weight: 0.0
+

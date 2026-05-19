@@ -22,6 +22,11 @@ class LocalAssignmentPool(nn.Module):
         eps: float = 1e-6,
         save_visualization: bool = False,
         target_area: float | None = None,
+        assignment_temperature: float = 1.0,
+        assignment_temperature_start: float | None = None,
+        assignment_temperature_end: float | None = None,
+        assignment_temperature_anneal_epochs: int | None = None,
+        min_assignment_temperature: float = 0.05,
         **_: Any,
     ) -> None:
         super().__init__()
@@ -32,6 +37,18 @@ class LocalAssignmentPool(nn.Module):
         self.eps = float(eps)
         self.save_visualization = bool(save_visualization)
         self.target_area = target_area
+        self.assignment_temperature = float(assignment_temperature)
+        self.assignment_temperature_start = (
+            None if assignment_temperature_start is None else float(assignment_temperature_start)
+        )
+        self.assignment_temperature_end = (
+            None if assignment_temperature_end is None else float(assignment_temperature_end)
+        )
+        self.assignment_temperature_anneal_epochs = (
+            None if assignment_temperature_anneal_epochs is None else int(assignment_temperature_anneal_epochs)
+        )
+        self.min_assignment_temperature = float(min_assignment_temperature)
+        self.current_epoch = 0
         if self.grid_size <= 0:
             raise ValueError("grid_size must be positive")
         if self.assign_m <= 0:
@@ -80,6 +97,24 @@ class LocalAssignmentPool(nn.Module):
     def set_save_visualization(self, enabled: bool) -> None:
         self.save_visualization = bool(enabled)
 
+    def set_epoch(self, epoch: int) -> None:
+        self.current_epoch = max(int(epoch), 0)
+
+    def current_temperature(self) -> float:
+        if (
+            self.assignment_temperature_start is None
+            or self.assignment_temperature_end is None
+            or self.assignment_temperature_anneal_epochs is None
+            or self.assignment_temperature_anneal_epochs <= 0
+        ):
+            return max(float(self.assignment_temperature), self.min_assignment_temperature)
+        denom = max(float(self.assignment_temperature_anneal_epochs - 1), 1.0)
+        progress = min(max(float(self.current_epoch - 1) / denom, 0.0), 1.0)
+        temp = self.assignment_temperature_start + progress * (
+            self.assignment_temperature_end - self.assignment_temperature_start
+        )
+        return max(float(temp), self.min_assignment_temperature)
+
     def forward(
         self,
         h_pixel: torch.Tensor,
@@ -108,6 +143,7 @@ class LocalAssignmentPool(nn.Module):
         k = self.num_regions
         m = min(self.assign_m, k)
         base_anchors = self.anchor_offsets.to(device=device, dtype=pos.dtype)
+        temperature = self.current_temperature()
 
         for out_graph_idx, graph_id in enumerate(graph_ids.tolist()):
             mask = batch.long() == int(graph_id)
@@ -127,7 +163,7 @@ class LocalAssignmentPool(nn.Module):
             rel_pos = pos_g.unsqueeze(1) - anchor_pos
             h_rep = h_g.unsqueeze(1).expand(-1, m, -1)
             logits = self.assignment_mlp(torch.cat([h_rep, rel_pos.to(dtype), anchor_pos.to(dtype)], dim=-1)).squeeze(-1)
-            weights = torch.softmax(logits, dim=1)
+            weights = torch.softmax(logits / max(temperature, self.min_assignment_temperature), dim=1)
 
             region_sum = h_g.new_zeros((k, self.hidden_dim))
             flat_idx = nearest_idx.reshape(-1)
@@ -193,8 +229,8 @@ class LocalAssignmentPool(nn.Module):
             "entropy_loss": entropy_loss,
             "area_loss": area_loss,
             "target_area": h_region.new_tensor(target_area),
+            "assignment_temperature": h_region.new_tensor(temperature),
         }
         if assignment_payload:
             aux["assignment_maps"] = assignment_payload
         return h_region, region_edge_index, region_batch, {"region_pos": region_pos, **aux}
-

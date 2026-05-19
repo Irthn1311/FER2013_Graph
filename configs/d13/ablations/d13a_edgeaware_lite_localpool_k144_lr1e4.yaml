@@ -1,0 +1,20 @@
+inherits:
+  - ../d13a_edgeaware_lite_localpool_k144.yaml
+
+run:
+  config_name: d13a_edgeaware_lite_localpool_k144_lr1e4
+
+optimizer:
+  name: adamw
+  lr: 0.0001
+  weight_decay: 0.0001
+
+training:
+  epochs: 50
+  max_epochs: 50
+  early_stopping_metric: val_macro_f1
+  amp: false
+
+loss:
+  supcon_weight: 0.0
+

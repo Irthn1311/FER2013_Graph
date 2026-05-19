@@ -1,0 +1,19 @@
+inherits:
+  - ../d13a_edgeaware_lite_localpool_k144.yaml
+
+run:
+  config_name: d13a_edgeaware_lite_localpool_k144_no_aux
+
+loss:
+  pool_entropy_weight: 0.0
+  pool_balance_weight: 0.0
+  pool_compactness_weight: 0.0
+  pool_area_weight: 0.0
+  supcon_weight: 0.0
+
+training:
+  epochs: 50
+  max_epochs: 50
+  early_stopping_metric: val_macro_f1
+  amp: false
+

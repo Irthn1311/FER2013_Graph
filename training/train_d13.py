@@ -156,6 +156,12 @@ def build_objects(config: Dict[str, Any], device_arg: str | None = None):
     return model, criterion, optimizer, scheduler, device
 
 
+def _set_model_epoch(model: torch.nn.Module, epoch: int) -> None:
+    target = model.module if hasattr(model, "module") else model
+    if hasattr(target, "set_epoch"):
+        target.set_epoch(epoch)
+
+
 def _run_epoch(
     model: torch.nn.Module,
     criterion: D13ReductionLoss,
@@ -169,6 +175,7 @@ def _run_epoch(
     amp: bool = False,
 ) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float]]:
     is_train = optimizer is not None
+    _set_model_epoch(model, epoch)
     model.train(is_train)
     scaler = torch.cuda.amp.GradScaler(enabled=bool(amp) and device.type == "cuda")
     totals: Dict[str, float] = {}

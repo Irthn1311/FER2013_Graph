@@ -1,0 +1,25 @@
+inherits:
+  - ../d13a_edgeaware_lite_localpool_k144.yaml
+
+run:
+  config_name: d13a_edgeaware_lite_localpool_k144_anneal_1to05
+
+model:
+  pooling:
+    name: local_assignment
+    grid_size: 12
+    assign_m: 4
+    neighbor_mode: "4"
+    assignment_temperature_start: 1.0
+    assignment_temperature_end: 0.5
+    assignment_temperature_anneal_epochs: 30
+
+loss:
+  supcon_weight: 0.0
+
+training:
+  epochs: 50
+  max_epochs: 50
+  early_stopping_metric: val_macro_f1
+  amp: false
+

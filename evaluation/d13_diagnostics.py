@@ -55,6 +55,7 @@ def compute_assignment_stats(aux: Dict[str, Any]) -> Dict[str, float]:
         "compactness_loss",
         "entropy_loss",
         "area_loss",
+        "assignment_temperature",
     )
     out: Dict[str, float] = {}
     for key in keys:
@@ -197,4 +198,3 @@ def write_d13_report(
     path = output_dir / "d13a_report.md"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
-
