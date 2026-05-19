@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import nullcontext
 import json
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -145,6 +147,83 @@ def _save_checkpoint(
     )
 
 
+def _load_checkpoint_state(path: Path, device: torch.device) -> Dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"Resume checkpoint not found: {path}")
+    return torch.load(path, map_location=device, weights_only=False)
+
+
+def _same_or_nested(path: Path, maybe_parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(maybe_parent.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def _resume_training_state(
+    resume_checkpoint: str | Path | None,
+    output_root: Path,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler: Any,
+    device: torch.device,
+) -> Dict[str, Any]:
+    if not resume_checkpoint:
+        return {
+            "enabled": False,
+            "start_epoch": 1,
+            "resume_epoch": 0,
+            "best_value": -float("inf"),
+            "best_epoch": -1,
+            "best_checkpoint_path": "",
+        }
+
+    resume_path = Path(resume_checkpoint)
+    source_run_root = resume_path.parent.parent if resume_path.parent.name == "checkpoints" else resume_path.parent
+    if output_root.resolve() == source_run_root.resolve() or _same_or_nested(output_root, source_run_root):
+        raise ValueError(
+            "Refusing to resume into the original run directory. "
+            f"resume source={source_run_root} output_dir={output_root}. "
+            "Use a new output_dir such as outputs/d13_hierarchical_reduction/extended/<run>_ep100."
+        )
+
+    ckpt = _load_checkpoint_state(resume_path, device)
+    model.load_state_dict(ckpt["model_state_dict"])
+    if ckpt.get("optimizer_state_dict") is not None:
+        optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+    if scheduler is not None and ckpt.get("scheduler_state_dict") is not None:
+        scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+
+    resume_epoch = int(ckpt.get("epoch", 0))
+    best_value = -float("inf")
+    best_epoch = -1
+    best_source = source_run_root / "checkpoints" / "best.pt"
+    best_target = output_root / "checkpoints" / "best.pt"
+    if best_source.exists():
+        best_ckpt = _load_checkpoint_state(best_source, device)
+        best_metrics = best_ckpt.get("metrics", {}) or {}
+        best_value = float(best_metrics.get("val_macro_f1", best_metrics.get("macro_f1", -float("inf"))))
+        best_epoch = int(best_ckpt.get("epoch", best_metrics.get("epoch", -1)))
+        best_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(best_source, best_target)
+    else:
+        metrics = ckpt.get("metrics", {}) or {}
+        best_value = float(metrics.get("val_macro_f1", metrics.get("macro_f1", -float("inf"))))
+        best_epoch = resume_epoch
+
+    return {
+        "enabled": True,
+        "start_epoch": resume_epoch + 1,
+        "resume_epoch": resume_epoch,
+        "best_value": best_value,
+        "best_epoch": best_epoch,
+        "best_checkpoint_path": str(best_target if best_target.exists() else best_source),
+        "resume_checkpoint": str(resume_path),
+        "source_run_root": str(source_run_root),
+    }
+
+
 def build_objects(config: Dict[str, Any], device_arg: str | None = None):
     seed = int(config.get("training", {}).get("seed", 42))
     set_seed(seed)
@@ -162,6 +241,29 @@ def _set_model_epoch(model: torch.nn.Module, epoch: int) -> None:
         target.set_epoch(epoch)
 
 
+def _amp_is_enabled(amp: bool, device: torch.device) -> bool:
+    return bool(amp) and device.type == "cuda"
+
+
+def _make_grad_scaler(enabled: bool):
+    if not enabled:
+        return None
+    if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
+        try:
+            return torch.amp.GradScaler("cuda", enabled=True)
+        except TypeError:
+            return torch.amp.GradScaler(enabled=True)
+    return torch.cuda.amp.GradScaler(enabled=True)
+
+
+def _autocast(enabled: bool):
+    if not enabled:
+        return nullcontext()
+    if hasattr(torch, "amp") and hasattr(torch.amp, "autocast"):
+        return torch.amp.autocast("cuda", enabled=True)
+    return torch.cuda.amp.autocast(enabled=True)
+
+
 def _run_epoch(
     model: torch.nn.Module,
     criterion: D13ReductionLoss,
@@ -177,7 +279,8 @@ def _run_epoch(
     is_train = optimizer is not None
     _set_model_epoch(model, epoch)
     model.train(is_train)
-    scaler = torch.cuda.amp.GradScaler(enabled=bool(amp) and device.type == "cuda")
+    amp_enabled = _amp_is_enabled(amp, device)
+    scaler = _make_grad_scaler(amp_enabled)
     totals: Dict[str, float] = {}
     pool_totals: Dict[str, float] = {}
     encoder_totals: Dict[str, float] = {}
@@ -196,7 +299,7 @@ def _run_epoch(
         if is_train:
             optimizer.zero_grad(set_to_none=True)
         with torch.set_grad_enabled(is_train):
-            with torch.cuda.amp.autocast(enabled=bool(amp) and device.type == "cuda"):
+            with _autocast(amp_enabled):
                 out = model(batch)
                 loss_dict = criterion(out, batch["y"], batch)
                 loss = loss_dict["loss"]
@@ -206,12 +309,18 @@ def _run_epoch(
         if not torch.isfinite(logits).all():
             raise FloatingPointError(f"Non-finite {split} logits at epoch={epoch} batch={batch_idx}")
         if is_train:
-            scaler.scale(loss).backward()
-            if grad_clip is not None and float(grad_clip) > 0:
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), float(grad_clip))
-            scaler.step(optimizer)
-            scaler.update()
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                if grad_clip is not None and float(grad_clip) > 0:
+                    scaler.unscale_(optimizer)
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), float(grad_clip))
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                if grad_clip is not None and float(grad_clip) > 0:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), float(grad_clip))
+                optimizer.step()
         pred = logits.detach().argmax(dim=1)
         y_true.extend(batch["y"].detach().cpu().tolist())
         y_pred.extend(pred.detach().cpu().tolist())
@@ -254,11 +363,27 @@ def run_test_predictions(model: torch.nn.Module, loader, device: torch.device, m
     return y_true, y_pred, graph_ids
 
 
-def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, device_arg: str | None = None) -> Dict[str, Any]:
+def run_train(
+    config: Dict[str, Any],
+    output_dir: str | Path | None = None,
+    device_arg: str | None = None,
+    resume_checkpoint: str | Path | None = None,
+) -> Dict[str, Any]:
     if output_dir is not None:
         config.setdefault("paths", {})["resolved_output_root"] = str(output_dir)
         config.setdefault("paths", {})["output_root"] = str(output_dir)
     output_root = Path(config.get("paths", {}).get("resolved_output_root") or output_dir or "outputs/d13_hierarchical_reduction/run")
+    resume_checkpoint = resume_checkpoint or config.get("training", {}).get("resume_checkpoint")
+    if resume_checkpoint:
+        resume_path = Path(resume_checkpoint)
+        source_run_root = resume_path.parent.parent if resume_path.parent.name == "checkpoints" else resume_path.parent
+        if output_root.resolve() == source_run_root.resolve() or _same_or_nested(output_root, source_run_root):
+            raise ValueError(
+                "Refusing to resume into the original run directory. "
+                f"resume source={source_run_root} output_dir={output_root}. "
+                "Use a new output_dir such as outputs/d13_hierarchical_reduction/extended/<run>_ep100."
+            )
+        config.setdefault("training", {})["resume_checkpoint"] = str(resume_checkpoint)
     output_root.mkdir(parents=True, exist_ok=True)
     save_config(config, output_root)
     train_loader = build_dataloader(config, "train", shuffle=True)
@@ -278,8 +403,30 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
     best_epoch = -1
     stale = 0
     history = []
+    resume_state = _resume_training_state(resume_checkpoint, output_root, model, optimizer, scheduler, device)
+    start_epoch = int(resume_state["start_epoch"])
+    if resume_state["enabled"]:
+        best_value = float(resume_state["best_value"])
+        best_epoch = int(resume_state["best_epoch"])
+        metadata = {
+            "resumed_from_checkpoint": str(resume_state["resume_checkpoint"]),
+            "resume_epoch": int(resume_state["resume_epoch"]),
+            "target_max_epoch": int(epochs),
+            "start_epoch": int(start_epoch),
+            "source_run_root": str(resume_state["source_run_root"]),
+            "carried_best_checkpoint": str(resume_state["best_checkpoint_path"]),
+        }
+        (output_root / "resume_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        _append_csv(output_root / "resume_log.csv", metadata)
+        print(
+            "Resumed D13 training "
+            f"from {resume_state['resume_checkpoint']} at epoch {resume_state['resume_epoch']} "
+            f"toward target_max_epoch={epochs}"
+        )
+    if start_epoch > epochs:
+        raise ValueError(f"Resume checkpoint epoch {start_epoch - 1} is already >= target max epoch {epochs}")
 
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch, epochs + 1):
         train_metrics, train_pool, train_enc = _run_epoch(
             model, criterion, train_loader, optimizer, device, epoch, "train", max_train_batches, grad_clip, amp
         )
@@ -289,6 +436,14 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
         if scheduler is not None:
             step_scheduler(scheduler, monitor_value=val_metrics.get("loss"))
         row = {"epoch": epoch}
+        if resume_state["enabled"]:
+            row.update(
+                {
+                    "resumed_from_checkpoint": str(resume_state["resume_checkpoint"]),
+                    "resume_epoch": int(resume_state["resume_epoch"]),
+                    "target_max_epoch": int(epochs),
+                }
+            )
         row.update({f"train_{k}": v for k, v in train_metrics.items()})
         row.update({f"val_{k}": v for k, v in val_metrics.items()})
         _append_csv(output_root / "train_log.csv", row)
@@ -360,11 +515,12 @@ def main() -> None:
     parser.add_argument("--no_wandb", action="store_true", default=True)
     parser.add_argument("--amp", action="store_true", default=False)
     parser.add_argument("--no_amp", action="store_true", default=False)
+    parser.add_argument("--resume_checkpoint", default=None)
     args = parser.parse_args()
     config = apply_cli_overrides(load_config(args.config, environment=args.environment), args)
     if args.output_dir:
         config.setdefault("paths", {})["resolved_output_root"] = args.output_dir
-    run_train(config, output_dir=args.output_dir, device_arg=args.device)
+    run_train(config, output_dir=args.output_dir, device_arg=args.device, resume_checkpoint=args.resume_checkpoint)
 
 
 if __name__ == "__main__":

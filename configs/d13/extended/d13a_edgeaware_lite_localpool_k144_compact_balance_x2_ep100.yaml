@@ -1,0 +1,12 @@
+inherits:
+  - ../ablations/d13a_edgeaware_lite_localpool_k144_compact_balance_x2.yaml
+
+run:
+  config_name: d13a_edgeaware_lite_localpool_k144_compact_balance_x2_ep100
+
+training:
+  epochs: 100
+  max_epochs: 100
+  early_stopping_metric: val_macro_f1
+  amp: false
+
