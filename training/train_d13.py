@@ -224,6 +224,43 @@ def _resume_training_state(
     }
 
 
+def _init_wandb(config: Dict[str, Any], output_root: Path):
+    logging_cfg = config.get("logging", {}) or {}
+    if not bool(logging_cfg.get("use_wandb", False)):
+        return None
+    try:
+        import wandb
+    except Exception as exc:
+        raise RuntimeError("W&B logging requested but wandb is not installed or importable.") from exc
+    run_cfg = config.get("run", {}) or {}
+    run_name = logging_cfg.get("run_name") or f"{run_cfg.get('config_name', 'd13a')}_{output_root.name}"
+    wandb.init(
+        project=logging_cfg.get("project") or "FER-GRAPH",
+        entity=logging_cfg.get("entity") or None,
+        name=run_name,
+        config=config,
+        dir=str(output_root),
+    )
+    print(
+        f"[W&B] enabled project={logging_cfg.get('project') or 'FER-GRAPH'} "
+        f"entity={logging_cfg.get('entity') or 'default'} run={run_name}"
+    )
+    return wandb
+
+
+def _wandb_log(wandb_obj: Any, metrics: Dict[str, Any], epoch: int | None = None) -> None:
+    if wandb_obj is None:
+        return
+    payload = {}
+    for key, value in metrics.items():
+        if isinstance(value, (int, float, np.integer, np.floating, bool, str)):
+            payload[key] = value
+    if epoch is not None:
+        payload.setdefault("epoch", int(epoch))
+    if payload:
+        wandb_obj.log(payload)
+
+
 def build_objects(config: Dict[str, Any], device_arg: str | None = None):
     seed = int(config.get("training", {}).get("seed", 42))
     set_seed(seed)
@@ -390,6 +427,7 @@ def run_train(
     val_loader = build_dataloader(config, "val", shuffle=False)
     test_loader = build_dataloader(config, "test", shuffle=False)
     model, criterion, optimizer, scheduler, device = build_objects(config, device_arg=device_arg)
+    wandb_obj = _init_wandb(config, output_root)
     training_cfg = config.get("training", {})
     epochs = int(training_cfg.get("epochs", training_cfg.get("max_epochs", 50)))
     grad_clip = float(training_cfg.get("grad_clip", training_cfg.get("grad_clip_norm", 1.0)))
@@ -426,76 +464,100 @@ def run_train(
     if start_epoch > epochs:
         raise ValueError(f"Resume checkpoint epoch {start_epoch - 1} is already >= target max epoch {epochs}")
 
-    for epoch in range(start_epoch, epochs + 1):
-        train_metrics, train_pool, train_enc = _run_epoch(
-            model, criterion, train_loader, optimizer, device, epoch, "train", max_train_batches, grad_clip, amp
-        )
-        val_metrics, val_pool, val_enc = _run_epoch(
-            model, criterion, val_loader, None, device, epoch, "val", max_val_batches, grad_clip, amp=False
-        )
-        if scheduler is not None:
-            step_scheduler(scheduler, monitor_value=val_metrics.get("loss"))
-        row = {"epoch": epoch}
-        if resume_state["enabled"]:
-            row.update(
-                {
-                    "resumed_from_checkpoint": str(resume_state["resume_checkpoint"]),
-                    "resume_epoch": int(resume_state["resume_epoch"]),
-                    "target_max_epoch": int(epochs),
-                }
+    try:
+        for epoch in range(start_epoch, epochs + 1):
+            train_metrics, train_pool, train_enc = _run_epoch(
+                model, criterion, train_loader, optimizer, device, epoch, "train", max_train_batches, grad_clip, amp
             )
-        row.update({f"train_{k}": v for k, v in train_metrics.items()})
-        row.update({f"val_{k}": v for k, v in val_metrics.items()})
-        _append_csv(output_root / "train_log.csv", row)
-        _append_csv(output_root / "val_metrics.csv", {"epoch": epoch, **{f"val_{k}": v for k, v in val_metrics.items()}})
-        _append_csv(output_root / "pooling_stats.csv", {"epoch": epoch, "split": "train", **train_pool})
-        _append_csv(output_root / "pooling_stats.csv", {"epoch": epoch, "split": "val", **val_pool})
-        _append_csv(output_root / "encoder_diagnostics.csv", {"epoch": epoch, "split": "train", **train_enc})
-        _append_csv(output_root / "encoder_diagnostics.csv", {"epoch": epoch, "split": "val", **val_enc})
-        _append_csv(output_root / "pred_count.csv", _pred_count_row(epoch, "train", train_metrics))
-        _append_csv(output_root / "pred_count.csv", _pred_count_row(epoch, "val", val_metrics))
-        history.append(row)
-        checkpoint_value = float(row.get(monitor, row.get("val_macro_f1", -float("inf"))))
-        if checkpoint_value > best_value:
-            best_value = checkpoint_value
-            best_epoch = epoch
-            stale = 0
-            _save_checkpoint(output_root / "checkpoints" / "best.pt", model, optimizer, scheduler, epoch, row, config)
-        else:
-            stale += 1
-        _save_checkpoint(output_root / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, row, config)
-        print(
-            f"Epoch {epoch:03d}/{epochs:03d} "
-            f"train_loss={train_metrics['loss']:.4f} val_macro_f1={val_metrics['macro_f1']:.4f} "
-            f"best={best_value:.4f}@{best_epoch}"
-        )
-        if stale >= patience:
-            print(f"Early stopping after {stale} stale epochs")
-            break
+            val_metrics, val_pool, val_enc = _run_epoch(
+                model, criterion, val_loader, None, device, epoch, "val", max_val_batches, grad_clip, amp=False
+            )
+            if scheduler is not None:
+                step_scheduler(scheduler, monitor_value=val_metrics.get("loss"))
+            row = {"epoch": epoch}
+            if resume_state["enabled"]:
+                row.update(
+                    {
+                        "resumed_from_checkpoint": str(resume_state["resume_checkpoint"]),
+                        "resume_epoch": int(resume_state["resume_epoch"]),
+                        "target_max_epoch": int(epochs),
+                    }
+                )
+            row.update({f"train_{k}": v for k, v in train_metrics.items()})
+            row.update({f"val_{k}": v for k, v in val_metrics.items()})
+            _append_csv(output_root / "train_log.csv", row)
+            _append_csv(output_root / "val_metrics.csv", {"epoch": epoch, **{f"val_{k}": v for k, v in val_metrics.items()}})
+            _append_csv(output_root / "pooling_stats.csv", {"epoch": epoch, "split": "train", **train_pool})
+            _append_csv(output_root / "pooling_stats.csv", {"epoch": epoch, "split": "val", **val_pool})
+            _append_csv(output_root / "encoder_diagnostics.csv", {"epoch": epoch, "split": "train", **train_enc})
+            _append_csv(output_root / "encoder_diagnostics.csv", {"epoch": epoch, "split": "val", **val_enc})
+            _append_csv(output_root / "pred_count.csv", _pred_count_row(epoch, "train", train_metrics))
+            _append_csv(output_root / "pred_count.csv", _pred_count_row(epoch, "val", val_metrics))
+            _wandb_log(
+                wandb_obj,
+                {
+                    **{f"train/{k}": v for k, v in train_metrics.items()},
+                    **{f"val/{k}": v for k, v in val_metrics.items()},
+                    **{f"pool/train_{k}": v for k, v in train_pool.items()},
+                    **{f"pool/val_{k}": v for k, v in val_pool.items()},
+                },
+                epoch=epoch,
+            )
+            history.append(row)
+            checkpoint_value = float(row.get(monitor, row.get("val_macro_f1", -float("inf"))))
+            if checkpoint_value > best_value:
+                best_value = checkpoint_value
+                best_epoch = epoch
+                stale = 0
+                _save_checkpoint(output_root / "checkpoints" / "best.pt", model, optimizer, scheduler, epoch, row, config)
+            else:
+                stale += 1
+            _save_checkpoint(output_root / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, row, config)
+            print(
+                f"Epoch {epoch:03d}/{epochs:03d} "
+                f"train_loss={train_metrics['loss']:.4f} val_macro_f1={val_metrics['macro_f1']:.4f} "
+                f"best={best_value:.4f}@{best_epoch}"
+            )
+            if stale >= patience:
+                print(f"Early stopping after {stale} stale epochs")
+                break
 
-    (output_root / "training_history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
-    best_path = output_root / "checkpoints" / "best.pt"
-    if best_path.exists():
-        ckpt = torch.load(best_path, map_location=device, weights_only=False)
-        model.load_state_dict(ckpt["model_state_dict"])
-    test_metrics, test_pool, test_enc = _run_epoch(
-        model, criterion, test_loader, None, device, best_epoch, "test", max_test_batches, grad_clip, amp=False
-    )
-    _append_csv(output_root / "test_metrics.csv", {"epoch": best_epoch, **{f"test_{k}": v for k, v in test_metrics.items()}})
-    _append_csv(output_root / "pooling_stats.csv", {"epoch": best_epoch, "split": "test", **test_pool})
-    _append_csv(output_root / "encoder_diagnostics.csv", {"epoch": best_epoch, "split": "test", **test_enc})
-    _append_csv(output_root / "pred_count.csv", _pred_count_row(best_epoch, "test", test_metrics))
-    y_true, y_pred, graph_ids = run_test_predictions(model, test_loader, device, max_test_batches)
-    pd.DataFrame({"graph_id": graph_ids, "y_true": y_true, "y_pred": y_pred}).to_csv(output_root / "test_predictions.csv", index=False)
-    write_confusion_matrix(y_true, y_pred, output_root / "confusion_matrix.csv")
-    warnings = []
-    if test_pool.get("empty_region_ratio", 0.0) > 0.25:
-        warnings.append("High empty-region ratio on test split.")
-    if not np.isfinite(test_metrics.get("loss", np.nan)):
-        warnings.append("Non-finite final test loss.")
-    decision = "D13A_FAIL_TRAINING_UNSTABLE" if warnings and "loss" in warnings[0].lower() else None
-    write_d13_report(output_root, config, final_test={f"test_{k}": v for k, v in test_metrics.items()}, decision=decision, warnings=warnings)
-    return {"best_epoch": best_epoch, "best_metric": best_value, "output_dir": str(output_root)}
+        (output_root / "training_history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
+        best_path = output_root / "checkpoints" / "best.pt"
+        if best_path.exists():
+            ckpt = torch.load(best_path, map_location=device, weights_only=False)
+            model.load_state_dict(ckpt["model_state_dict"])
+        test_metrics, test_pool, test_enc = _run_epoch(
+            model, criterion, test_loader, None, device, best_epoch, "test", max_test_batches, grad_clip, amp=False
+        )
+        _append_csv(output_root / "test_metrics.csv", {"epoch": best_epoch, **{f"test_{k}": v for k, v in test_metrics.items()}})
+        _append_csv(output_root / "pooling_stats.csv", {"epoch": best_epoch, "split": "test", **test_pool})
+        _append_csv(output_root / "encoder_diagnostics.csv", {"epoch": best_epoch, "split": "test", **test_enc})
+        _append_csv(output_root / "pred_count.csv", _pred_count_row(best_epoch, "test", test_metrics))
+        _wandb_log(
+            wandb_obj,
+            {
+                **{f"test/{k}": v for k, v in test_metrics.items()},
+                **{f"pool/test_{k}": v for k, v in test_pool.items()},
+                "best/epoch": best_epoch,
+                "best/metric": best_value,
+            },
+            epoch=best_epoch,
+        )
+        y_true, y_pred, graph_ids = run_test_predictions(model, test_loader, device, max_test_batches)
+        pd.DataFrame({"graph_id": graph_ids, "y_true": y_true, "y_pred": y_pred}).to_csv(output_root / "test_predictions.csv", index=False)
+        write_confusion_matrix(y_true, y_pred, output_root / "confusion_matrix.csv")
+        warnings = []
+        if test_pool.get("empty_region_ratio", 0.0) > 0.25:
+            warnings.append("High empty-region ratio on test split.")
+        if not np.isfinite(test_metrics.get("loss", np.nan)):
+            warnings.append("Non-finite final test loss.")
+        decision = "D13A_FAIL_TRAINING_UNSTABLE" if warnings and "loss" in warnings[0].lower() else None
+        write_d13_report(output_root, config, final_test={f"test_{k}": v for k, v in test_metrics.items()}, decision=decision, warnings=warnings)
+        return {"best_epoch": best_epoch, "best_metric": best_value, "output_dir": str(output_root)}
+    finally:
+        if wandb_obj is not None:
+            wandb_obj.finish()
 
 
 def main() -> None:
@@ -513,6 +575,10 @@ def main() -> None:
     parser.add_argument("--num_workers", type=int, default=None)
     parser.add_argument("--chunk_cache_size", type=int, default=None)
     parser.add_argument("--no_wandb", action="store_true", default=True)
+    parser.add_argument("--wandb", action="store_true", default=False)
+    parser.add_argument("--wandb_project", default=None)
+    parser.add_argument("--wandb_entity", default=None)
+    parser.add_argument("--wandb_run_name", default=None)
     parser.add_argument("--amp", action="store_true", default=False)
     parser.add_argument("--no_amp", action="store_true", default=False)
     parser.add_argument("--resume_checkpoint", default=None)

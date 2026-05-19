@@ -222,6 +222,8 @@ def apply_cli_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dic
         logging_cfg["project"] = str(args.wandb_project)
     if getattr(args, "wandb_entity", None) is not None:
         logging_cfg["entity"] = str(args.wandb_entity)
+    if getattr(args, "wandb_run_name", None) is not None:
+        logging_cfg["run_name"] = str(args.wandb_run_name)
 
     # --- DataLoader overrides ---
     if getattr(args, "num_workers", None) is not None:
