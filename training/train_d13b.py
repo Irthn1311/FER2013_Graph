@@ -157,9 +157,10 @@ def _slot_stats(aux: Dict[str, Any]) -> Dict[str, float]:
 
 def _save_checkpoint(path: Path, model, optimizer, scheduler, epoch: int, metrics: Dict[str, Any], config: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    model_to_save = model.module if hasattr(model, "module") else model
     torch.save(
         {
-            "model_state_dict": model.state_dict(),
+            "model_state_dict": model_to_save.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
             "epoch": int(epoch),
@@ -168,6 +169,11 @@ def _save_checkpoint(path: Path, model, optimizer, scheduler, epoch: int, metric
         },
         path,
     )
+
+
+def _load_model_state(model: torch.nn.Module, state: Dict[str, torch.Tensor]) -> None:
+    target = model.module if hasattr(model, "module") else model
+    target.load_state_dict(state)
 
 
 def _load_init_d13a(model: torch.nn.Module, checkpoint: str | None, device: torch.device, output_root: Path) -> Dict[str, Any]:
@@ -397,6 +403,7 @@ def build_objects(config: Dict[str, Any], output_root: Path, device_arg: str | N
     seed = int(config.get("training", {}).get("seed", config.get("run", {}).get("seed", 42)))
     set_seed(seed)
     device = resolve_device(device_arg, config)
+    training_cfg = config.get("training", {}) or {}
     model = D13BMotifSlotModel.from_config(config.get("model", {})).to(device)
     init_info = _load_init_d13a(
         model,
@@ -404,6 +411,14 @@ def build_objects(config: Dict[str, Any], output_root: Path, device_arg: str | N
         device,
         output_root,
     )
+    if bool(training_cfg.get("multi_gpu", False)) and device.type == "cuda" and torch.cuda.device_count() > 1:
+        model = torch.nn.DataParallel(model)
+        print(f"[Multi-GPU] DataParallel enabled: {torch.cuda.device_count()} GPUs")
+    elif bool(training_cfg.get("multi_gpu", False)):
+        print(
+            "[Multi-GPU] DataParallel requested but not enabled: "
+            f"device={device.type} cuda_devices={torch.cuda.device_count()}"
+        )
     criterion = D13BDiagnosticLoss(config.get("loss", {})).to(device)
     optimizer = build_optimizer(model, config.get("optimizer", {}))
     scheduler = build_scheduler(optimizer, config.get("scheduler", {}))
@@ -492,7 +507,7 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
         best_path = output_root / "checkpoints" / "best.pt"
         if best_path.exists():
             ckpt = torch.load(best_path, map_location=device, weights_only=False)
-            model.load_state_dict(ckpt["model_state_dict"])
+            _load_model_state(model, ckpt["model_state_dict"])
         test_metrics, test_slot, test_pool = _run_epoch(model, criterion, test_loader, None, device, best_epoch, "test", max_test_batches, grad_clip, amp=False)
         _append_csv(output_root / "test_metrics.csv", {"epoch": best_epoch, **{f"test_{k}": v for k, v in test_metrics.items()}})
         _append_csv(output_root / "slot_stats.csv", {"epoch": best_epoch, "split": "test", **test_slot})

@@ -1,0 +1,40 @@
+inherits:
+  - d13b_k144_m8_basic.yaml
+
+run:
+  config_name: d13b_k144_m8_dp_amp_smoke
+  seed: 1
+
+paths:
+  output_root: outputs/d13b_diagnostic_dp_amp_smoke
+
+data:
+  batch_size: 32
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  chunk_cache_size: 4
+  graph_cache_chunks: 4
+  chunk_aware_shuffle: true
+
+training:
+  seed: 1
+  epochs: 2
+  max_epochs: 2
+  batch_size: 32
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  max_train_batches: 20
+  max_val_batches: 5
+  max_test_batches: 5
+  early_stopping_patience: 2
+  grad_clip: 1.0
+  amp: true
+  multi_gpu: true
+  use_compile: false
+
+logging:
+  use_wandb: false

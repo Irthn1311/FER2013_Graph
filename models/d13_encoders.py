@@ -67,9 +67,9 @@ class EdgeAwareMessageLayer(nn.Module):
         gate = torch.sigmoid(self.gate_mlp(torch.cat([h_src, h_dst, e], dim=-1)))
         msg = self.message_mlp(torch.cat([h_src, e], dim=-1)) * gate
 
-        out = h.new_zeros(h.shape)
+        out = msg.new_zeros(h.shape)
         out.index_add_(0, dst, msg)
-        denom = h.new_zeros(h.shape)
+        denom = gate.new_zeros(h.shape)
         denom.index_add_(0, dst, gate)
         out = out / denom.clamp_min(self.eps)
         diag = {
@@ -218,7 +218,7 @@ class GINEPixelBlock(nn.Module):
         dst = edge_index[1].long()
         msg_input = h.index_select(0, src) + self.edge_proj(edge_attr.to(dtype=h.dtype))
         msg = self.message_mlp(F.relu(msg_input))
-        agg = h.new_zeros(h.shape)
+        agg = msg.new_zeros(h.shape)
         agg.index_add_(0, dst, msg)
         h = self.norm_msg((1.0 + self.eps) * h + self.dropout(agg))
         h = self.norm_ffn(h + self.dropout(self.ffn(h)))
@@ -278,4 +278,3 @@ class GINEPixelEncoder(nn.Module):
         if return_layer_embeddings:
             out["layer_embeddings"] = states
         return out
-
