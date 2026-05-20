@@ -68,7 +68,15 @@ def collect(root_dir: Path) -> Dict[str, pd.DataFrame]:
     slot_rows: List[Dict[str, Any]] = []
     pred_rows: List[Dict[str, Any]] = []
     per_class_rows: List[Dict[str, Any]] = []
-    for run_dir in sorted([p for p in root_dir.iterdir() if p.is_dir()]):
+    run_dirs = [
+        p
+        for p in root_dir.iterdir()
+        if p.is_dir()
+        and (p / "train_log.csv").exists()
+        and (p / "val_metrics.csv").exists()
+        and (p / "test_metrics.csv").exists()
+    ]
+    for run_dir in sorted(run_dirs):
         run_name = run_dir.name
         train = _read_csv(run_dir / "train_log.csv")
         val = _read_csv(run_dir / "val_metrics.csv")

@@ -171,15 +171,10 @@ class D13BMotifSlotModel(D13HierarchicalReductionModel):
             value = aux.get(key)
             if torch.is_tensor(value) and value.numel() == 1:
                 diagnostics[key] = value.detach()
-        base.update(
-            {
-                "logits": logits,
-                "aux": aux,
-                "diagnostics": diagnostics,
-                "slot_embeddings": slot_embeddings,
-                "slot_attention": slot_attention,
-                "region_dense": region_dense,
-                "region_pos_dense": region_pos_dense,
-            }
-        )
-        return base
+        return {
+            "logits": logits,
+            "aux": aux,
+            "diagnostics": diagnostics,
+            "slot_embeddings": slot_embeddings,
+            "slot_attention": slot_attention,
+        }
