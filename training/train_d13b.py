@@ -40,6 +40,14 @@ def _float(value: Any) -> float:
     return float(value)
 
 
+def _reduce_loss_value(value: torch.Tensor) -> torch.Tensor:
+    if not torch.is_tensor(value):
+        return value
+    if value.ndim == 0:
+        return value
+    return value.mean()
+
+
 class D13BDiagnosticLoss(torch.nn.Module):
     def __init__(self, cfg: Dict[str, Any]) -> None:
         super().__init__()
@@ -316,8 +324,9 @@ def _run_epoch(
             with _autocast(amp_enabled):
                 out = model(batch)
                 loss_dict = criterion(out, batch["y"], batch)
+                loss_dict = {key: _reduce_loss_value(value) for key, value in loss_dict.items()}
                 loss = loss_dict["loss"]
-        if not torch.isfinite(loss):
+        if not torch.isfinite(loss).all():
             raise FloatingPointError(f"Non-finite {split} loss at epoch={epoch} batch={batch_idx}")
         if not torch.isfinite(out["logits"]).all():
             raise FloatingPointError(f"Non-finite {split} logits at epoch={epoch} batch={batch_idx}")
