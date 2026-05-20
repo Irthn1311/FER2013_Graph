@@ -16,6 +16,10 @@ case "${RUN_KEY}" in
     CONFIG="configs/d13b/d13b_k144_m8_dp_amp_smoke.yaml"
     RUN_NAME="d13b_k144_m8_dp_amp_smoke"
     ;;
+  dp_amp_full)
+    CONFIG="configs/d13b/d13b_k144_m8_dp_amp_full.yaml"
+    RUN_NAME="d13b_k144_m8_dp_amp_full"
+    ;;
   m16_basic)
     CONFIG="configs/d13b/d13b_k144_m16_basic.yaml"
     RUN_NAME="d13b_k144_m16_basic"
@@ -46,7 +50,7 @@ case "${RUN_KEY}" in
     ;;
   *)
     echo "Unknown run_key: ${RUN_KEY}" >&2
-    echo "Supported: m8_basic dp_amp_smoke m16_basic m8_no_slot_reg m8_strong_slot_reg m16_deep_readout m8_deep_region k256_m8_score_control m8_seed2" >&2
+    echo "Supported: m8_basic dp_amp_smoke dp_amp_full m16_basic m8_no_slot_reg m8_strong_slot_reg m16_deep_readout m8_deep_region k256_m8_score_control m8_seed2" >&2
     exit 2
     ;;
 esac

@@ -1,0 +1,22 @@
+inherits:
+  - d13b_k144_m8_basic.yaml
+
+run:
+  config_name: d13b_k144_m8_dp_amp_full
+  seed: 1
+
+paths:
+  output_root: outputs/d13b_diagnostic_dp_amp_full
+
+training:
+  seed: 1
+  epochs: 50
+  max_epochs: 50
+  batch_size: 16
+  early_stopping_patience: 12
+  amp: true
+  multi_gpu: true
+  use_compile: false
+
+logging:
+  use_wandb: false
