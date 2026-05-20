@@ -1,0 +1,15 @@
+inherits:
+  - d13b_k144_m8_basic.yaml
+
+run:
+  config_name: d13b_k144_m16_deep_readout
+  seed: 1
+
+model:
+  num_slots: 16
+  slot_iters: 3
+  slot_self_attention_layers: 1
+  slot_readout: self_attention_attention_pool
+
+training:
+  seed: 1

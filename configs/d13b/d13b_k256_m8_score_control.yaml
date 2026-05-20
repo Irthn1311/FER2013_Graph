@@ -1,0 +1,21 @@
+inherits:
+  - d13b_k144_m8_basic.yaml
+
+run:
+  config_name: d13b_k256_m8_score_control
+  seed: 1
+
+model:
+  init_d13a_checkpoint: outputs/d13_hierarchical_reduction/extended/d13a_edgeaware_lite_localpool_k256_outputs_ep100_outputs/checkpoints/best.pt
+  d13a_base: k256_ep100
+  num_regions: 256
+  pooling:
+    name: local_assignment
+    grid_size: 16
+    assign_m: 4
+    neighbor_mode: "4"
+  num_slots: 8
+  slot_iters: 2
+
+training:
+  seed: 1

@@ -1,0 +1,13 @@
+inherits:
+  - d13b_k144_m8_basic.yaml
+
+run:
+  config_name: d13b_k144_m16_basic
+  seed: 1
+
+model:
+  num_slots: 16
+  slot_iters: 2
+
+training:
+  seed: 1

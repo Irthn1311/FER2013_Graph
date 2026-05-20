@@ -1,0 +1,70 @@
+inherits:
+  - ../d13/d13a_edgeaware_lite_localpool_k144.yaml
+
+run:
+  config_name: d13b_k144_m8_basic
+  seed: 1
+
+paths:
+  output_root: outputs/d13b_diagnostic
+
+model:
+  name: d13b_motif_slot_diagnostic
+  init_d13a_checkpoint: outputs/d13_hierarchical_reduction/extended/d13a_edgeaware_lite_localpool_k144_outputs_ep100_outputs/checkpoints/best.pt
+  d13a_base: baseline_k144_ep100
+  num_regions: 144
+  node_dim: 7
+  edge_dim: 5
+  hidden_dim: 64
+  num_classes: 7
+  pixel_layers: 2
+  region_layers: 2
+  dropout: 0.1
+  encoder:
+    name: edgeaware_lite_v2
+    jumping_knowledge: gated
+  pooling:
+    name: local_assignment
+    grid_size: 12
+    assign_m: 4
+    neighbor_mode: "4"
+  num_slots: 8
+  slot_iters: 2
+  slot_dim: 64
+  slot_self_attention_layers: 0
+  slot_readout: attention_pool
+  freeze_d13a_backbone: false
+  return_region_embeddings: true
+  return_encoder_layers: true
+
+loss:
+  name: d13b_diagnostic
+  use_class_weights: true
+  class_counts: [3995, 436, 4097, 7215, 4830, 3171, 4965]
+  class_weight_power: 0.25
+  label_smoothing: 0.05
+  pool_entropy_weight: 0.0005
+  pool_balance_weight: 0.001
+  pool_compactness_weight: 0.001
+  pool_area_weight: 0.0005
+  slot_diversity_weight: 0.001
+  slot_overlap_weight: 0.001
+  slot_entropy_weight: 0.0005
+  slot_balance_weight: 0.0005
+  supcon_weight: 0.0
+
+training:
+  seed: 1
+  epochs: 50
+  max_epochs: 50
+  batch_size: 16
+  num_workers: 0
+  early_stopping_metric: val_macro_f1
+  early_stopping_patience: 12
+  grad_clip: 1.0
+  amp: false
+  multi_gpu: false
+  use_compile: false
+
+logging:
+  use_wandb: false

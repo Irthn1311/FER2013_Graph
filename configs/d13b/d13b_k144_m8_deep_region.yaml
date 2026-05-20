@@ -1,0 +1,13 @@
+inherits:
+  - d13b_k144_m8_basic.yaml
+
+run:
+  config_name: d13b_k144_m8_deep_region
+  seed: 1
+
+model:
+  region_layers: 3
+  region_encoder_layers: 3
+
+training:
+  seed: 1
