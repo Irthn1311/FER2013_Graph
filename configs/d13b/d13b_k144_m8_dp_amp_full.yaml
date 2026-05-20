@@ -14,7 +14,7 @@ training:
   max_epochs: 50
   batch_size: 16
   early_stopping_patience: 12
-  amp: true
+  amp: false
   multi_gpu: true
   use_compile: false
 
