@@ -38,7 +38,10 @@ def compute_per_class_f1(y_true: Sequence[int], y_pred: Sequence[int], num_class
 
 def _to_float(value: Any) -> float:
     if torch.is_tensor(value):
-        return float(value.detach().cpu().item())
+        value = value.detach().float()
+        if value.ndim > 0:
+            value = value.mean()
+        return float(value.cpu().item())
     return float(value)
 
 
