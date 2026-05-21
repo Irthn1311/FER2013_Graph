@@ -1,0 +1,12 @@
+inherits:
+  - d13c_m16_supcon_l002.yaml
+
+run_name: d13c_m16_supcon_l002_proj128
+
+run:
+  config_name: d13c_m16_supcon_l002_proj128
+  seed: 1
+
+model:
+  projection_dim: 128
+  projection_hidden_dim: 256

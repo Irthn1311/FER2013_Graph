@@ -1,0 +1,58 @@
+inherits:
+  - ../d13b/d13b_k144_m8_deep_region.yaml
+
+run_name: d13c_m8_supcon_l002_control
+
+run:
+  config_name: d13c_m8_supcon_l002_control
+  seed: 1
+
+paths:
+  output_root: outputs/d13c_diagnostic
+
+environments:
+  local:
+    paths:
+      csv_root: data
+      graph_repo_path: artifacts/graph-repo/graph_repo
+      output_root: outputs/d13c_diagnostic
+  kaggle:
+    paths:
+      csv_root: auto
+      graph_repo_path: /kaggle/working/artifacts/graph_repo
+      output_root: /kaggle/working/outputs/d13c_diagnostic
+
+model:
+  name: d13c_supcon_diagnostic
+  base_model: d13b_k144_m8_deep_region
+  init_d13b_checkpoint: outputs/d13b_diagnostic/d13b_k144_m8_deep_region/checkpoints/best.pt
+  num_slots: 8
+  slot_arch: deep_region
+  region_layers: 3
+  region_encoder_layers: 3
+  projection_dim: 64
+  projection_hidden_dim: 128
+  freeze_backbone: false
+  prototype_weight: 0.0
+  motif_level_supcon: false
+
+loss:
+  name: d13c_diagnostic
+  lambda_supcon: 0.02
+  supcon_temperature: 0.1
+  prototype_weight: 0.0
+  motif_level_supcon: false
+
+training:
+  seed: 1
+  epochs: 30
+  max_epochs: 30
+  batch_size: 16
+  grad_clip: 1.0
+  amp: false
+
+data:
+  batch_size: 16
+
+scheduler:
+  t_max: 30

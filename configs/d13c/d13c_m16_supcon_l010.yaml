@@ -1,0 +1,11 @@
+inherits:
+  - d13c_m16_ce_continue.yaml
+
+run_name: d13c_m16_supcon_l010
+
+run:
+  config_name: d13c_m16_supcon_l010
+  seed: 1
+
+loss:
+  lambda_supcon: 0.10

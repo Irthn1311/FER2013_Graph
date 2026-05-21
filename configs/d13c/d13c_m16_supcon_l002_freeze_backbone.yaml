@@ -1,0 +1,11 @@
+inherits:
+  - d13c_m16_supcon_l002.yaml
+
+run_name: d13c_m16_supcon_l002_freeze_backbone
+
+run:
+  config_name: d13c_m16_supcon_l002_freeze_backbone
+  seed: 1
+
+model:
+  freeze_backbone: true

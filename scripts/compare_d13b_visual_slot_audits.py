@@ -22,6 +22,7 @@ for path in (SCRIPT_DIR, PROJECT_ROOT):
 
 
 SCORE_CONTEXT = {
+    "d13a_k144_ep100_reference": {"test_macro_f1": 0.5829, "test_acc": 0.6166},
     "d13b_k144_m16_deep_readout": {"test_macro_f1": 0.6187, "test_acc": 0.6328},
     "d13b_k144_m8_deep_region": {"test_macro_f1": 0.6171, "test_acc": 0.6344},
     "d13b_k256_m8_score_control": {"test_macro_f1": 0.6135, "test_acc": 0.6386},
@@ -164,7 +165,11 @@ def _recommend(summary: pd.DataFrame) -> str:
         - pd.to_numeric(work["avg_center_shortcut_risk"], errors="coerce").fillna(2.0) / 2.0
         - pd.to_numeric(work["avg_slot_collapse_visual"], errors="coerce").fillna(2.0) / 2.0
     )
-    best = work.sort_values(["visual_score", "test_macro_f1"], ascending=False).iloc[0]
+    primary_names = {"d13b_k144_m16_deep_readout", "d13b_k144_m8_deep_region"}
+    primary = work[work["run_name"].astype(str).isin(primary_names)].copy()
+    if primary.empty:
+        primary = work.copy()
+    best = primary.sort_values(["visual_score", "test_macro_f1"], ascending=False).iloc[0]
     name = str(best["run_name"])
     if _num(best.get("visual_score"), -99) < 0.5:
         return "NEED_MORE_D13B_SLOT_TUNING"
@@ -176,6 +181,102 @@ def _recommend(summary: pd.DataFrame) -> str:
             return "USE_M8_DEEP_REGION_FOR_VISUAL_INTERPRETABILITY_DESPITE_SCORE"
         return "USE_M8_DEEP_REGION_FOR_D13C_DIAGNOSTIC"
     return "NEED_MORE_D13B_SLOT_TUNING"
+
+
+def _default_final_decision_path(output_dir: Path) -> Path:
+    parent = output_dir.parent
+    if parent.name == "visual_slot_audit":
+        return parent / "D13B_VISUAL_SLOT_FINAL_DECISION.md"
+    return output_dir / "D13B_VISUAL_SLOT_FINAL_DECISION.md"
+
+
+def _diagnostic_score_table(names: List[str]) -> pd.DataFrame:
+    rows = [
+        {
+            "run_name": "d13a_k144_ep100_reference",
+            "role": "reference",
+            **SCORE_CONTEXT["d13a_k144_ep100_reference"],
+        }
+    ]
+    for name in names:
+        score = SCORE_CONTEXT.get(name, {})
+        rows.append(
+            {
+                "run_name": name,
+                "role": "d13b_candidate" if name != "d13b_k256_m8_score_control" else "score_control",
+                "test_macro_f1": score.get("test_macro_f1", ""),
+                "test_acc": score.get("test_acc", ""),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _tradeoff(summary: pd.DataFrame, recommendation: str) -> List[str]:
+    lines = []
+    by_name = {str(row["run_name"]): row for _, row in summary.iterrows()}
+    m16 = by_name.get("d13b_k144_m16_deep_readout")
+    m8 = by_name.get("d13b_k144_m8_deep_region")
+    if m16 is not None and m8 is not None:
+        lines.extend(
+            [
+                "## 3. M16 vs M8 Trade-off",
+                f"- M16 is the best-score candidate: macro-F1={SCORE_CONTEXT['d13b_k144_m16_deep_readout']['test_macro_f1']}, acc={SCORE_CONTEXT['d13b_k144_m16_deep_readout']['test_acc']}.",
+                f"- M8 is the compact balanced candidate: macro-F1={SCORE_CONTEXT['d13b_k144_m8_deep_region']['test_macro_f1']}, acc={SCORE_CONTEXT['d13b_k144_m8_deep_region']['test_acc']}.",
+                "- M16 should be used only if its slot traceability/diversity/readability are acceptable and shortcut risks are not stronger than M8.",
+                "- M8 is preferred for diagnostic visual interpretability if it is clearly cleaner at near-equal classification score.",
+            ]
+        )
+    else:
+        lines.extend(["## 3. M16 vs M8 Trade-off", "- Two-way M16/M8 evidence is incomplete in this comparison."])
+    if "d13b_k256_m8_score_control" in by_name:
+        lines.extend(
+            [
+                "",
+                "## 4. Optional K256 Control",
+                "- K256 is treated as score-control only and is not the main visual base.",
+                "- It can support confidence in the gate only if it does not reveal stronger visual unreliability than the K144 candidates.",
+            ]
+        )
+    else:
+        lines.extend(["", "## 4. Optional K256 Control", "- K256-control was not included in this comparison."])
+    lines.extend(
+        [
+            "",
+            "## 5. Decision Rule",
+            f"- Final decision: `{recommendation}`.",
+            "- D13C remains locked unless the decision explicitly allows a D13C diagnostic candidate.",
+            "- This report does not open full D13C, SupCon, prototype learning, motif discovery, semantic-region claims, or causal claims.",
+        ]
+    )
+    return lines
+
+
+def _write_final_decision(path: Path, summary: pd.DataFrame, names: List[str], recommendation: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# D13B Visual Slot Final Decision",
+        "",
+        "D13B visual slot review is AI-assisted/manual diagnostic evidence only. Slot outputs are slot candidates / motif candidate diagnostics, not motif discoveries, semantic regions, or causal evidence.",
+        "",
+        "## 1. D13B Diagnostic Score Table",
+        _md_table(_diagnostic_score_table(names)),
+        "",
+        "## 2. Visual Slot Audit Table",
+        _md_table(summary),
+        "",
+        *_tradeoff(summary, recommendation),
+        "",
+        "## 6. Allowed Decision Labels",
+        "- USE_M16_DEEP_READOUT_FOR_D13C_DIAGNOSTIC",
+        "- USE_M8_DEEP_REGION_FOR_D13C_DIAGNOSTIC",
+        "- USE_M8_DEEP_REGION_FOR_VISUAL_INTERPRETABILITY_DESPITE_SCORE",
+        "- KEEP_D13C_LOCKED_SLOT_VISUAL_UNRELIABLE",
+        "- NEED_MORE_D13B_SLOT_TUNING",
+        "",
+        "Forbidden outputs remain closed: OPEN_D13C_FULL, OPEN_SUPCON, MOTIF_DISCOVERED, SEMANTIC_REGION_DISCOVERED.",
+        "",
+    ]
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _md_table(df: pd.DataFrame, max_rows: int = 30) -> str:
@@ -198,6 +299,11 @@ def main() -> None:
     parser.add_argument("--audits", nargs="+", required=True)
     parser.add_argument("--names", nargs="+", required=True)
     parser.add_argument("--output_dir", required=True)
+    parser.add_argument(
+        "--final_decision_path",
+        default=None,
+        help="Optional path for the final D13B visual slot decision report.",
+    )
     args = parser.parse_args()
     if len(args.audits) != len(args.names):
         parser.error("--audits and --names must have the same length")
@@ -210,6 +316,7 @@ def main() -> None:
     risks = _concat_with_name(items, "risk")
     paired = _paired(items)
     recommendation = _recommend(summary)
+    final_decision_path = Path(args.final_decision_path) if args.final_decision_path else _default_final_decision_path(output_dir)
 
     summary.to_csv(output_dir / "d13b_visual_slot_compare_summary.csv", index=False)
     area.to_csv(output_dir / "d13b_visual_slot_compare_area.csv", index=False)
@@ -247,7 +354,17 @@ def main() -> None:
         "",
     ]
     (output_dir / "d13b_visual_slot_compare_report.md").write_text("\n".join(lines), encoding="utf-8")
-    print(json.dumps({"output_dir": str(output_dir), "recommendation": recommendation}, indent=2))
+    _write_final_decision(final_decision_path, summary, args.names, recommendation)
+    print(
+        json.dumps(
+            {
+                "output_dir": str(output_dir),
+                "recommendation": recommendation,
+                "final_decision_path": str(final_decision_path),
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":
