@@ -1,0 +1,57 @@
+inherits:
+  - ../d13c/d13c_m16_supcon_l005.yaml
+
+run_name: d14_m16_l005_extend100
+
+run:
+  config_name: d14_m16_l005_extend100
+  seed: 1
+
+paths:
+  output_root: outputs/d14_performance
+
+environments:
+  local:
+    paths:
+      csv_root: data
+      graph_repo_path: artifacts/graph-repo/graph_repo
+      output_root: outputs/d14_performance
+  kaggle:
+    paths:
+      csv_root: auto
+      graph_repo_path: /kaggle/working/artifacts/graph_repo
+      output_root: /kaggle/working/outputs/d14_performance
+
+model:
+  init_d13b_checkpoint: outputs/d13c_diagnostic/d13c_m16_supcon_l005/checkpoints/best.pt
+
+loss:
+  lambda_supcon: 0.05
+
+optimizer:
+  name: adamw
+  lr: 0.00005
+  weight_decay: 0.0001
+
+scheduler:
+  name: cosine
+  t_max: 100
+  min_lr: 0.000001
+
+training:
+  epochs: 100
+  max_epochs: 100
+  early_stopping_metric: val_macro_f1
+  early_stopping_patience: 18
+  resume_or_finetune: true
+  resume_optimizer_state: false
+  resume_scheduler_state: false
+
+augmentation:
+  enabled: false
+
+d14:
+  goal: check whether the D13C M16 l005 candidate improves with longer low-lr fine-tuning
+  performance_first: true
+  evidence_gate_required: false
+

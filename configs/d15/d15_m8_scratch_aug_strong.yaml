@@ -1,0 +1,28 @@
+inherits:
+  - d15_m8_scratch_basic.yaml
+
+from_scratch: true
+run_name: d15_m8_scratch_aug_strong
+
+run:
+  config_name: d15_m8_scratch_aug_strong
+  seed: 3
+
+augmentation:
+  enabled: true
+  preset: strong
+  horizontal_flip_p: 0.5
+  translation_p: 0.35
+  max_translate_pixels: 2
+  brightness_contrast_p: 0.7
+  brightness: 0.08
+  contrast: 0.10
+  gaussian_noise_p: 0.35
+  gaussian_noise_std: 0.025
+  random_erasing_p: 0.20
+  random_erasing_max_frac: 0.16
+
+d15:
+  from_scratch: true
+  goal: strong graph-feature augmentation for M8 from-scratch generalization
+

@@ -1,0 +1,20 @@
+inherits:
+  - d15_m8_scratch_basic.yaml
+
+from_scratch: true
+run_name: d15_m8_scratch_curriculum
+
+run:
+  config_name: d15_m8_scratch_curriculum
+  seed: 2
+
+loss:
+  slot_loss_start_epoch: 20
+  supcon_start_epoch: 50
+  supcon_ramp_epochs: 15
+  pool_loss_early_weight_scale: 0.5
+
+d15:
+  from_scratch: true
+  goal: delayed slot regularization and delayed SupCon for stability
+

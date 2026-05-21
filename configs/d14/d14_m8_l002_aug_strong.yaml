@@ -1,0 +1,37 @@
+inherits:
+  - d14_m8_l002_extend100.yaml
+
+run_name: d14_m8_l002_aug_strong
+
+run:
+  config_name: d14_m8_l002_aug_strong
+  seed: 2
+
+training:
+  epochs: 80
+  max_epochs: 80
+  early_stopping_patience: 16
+
+scheduler:
+  name: cosine
+  t_max: 80
+  min_lr: 0.000001
+
+augmentation:
+  enabled: true
+  horizontal_flip_p: 0.5
+  translation_p: 0.35
+  max_translate_pixels: 2
+  brightness_contrast_p: 0.7
+  brightness: 0.08
+  contrast: 0.10
+  gaussian_noise_p: 0.35
+  gaussian_noise_std: 0.025
+  random_erasing_p: 0.20
+  random_erasing_max_frac: 0.16
+
+d14:
+  goal: test graph-feature augmentation for M8 generalization
+  performance_first: true
+  evidence_gate_required: false
+

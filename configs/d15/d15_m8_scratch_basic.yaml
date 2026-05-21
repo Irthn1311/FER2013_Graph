@@ -1,0 +1,128 @@
+from_scratch: true
+run_name: d15_m8_scratch_basic
+
+run:
+  config_name: d15_m8_scratch_basic
+  seed: 1
+
+paths:
+  output_root: outputs/d15_from_scratch
+
+environments:
+  local:
+    paths:
+      csv_root: data
+      graph_repo_path: artifacts/graph-repo/graph_repo
+      output_root: outputs/d15_from_scratch
+  kaggle:
+    paths:
+      csv_root: auto
+      graph_repo_path: /kaggle/working/artifacts/graph_repo
+      output_root: /kaggle/working/outputs/d15_from_scratch
+
+model:
+  name: d15_from_scratch
+  base_model: d15_m8_scratch
+  init_checkpoint: null
+  init_d13b_checkpoint: null
+  load_pretrained: false
+  num_regions: 144
+  node_dim: 7
+  edge_dim: 5
+  hidden_dim: 64
+  num_classes: 7
+  pixel_layers: 2
+  region_layers: 2
+  region_encoder_layers: 2
+  dropout: 0.1
+  encoder:
+    name: edgeaware_lite_v2
+    jumping_knowledge: gated
+  pooling:
+    name: local_assignment
+    grid_size: 12
+    assign_m: 4
+    neighbor_mode: "4"
+  num_slots: 8
+  slot_iters: 2
+  slot_dim: 64
+  slot_self_attention_layers: 0
+  slot_readout: deep_readout
+  return_region_embeddings: true
+  return_encoder_layers: true
+  projection_dim: 64
+  projection_hidden_dim: 128
+  freeze_backbone: false
+  prototype_weight: 0.0
+  motif_level_supcon: false
+
+loss:
+  name: d15_scheduled
+  type: weighted_ce
+  use_class_weights: true
+  class_counts: [3995, 436, 4097, 7215, 4830, 3171, 4965]
+  class_weight_power: 0.25
+  label_smoothing: 0.05
+  lambda_supcon_target: 0.02
+  supcon_temperature: 0.1
+  supcon_start_epoch: 35
+  supcon_ramp_epochs: 10
+  slot_loss_start_epoch: 10
+  pool_loss_early_weight_scale: 1.0
+  pool_entropy_weight: 0.0005
+  pool_balance_weight: 0.001
+  pool_compactness_weight: 0.001
+  pool_area_weight: 0.0005
+  slot_diversity_weight: 0.001
+  slot_overlap_weight: 0.001
+  slot_entropy_weight: 0.0005
+  slot_balance_weight: 0.0005
+  prototype_weight: 0.0
+  motif_level_supcon: false
+
+optimizer:
+  name: adamw
+  lr: 0.0003
+  weight_decay: 0.0001
+
+scheduler:
+  name: cosine_warmup
+  warmup_epochs: 5
+  t_max: 150
+  min_lr: 0.000001
+
+training:
+  seed: 1
+  epochs: 150
+  max_epochs: 150
+  batch_size: 16
+  num_workers: 0
+  early_stopping_metric: val_macro_f1
+  early_stopping_patience: 25
+  grad_clip: 1.0
+  amp: false
+  multi_gpu: false
+  use_compile: false
+
+data:
+  batch_size: 16
+  chunk_cache_size: 2
+
+augmentation:
+  enabled: true
+  preset: standard
+  horizontal_flip_p: 0.5
+  translation_p: 0.15
+  max_translate_pixels: 1
+  brightness_contrast_p: 0.35
+  brightness: 0.05
+  contrast: 0.06
+  gaussian_noise_p: 0.15
+  gaussian_noise_std: 0.015
+  random_erasing_p: 0.0
+
+d15:
+  from_scratch: true
+  performance_first: true
+  evidence_gate_required: false
+

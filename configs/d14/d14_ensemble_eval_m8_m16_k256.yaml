@@ -1,0 +1,32 @@
+run_name: d14_ensemble_eval_m8_m16_k256
+
+run:
+  config_name: d14_ensemble_eval_m8_m16_k256
+  seed: 1
+
+paths:
+  output_root: outputs/d14_performance
+
+ensemble:
+  configs:
+    - configs/d13c/d13c_m8_supcon_l002_control.yaml
+    - configs/d13c/d13c_m16_supcon_l005.yaml
+    - configs/d13c/d13c_m16_supcon_l002_proj128.yaml
+    - configs/d13c/d13c_m16_supcon_l010.yaml
+  checkpoints:
+    - outputs/d13c_diagnostic/d13c_m8_supcon_l002_control/checkpoints/best.pt
+    - outputs/d13c_diagnostic/d13c_m16_supcon_l005/checkpoints/best.pt
+    - outputs/d13c_diagnostic/d13c_m16_supcon_l002_proj128/checkpoints/best.pt
+    - outputs/d13c_diagnostic/d13c_m16_supcon_l010/checkpoints/best.pt
+  names:
+    - d13c_m8_supcon_l002_control
+    - d13c_m16_supcon_l005
+    - d13c_m16_supcon_l002_proj128
+    - d13c_m16_supcon_l010
+
+d14:
+  goal: script-only ensemble evaluation by softmax/logit averaging and small weight grid
+  performance_first: true
+  train: false
+  evidence_gate_required: false
+

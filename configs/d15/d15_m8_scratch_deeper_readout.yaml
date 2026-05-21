@@ -1,0 +1,27 @@
+inherits:
+  - d15_m8_scratch_basic.yaml
+
+from_scratch: true
+run_name: d15_m8_scratch_deeper_readout
+
+run:
+  config_name: d15_m8_scratch_deeper_readout
+  seed: 5
+
+model:
+  region_layers: 3
+  region_encoder_layers: 3
+  slot_iters: 3
+  slot_self_attention_layers: 1
+  projection_hidden_dim: 192
+  dropout: 0.2
+
+optimizer:
+  name: adamw
+  lr: 0.00025
+  weight_decay: 0.00015
+
+d15:
+  from_scratch: true
+  goal: deeper M8 region and slot readout capacity from scratch
+

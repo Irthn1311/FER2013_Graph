@@ -1,0 +1,22 @@
+inherits:
+  - d15_m8_scratch_basic.yaml
+
+from_scratch: true
+run_name: d15_m8_scratch_focal_class_weight
+
+run:
+  config_name: d15_m8_scratch_focal_class_weight
+  seed: 4
+
+loss:
+  type: focal
+  focal_gamma: 1.5
+  use_class_weights: true
+  class_weight_power: 0.50
+  label_smoothing: 0.03
+  lambda_supcon_target: 0.02
+
+d15:
+  from_scratch: true
+  goal: hard-class performance via focal or weighted class objective
+

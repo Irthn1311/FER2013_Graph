@@ -1,0 +1,18 @@
+inherits:
+  - d15_m8_scratch_basic.yaml
+
+from_scratch: true
+run_name: d15_m16_scratch_basic
+
+run:
+  config_name: d15_m16_scratch_basic
+  seed: 1
+
+model:
+  base_model: d15_m16_scratch
+  num_slots: 16
+  slot_self_attention_layers: 1
+
+loss:
+  lambda_supcon_target: 0.05
+
