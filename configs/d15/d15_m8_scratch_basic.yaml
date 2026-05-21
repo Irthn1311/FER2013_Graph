@@ -95,7 +95,7 @@ training:
   seed: 1
   epochs: 150
   max_epochs: 150
-  batch_size: 16
+  batch_size: 64
   num_workers: 0
   early_stopping_metric: val_macro_f1
   early_stopping_patience: 25
@@ -105,7 +105,7 @@ training:
   use_compile: false
 
 data:
-  batch_size: 16
+  batch_size: 64
   chunk_cache_size: 2
 
 augmentation:
