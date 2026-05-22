@@ -28,7 +28,9 @@ def _cfg(config: Dict[str, Any], section: str, key: str, default: Any = None) ->
     return (config.get(section, {}) or {}).get(key, default)
 
 
-def _cuda_mem(device: torch.device) -> Dict[str, float]:
+def _cuda_mem(device: Any) -> Dict[str, float]:
+    import torch
+
     if device.type != "cuda":
         return {"max_memory_allocated_gb": 0.0, "max_memory_reserved_gb": 0.0}
     gib = 1024 ** 3
