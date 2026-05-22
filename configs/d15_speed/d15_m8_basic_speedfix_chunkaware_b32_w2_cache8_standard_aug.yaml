@@ -1,0 +1,19 @@
+inherits:
+  - d15_m8_basic_speedfix_chunkaware_b32_w2_cache8.yaml
+
+run_name: d15_m8_basic_speedfix_chunkaware_b32_w2_cache8_standard_aug
+run:
+  config_name: d15_m8_basic_speedfix_chunkaware_b32_w2_cache8_standard_aug
+
+augmentation:
+  enabled: true
+  preset: standard
+  horizontal_flip_p: 0.5
+  translation_p: 0.15
+  max_translate_pixels: 1
+  brightness_contrast_p: 0.35
+  brightness: 0.05
+  contrast: 0.06
+  gaussian_noise_p: 0.15
+  gaussian_noise_std: 0.015
+  random_erasing_p: 0.0

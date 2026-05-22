@@ -6,5 +6,8 @@ run:
   config_name: d15_m8_basic_speedfix_compile_default
 
 training:
+  compile_model: true
   use_compile: true
   compile_mode: default
+  compile_backend: inductor
+  compile_fullgraph: false

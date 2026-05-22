@@ -22,6 +22,8 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 BASELINE_EPOCH_MIN = 24.0
+B32_REFERENCE_CONFIG = "d15_m8_basic_speedfix_chunkaware_b32_w2_cache8"
+B32_REFERENCE_EPOCH_SEC = 447.19666433149996
 
 
 def _cfg(config: Dict[str, Any], section: str, key: str, default: Any = None) -> Any:
@@ -72,25 +74,47 @@ def _write_report(path: Path, rows: List[Dict[str, Any]]) -> None:
         f"- original baseline estimated: {BASELINE_EPOCH_MIN:.1f} min/epoch",
         f"- recommended config: `{best['config_name']}`" if best else "- recommended config: unavailable",
         "",
-        "| config | batch | workers | cache | chunk_aware | epoch_min | speedup | memory_gb | status |",
-        "|---|---:|---:|---:|---|---:|---:|---:|---|",
+        "| config | batch | workers | cache | chunk_aware | epoch_min | speedup_vs_b32 | speedup_vs_24min | memory_gb | status |",
+        "|---|---:|---:|---:|---|---:|---:|---:|---:|---|",
     ]
     for row in rows:
         lines.append(
             "| {config_name} | {batch_size} | {num_workers} | {chunk_cache_size} | {chunk_aware_sampler} | "
-            "{epoch_min} | {speedup} | {memory} | {status} |".format(
+            "{epoch_min} | {speedup_b32} | {speedup} | {memory} | {status} |".format(
                 config_name=row.get("config_name", "-"),
                 batch_size=row.get("batch_size", "-"),
                 num_workers=row.get("num_workers", "-"),
                 chunk_cache_size=row.get("chunk_cache_size", "-"),
                 chunk_aware_sampler=row.get("chunk_aware_sampler", "-"),
                 epoch_min=_format(float(row.get("avg_total_epoch_time_sec") or 0) / 60.0),
-                speedup=_format(row.get("speedup_factor")),
+                speedup_b32=_format(row.get("speedup_vs_b32")),
+                speedup=_format(row.get("speedup_vs_original_24min", row.get("speedup_factor"))),
                 memory=_format(row.get("max_memory_reserved_gb")),
                 status=row.get("status", "-"),
             )
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _load_b32_reference_sec(output_dir: Path) -> float:
+    candidates = [
+        output_dir / "d15_speedfix_sweep.csv",
+        output_dir.parent / "speedfix_sweep" / "d15_speedfix_sweep.csv",
+        PROJECT_ROOT / "outputs" / "d15_speed_debug" / "speedfix_sweep" / "d15_speedfix_sweep.csv",
+    ]
+    for path in candidates:
+        if not path.exists():
+            continue
+        with path.open("r", newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if row.get("config_name") == B32_REFERENCE_CONFIG and row.get("status") == "OK":
+                    try:
+                        value = float(row.get("avg_total_epoch_time_sec") or 0)
+                    except ValueError:
+                        value = 0.0
+                    if value > 0:
+                        return value
+    return B32_REFERENCE_EPOCH_SEC
 
 
 def _run_one(config_path: Path, output_dir: Path, args: argparse.Namespace) -> Dict[str, Any]:
@@ -159,6 +183,9 @@ def _run_one(config_path: Path, output_dir: Path, args: argparse.Namespace) -> D
     avg_train = sum(float(r["train_epoch_time_sec"]) for r in epoch_rows) / max(len(epoch_rows), 1)
     avg_val = sum(float(r["val_epoch_time_sec"]) for r in epoch_rows) / max(len(epoch_rows), 1)
     speedup = (BASELINE_EPOCH_MIN * 60.0 / avg_total) if avg_total > 0 else 0.0
+    b32_ref_sec = _load_b32_reference_sec(output_dir)
+    speedup_vs_b32 = (b32_ref_sec / avg_total) if avg_total > 0 else 0.0
+    avg_cache_hit_rate = sum(float(r["cache_hit_rate"]) for r in epoch_rows) / max(len(epoch_rows), 1)
     return {
         "config_name": config_name,
         "config_path": str(config_path),
@@ -177,8 +204,11 @@ def _run_one(config_path: Path, output_dir: Path, args: argparse.Namespace) -> D
         "avg_val_epoch_time_sec": avg_val,
         "avg_total_epoch_time_sec": avg_total,
         "speedup_factor": speedup,
+        "speedup_vs_original_24min": speedup,
+        "speedup_vs_b32": speedup_vs_b32,
         "first_batch_wait_time_sec": epoch_rows[0].get("first_batch_wait_time_sec", 0.0),
         "avg_batch_time_ms": sum(float(r["avg_batch_time_ms"]) for r in epoch_rows) / max(len(epoch_rows), 1),
+        "cache_hit_rate": avg_cache_hit_rate,
         **mem,
     }
 

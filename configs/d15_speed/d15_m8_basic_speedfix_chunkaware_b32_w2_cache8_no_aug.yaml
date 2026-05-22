@@ -1,0 +1,10 @@
+inherits:
+  - d15_m8_basic_speedfix_chunkaware_b32_w2_cache8.yaml
+
+run_name: d15_m8_basic_speedfix_chunkaware_b32_w2_cache8_no_aug
+run:
+  config_name: d15_m8_basic_speedfix_chunkaware_b32_w2_cache8_no_aug
+
+augmentation:
+  enabled: false
+  preset: none

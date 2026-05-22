@@ -347,17 +347,27 @@ def build_objects(config: Dict[str, Any], output_root: Path, device_arg: str | N
     device = resolve_device(device_arg, config)
     model = D13CSupConModel.from_config(config.get("model", {})).to(device)
     training_cfg = config.get("training", {}) or {}
-    if bool(training_cfg.get("use_compile", False)):
+    if bool(training_cfg.get("compile_model", training_cfg.get("use_compile", False))):
         if device.type != "cuda":
             print("[Compile] torch.compile skipped (only supported on CUDA)")
         elif not hasattr(torch, "compile"):
             print("[Compile] torch.compile not available in this PyTorch version")
         else:
             mode = training_cfg.get("compile_mode")
-            kwargs = {"mode": str(mode)} if mode else {}
+            backend = training_cfg.get("compile_backend", None)
+            kwargs = {}
+            if mode:
+                kwargs["mode"] = str(mode)
+            if backend:
+                kwargs["backend"] = str(backend)
+            if "compile_fullgraph" in training_cfg:
+                kwargs["fullgraph"] = bool(training_cfg.get("compile_fullgraph"))
             try:
                 model = torch.compile(model, **kwargs)
-                print(f"[Compile] torch.compile enabled mode={mode or 'default'}")
+                print(
+                    f"[Compile] torch.compile enabled mode={mode or 'default'} "
+                    f"backend={backend or 'default'} fullgraph={kwargs.get('fullgraph', 'default')}"
+                )
             except Exception as exc:
                 print(f"[Compile] torch.compile failed: {exc}")
     init_info = _from_scratch_info(model, config, output_root)
