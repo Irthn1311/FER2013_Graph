@@ -1,0 +1,221 @@
+"""Pixel graph builder and variable-size D16 batching."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List
+
+import numpy as np
+import torch
+
+
+@dataclass
+class D16GraphData:
+    x: torch.Tensor
+    edge_index: torch.Tensor
+    pos: torch.Tensor
+    y: torch.Tensor
+    sample_index: torch.Tensor
+    part_soft: torch.Tensor
+    face_mask: torch.Tensor
+    valid_part_mask: torch.Tensor
+    valid_anchor_mask: torch.Tensor
+    detected: torch.Tensor
+    landmark_missing_flag: torch.Tensor
+
+    def to_pyg_data(self):
+        try:
+            from torch_geometric.data import Data  # type: ignore
+        except Exception as exc:
+            raise ImportError("torch_geometric is not installed; D16 uses lightweight graph data by default") from exc
+        return Data(
+            x=self.x,
+            edge_index=self.edge_index,
+            pos=self.pos,
+            y=self.y,
+            sample_index=self.sample_index,
+            part_soft=self.part_soft,
+            face_mask=self.face_mask,
+            valid_part_mask=self.valid_part_mask,
+            valid_anchor_mask=self.valid_anchor_mask,
+            detected=self.detected,
+            landmark_missing_flag=self.landmark_missing_flag,
+        )
+
+
+@dataclass
+class D16Batch:
+    x_cat: torch.Tensor
+    edge_index_cat: torch.Tensor
+    batch_index: torch.Tensor
+    ptr: torch.Tensor
+    y: torch.Tensor
+    sample_index: torch.Tensor
+    pos_cat: torch.Tensor
+    part_soft_cat: torch.Tensor
+    face_mask_cat: torch.Tensor
+    valid_part_mask: torch.Tensor
+    valid_anchor_mask: torch.Tensor
+    detected: torch.Tensor
+    landmark_missing_flag: torch.Tensor
+
+    def to(self, device: torch.device | str) -> "D16Batch":
+        return D16Batch(
+            x_cat=self.x_cat.to(device),
+            edge_index_cat=self.edge_index_cat.to(device),
+            batch_index=self.batch_index.to(device),
+            ptr=self.ptr.to(device),
+            y=self.y.to(device),
+            sample_index=self.sample_index.to(device),
+            pos_cat=self.pos_cat.to(device),
+            part_soft_cat=self.part_soft_cat.to(device),
+            face_mask_cat=self.face_mask_cat.to(device),
+            valid_part_mask=self.valid_part_mask.to(device),
+            valid_anchor_mask=self.valid_anchor_mask.to(device),
+            detected=self.detected.to(device),
+            landmark_missing_flag=self.landmark_missing_flag.to(device),
+        )
+
+    @property
+    def num_graphs(self) -> int:
+        return int(self.y.numel())
+
+
+def _binary_dilate(mask: np.ndarray, iterations: int = 2) -> np.ndarray:
+    out = mask.astype(bool)
+    for _ in range(max(int(iterations), 0)):
+        padded = np.pad(out, 1, mode="constant", constant_values=False)
+        acc = np.zeros_like(out)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                acc |= padded[1 + dy : 49 + dy, 1 + dx : 49 + dx]
+        out = acc
+    return out
+
+
+def _node_mask(face_mask: np.ndarray, graph_mode: str, threshold: float, context_pixels: int) -> np.ndarray:
+    if graph_mode == "full_with_mask":
+        return np.ones((48, 48), dtype=bool)
+    if graph_mode == "face_plus_context":
+        base = np.asarray(face_mask) > float(threshold)
+        mask = _binary_dilate(base, iterations=int(context_pixels))
+        if not mask.any():
+            mask = np.ones((48, 48), dtype=bool)
+        return mask
+    if graph_mode == "face_only":
+        mask = np.asarray(face_mask) > float(threshold)
+        return mask if mask.any() else np.ones((48, 48), dtype=bool)
+    raise ValueError(f"Unknown D16 graph_mode={graph_mode!r}")
+
+
+def _gradients(image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    gy, gx = np.gradient(image.astype(np.float32))
+    return gx.astype(np.float32), gy.astype(np.float32)
+
+
+def _edges_for_mask(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    node_ids = -np.ones((48, 48), dtype=np.int64)
+    coords = np.argwhere(mask)
+    for idx, (y, x) in enumerate(coords):
+        node_ids[y, x] = idx
+    edges = []
+    for y, x in coords:
+        src = int(node_ids[y, x])
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dy == 0 and dx == 0:
+                    continue
+                ny, nx = int(y + dy), int(x + dx)
+                if 0 <= ny < 48 and 0 <= nx < 48 and node_ids[ny, nx] >= 0:
+                    edges.append((src, int(node_ids[ny, nx])))
+    if not edges:
+        edges = [(0, 0)]
+    return coords.astype(np.int64), np.asarray(edges, dtype=np.int64).T
+
+
+def build_pixel_graph(prior: Dict[str, np.ndarray], graph_mode: str = "face_plus_context", face_threshold: float = 0.15, context_pixels: int = 2) -> D16GraphData:
+    image = np.asarray(prior["image_48"], dtype=np.float32)
+    image_norm = image / 255.0 if image.max() > 1.0 else image
+    face = np.asarray(prior["face_mask"], dtype=np.float32)
+    part_masks = np.asarray(prior["part_soft_masks"], dtype=np.float32)
+    distance_maps = np.asarray(prior["distance_maps"], dtype=np.float32)
+    missing = float(np.asarray(prior["landmark_missing_flag"]).item())
+    mask = _node_mask(face, graph_mode=graph_mode, threshold=face_threshold, context_pixels=context_pixels)
+    coords, edges = _edges_for_mask(mask)
+    yy = coords[:, 0]
+    xx = coords[:, 1]
+    gx, gy = _gradients(image_norm)
+    x_norm = (xx.astype(np.float32) / 47.0) * 2.0 - 1.0
+    y_norm = (yy.astype(np.float32) / 47.0) * 2.0 - 1.0
+    features = [
+        image_norm[yy, xx][:, None],
+        gx[yy, xx][:, None],
+        gy[yy, xx][:, None],
+        x_norm[:, None],
+        y_norm[:, None],
+        face[yy, xx][:, None],
+        np.transpose(part_masks[:, yy, xx], (1, 0)),
+        np.transpose(distance_maps[:, yy, xx], (1, 0)),
+        np.full((len(coords), 1), missing, dtype=np.float32),
+    ]
+    x = np.concatenate(features, axis=1).astype(np.float32)
+    pos = np.stack([x_norm, y_norm], axis=1).astype(np.float32)
+    return D16GraphData(
+        x=torch.from_numpy(x),
+        edge_index=torch.from_numpy(edges).long(),
+        pos=torch.from_numpy(pos),
+        y=torch.tensor(int(np.asarray(prior["label"]).item()), dtype=torch.long),
+        sample_index=torch.tensor(int(np.asarray(prior["sample_index"]).item()), dtype=torch.long),
+        part_soft=torch.from_numpy(np.transpose(part_masks[:, yy, xx], (1, 0)).astype(np.float32)),
+        face_mask=torch.from_numpy(face[yy, xx].astype(np.float32)),
+        valid_part_mask=torch.from_numpy(np.asarray(prior["valid_part_mask"], dtype=np.float32)),
+        valid_anchor_mask=torch.from_numpy(np.asarray(prior["valid_anchor_mask"], dtype=np.float32)),
+        detected=torch.tensor(bool(np.asarray(prior["detected"]).item()), dtype=torch.bool),
+        landmark_missing_flag=torch.tensor(int(np.asarray(prior["landmark_missing_flag"]).item()), dtype=torch.long),
+    )
+
+
+def collate_d16_graphs(graphs: Iterable[D16GraphData]) -> D16Batch:
+    graphs = list(graphs)
+    if not graphs:
+        raise ValueError("Cannot collate empty D16 graph batch")
+    xs: List[torch.Tensor] = []
+    edges: List[torch.Tensor] = []
+    batch_index: List[torch.Tensor] = []
+    ptr = [0]
+    pos: List[torch.Tensor] = []
+    part_soft: List[torch.Tensor] = []
+    face: List[torch.Tensor] = []
+    ys, sample_indices, valid_parts, valid_anchors, detected, missing = [], [], [], [], [], []
+    offset = 0
+    for batch_id, graph in enumerate(graphs):
+        n = int(graph.x.size(0))
+        xs.append(graph.x)
+        edges.append(graph.edge_index + offset)
+        batch_index.append(torch.full((n,), batch_id, dtype=torch.long))
+        pos.append(graph.pos)
+        part_soft.append(graph.part_soft)
+        face.append(graph.face_mask)
+        ys.append(graph.y)
+        sample_indices.append(graph.sample_index)
+        valid_parts.append(graph.valid_part_mask)
+        valid_anchors.append(graph.valid_anchor_mask)
+        detected.append(graph.detected)
+        missing.append(graph.landmark_missing_flag)
+        offset += n
+        ptr.append(offset)
+    return D16Batch(
+        x_cat=torch.cat(xs, dim=0),
+        edge_index_cat=torch.cat(edges, dim=1),
+        batch_index=torch.cat(batch_index, dim=0),
+        ptr=torch.tensor(ptr, dtype=torch.long),
+        y=torch.stack(ys).long(),
+        sample_index=torch.stack(sample_indices).long(),
+        pos_cat=torch.cat(pos, dim=0),
+        part_soft_cat=torch.cat(part_soft, dim=0),
+        face_mask_cat=torch.cat(face, dim=0),
+        valid_part_mask=torch.stack(valid_parts).float(),
+        valid_anchor_mask=torch.stack(valid_anchors).float(),
+        detected=torch.stack(detected).bool(),
+        landmark_missing_flag=torch.stack(missing).long(),
+    )

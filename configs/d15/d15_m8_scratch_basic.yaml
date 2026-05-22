@@ -95,18 +95,30 @@ training:
   seed: 1
   epochs: 150
   max_epochs: 150
-  batch_size: 64
-  num_workers: 0
+  batch_size: 32
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
   early_stopping_metric: val_macro_f1
-  early_stopping_patience: 25
+  early_stopping_patience: 35
+  min_epochs_before_early_stop: 90
   grad_clip: 1.0
   amp: false
   multi_gpu: false
   use_compile: false
 
 data:
-  batch_size: 64
-  chunk_cache_size: 2
+  batch_size: 32
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  chunk_cache_size: 8
+  chunk_aware_sampler: true
+  chunk_aware_shuffle: true
+  shuffle_chunks: true
+  shuffle_within_chunk: true
 
 augmentation:
   enabled: true
@@ -125,4 +137,3 @@ d15:
   from_scratch: true
   performance_first: true
   evidence_gate_required: false
-

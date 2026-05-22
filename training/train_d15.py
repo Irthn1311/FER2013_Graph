@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -39,7 +41,6 @@ from training.train_d13b import (
     _metrics,
     _pred_count_row,
     _reduce_loss_value,
-    _save_checkpoint,
     _set_model_epoch,
     _slot_stats,
     _test_predictions,
@@ -177,6 +178,290 @@ def _supcon_stats(loss_dict: Dict[str, torch.Tensor]) -> Dict[str, float]:
     return out
 
 
+def _str_to_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return True
+    text = str(value).strip().lower()
+    if text in ("1", "true", "yes", "y", "on"):
+        return True
+    if text in ("0", "false", "no", "n", "off"):
+        return False
+    raise argparse.ArgumentTypeError(f"Expected boolean value, got {value!r}")
+
+
+def _stage_name(epoch: int, loss_cfg: Dict[str, Any]) -> str:
+    slot_start = int(loss_cfg.get("slot_loss_start_epoch", 10))
+    supcon_start = int(loss_cfg.get("supcon_start_epoch", 35))
+    supcon_ramp = max(int(loss_cfg.get("supcon_ramp_epochs", 10)), 1)
+    if epoch < slot_start:
+        return "ce_pool_light"
+    if epoch < supcon_start:
+        return "slot_warmup"
+    if epoch < supcon_start + supcon_ramp:
+        return "supcon_ramp"
+    return "supcon_full"
+
+
+def _unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
+    target = model.module if hasattr(model, "module") else model
+    return getattr(target, "_orig_mod", target)
+
+
+def _rng_state() -> Dict[str, Any]:
+    state: Dict[str, Any] = {
+        "python_random": random.getstate(),
+        "numpy_random": np.random.get_state(),
+        "torch_cpu": torch.get_rng_state(),
+        "torch_cuda": None,
+    }
+    if torch.cuda.is_available():
+        state["torch_cuda"] = torch.cuda.get_rng_state_all()
+    return state
+
+
+def _restore_rng_state(state: Dict[str, Any]) -> bool:
+    if not state:
+        return False
+    def _byte_tensor(value: Any) -> torch.Tensor:
+        if torch.is_tensor(value):
+            return value.detach().cpu().to(torch.uint8)
+        return torch.as_tensor(value, dtype=torch.uint8)
+
+    if "python_random" in state:
+        random.setstate(state["python_random"])
+    if "numpy_random" in state:
+        np.random.set_state(state["numpy_random"])
+    if "torch_cpu" in state:
+        torch.set_rng_state(_byte_tensor(state["torch_cpu"]))
+    cuda_state = state.get("torch_cuda")
+    if cuda_state is not None and torch.cuda.is_available():
+        torch.cuda.set_rng_state_all([_byte_tensor(item) for item in cuda_state])
+    return True
+
+
+def _sampler_state_info(config: Dict[str, Any]) -> Dict[str, Any]:
+    data_cfg = config.get("data", {}) or {}
+    training_cfg = config.get("training", {}) or {}
+    return {
+        "sampler_seed_base": int(training_cfg.get("seed", config.get("run", {}).get("seed", 42))),
+        "chunk_aware_sampler": bool(data_cfg.get("chunk_aware_sampler", data_cfg.get("chunk_aware_shuffle", False))),
+        "shuffle_chunks": bool(data_cfg.get("shuffle_chunks", True)),
+        "shuffle_within_chunk": bool(data_cfg.get("shuffle_within_chunk", True)),
+        "batch_size": int(data_cfg.get("batch_size", training_cfg.get("batch_size", 0)) or 0),
+    }
+
+
+def _atomic_torch_save(payload: Dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + ".tmp")
+    torch.save(payload, tmp_path)
+    os.replace(tmp_path, path)
+
+
+def _save_d15_checkpoint(
+    path: Path,
+    model,
+    optimizer,
+    scheduler,
+    scaler,
+    epoch: int,
+    global_step: int,
+    metrics: Dict[str, Any],
+    config: Dict[str, Any],
+    best_value: float,
+    best_epoch: int,
+    early_stopping_state: Dict[str, Any],
+    resume_source: str | None,
+    interrupted: bool = False,
+) -> None:
+    payload = {
+        "checkpoint_format": "d15_kaggle_safe_resume_v1",
+        "epoch": int(epoch),
+        "global_step": int(global_step),
+        "model_state_dict": _unwrap_model(model).state_dict(),
+        "optimizer_state_dict": optimizer.state_dict() if optimizer is not None else None,
+        "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
+        "scaler_state_dict": scaler.state_dict() if scaler is not None else None,
+        "best_val_macro_f1": float(best_value),
+        "best_epoch": int(best_epoch),
+        "early_stopping_state": dict(early_stopping_state),
+        "rng_state": _rng_state(),
+        "config": config,
+        "resolved_config": config,
+        "run_name": str(config.get("run_name") or config.get("run", {}).get("config_name") or path.parent.parent.name),
+        "from_scratch": True,
+        "init_checkpoint": None,
+        "loaded_pretrained": False,
+        "resume_source": resume_source,
+        "dataloader_sampler_state_info": _sampler_state_info(config),
+        "metrics": metrics,
+        "interrupted": bool(interrupted),
+    }
+    _atomic_torch_save(payload, path)
+
+
+def _get_nested(config: Dict[str, Any], dotted: str, default: Any = None) -> Any:
+    value: Any = config
+    for part in dotted.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return default
+        value = value[part]
+    return value
+
+
+def _nonnull(value: Any) -> bool:
+    return value not in (None, "", "null", False)
+
+
+def _validate_resume_config(
+    checkpoint: Dict[str, Any],
+    current_config: Dict[str, Any],
+    current_epochs: int,
+    allow_batch_size_change: bool,
+) -> Dict[str, Any]:
+    ckpt_config = checkpoint.get("resolved_config") or checkpoint.get("config") or {}
+    failures = []
+    warnings = []
+    critical_paths = [
+        "model.name",
+        "model.base_model",
+        "model.num_slots",
+        "model.hidden_dim",
+        "model.node_dim",
+        "model.edge_dim",
+        "model.pixel_layers",
+        "model.region_layers",
+        "model.region_encoder_layers",
+        "model.pooling.grid_size",
+        "model.pooling.assign_m",
+        "model.pooling.neighbor_mode",
+        "model.slot_iters",
+        "model.slot_dim",
+        "optimizer.name",
+        "scheduler.name",
+        "loss.name",
+        "loss.type",
+        "loss.lambda_supcon_target",
+        "loss.supcon_start_epoch",
+        "loss.supcon_ramp_epochs",
+        "loss.slot_loss_start_epoch",
+    ]
+    for key in critical_paths:
+        old = _get_nested(ckpt_config, key)
+        new = _get_nested(current_config, key)
+        if old != new:
+            failures.append(f"{key}: checkpoint={old!r} current={new!r}")
+
+    for cfg, label in ((ckpt_config, "checkpoint"), (current_config, "current")):
+        if not bool(cfg.get("from_scratch", cfg.get("d15", {}).get("from_scratch", False))):
+            failures.append(f"{label}.from_scratch is not true")
+        for key in ("model.init_checkpoint", "model.init_d13b_checkpoint", "model.pretrained_checkpoint", "training.init_checkpoint"):
+            if _nonnull(_get_nested(cfg, key)):
+                failures.append(f"{label}.{key} is not null")
+
+    old_batch = int(_get_nested(ckpt_config, "training.batch_size", _get_nested(ckpt_config, "data.batch_size", 0)) or 0)
+    new_batch = int(_get_nested(current_config, "training.batch_size", _get_nested(current_config, "data.batch_size", 0)) or 0)
+    if old_batch and new_batch and old_batch != new_batch:
+        msg = f"training.batch_size: checkpoint={old_batch} current={new_batch}"
+        if allow_batch_size_change:
+            warnings.append("ALLOW_BATCH_SIZE_CHANGE " + msg)
+        else:
+            failures.append(msg)
+
+    ckpt_epoch = int(checkpoint.get("epoch", 0) or 0)
+    if int(current_epochs) < ckpt_epoch:
+        failures.append(f"current max epochs {current_epochs} is smaller than checkpoint epoch {ckpt_epoch}")
+
+    return {
+        "ok": not failures,
+        "failures": failures,
+        "warnings": warnings,
+        "checkpoint_batch_size": old_batch,
+        "current_batch_size": new_batch,
+    }
+
+
+def _append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, default=str) + "\n")
+
+
+def _load_d15_resume(
+    resume_from: str | Path,
+    model,
+    optimizer,
+    scheduler,
+    scaler,
+    device,
+    config: Dict[str, Any],
+    epochs: int,
+    output_root: Path,
+    restore_rng: bool,
+    allow_resume_from_best: bool,
+    allow_batch_size_change: bool,
+) -> Dict[str, Any]:
+    resume_path = Path(resume_from)
+    if resume_path.name.lower() == "best.pt" and not allow_resume_from_best:
+        raise ValueError("Refusing to resume from best.pt without --allow_resume_from_best true")
+    checkpoint = torch.load(resume_path, map_location=device, weights_only=False)
+    validation = _validate_resume_config(checkpoint, config, epochs, allow_batch_size_change)
+    if not validation["ok"]:
+        (output_root / "resume_config_mismatch.json").write_text(json.dumps(validation, indent=2), encoding="utf-8")
+        raise ValueError("D15 resume config mismatch: " + "; ".join(validation["failures"]))
+
+    _unwrap_model(model).load_state_dict(checkpoint["model_state_dict"])
+    loaded_optimizer = checkpoint.get("optimizer_state_dict") is not None
+    loaded_scheduler = checkpoint.get("scheduler_state_dict") is not None
+    if not loaded_optimizer:
+        raise ValueError("D15 resume checkpoint is missing optimizer_state_dict")
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    if scheduler is not None:
+        if not loaded_scheduler:
+            raise ValueError("D15 resume checkpoint is missing scheduler_state_dict")
+        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+    if scaler is not None:
+        scaler_state = checkpoint.get("scaler_state_dict")
+        if scaler_state is None:
+            raise ValueError("D15 AMP resume checkpoint is missing scaler_state_dict")
+        scaler.load_state_dict(scaler_state)
+    restored_rng = _restore_rng_state(checkpoint.get("rng_state", {})) if restore_rng else False
+    resumed_epoch = int(checkpoint.get("epoch", 0) or 0)
+    next_epoch = resumed_epoch + 1
+    early_state = dict(checkpoint.get("early_stopping_state") or {})
+    best_value = float(checkpoint.get("best_val_macro_f1", early_state.get("best_val_macro_f1", -float("inf"))))
+    best_epoch = int(checkpoint.get("best_epoch", early_state.get("best_epoch", -1)))
+    stale = int(early_state.get("patience_counter", early_state.get("stale", 0)))
+    event = {
+        "resume_from": str(resume_path),
+        "resumed_epoch": resumed_epoch,
+        "next_epoch": next_epoch,
+        "loaded_optimizer": bool(loaded_optimizer),
+        "loaded_scheduler": bool(loaded_scheduler),
+        "current_lr": float(optimizer.param_groups[0].get("lr", 0.0)),
+        "best_val_macro_f1": best_value,
+        "best_epoch": best_epoch,
+        "early_stopping_counter": stale,
+        "restored_rng": bool(restored_rng),
+        "allow_resume_from_best": bool(allow_resume_from_best),
+        "allow_batch_size_change": bool(allow_batch_size_change),
+        "config_warnings": validation["warnings"],
+    }
+    print("[D15 Resume] " + json.dumps(event, indent=2))
+    _append_jsonl(output_root / "resume_events.jsonl", event)
+    return {
+        "start_epoch": next_epoch,
+        "global_step": int(checkpoint.get("global_step", 0) or 0),
+        "best_value": best_value,
+        "best_epoch": best_epoch,
+        "stale": stale,
+        "resume_source": str(resume_path),
+        "early_stopping_state": early_state,
+    }
+
+
 def _run_epoch(
     model,
     criterion,
@@ -189,14 +474,17 @@ def _run_epoch(
     grad_clip: float,
     amp: bool,
     augmentation_cfg: Dict[str, Any] | None = None,
-) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float]]:
+    scaler=None,
+    global_step: int = 0,
+) -> Tuple[Dict[str, float], Dict[str, float], Dict[str, float], Dict[str, float], int]:
     is_train = optimizer is not None
     model.train(is_train)
     if hasattr(criterion, "set_epoch"):
         criterion.set_epoch(epoch)
     _set_model_epoch(model, epoch)
     amp_enabled = _amp_is_enabled(amp, device)
-    scaler = _make_grad_scaler(amp_enabled)
+    if is_train and amp_enabled and scaler is None:
+        scaler = _make_grad_scaler(amp_enabled)
     totals: Dict[str, float] = {}
     slot_totals: Dict[str, float] = {}
     pool_totals: Dict[str, float] = {}
@@ -253,6 +541,7 @@ def _run_epoch(
                 if grad_clip and float(grad_clip) > 0:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), float(grad_clip))
                 optimizer.step()
+            global_step += 1
         pred = out["logits"].detach().argmax(dim=1)
         y_true.extend(batch["y"].detach().cpu().tolist())
         y_pred.extend(pred.detach().cpu().tolist())
@@ -291,6 +580,7 @@ def _run_epoch(
         {k: v / count for k, v in slot_totals.items()},
         {k: v / count for k, v in pool_totals.items()},
         {k: v / count for k, v in supcon_totals.items()},
+        int(global_step),
     )
 
 
@@ -451,7 +741,17 @@ def _export_test_diagnostics(model, loader, device, output_root: Path, max_batch
         )
 
 
-def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, device_arg: str | None = None) -> Dict[str, Any]:
+def run_train(
+    config: Dict[str, Any],
+    output_dir: str | Path | None = None,
+    device_arg: str | None = None,
+    resume_from: str | None = None,
+    restore_rng: bool = True,
+    max_runtime_hours: float | None = None,
+    save_before_exit_minutes: float = 20.0,
+    allow_resume_from_best: bool = False,
+    allow_batch_size_change: bool = False,
+) -> Dict[str, Any]:
     if not bool(config.get("from_scratch", config.get("d15", {}).get("from_scratch", True))):
         raise ValueError("D15 requires from_scratch=true")
     config.setdefault("model", {})
@@ -462,6 +762,8 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
     output_root = Path(config.get("paths", {}).get("resolved_output_root") or output_dir or "outputs/d15_from_scratch/run")
     output_root.mkdir(parents=True, exist_ok=True)
     save_config(config, output_root)
+    (output_root / "RUN_INTERRUPTED_FOR_TIME_LIMIT").unlink(missing_ok=True)
+    (output_root / "RUN_COMPLETE").unlink(missing_ok=True)
     train_loader = build_dataloader(config, "train", shuffle=True)
     val_loader = build_dataloader(config, "val", shuffle=False)
     test_loader = build_dataloader(config, "test", shuffle=False)
@@ -474,28 +776,79 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
     max_val_batches = training_cfg.get("max_val_batches")
     max_test_batches = training_cfg.get("max_test_batches")
     patience = int(training_cfg.get("early_stopping_patience", 25))
+    min_epochs_before_stop = int(training_cfg.get("min_epochs_before_early_stop", 0))
     monitor = str(training_cfg.get("early_stopping_metric", training_cfg.get("monitor", "val_macro_f1")))
     augmentation_cfg = dict(config.get("augmentation", {}) or {})
+    amp_enabled = _amp_is_enabled(amp, device)
+    scaler = _make_grad_scaler(amp_enabled)
     best_value = -float("inf")
     best_epoch = -1
     stale = 0
+    global_step = 0
+    start_epoch = 1
+    resume_source = None
     history = []
-    for epoch in range(1, epochs + 1):
-        train_metrics, train_slot, train_pool, train_supcon = _run_epoch(model, criterion, train_loader, optimizer, device, epoch, "train", max_train_batches, grad_clip, amp, augmentation_cfg)
-        val_metrics, val_slot, val_pool, val_supcon = _run_epoch(model, criterion, val_loader, None, device, epoch, "val", max_val_batches, grad_clip, amp=False)
+    if resume_from:
+        resume_state = _load_d15_resume(
+            resume_from=resume_from,
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            scaler=scaler,
+            device=device,
+            config=config,
+            epochs=epochs,
+            output_root=output_root,
+            restore_rng=restore_rng,
+            allow_resume_from_best=allow_resume_from_best,
+            allow_batch_size_change=allow_batch_size_change,
+        )
+        start_epoch = int(resume_state["start_epoch"])
+        global_step = int(resume_state["global_step"])
+        best_value = float(resume_state["best_value"])
+        best_epoch = int(resume_state["best_epoch"])
+        stale = int(resume_state["stale"])
+        resume_source = str(resume_state["resume_source"])
+    run_start = time.perf_counter()
+    interrupted_for_time = False
+    completed_training = False
+
+    for epoch in range(start_epoch, epochs + 1):
+        train_metrics, train_slot, train_pool, train_supcon, global_step = _run_epoch(
+            model, criterion, train_loader, optimizer, device, epoch, "train",
+            max_train_batches, grad_clip, amp, augmentation_cfg, scaler=scaler,
+            global_step=global_step,
+        )
+        val_metrics, val_slot, val_pool, val_supcon, global_step = _run_epoch(
+            model, criterion, val_loader, None, device, epoch, "val",
+            max_val_batches, grad_clip, amp=False, global_step=global_step,
+        )
         _append_cache_stats(output_root, epoch, "train", train_loader, train_metrics)
         _append_cache_stats(output_root, epoch, "val", val_loader, val_metrics)
         if scheduler is not None:
             step_scheduler(scheduler, monitor_value=val_metrics.get("macro_f1"))
-        row = {"epoch": epoch, "lr": float(optimizer.param_groups[0].get("lr", 0.0))}
+        stage = _stage_name(epoch, config.get("loss", {}) or {})
+        early_stop_allowed = bool(epoch >= min_epochs_before_stop)
+        row = {
+            "epoch": epoch,
+            "global_step": int(global_step),
+            "lr": float(optimizer.param_groups[0].get("lr", 0.0)),
+            "lambda_supcon": float(train_supcon.get("lambda_supcon_current", 0.0)),
+            "stage": stage,
+            "early_stop_allowed": early_stop_allowed,
+        }
         row.update({f"train_{k}": v for k, v in train_metrics.items()})
         row.update({f"val_{k}": v for k, v in val_metrics.items()})
         row["train_epoch_time_sec"] = float(train_metrics.get("seconds", 0.0))
         row["val_epoch_time_sec"] = float(val_metrics.get("seconds", 0.0))
         row["total_epoch_time_sec"] = row["train_epoch_time_sec"] + row["val_epoch_time_sec"]
+        row["epoch_time_sec"] = row["total_epoch_time_sec"]
+        row["ce_loss"] = float(train_metrics.get("loss_ce", 0.0))
+        row["pool_loss"] = float(train_metrics.get("loss_pool_total", 0.0))
+        row["slot_loss"] = float(train_metrics.get("loss_slot_total", 0.0))
+        row["supcon_loss"] = float(train_metrics.get("loss_supcon", 0.0))
+        row["val_macro_f1"] = float(val_metrics.get("macro_f1", 0.0))
         row.update({"from_scratch": True, "loaded_keys": 0, "trainable_parameters": init_info.get("trainable_parameters", 0)})
-        _append_csv(output_root / "train_log.csv", row)
-        _append_csv(output_root / "val_metrics.csv", {"epoch": epoch, **{f"val_{k}": v for k, v in val_metrics.items()}})
         for split, slot, pool, supcon, metrics in (
             ("train", train_slot, train_pool, train_supcon, train_metrics),
             ("val", val_slot, val_pool, val_supcon, val_metrics),
@@ -510,28 +863,99 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
             best_value = value
             best_epoch = epoch
             stale = 0
-            _save_checkpoint(output_root / "checkpoints" / "best.pt", model, optimizer, scheduler, epoch, row, config)
+            improved = True
         else:
             stale += 1
-        _save_checkpoint(output_root / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, row, config)
+            improved = False
+        row["best_val_macro_f1"] = float(best_value)
+        row["best_epoch"] = int(best_epoch)
+        row["patience_counter"] = int(stale)
+        early_state = {
+            "best_val_macro_f1": float(best_value),
+            "best_epoch": int(best_epoch),
+            "patience_counter": int(stale),
+            "patience": int(patience),
+            "min_epochs_before_early_stop": int(min_epochs_before_stop),
+            "monitor": monitor,
+            "mode": "max",
+        }
+        _append_csv(output_root / "train_log.csv", row)
+        _append_csv(output_root / "val_metrics.csv", {"epoch": epoch, **{f"val_{k}": v for k, v in val_metrics.items()}})
+        if improved:
+            _save_d15_checkpoint(
+                output_root / "checkpoints" / "best.pt", model, optimizer, scheduler, scaler,
+                epoch, global_step, row, config, best_value, best_epoch, early_state, resume_source,
+            )
+        _save_d15_checkpoint(
+            output_root / "checkpoints" / "last.pt", model, optimizer, scheduler, scaler,
+            epoch, global_step, row, config, best_value, best_epoch, early_state, resume_source,
+        )
+        _save_d15_checkpoint(
+            output_root / "checkpoints" / f"epoch_{epoch:03d}.pt", model, optimizer, scheduler, scaler,
+            epoch, global_step, row, config, best_value, best_epoch, early_state, resume_source,
+        )
         print(
             f"Epoch {epoch:03d}/{epochs:03d} train_loss={train_metrics['loss']:.4f} "
             f"lambda_supcon={train_supcon.get('lambda_supcon_current', 0.0):.4f} "
             f"val_macro_f1={val_metrics['macro_f1']:.4f} best={best_value:.4f}@{best_epoch} "
+            f"stage={stage} early_stop_allowed={early_stop_allowed} "
+            f"patience_counter={stale} lr={row['lr']:.6g} "
             f"train_epoch_time_sec={row['train_epoch_time_sec']:.1f} "
             f"val_epoch_time_sec={row['val_epoch_time_sec']:.1f}"
         )
-        if stale >= patience:
+        if max_runtime_hours is not None:
+            elapsed = time.perf_counter() - run_start
+            remaining = float(max_runtime_hours) * 3600.0 - elapsed
+            if remaining <= float(save_before_exit_minutes) * 60.0:
+                interrupted_for_time = True
+                _save_d15_checkpoint(
+                    output_root / "checkpoints" / "interrupted.pt", model, optimizer, scheduler, scaler,
+                    epoch, global_step, row, config, best_value, best_epoch, early_state, resume_source,
+                    interrupted=True,
+                )
+                _save_d15_checkpoint(
+                    output_root / "checkpoints" / "last.pt", model, optimizer, scheduler, scaler,
+                    epoch, global_step, row, config, best_value, best_epoch, early_state, resume_source,
+                    interrupted=True,
+                )
+                (output_root / "RUN_INTERRUPTED_FOR_TIME_LIMIT").write_text(
+                    json.dumps(
+                        {
+                            "epoch": int(epoch),
+                            "global_step": int(global_step),
+                            "max_runtime_hours": float(max_runtime_hours),
+                            "save_before_exit_minutes": float(save_before_exit_minutes),
+                            "remaining_seconds": float(remaining),
+                        },
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+                print("RUN_INTERRUPTED_FOR_TIME_LIMIT")
+                break
+        if early_stop_allowed and stale >= patience:
             print(f"Early stopping after {stale} stale epochs")
+            completed_training = True
             break
+    else:
+        completed_training = True
 
     (output_root / "training_history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
+    if interrupted_for_time:
+        return {
+            "best_epoch": best_epoch,
+            "best_metric": best_value,
+            "output_dir": str(output_root),
+            "interrupted": True,
+        }
     best_path = output_root / "checkpoints" / "best.pt"
     if best_path.exists():
         ckpt = torch.load(best_path, map_location=device, weights_only=False)
-        target = model.module if hasattr(model, "module") else model
-        target.load_state_dict(ckpt["model_state_dict"])
-    test_metrics, test_slot, test_pool, test_supcon = _run_epoch(model, criterion, test_loader, None, device, best_epoch, "test", max_test_batches, grad_clip, amp=False)
+        _unwrap_model(model).load_state_dict(ckpt["model_state_dict"])
+    test_metrics, test_slot, test_pool, test_supcon, global_step = _run_epoch(
+        model, criterion, test_loader, None, device, best_epoch, "test",
+        max_test_batches, grad_clip, amp=False, global_step=global_step,
+    )
     _append_cache_stats(output_root, best_epoch, "test", test_loader, test_metrics)
     print(f"test_time_sec={test_metrics.get('seconds', 0.0):.1f}")
     _append_csv(output_root / "test_metrics.csv", {"epoch": best_epoch, **{f"test_{k}": v for k, v in test_metrics.items()}})
@@ -549,7 +973,11 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
     write_confusion_matrix(y_true, y_pred, output_root / "confusion_matrix.csv")
     _export_test_diagnostics(model, test_loader, device, output_root, max_test_batches)
     _write_report(output_root, config, best_epoch, best_value, test_metrics, test_slot, test_pool, test_supcon, init_info)
-    return {"best_epoch": best_epoch, "best_metric": best_value, "output_dir": str(output_root)}
+    (output_root / "RUN_COMPLETE").write_text(
+        json.dumps({"best_epoch": int(best_epoch), "best_val_macro_f1": float(best_value), "completed_training": bool(completed_training)}, indent=2),
+        encoding="utf-8",
+    )
+    return {"best_epoch": best_epoch, "best_metric": best_value, "output_dir": str(output_root), "interrupted": False}
 
 
 def main() -> None:
@@ -578,6 +1006,14 @@ def main() -> None:
     parser.add_argument("--no_chunk_aware_shuffle", action="store_true", default=False)
     parser.add_argument("--amp", action="store_true", default=False)
     parser.add_argument("--no_amp", action="store_true", default=False)
+    parser.add_argument("--resume_from", default=None)
+    parser.add_argument("--restore_rng", dest="restore_rng", action="store_true")
+    parser.add_argument("--no_restore_rng", dest="restore_rng", action="store_false")
+    parser.set_defaults(restore_rng=True)
+    parser.add_argument("--max_runtime_hours", type=float, default=None)
+    parser.add_argument("--save_before_exit_minutes", type=float, default=20.0)
+    parser.add_argument("--allow_resume_from_best", nargs="?", const=True, default=False, type=_str_to_bool)
+    parser.add_argument("--allow_batch_size_change", nargs="?", const=True, default=False, type=_str_to_bool)
     args = parser.parse_args()
     if args.max_epochs_override is not None:
         args.epochs = int(args.max_epochs_override)
@@ -590,7 +1026,17 @@ def main() -> None:
     config = apply_cli_overrides(load_config(args.config, environment=args.environment), args)
     if args.output_dir:
         config.setdefault("paths", {})["resolved_output_root"] = args.output_dir
-    run_train(config, output_dir=args.output_dir, device_arg=args.device)
+    run_train(
+        config,
+        output_dir=args.output_dir,
+        device_arg=args.device,
+        resume_from=args.resume_from,
+        restore_rng=bool(args.restore_rng),
+        max_runtime_hours=args.max_runtime_hours,
+        save_before_exit_minutes=float(args.save_before_exit_minutes),
+        allow_resume_from_best=bool(args.allow_resume_from_best),
+        allow_batch_size_change=bool(args.allow_batch_size_change),
+    )
 
 
 if __name__ == "__main__":

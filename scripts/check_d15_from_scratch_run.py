@@ -116,6 +116,18 @@ def check_run(output_dir: Path) -> Dict[str, Any]:
     pooling = _read_csv(output_dir / "pooling_stats.csv")
     supcon = _read_csv(output_dir / "supcon_stats.csv")
     run_name = str(cfg.get("run", {}).get("config_name") or output_dir.name)
+    training_cfg = cfg.get("training", {}) or {}
+    configured_epochs = int(training_cfg.get("epochs", training_cfg.get("max_epochs", 0)) or 0)
+    is_limited_smoke = bool(
+        configured_epochs < 150
+        or training_cfg.get("max_train_batches") is not None
+        or training_cfg.get("max_val_batches") is not None
+        or training_cfg.get("max_test_batches") is not None
+    )
+    interrupted_marker = output_dir / "RUN_INTERRUPTED_FOR_TIME_LIMIT"
+    complete_marker = output_dir / "RUN_COMPLETE"
+    interrupted = interrupted_marker.exists()
+    full_complete = complete_marker.exists() and not interrupted
     failures: List[str] = []
     warnings: List[str] = []
 
@@ -130,7 +142,11 @@ def check_run(output_dir: Path) -> Dict[str, Any]:
         failures.append("d15 init info does not confirm from_scratch")
     if not (output_dir / "checkpoints" / "best.pt").exists():
         failures.append("missing best checkpoint")
+    if not (output_dir / "checkpoints" / "last.pt").exists():
+        failures.append("missing last checkpoint")
     for name, df in [("train_log.csv", train), ("val_metrics.csv", val), ("test_metrics.csv", test), ("slot_stats.csv", slots), ("supcon_stats.csv", supcon)]:
+        if interrupted and name == "test_metrics.csv":
+            continue
         if df.empty:
             failures.append(f"missing {name}")
         elif not _finite_frame(df):
@@ -160,9 +176,27 @@ def check_run(output_dir: Path) -> Dict[str, Any]:
         failures.append("slot collapse risk")
     if np.isfinite(slot_overlap) and slot_overlap > 0.85:
         failures.append("slot overlap too high")
+    if is_limited_smoke:
+        smoke_only = []
+        remaining = []
+        for item in failures:
+            if any(token in item for token in ("collapse", "fewer than four predicted classes", "slot overlap too high")):
+                smoke_only.append("smoke-only metric warning: " + item)
+            else:
+                remaining.append(item)
+        warnings.extend(smoke_only)
+        failures = remaining
 
-    if any("checkpoint" in f or "loaded_keys" in f or "from_scratch" in f for f in failures):
+    critical_failures = any("checkpoint fields" in f or "loaded_keys" in f or "from_scratch" in f for f in failures)
+    artifact_failures = [f for f in failures if not (interrupted and f.startswith("missing test"))]
+    if critical_failures:
         decision = "D15_SCRATCH_INVALID_USED_CHECKPOINT"
+    elif interrupted and not artifact_failures:
+        decision = "D15_SEGMENT_OK_INTERRUPTED"
+    elif full_complete and is_limited_smoke and not failures:
+        decision = "D15_SMOKE_RUN_COMPLETE"
+    elif full_complete and not failures:
+        decision = "D15_FULL_RUN_COMPLETE_PASS"
     elif any("collapse" in f or "non-finite" in f or "classes" in f for f in failures):
         decision = "D15_SCRATCH_FAIL_COLLAPSE"
     elif np.isfinite(test_acc) and test_acc >= 0.70:
@@ -195,6 +229,10 @@ def check_run(output_dir: Path) -> Dict[str, Any]:
         "positive_pair_count_last_train": positive_pairs,
         "lambda_supcon_current_last_train": lambda_last,
         "checkpoint_exists": (output_dir / "checkpoints" / "best.pt").exists(),
+        "last_checkpoint_exists": (output_dir / "checkpoints" / "last.pt").exists(),
+        "interrupted": bool(interrupted),
+        "full_complete": bool(full_complete),
+        "is_limited_smoke": bool(is_limited_smoke),
         "warnings": warnings,
         "failures": failures,
         "decision": decision,
@@ -209,6 +247,9 @@ def write_outputs(output_dir: Path, summary: Dict[str, Any]) -> None:
         "# D15 From-Scratch Check Report",
         "",
         f"- decision: `{summary['decision']}`",
+        f"- interrupted: {summary.get('interrupted')}",
+        f"- full_complete: {summary.get('full_complete')}",
+        f"- is_limited_smoke: {summary.get('is_limited_smoke')}",
         f"- from_scratch: {summary.get('from_scratch')}",
         f"- init_checkpoint: {summary.get('init_checkpoint')}",
         f"- loaded_keys: {summary.get('loaded_keys')}",

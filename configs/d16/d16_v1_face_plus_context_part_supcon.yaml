@@ -1,0 +1,41 @@
+run_name: d16_v1_face_plus_context_part_supcon
+from_scratch: true
+init_checkpoint: null
+
+data:
+  use_mediapipe_priors: true
+  graph_mode: face_plus_context
+  batch_size: 8
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  smoke_max_samples: 16
+
+graph:
+  graph_mode: face_plus_context
+  face_threshold: 0.15
+  context_pixels: 2
+
+model:
+  name: d16_landmark_aware_pixel_evidence_gnn
+  hidden_dim: 96
+  gnn_layers: 3
+  num_classes: 7
+  dropout: 0.1
+
+loss:
+  mode: ce_part_supcon
+  part_supcon_weight: 0.02
+  part_supcon_temperature: 0.1
+  part_supcon_start_epoch: 35
+  part_supcon_ramp_epochs: 10
+
+training:
+  batch_size: 8
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  from_scratch: true
+  init_checkpoint: null

@@ -1,0 +1,38 @@
+run_name: d16_v0_full_with_mask_ce
+from_scratch: true
+init_checkpoint: null
+
+data:
+  use_mediapipe_priors: true
+  graph_mode: full_with_mask
+  batch_size: 8
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  smoke_max_samples: 16
+
+graph:
+  graph_mode: full_with_mask
+  face_threshold: 0.15
+  context_pixels: 0
+
+model:
+  name: d16_landmark_aware_pixel_evidence_gnn
+  hidden_dim: 96
+  gnn_layers: 3
+  num_classes: 7
+  dropout: 0.1
+
+loss:
+  mode: ce
+  part_supcon_weight: 0.0
+
+training:
+  batch_size: 8
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  from_scratch: true
+  init_checkpoint: null
