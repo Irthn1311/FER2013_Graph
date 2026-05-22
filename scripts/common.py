@@ -253,10 +253,12 @@ def apply_cli_overrides(config: Dict[str, Any], args: argparse.Namespace) -> Dic
     elif getattr(args, "graph_cache_chunks", None) is not None:
         data["chunk_cache_size"] = int(args.graph_cache_chunks)
         data.pop("graph_cache_chunks", None)
-    if getattr(args, "chunk_aware_shuffle", False):
+    if getattr(args, "chunk_aware_shuffle", False) or getattr(args, "chunk_aware_sampler", False):
         data["chunk_aware_shuffle"] = True
+        data["chunk_aware_sampler"] = True
     if getattr(args, "no_chunk_aware_shuffle", False):
         data["chunk_aware_shuffle"] = False
+        data["chunk_aware_sampler"] = False
 
     # --- Training performance overrides ---
     if getattr(args, "profile_batches", None) is not None:
@@ -316,7 +318,7 @@ def build_dataloader(
     if prefetch_factor_cfg is not None and num_workers == 0:
         print("[DataLoader] WARNING: prefetch_factor ignored because num_workers=0")
     batch_size = int(data_cfg.get("batch_size", training_cfg.get("batch_size", 16)) or 16)
-    chunk_aware_shuffle = _cfg_bool("chunk_aware_shuffle", False)
+    chunk_aware_shuffle = _cfg_bool("chunk_aware_sampler", _cfg_bool("chunk_aware_shuffle", False))
     shuffle_chunks = _cfg_bool("shuffle_chunks", True)
     shuffle_within_chunk = _cfg_bool("shuffle_within_chunk", True)
     use_chunk_aware_sampler = bool(split == "train" and shuffle and chunk_aware_shuffle)

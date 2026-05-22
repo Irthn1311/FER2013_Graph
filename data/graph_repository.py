@@ -6,7 +6,8 @@ from collections import OrderedDict
 from contextlib import AbstractContextManager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional
+from typing import Dict, Iterator, List, Optional, Tuple
+import time
 
 import torch
 from torch.utils.data import Dataset
@@ -239,21 +240,57 @@ class ChunkedGraphDataset(Dataset):
             groups[int(chunk_idx)].append(sample_idx)
         return groups
 
-    def _get_chunk(self, chunk_idx: int) -> List[PixelGraphSample]:
+    def _get_chunk_with_stats(self, chunk_idx: int) -> Tuple[List[PixelGraphSample], Dict[str, float | int | bool]]:
+        stats: Dict[str, float | int | bool] = {
+            "cache_hit": False,
+            "cache_miss": False,
+            "chunk_load_count": 0,
+            "chunk_eviction_count": 0,
+            "chunk_load_time_ms": 0.0,
+        }
         if self.chunk_cache_size <= 0:
-            return torch_load(self.chunk_paths[chunk_idx])
+            start = time.perf_counter()
+            chunk = torch_load(self.chunk_paths[chunk_idx])
+            stats.update(
+                {
+                    "cache_miss": True,
+                    "chunk_load_count": 1,
+                    "chunk_load_time_ms": (time.perf_counter() - start) * 1000.0,
+                }
+            )
+            return chunk, stats
         if chunk_idx in self._cache:
             self._cache.move_to_end(chunk_idx)
-            return self._cache[chunk_idx]
+            stats["cache_hit"] = True
+            return self._cache[chunk_idx], stats
+        start = time.perf_counter()
         chunk = torch_load(self.chunk_paths[chunk_idx])
+        stats.update(
+            {
+                "cache_miss": True,
+                "chunk_load_count": 1,
+                "chunk_load_time_ms": (time.perf_counter() - start) * 1000.0,
+            }
+        )
         self._cache[chunk_idx] = chunk
         while len(self._cache) > self.chunk_cache_size:
             self._cache.popitem(last=False)
+            stats["chunk_eviction_count"] = int(stats["chunk_eviction_count"]) + 1
+        return chunk, stats
+
+    def _get_chunk(self, chunk_idx: int) -> List[PixelGraphSample]:
+        chunk, _ = self._get_chunk_with_stats(chunk_idx)
         return chunk
 
-    def __getitem__(self, idx: int) -> PixelGraphSample | ResolvedPixelGraph:
+    def get_with_cache_stats(self, idx: int) -> Tuple[PixelGraphSample | ResolvedPixelGraph, Dict[str, float | int | bool]]:
         chunk_idx, offset = self._index[int(idx)]
-        sample = self._get_chunk(chunk_idx)[offset]
+        chunk, stats = self._get_chunk_with_stats(chunk_idx)
+        sample = chunk[offset]
+        stats["chunk_idx"] = int(chunk_idx)
         if self.resolve:
-            return self.resolver.resolve(sample)
+            return self.resolver.resolve(sample), stats
+        return sample, stats
+
+    def __getitem__(self, idx: int) -> PixelGraphSample | ResolvedPixelGraph:
+        sample, _ = self.get_with_cache_stats(int(idx))
         return sample

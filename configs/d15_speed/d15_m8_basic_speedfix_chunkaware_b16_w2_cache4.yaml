@@ -1,0 +1,28 @@
+inherits:
+  - ../d15/d15_m8_scratch_basic.yaml
+
+run_name: d15_m8_basic_speedfix_chunkaware_b16_w2_cache4
+run:
+  config_name: d15_m8_basic_speedfix_chunkaware_b16_w2_cache4
+
+training:
+  epochs: 2
+  max_epochs: 2
+  batch_size: 16
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  use_compile: false
+
+data:
+  batch_size: 16
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  chunk_cache_size: 4
+  chunk_aware_sampler: true
+  chunk_aware_shuffle: true
+  shuffle_chunks: true
+  shuffle_within_chunk: true

@@ -204,9 +204,30 @@ def _run_epoch(
     y_true, y_pred = [], []
     count = 0
     start = time.perf_counter()
+    first_batch_wait_time = None
+    batch_time_total = 0.0
+    cache_hit_count = 0
+    cache_miss_count = 0
+    chunk_load_count = 0
+    chunk_eviction_count = 0
+    chunk_load_time_ms_total = 0.0
+    data_wait_start = time.perf_counter()
     for batch_idx, batch in enumerate(loader, start=1):
         if max_batches is not None and batch_idx > int(max_batches):
             break
+        batch_wall_start = time.perf_counter()
+        wait_time = batch_wall_start - data_wait_start
+        if first_batch_wait_time is None:
+            first_batch_wait_time = float(wait_time)
+        cache_hit_count += int(batch.get("cache_hit", torch.empty(0)).sum().item()) if torch.is_tensor(batch.get("cache_hit")) else 0
+        cache_miss_count += int(batch.get("cache_miss", torch.empty(0)).sum().item()) if torch.is_tensor(batch.get("cache_miss")) else 0
+        chunk_load_count += int(batch.get("chunk_load_count", torch.empty(0)).sum().item()) if torch.is_tensor(batch.get("chunk_load_count")) else 0
+        chunk_eviction_count += int(batch.get("chunk_eviction_count", torch.empty(0)).sum().item()) if torch.is_tensor(batch.get("chunk_eviction_count")) else 0
+        chunk_load_time_ms_total += (
+            float(batch.get("chunk_load_time_ms", torch.empty(0)).sum().item())
+            if torch.is_tensor(batch.get("chunk_load_time_ms"))
+            else 0.0
+        )
         if is_train and augmentation_cfg:
             batch = _apply_graph_augmentation(batch, augmentation_cfg)
         batch = move_to_device(batch, device)
@@ -244,19 +265,56 @@ def _run_epoch(
         for key, value in _supcon_stats(loss_dict).items():
             supcon_totals[key] = supcon_totals.get(key, 0.0) + float(value)
         count += 1
+        if device.type == "cuda":
+            torch.cuda.synchronize(device)
+        batch_time_total += time.perf_counter() - batch_wall_start
+        data_wait_start = time.perf_counter()
     if count == 0:
         raise RuntimeError(f"No batches processed for split={split}")
     metrics = {key: value / count for key, value in totals.items()}
     metrics.update(_metrics(y_true, y_pred))
     metrics["seconds"] = float(time.perf_counter() - start)
+    metrics[f"{split}_epoch_time_sec"] = metrics["seconds"]
+    metrics["first_batch_wait_time_sec"] = float(first_batch_wait_time or 0.0)
+    metrics["avg_batch_time_ms"] = float(batch_time_total / max(count, 1) * 1000.0)
     metrics["num_batches"] = int(count)
     metrics["num_samples"] = int(len(y_true))
+    total_cache = cache_hit_count + cache_miss_count
+    metrics["cache_hit_count"] = int(cache_hit_count)
+    metrics["cache_miss_count"] = int(cache_miss_count)
+    metrics["cache_hit_rate"] = float(cache_hit_count / total_cache) if total_cache > 0 else 0.0
+    metrics["chunk_load_count"] = int(chunk_load_count)
+    metrics["chunk_eviction_count"] = int(chunk_eviction_count)
+    metrics["avg_chunk_load_time_ms"] = float(chunk_load_time_ms_total / max(chunk_load_count, 1)) if chunk_load_count > 0 else 0.0
     return (
         metrics,
         {k: v / count for k, v in slot_totals.items()},
         {k: v / count for k, v in pool_totals.items()},
         {k: v / count for k, v in supcon_totals.items()},
     )
+
+
+def _loader_dataset(loader):
+    dataset = getattr(loader, "dataset", None)
+    return dataset
+
+
+def _append_cache_stats(output_root: Path, epoch: int, split: str, loader, metrics: Dict[str, float]) -> None:
+    dataset = _loader_dataset(loader)
+    inner = getattr(dataset, "dataset", None)
+    row = {
+        "epoch": int(epoch),
+        "split": split,
+        "chunk_cache_size": int(getattr(inner, "chunk_cache_size", 0) or 0),
+        "num_chunks": int(getattr(dataset, "num_chunks", 0) or 0),
+        "cache_hit_count": int(metrics.get("cache_hit_count", 0)),
+        "cache_miss_count": int(metrics.get("cache_miss_count", 0)),
+        "cache_hit_rate": float(metrics.get("cache_hit_rate", 0.0)),
+        "chunk_load_count": int(metrics.get("chunk_load_count", 0)),
+        "chunk_eviction_count": int(metrics.get("chunk_eviction_count", 0)),
+        "avg_chunk_load_time_ms": float(metrics.get("avg_chunk_load_time_ms", 0.0)),
+    }
+    _append_csv(output_root / "chunk_cache_stats.csv", row)
 
 
 def _from_scratch_info(model: torch.nn.Module, config: Dict[str, Any], output_root: Path) -> Dict[str, Any]:
@@ -288,6 +346,20 @@ def build_objects(config: Dict[str, Any], output_root: Path, device_arg: str | N
     set_seed(seed)
     device = resolve_device(device_arg, config)
     model = D13CSupConModel.from_config(config.get("model", {})).to(device)
+    training_cfg = config.get("training", {}) or {}
+    if bool(training_cfg.get("use_compile", False)):
+        if device.type != "cuda":
+            print("[Compile] torch.compile skipped (only supported on CUDA)")
+        elif not hasattr(torch, "compile"):
+            print("[Compile] torch.compile not available in this PyTorch version")
+        else:
+            mode = training_cfg.get("compile_mode")
+            kwargs = {"mode": str(mode)} if mode else {}
+            try:
+                model = torch.compile(model, **kwargs)
+                print(f"[Compile] torch.compile enabled mode={mode or 'default'}")
+            except Exception as exc:
+                print(f"[Compile] torch.compile failed: {exc}")
     init_info = _from_scratch_info(model, config, output_root)
     criterion = D15ScheduledLoss(config.get("loss", {})).to(device)
     optimizer = build_optimizer(model, config.get("optimizer", {}))
@@ -401,11 +473,16 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
     for epoch in range(1, epochs + 1):
         train_metrics, train_slot, train_pool, train_supcon = _run_epoch(model, criterion, train_loader, optimizer, device, epoch, "train", max_train_batches, grad_clip, amp, augmentation_cfg)
         val_metrics, val_slot, val_pool, val_supcon = _run_epoch(model, criterion, val_loader, None, device, epoch, "val", max_val_batches, grad_clip, amp=False)
+        _append_cache_stats(output_root, epoch, "train", train_loader, train_metrics)
+        _append_cache_stats(output_root, epoch, "val", val_loader, val_metrics)
         if scheduler is not None:
             step_scheduler(scheduler, monitor_value=val_metrics.get("macro_f1"))
         row = {"epoch": epoch, "lr": float(optimizer.param_groups[0].get("lr", 0.0))}
         row.update({f"train_{k}": v for k, v in train_metrics.items()})
         row.update({f"val_{k}": v for k, v in val_metrics.items()})
+        row["train_epoch_time_sec"] = float(train_metrics.get("seconds", 0.0))
+        row["val_epoch_time_sec"] = float(val_metrics.get("seconds", 0.0))
+        row["total_epoch_time_sec"] = row["train_epoch_time_sec"] + row["val_epoch_time_sec"]
         row.update({"from_scratch": True, "loaded_keys": 0, "trainable_parameters": init_info.get("trainable_parameters", 0)})
         _append_csv(output_root / "train_log.csv", row)
         _append_csv(output_root / "val_metrics.csv", {"epoch": epoch, **{f"val_{k}": v for k, v in val_metrics.items()}})
@@ -430,7 +507,9 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
         print(
             f"Epoch {epoch:03d}/{epochs:03d} train_loss={train_metrics['loss']:.4f} "
             f"lambda_supcon={train_supcon.get('lambda_supcon_current', 0.0):.4f} "
-            f"val_macro_f1={val_metrics['macro_f1']:.4f} best={best_value:.4f}@{best_epoch}"
+            f"val_macro_f1={val_metrics['macro_f1']:.4f} best={best_value:.4f}@{best_epoch} "
+            f"train_epoch_time_sec={row['train_epoch_time_sec']:.1f} "
+            f"val_epoch_time_sec={row['val_epoch_time_sec']:.1f}"
         )
         if stale >= patience:
             print(f"Early stopping after {stale} stale epochs")
@@ -443,6 +522,8 @@ def run_train(config: Dict[str, Any], output_dir: str | Path | None = None, devi
         target = model.module if hasattr(model, "module") else model
         target.load_state_dict(ckpt["model_state_dict"])
     test_metrics, test_slot, test_pool, test_supcon = _run_epoch(model, criterion, test_loader, None, device, best_epoch, "test", max_test_batches, grad_clip, amp=False)
+    _append_cache_stats(output_root, best_epoch, "test", test_loader, test_metrics)
+    print(f"test_time_sec={test_metrics.get('seconds', 0.0):.1f}")
     _append_csv(output_root / "test_metrics.csv", {"epoch": best_epoch, **{f"test_{k}": v for k, v in test_metrics.items()}})
     per_class = {"epoch": best_epoch}
     for key, value in test_metrics.items():
@@ -478,7 +559,13 @@ def main() -> None:
     parser.add_argument("--limit_val_batches", type=int, default=None)
     parser.add_argument("--limit_test_batches", type=int, default=None)
     parser.add_argument("--num_workers", type=int, default=None)
+    parser.add_argument("--pin_memory", default=None)
+    parser.add_argument("--persistent_workers", default=None)
+    parser.add_argument("--prefetch_factor", type=int, default=None)
     parser.add_argument("--chunk_cache_size", type=int, default=None)
+    parser.add_argument("--chunk_aware_sampler", action="store_true", default=False)
+    parser.add_argument("--chunk_aware_shuffle", action="store_true", default=False)
+    parser.add_argument("--no_chunk_aware_shuffle", action="store_true", default=False)
     parser.add_argument("--amp", action="store_true", default=False)
     parser.add_argument("--no_amp", action="store_true", default=False)
     args = parser.parse_args()

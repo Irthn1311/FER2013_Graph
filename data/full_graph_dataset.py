@@ -55,13 +55,19 @@ class FullGraphDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         sample_idx = int(idx)
-        graph = self.dataset[sample_idx]
+        graph, cache_stats = self.dataset.get_with_cache_stats(sample_idx)
         if not isinstance(graph, ResolvedPixelGraph):
             raise TypeError("FullGraphDataset expected a resolved graph")
         num_nodes = int(graph.node_features.shape[0])
         return {
             "sample_idx": torch.tensor(sample_idx, dtype=torch.long),
             "global_index": torch.tensor(sample_idx, dtype=torch.long),
+            "chunk_idx": torch.tensor(int(cache_stats.get("chunk_idx", -1)), dtype=torch.long),
+            "cache_hit": torch.tensor(bool(cache_stats.get("cache_hit", False)), dtype=torch.bool),
+            "cache_miss": torch.tensor(bool(cache_stats.get("cache_miss", False)), dtype=torch.bool),
+            "chunk_load_count": torch.tensor(int(cache_stats.get("chunk_load_count", 0)), dtype=torch.long),
+            "chunk_eviction_count": torch.tensor(int(cache_stats.get("chunk_eviction_count", 0)), dtype=torch.long),
+            "chunk_load_time_ms": torch.tensor(float(cache_stats.get("chunk_load_time_ms", 0.0)), dtype=torch.float),
             "graph_id": torch.tensor(int(graph.graph_id), dtype=torch.long),
             "node_features": graph.node_features.float(),
             "x": graph.node_features.float(),
@@ -132,6 +138,12 @@ def collate_fn_full_graph(batch: List[Dict[str, torch.Tensor]]) -> Dict[str, tor
     return {
         "sample_idx": sample_idx,
         "global_index": sample_idx,
+        "chunk_idx": torch.stack([item["chunk_idx"] for item in batch], dim=0),
+        "cache_hit": torch.stack([item["cache_hit"] for item in batch], dim=0),
+        "cache_miss": torch.stack([item["cache_miss"] for item in batch], dim=0),
+        "chunk_load_count": torch.stack([item["chunk_load_count"] for item in batch], dim=0),
+        "chunk_eviction_count": torch.stack([item["chunk_eviction_count"] for item in batch], dim=0),
+        "chunk_load_time_ms": torch.stack([item["chunk_load_time_ms"] for item in batch], dim=0),
         "graph_id": graph_id,
         "x": x,
         "node_features": x,

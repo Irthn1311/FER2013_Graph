@@ -1,0 +1,10 @@
+inherits:
+  - d15_m8_basic_speedfix_chunkaware_b16_w2_cache8.yaml
+
+run_name: d15_m8_basic_speedfix_compile_default
+run:
+  config_name: d15_m8_basic_speedfix_compile_default
+
+training:
+  use_compile: true
+  compile_mode: default
