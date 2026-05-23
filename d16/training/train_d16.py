@@ -50,6 +50,15 @@ def _append_csv(path: Path, row: Dict[str, Any], fieldnames: List[str]) -> None:
         writer.writerow({key: row.get(key) for key in fieldnames})
 
 
+def _write_csv_rows(path: Path, rows: Iterable[Dict[str, Any]], fieldnames: List[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key) for key in fieldnames})
+
+
 def resolve_device(requested: str) -> torch.device:
     if requested.startswith("cuda") and not torch.cuda.is_available():
         print("[D16 train] CUDA requested but unavailable; falling back to CPU")
@@ -138,7 +147,16 @@ def _metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
 
 
 @torch.no_grad()
-def evaluate(model: D16Model, loader: DataLoader, device: torch.device, split: str, epoch: int) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+def evaluate(
+    model: D16Model,
+    loader: DataLoader,
+    device: torch.device,
+    split: str,
+    epoch: int,
+    checkpoint_name: str | None = None,
+    checkpoint_epoch: int | None = None,
+    best_val_macro_f1: float | None = None,
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     model.eval()
     y_true, y_pred, detected_flags = [], [], []
     losses = []
@@ -163,6 +181,9 @@ def evaluate(model: D16Model, loader: DataLoader, device: torch.device, split: s
     row = {
         "split": split,
         "epoch": int(epoch),
+        "checkpoint_name": checkpoint_name,
+        "checkpoint_epoch": checkpoint_epoch,
+        "best_val_macro_f1": best_val_macro_f1,
         "loss": float(np.mean(losses)) if losses else float("nan"),
         "accuracy": metric["accuracy"],
         "macro_f1": metric["macro_f1"],
@@ -211,6 +232,15 @@ def save_checkpoint(path: Path, model: D16Model, optimizer: torch.optim.Optimize
     )
 
 
+def load_checkpoint(path: Path, model: D16Model, device: torch.device) -> Dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"Missing checkpoint: {path}")
+    checkpoint = torch.load(path, map_location=device, weights_only=False)
+    state = checkpoint.get("model_state_dict", checkpoint)
+    model.load_state_dict(state)
+    return checkpoint
+
+
 def train_one_epoch(model: D16Model, loader: DataLoader, optimizer: torch.optim.Optimizer, device: torch.device) -> Dict[str, Any]:
     model.train()
     losses = []
@@ -236,25 +266,208 @@ def train_one_epoch(model: D16Model, loader: DataLoader, optimizer: torch.optim.
     }
 
 
+def _format_metric(value: Any) -> str:
+    try:
+        return f"{float(value):.6f}"
+    except Exception:
+        return "nan"
+
+
 def _write_report(output_dir: Path, best_val_macro_f1: float, best_epoch: int, checker_decision: str | None = None) -> None:
     train_log = output_dir / "train_log.csv"
     val_metrics = output_dir / "val_metrics.csv"
     test_metrics = output_dir / "test_metrics.csv"
+    last_test_metrics = output_dir / "last_test_metrics.csv"
+    test_row = _read_first_csv_row(test_metrics)
+    last_row = _read_first_csv_row(last_test_metrics)
+    best_macro = test_row.get("macro_f1")
+    last_macro = last_row.get("macro_f1")
+    best_acc = test_row.get("accuracy")
+    last_acc = last_row.get("accuracy")
+    diff_macro = _float_or_nan(best_macro) - _float_or_nan(last_macro)
+    diff_acc = _float_or_nan(best_acc) - _float_or_nan(last_acc)
     lines = [
         "# D16 v0 Small Train Report",
         "",
-        "No full D16 training was launched. This is a CE-only small train run.",
+        "No full D16 training was launched. This report uses the best validation checkpoint for final test.",
         "",
+        "## Best checkpoint test",
+        "- final_test_checkpoint: `best.pt`",
         f"- best_val_macro_f1: {best_val_macro_f1:.6f}",
         f"- best_epoch: {best_epoch}",
+        f"- test_accuracy: {_format_metric(best_acc)}",
+        f"- test_macro_f1: {_format_metric(best_macro)}",
+        "",
+        "## Last checkpoint test",
+        "- checkpoint: `last.pt`",
+        f"- test_accuracy: {_format_metric(last_acc)}",
+        f"- test_macro_f1: {_format_metric(last_macro)}",
+        "",
+        "## Difference best minus last",
+        f"- accuracy_delta: {_format_metric(diff_acc)}",
+        f"- macro_f1_delta: {_format_metric(diff_macro)}",
+        "",
+        "## Artifacts",
         f"- checker_decision: {checker_decision or 'pending'}",
         f"- train_log: `{train_log}`",
         f"- val_metrics: `{val_metrics}`",
         f"- test_metrics: `{test_metrics}`",
+        f"- last_test_metrics: `{last_test_metrics}`",
         "",
         "No motif, semantic-region, causal-evidence, or interpretability claim is made.",
     ]
     (output_dir / "D16_V0_SMALL_TRAIN_REPORT.md").write_text("\n".join(lines), encoding="utf-8")
+    (output_dir / "d16_report.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def _float_or_nan(value: Any) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return float("nan")
+
+
+def _read_first_csv_row(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {}
+    with path.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return next(reader, {})
+
+
+def _checkpoint_epoch(checkpoint: Dict[str, Any], fallback: int) -> int:
+    try:
+        return int(checkpoint.get("epoch", fallback))
+    except Exception:
+        return int(fallback)
+
+
+def _checkpoint_best_val(checkpoint: Dict[str, Any], fallback: float) -> float:
+    try:
+        return float(checkpoint.get("best_val_macro_f1", fallback))
+    except Exception:
+        return float(fallback)
+
+
+def _write_eval_outputs(
+    output_dir: Path,
+    model: D16Model,
+    loader: DataLoader,
+    device: torch.device,
+    split: str,
+    checkpoint_name: str,
+    checkpoint_epoch: int,
+    best_val_macro_f1: float,
+    metric_fields: List[str],
+    per_class_fields: List[str],
+    pred_fields: List[str],
+    fallback_fields: List[str],
+    prefix: str = "",
+) -> Dict[str, Any]:
+    row, per_class, pred_count, fallback = evaluate(
+        model,
+        loader,
+        device,
+        split,
+        checkpoint_epoch,
+        checkpoint_name=checkpoint_name,
+        checkpoint_epoch=checkpoint_epoch,
+        best_val_macro_f1=best_val_macro_f1,
+    )
+    _write_csv_rows(output_dir / f"{prefix}{split}_metrics.csv", [row], metric_fields)
+    _write_csv_rows(output_dir / f"{prefix}per_class_metrics.csv", per_class, per_class_fields)
+    _write_csv_rows(output_dir / f"{prefix}pred_count.csv", pred_count, pred_fields)
+    _write_csv_rows(output_dir / f"{prefix}detected_vs_fallback_metrics.csv", fallback, fallback_fields)
+    return row
+
+
+def evaluate_checkpoints(
+    cfg: Dict[str, Any],
+    prior_dir: Path,
+    output_dir: Path,
+    device: torch.device,
+    checkpoint_path: Path | None = None,
+    also_eval_last: bool = True,
+) -> Dict[str, Any]:
+    data_cfg = cfg.get("data", {}) or {}
+    training_cfg = cfg.get("training", {}) or {}
+    test_ds = build_dataset(cfg, prior_dir, "test")
+    test_loader = DataLoader(test_ds, **_loader_kwargs(data_cfg, training_cfg, shuffle=False))
+    first_batch = next(iter(DataLoader(test_ds, batch_size=1, shuffle=False, collate_fn=collate_d16_graphs)))
+    model = D16Model.from_config(cfg, input_dim=first_batch.x_cat.size(1)).to(device)
+
+    best_path = checkpoint_path or (output_dir / "checkpoints" / "best.pt")
+    best_checkpoint = load_checkpoint(best_path, model, device)
+    best_epoch = _checkpoint_epoch(best_checkpoint, 0)
+    best_val_macro_f1 = _checkpoint_best_val(best_checkpoint, float("nan"))
+    metric_fields = [
+        "split",
+        "epoch",
+        "checkpoint_name",
+        "checkpoint_epoch",
+        "best_val_macro_f1",
+        "loss",
+        "accuracy",
+        "macro_f1",
+        "node_count_mean",
+        "edge_count_mean",
+        "predicted_classes",
+        "total",
+    ]
+    per_class_fields = ["split", "epoch", "class_id", "support", "pred_count", "precision", "recall", "f1"]
+    pred_fields = ["split", "epoch", "class_id", "pred_count"]
+    fallback_fields = ["split", "epoch", "group", "total", "accuracy", "macro_f1"]
+
+    best_row = _write_eval_outputs(
+        output_dir,
+        model,
+        test_loader,
+        device,
+        "test",
+        best_path.name,
+        best_epoch,
+        best_val_macro_f1,
+        metric_fields,
+        per_class_fields,
+        pred_fields,
+        fallback_fields,
+    )
+
+    last_row: Dict[str, Any] | None = None
+    if also_eval_last:
+        last_path = output_dir / "checkpoints" / "last.pt"
+        if last_path.exists():
+            last_checkpoint = load_checkpoint(last_path, model, device)
+            last_epoch = _checkpoint_epoch(last_checkpoint, best_epoch)
+            last_best_val = _checkpoint_best_val(last_checkpoint, best_val_macro_f1)
+            last_row = _write_eval_outputs(
+                output_dir,
+                model,
+                test_loader,
+                device,
+                "test",
+                last_path.name,
+                last_epoch,
+                last_best_val,
+                metric_fields,
+                per_class_fields,
+                pred_fields,
+                fallback_fields,
+                prefix="last_",
+            )
+
+    summary = {
+        "final_test_checkpoint": best_path.name,
+        "best_epoch": best_epoch,
+        "best_val_macro_f1": best_val_macro_f1,
+        "test_accuracy": best_row["accuracy"],
+        "test_macro_f1": best_row["macro_f1"],
+        "last_test_accuracy": None if last_row is None else last_row["accuracy"],
+        "last_test_macro_f1": None if last_row is None else last_row["macro_f1"],
+        "test_samples": len(test_ds),
+    }
+    _write_report(output_dir, best_val_macro_f1, best_epoch)
+    return summary
 
 
 def main() -> None:
@@ -269,11 +482,17 @@ def main() -> None:
     parser.add_argument("--max_train_samples", type=int, default=None)
     parser.add_argument("--max_val_samples", type=int, default=None)
     parser.add_argument("--max_test_samples", type=int, default=None)
+    parser.add_argument("--eval_only", action="store_true")
+    parser.add_argument("--checkpoint", default=None)
+    parser.add_argument("--also_eval_last", action="store_true")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
     data_cfg = cfg.setdefault("data", {})
     training_cfg = cfg.setdefault("training", {})
+    loss_mode = str((cfg.get("loss", {}) or {}).get("mode", "ce"))
+    if loss_mode not in {"ce", "ce_only"}:
+        raise ValueError(f"D16 trainer currently supports CE-only modes, got loss.mode={loss_mode!r}")
     if args.prior_dir:
         data_cfg["prior_dir"] = args.prior_dir
     prior_dir = Path(data_cfg.get("prior_dir", "outputs/d16_mediapipe_pixel_priors_best"))
@@ -291,6 +510,13 @@ def main() -> None:
     if args.max_test_samples is not None:
         data_cfg["max_test_samples"] = int(args.max_test_samples)
     max_epochs = int(args.max_epochs or training_cfg.get("max_epochs", 30))
+    early_cfg = training_cfg.get("early_stopping", {}) or {}
+    early_enabled = bool(early_cfg.get("enabled", training_cfg.get("early_stopping", False)))
+    early_metric = str(early_cfg.get("metric", "val_macro_f1"))
+    early_mode = str(early_cfg.get("mode", "max"))
+    early_patience = int(early_cfg.get("patience", training_cfg.get("early_stopping_patience", 999)))
+    early_min_epochs = int(early_cfg.get("min_epochs_before_stop", 0))
+    epochs_without_improvement = 0
     device = resolve_device(args.device)
     if device.type == "cuda":
         torch.cuda.set_device(device)
@@ -298,6 +524,28 @@ def main() -> None:
 
     _write_json(output_dir / "resolved_config.json", cfg)
     Path(output_dir / "resolved_config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    if args.eval_only:
+        summary = evaluate_checkpoints(
+            cfg,
+            prior_dir,
+            output_dir,
+            device,
+            checkpoint_path=Path(args.checkpoint) if args.checkpoint else None,
+            also_eval_last=bool(args.also_eval_last),
+        )
+        existing_summary = {}
+        summary_path = output_dir / "d16_train_summary.json"
+        if summary_path.exists():
+            try:
+                existing_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            except Exception:
+                existing_summary = {}
+        existing_summary.update(summary)
+        existing_summary.update({"output_dir": str(output_dir), "prior_dir": str(prior_dir), "device": str(device)})
+        _write_json(summary_path, existing_summary)
+        print(json.dumps(existing_summary, indent=2), flush=True)
+        return
 
     train_ds = build_dataset(cfg, prior_dir, "train")
     val_ds = build_dataset(cfg, prior_dir, "val")
@@ -326,7 +574,20 @@ def main() -> None:
         "epoch_time_sec",
         "memory_reserved_mb",
     ]
-    metric_fields = ["split", "epoch", "loss", "accuracy", "macro_f1", "node_count_mean", "edge_count_mean", "predicted_classes", "total"]
+    metric_fields = [
+        "split",
+        "epoch",
+        "checkpoint_name",
+        "checkpoint_epoch",
+        "best_val_macro_f1",
+        "loss",
+        "accuracy",
+        "macro_f1",
+        "node_count_mean",
+        "edge_count_mean",
+        "predicted_classes",
+        "total",
+    ]
     per_class_fields = ["split", "epoch", "class_id", "support", "pred_count", "precision", "recall", "f1"]
     pred_fields = ["split", "epoch", "class_id", "pred_count"]
     fallback_fields = ["split", "epoch", "group", "total", "accuracy", "macro_f1"]
@@ -360,28 +621,45 @@ def main() -> None:
         if improved:
             best_val_macro_f1 = float(val_row["macro_f1"])
             best_epoch = epoch
+            epochs_without_improvement = 0
             save_checkpoint(output_dir / "checkpoints" / "best.pt", model, optimizer, epoch, best_val_macro_f1, cfg)
+        else:
+            epochs_without_improvement += 1
         save_checkpoint(output_dir / "checkpoints" / "last.pt", model, optimizer, epoch, best_val_macro_f1, cfg)
         print(json.dumps(log_row, indent=2), flush=True)
+        if early_enabled:
+            if early_metric != "val_macro_f1" or early_mode != "max":
+                raise ValueError("D16 early stopping currently supports metric=val_macro_f1 and mode=max")
+            if epoch >= early_min_epochs and epochs_without_improvement >= early_patience:
+                print(
+                    json.dumps(
+                        {
+                            "early_stopped": True,
+                            "epoch": epoch,
+                            "best_epoch": best_epoch,
+                            "best_val_macro_f1": best_val_macro_f1,
+                            "patience": early_patience,
+                        },
+                        indent=2,
+                    ),
+                    flush=True,
+                )
+                break
 
-    test_row, test_per_class, test_pred_count, test_fallback = evaluate(model, test_loader, device, "test", max_epochs)
-    _append_csv(output_dir / "test_metrics.csv", test_row, metric_fields)
-    for row in test_per_class:
-        _append_csv(output_dir / "per_class_metrics.csv", row, per_class_fields)
-    for row in test_pred_count:
-        _append_csv(output_dir / "pred_count.csv", row, pred_fields)
-    for row in test_fallback:
-        _append_csv(output_dir / "detected_vs_fallback_metrics.csv", row, fallback_fields)
+    eval_summary = evaluate_checkpoints(cfg, prior_dir, output_dir, device, also_eval_last=True)
 
     summary = {
         "output_dir": str(output_dir),
         "prior_dir": str(prior_dir),
         "device": str(device),
         "max_epochs": max_epochs,
+        "final_test_checkpoint": eval_summary["final_test_checkpoint"],
         "best_val_macro_f1": best_val_macro_f1,
         "best_epoch": best_epoch,
-        "test_accuracy": test_row["accuracy"],
-        "test_macro_f1": test_row["macro_f1"],
+        "test_accuracy": eval_summary["test_accuracy"],
+        "test_macro_f1": eval_summary["test_macro_f1"],
+        "last_test_accuracy": eval_summary["last_test_accuracy"],
+        "last_test_macro_f1": eval_summary["last_test_macro_f1"],
         "train_samples": len(train_ds),
         "val_samples": len(val_ds),
         "test_samples": len(test_ds),
