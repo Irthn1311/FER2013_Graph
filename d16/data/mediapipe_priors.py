@@ -101,14 +101,66 @@ def pixels_to_image48(pixels: str | Iterable[int] | np.ndarray) -> np.ndarray:
     return arr.reshape(48, 48)
 
 
-def image48_to_rgb_uint8(image48: np.ndarray, detection_size: int = 192) -> np.ndarray:
+def _equalize_uint8(image: np.ndarray) -> np.ndarray:
+    hist = np.bincount(image.reshape(-1), minlength=256).astype(np.float64)
+    cdf = hist.cumsum()
+    nonzero = cdf[cdf > 0]
+    if nonzero.size == 0:
+        return image
+    cdf_min = float(nonzero[0])
+    denom = max(float(cdf[-1]) - cdf_min, 1.0)
+    lut = np.clip((cdf - cdf_min) / denom * 255.0, 0.0, 255.0).astype(np.uint8)
+    return lut[image]
+
+
+def _contrast_stretch_uint8(image: np.ndarray) -> np.ndarray:
+    lo, hi = np.percentile(image, [2.0, 98.0])
+    if float(hi) <= float(lo) + 1e-6:
+        return image
+    out = (image.astype(np.float32) - float(lo)) / (float(hi) - float(lo)) * 255.0
+    return np.clip(out, 0, 255).astype(np.uint8)
+
+
+def _clahe_uint8(image: np.ndarray) -> np.ndarray:
+    try:
+        import cv2  # type: ignore
+
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4))
+        return clahe.apply(image)
+    except Exception:
+        return _equalize_uint8(image)
+
+
+def preprocess_image48_uint8(image48: np.ndarray, mode: str = "raw") -> np.ndarray:
     image = np.asarray(image48, dtype=np.float32)
     if image.max() <= 1.0:
         image = image * 255.0
     image = np.clip(image, 0, 255).astype(np.uint8)
+    mode = str(mode or "raw").lower()
+    if mode in ("raw", "none"):
+        return image
+    if mode in ("histogram_equalize", "equalize", "hist_equalize"):
+        return _equalize_uint8(image)
+    if mode == "contrast_stretch":
+        return _contrast_stretch_uint8(image)
+    if mode == "clahe":
+        return _clahe_uint8(image)
+    raise ValueError(f"Unsupported D16 MediaPipe preprocess_mode={mode!r}")
+
+
+def image48_to_rgb_uint8(
+    image48: np.ndarray,
+    detection_size: int = 192,
+    preprocess_mode: str = "raw",
+    padding_pixels: int = 0,
+) -> np.ndarray:
+    image = preprocess_image48_uint8(image48, preprocess_mode)
+    padding_pixels = int(max(padding_pixels, 0))
+    if padding_pixels > 0:
+        image = np.pad(image, ((padding_pixels, padding_pixels), (padding_pixels, padding_pixels)), mode="edge")
     if int(detection_size) != 48:
-        yy = np.linspace(0, 47, int(detection_size)).round().astype(np.int64)
-        xx = np.linspace(0, 47, int(detection_size)).round().astype(np.int64)
+        yy = np.linspace(0, image.shape[0] - 1, int(detection_size)).round().astype(np.int64)
+        xx = np.linspace(0, image.shape[1] - 1, int(detection_size)).round().astype(np.int64)
         image = image[np.ix_(yy, xx)]
     return np.repeat(image[..., None], 3, axis=2)
 
@@ -119,9 +171,13 @@ class MediaPipeFaceDetector:
         detection_size: int = 192,
         min_detection_confidence: float = 0.5,
         model_path: str | Path = DEFAULT_FACE_LANDMARKER_MODEL_PATH,
+        preprocess_mode: str = "raw",
+        padding_pixels: int = 0,
     ) -> None:
         self.detection_size = int(detection_size)
         self.min_detection_confidence = float(min_detection_confidence)
+        self.preprocess_mode = str(preprocess_mode or "raw")
+        self.padding_pixels = int(max(padding_pixels, 0))
         self.face_mesh = None
         self.landmarker = None
         self.mp = None
@@ -164,7 +220,12 @@ class MediaPipeFaceDetector:
     def detect(self, image48: np.ndarray) -> Optional[np.ndarray]:
         if not self.available:
             return None
-        rgb = image48_to_rgb_uint8(image48, self.detection_size)
+        rgb = image48_to_rgb_uint8(
+            image48,
+            self.detection_size,
+            preprocess_mode=self.preprocess_mode,
+            padding_pixels=self.padding_pixels,
+        )
         if self.face_mesh is not None:
             result = self.face_mesh.process(rgb)
             if not getattr(result, "multi_face_landmarks", None):
@@ -178,7 +239,17 @@ class MediaPipeFaceDetector:
             if not getattr(result, "face_landmarks", None):
                 return None
             landmarks = result.face_landmarks[0]
-        xy = np.asarray([[float(lm.x) * 47.0, float(lm.y) * 47.0] for lm in landmarks], dtype=np.float32)
+        source_size = 48 + 2 * self.padding_pixels
+        xy = np.asarray(
+            [
+                [
+                    float(lm.x) * float(source_size - 1) - float(self.padding_pixels),
+                    float(lm.y) * float(source_size - 1) - float(self.padding_pixels),
+                ]
+                for lm in landmarks
+            ],
+            dtype=np.float32,
+        )
         return np.clip(xy, 0.0, 47.0)
 
     def close(self) -> None:
