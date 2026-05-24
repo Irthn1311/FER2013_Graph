@@ -28,6 +28,31 @@ def _write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
 
 
+def _load_existing_chunk(path: Path, expected_count: int) -> List[Dict[str, torch.Tensor]] | None:
+    if not path.exists():
+        return None
+    try:
+        rows = torch.load(path, map_location="cpu", weights_only=False)
+    except Exception:
+        return None
+    if not isinstance(rows, list) or len(rows) != expected_count:
+        return None
+    return rows
+
+
+def _save_chunk_atomic(rows: List[Dict[str, torch.Tensor]], chunk_path: Path) -> None:
+    tmp_path = chunk_path.with_suffix(chunk_path.suffix + ".tmp")
+    if tmp_path.exists():
+        tmp_path.unlink()
+    try:
+        torch.save(rows, tmp_path)
+        tmp_path.replace(chunk_path)
+    except Exception:
+        if tmp_path.exists():
+            tmp_path.unlink()
+        raise
+
+
 def _precompute_split(
     prior_dir: Path,
     output_dir: Path,
@@ -37,6 +62,7 @@ def _precompute_split(
     context_pixels: int,
     chunk_size: int,
     max_samples: int | None,
+    resume_existing: bool,
 ) -> Dict[str, Any]:
     dataset = D16PixelPriorDataset(
         prior_dir,
@@ -49,20 +75,19 @@ def _precompute_split(
     split_dir = output_dir / split
     split_dir.mkdir(parents=True, exist_ok=True)
     chunks: List[Dict[str, Any]] = []
-    rows: List[Dict[str, torch.Tensor]] = []
-    chunk_start = 0
-    for idx in range(len(dataset)):
-        rows.append(graph_to_cache_dict(dataset[idx]))
-        if len(rows) >= chunk_size:
-            chunk_path = split_dir / f"chunk_{len(chunks):05d}.pt"
-            torch.save(rows, chunk_path)
-            chunks.append({"path": str(chunk_path.relative_to(output_dir)), "start": chunk_start, "count": len(rows)})
-            chunk_start += len(rows)
-            rows = []
-    if rows:
-        chunk_path = split_dir / f"chunk_{len(chunks):05d}.pt"
-        torch.save(rows, chunk_path)
-        chunks.append({"path": str(chunk_path.relative_to(output_dir)), "start": chunk_start, "count": len(rows)})
+    for chunk_index, chunk_start in enumerate(range(0, len(dataset), chunk_size)):
+        expected_count = min(chunk_size, len(dataset) - chunk_start)
+        chunk_path = split_dir / f"chunk_{chunk_index:05d}.pt"
+        if resume_existing:
+            existing_rows = _load_existing_chunk(chunk_path, expected_count)
+            if existing_rows is not None:
+                chunks.append({"path": str(chunk_path.relative_to(output_dir)), "start": chunk_start, "count": expected_count})
+                continue
+            if chunk_path.exists():
+                chunk_path.unlink()
+        rows = [graph_to_cache_dict(dataset[idx]) for idx in range(chunk_start, chunk_start + expected_count)]
+        _save_chunk_atomic(rows, chunk_path)
+        chunks.append({"path": str(chunk_path.relative_to(output_dir)), "start": chunk_start, "count": expected_count})
     return {"count": len(dataset), "chunks": chunks}
 
 
@@ -125,6 +150,7 @@ def main() -> None:
     parser.add_argument("--max_samples_per_split", type=int, default=None)
     parser.add_argument("--verify_max_checks", type=int, default=64)
     parser.add_argument("--verify_only", action="store_true")
+    parser.add_argument("--no_resume_existing", action="store_true")
     args = parser.parse_args()
 
     prior_dir = Path(args.prior_dir)
@@ -144,6 +170,7 @@ def main() -> None:
                 context_pixels=int(args.context_pixels),
                 chunk_size=int(args.chunk_size),
                 max_samples=args.max_samples_per_split,
+                resume_existing=not bool(args.no_resume_existing),
             )
         metadata = {
             "schema_version": CACHE_SCHEMA_VERSION,
