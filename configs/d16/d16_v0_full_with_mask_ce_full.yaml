@@ -5,6 +5,7 @@ init_checkpoint: null
 data:
   use_mediapipe_priors: true
   prior_dir: outputs/d16_mediapipe_pixel_priors_best
+  graph_cache_dir: null
   graph_mode: full_with_mask
   batch_size: 8
   num_workers: 2

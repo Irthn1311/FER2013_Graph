@@ -48,24 +48,41 @@ class PartPooling(torch.nn.Module):
             "brow": ["left_brow", "right_brow"],
             "nose_cheek": ["nose", "left_cheek", "right_cheek"],
         }
+        self.group_indices: Dict[str, List[int]] = {
+            group_name: self._indices(names) for group_name, names in self.groups.items()
+        }
 
     def _indices(self, names: Iterable[str]) -> List[int]:
         return [self.part_names.index(name) for name in names if name in self.part_names]
 
     def forward(self, h, part_soft, batch_index, num_graphs, valid_part_mask):
-        pooled_parts = {}
-        valid_parts = {}
-        for group_name, names in self.groups.items():
-            indices = self._indices(names)
-            if not indices:
-                weights = part_soft.new_zeros((part_soft.size(0),))
-                valid = valid_part_mask.new_zeros((num_graphs,))
-            else:
-                weights = part_soft[:, indices].max(dim=1).values
-                valid = (valid_part_mask[:, indices].sum(dim=1) > 0).float()
-            pooled, valid_bool = masked_weighted_pool(h, weights, batch_index, num_graphs, valid)
-            pooled_parts[group_name] = pooled
-            valid_parts[group_name] = valid_bool
+        pooled_lists = {group_name: [] for group_name in self.groups}
+        valid_lists = {group_name: [] for group_name in self.groups}
+        for graph_id in range(num_graphs):
+            node_mask = batch_index == graph_id
+            h_g = h[node_mask]
+            part_g = part_soft[node_mask]
+            for group_name, indices in self.group_indices.items():
+                if not indices or float(valid_part_mask[graph_id, indices].sum().item()) <= 0.0:
+                    pooled_lists[group_name].append(h.new_zeros((h.size(1),)))
+                    valid_lists[group_name].append(False)
+                    continue
+                weights = part_g[:, indices].max(dim=1).values
+                denom = weights.sum().clamp_min(1e-6)
+                if float(denom.detach().cpu()) <= 1e-5:
+                    pooled_lists[group_name].append(h.new_zeros((h.size(1),)))
+                    valid_lists[group_name].append(False)
+                else:
+                    pooled_lists[group_name].append((h_g * weights[:, None]).sum(dim=0) / denom)
+                    valid_lists[group_name].append(True)
+
+        pooled_parts = {
+            group_name: torch.stack(values, dim=0) for group_name, values in pooled_lists.items()
+        }
+        valid_parts = {
+            group_name: torch.tensor(values, device=h.device, dtype=torch.bool)
+            for group_name, values in valid_lists.items()
+        }
         global_pooled = []
         for graph_id in range(num_graphs):
             node_mask = batch_index == graph_id

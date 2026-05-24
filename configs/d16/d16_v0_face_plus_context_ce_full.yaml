@@ -5,8 +5,9 @@ init_checkpoint: null
 data:
   use_mediapipe_priors: true
   prior_dir: outputs/d16_mediapipe_pixel_priors_best
+  graph_cache_dir: null
   graph_mode: face_plus_context
-  batch_size: 8
+  batch_size: 16
   num_workers: 2
   pin_memory: true
   persistent_workers: true
@@ -30,7 +31,7 @@ loss:
 
 training:
   max_epochs: 150
-  batch_size: 8
+  batch_size: 16
   num_workers: 2
   pin_memory: true
   persistent_workers: true

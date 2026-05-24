@@ -11,6 +11,7 @@ import argparse
 import csv
 import json
 import math
+import random
 import sys
 import time
 from pathlib import Path
@@ -27,6 +28,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from d16.data.graph_builder import D16Batch, collate_d16_graphs
+from d16.data.graph_cache_dataset import D16GraphCacheDataset
 from d16.data.pixel_prior_dataset import D16PixelPriorDataset
 from d16.models.d16_model import D16Model
 
@@ -43,11 +45,24 @@ def _write_json(path: Path, payload: Dict[str, Any]) -> None:
 def _append_csv(path: Path, row: Dict[str, Any], fieldnames: List[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     exists = path.exists()
+    active_fieldnames = fieldnames
+    if exists:
+        with path.open("r", newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            existing_header = next(reader, None)
+        if existing_header:
+            active_fieldnames = list(existing_header)
     with path.open("a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=active_fieldnames, extrasaction="ignore")
         if not exists:
             writer.writeheader()
-        writer.writerow({key: row.get(key) for key in fieldnames})
+        writer.writerow({key: row.get(key) for key in active_fieldnames})
+
+
+def _append_jsonl(path: Path, row: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row, default=str) + "\n")
 
 
 def _write_csv_rows(path: Path, rows: Iterable[Dict[str, Any]], fieldnames: List[str]) -> None:
@@ -88,12 +103,26 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str) -> D16
     max_samples = data_cfg.get(max_key)
     if max_samples is not None:
         max_samples = int(max_samples)
+    graph_mode = graph_cfg.get("graph_mode", data_cfg.get("graph_mode", "face_plus_context"))
+    face_threshold = float(graph_cfg.get("face_threshold", 0.15))
+    context_pixels = int(graph_cfg.get("context_pixels", 2))
+    graph_cache_dir = data_cfg.get("graph_cache_dir")
+    if graph_cache_dir:
+        return D16GraphCacheDataset(
+            graph_cache_dir,
+            split=split,
+            graph_mode=graph_mode,
+            face_threshold=face_threshold,
+            context_pixels=context_pixels,
+            max_samples=max_samples,
+            chunk_cache_size=int(data_cfg.get("graph_cache_chunk_cache_size", 2)),
+        )
     return D16PixelPriorDataset(
         prior_dir,
         split=split,
-        graph_mode=graph_cfg.get("graph_mode", data_cfg.get("graph_mode", "face_plus_context")),
-        face_threshold=float(graph_cfg.get("face_threshold", 0.15)),
-        context_pixels=int(graph_cfg.get("context_pixels", 2)),
+        graph_mode=graph_mode,
+        face_threshold=face_threshold,
+        context_pixels=context_pixels,
         max_samples=max_samples,
     )
 
@@ -146,6 +175,40 @@ def _metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     }
 
 
+def _should_eval_epoch(epoch: int, start_epoch: int, max_epochs: int, every_n: int) -> bool:
+    every_n = max(int(every_n), 1)
+    return epoch == start_epoch or epoch == max_epochs or (epoch % every_n == 0)
+
+
+def _rng_state() -> Dict[str, Any]:
+    state: Dict[str, Any] = {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "torch_cpu": torch.get_rng_state(),
+    }
+    if torch.cuda.is_available():
+        state["torch_cuda"] = torch.cuda.get_rng_state_all()
+    return state
+
+
+def _restore_rng_state(state: Dict[str, Any]) -> bool:
+    if not state:
+        return False
+    try:
+        if "python" in state:
+            random.setstate(state["python"])
+        if "numpy" in state:
+            np.random.set_state(state["numpy"])
+        if "torch_cpu" in state:
+            torch.set_rng_state(state["torch_cpu"])
+        if torch.cuda.is_available() and state.get("torch_cuda"):
+            torch.cuda.set_rng_state_all(state["torch_cuda"])
+    except Exception as exc:
+        print(f"[D16 resume] RNG restore failed: {exc}", flush=True)
+        return False
+    return True
+
+
 @torch.no_grad()
 def evaluate(
     model: D16Model,
@@ -161,7 +224,18 @@ def evaluate(
     y_true, y_pred, detected_flags = [], [], []
     losses = []
     node_counts, edge_counts = [], []
+    epoch_start = time.perf_counter()
+    wait_start = epoch_start
+    first_batch_wait = None
+    batch_wall_times = []
+    batch_wait_times = []
     for batch in loader:
+        batch_ready = time.perf_counter()
+        wait_time = batch_ready - wait_start
+        batch_wait_times.append(wait_time)
+        if first_batch_wait is None:
+            first_batch_wait = wait_time
+        batch_start = batch_ready
         batch = batch.to(device)
         out = model(batch)
         logits = out["logits"]
@@ -174,6 +248,10 @@ def evaluate(
         counts = (batch.ptr[1:] - batch.ptr[:-1]).detach().cpu().numpy()
         node_counts.extend(counts.tolist())
         edge_counts.append(int(batch.edge_index_cat.size(1)) / max(batch.num_graphs, 1))
+        batch_end = time.perf_counter()
+        batch_wall_times.append(batch_end - batch_start)
+        wait_start = batch_end
+    total_time = time.perf_counter() - epoch_start
     y_true_np = np.asarray(y_true, dtype=np.int64)
     y_pred_np = np.asarray(y_pred, dtype=np.int64)
     detected_np = np.asarray(detected_flags, dtype=bool)
@@ -191,6 +269,11 @@ def evaluate(
         "edge_count_mean": float(np.mean(edge_counts)) if edge_counts else float("nan"),
         "predicted_classes": int(len(set(y_pred))),
         "total": int(len(y_true)),
+        f"{split}_epoch_time_sec": total_time,
+        f"{split}_first_batch_wait_time_sec": float(first_batch_wait or 0.0),
+        f"{split}_avg_batch_time_ms": float(np.mean(batch_wall_times) * 1000.0) if batch_wall_times else float("nan"),
+        f"{split}_avg_batch_wait_time_ms": float(np.mean(batch_wait_times) * 1000.0) if batch_wait_times else float("nan"),
+        f"{split}_num_batches": int(len(batch_wall_times)),
     }
     per_class = _per_class_rows(y_true_np, y_pred_np, split, int(epoch))
     pred_count = _pred_count_rows(y_pred_np, split, int(epoch))
@@ -216,17 +299,36 @@ def evaluate(
     return row, per_class, pred_count, fallback_rows
 
 
-def save_checkpoint(path: Path, model: D16Model, optimizer: torch.optim.Optimizer, epoch: int, best_val_macro_f1: float, config: Dict[str, Any]) -> None:
+def save_checkpoint(
+    path: Path,
+    model: D16Model,
+    optimizer: torch.optim.Optimizer,
+    epoch: int,
+    best_val_macro_f1: float,
+    config: Dict[str, Any],
+    best_epoch: int = 0,
+    epochs_without_improvement: int = 0,
+    resume_source: str | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
+            "checkpoint_format": "d16_resume_v1",
             "epoch": int(epoch),
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "best_val_macro_f1": float(best_val_macro_f1),
+            "best_epoch": int(best_epoch),
+            "early_stopping_state": {
+                "epochs_without_improvement": int(epochs_without_improvement),
+                "best_val_macro_f1": float(best_val_macro_f1),
+                "best_epoch": int(best_epoch),
+            },
+            "rng_state": _rng_state(),
             "config": config,
             "from_scratch": bool(config.get("from_scratch", True)),
             "init_checkpoint": config.get("init_checkpoint"),
+            "resume_source": resume_source,
         },
         path,
     )
@@ -241,11 +343,65 @@ def load_checkpoint(path: Path, model: D16Model, device: torch.device) -> Dict[s
     return checkpoint
 
 
+def resume_training(
+    resume_from: Path,
+    model: D16Model,
+    optimizer: torch.optim.Optimizer,
+    device: torch.device,
+    output_dir: Path,
+    restore_rng: bool = True,
+) -> Dict[str, Any]:
+    checkpoint = load_checkpoint(resume_from, model, device)
+    if checkpoint.get("optimizer_state_dict") is None:
+        raise ValueError(f"D16 resume checkpoint is missing optimizer_state_dict: {resume_from}")
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    restored_rng = _restore_rng_state(checkpoint.get("rng_state", {})) if restore_rng else False
+    resumed_epoch = int(checkpoint.get("epoch", 0) or 0)
+    best_val_macro_f1 = float(checkpoint.get("best_val_macro_f1", -math.inf))
+    best_epoch = int(checkpoint.get("best_epoch", 0) or 0)
+    if best_epoch <= 0:
+        best_epoch = resumed_epoch if math.isfinite(best_val_macro_f1) else 0
+    early_state = checkpoint.get("early_stopping_state", {}) or {}
+    epochs_without_improvement = int(early_state.get("epochs_without_improvement", 0) or 0)
+    event = {
+        "resume_from": str(resume_from),
+        "resumed_epoch": resumed_epoch,
+        "next_epoch": resumed_epoch + 1,
+        "loaded_optimizer": True,
+        "restored_rng": bool(restored_rng),
+        "best_val_macro_f1": best_val_macro_f1,
+        "best_epoch": best_epoch,
+        "epochs_without_improvement": epochs_without_improvement,
+        "checkpoint_format": checkpoint.get("checkpoint_format"),
+        "warning": None if checkpoint.get("rng_state") else "rng_state_missing_in_checkpoint",
+    }
+    _append_jsonl(output_dir / "resume_events.jsonl", event)
+    print("[D16 resume] " + json.dumps(event, indent=2, default=str), flush=True)
+    return {
+        "start_epoch": resumed_epoch + 1,
+        "best_val_macro_f1": best_val_macro_f1,
+        "best_epoch": best_epoch,
+        "epochs_without_improvement": epochs_without_improvement,
+        "resume_source": str(resume_from),
+    }
+
+
 def train_one_epoch(model: D16Model, loader: DataLoader, optimizer: torch.optim.Optimizer, device: torch.device) -> Dict[str, Any]:
     model.train()
     losses = []
     node_counts, edge_counts = [], []
+    epoch_start = time.perf_counter()
+    wait_start = epoch_start
+    first_batch_wait = None
+    batch_wall_times = []
+    batch_wait_times = []
     for batch in loader:
+        batch_ready = time.perf_counter()
+        wait_time = batch_ready - wait_start
+        batch_wait_times.append(wait_time)
+        if first_batch_wait is None:
+            first_batch_wait = wait_time
+        batch_start = batch_ready
         batch: D16Batch = batch.to(device)
         optimizer.zero_grad(set_to_none=True)
         out = model(batch)
@@ -259,10 +415,19 @@ def train_one_epoch(model: D16Model, loader: DataLoader, optimizer: torch.optim.
         counts = (batch.ptr[1:] - batch.ptr[:-1]).detach().cpu().numpy()
         node_counts.extend(counts.tolist())
         edge_counts.append(int(batch.edge_index_cat.size(1)) / max(batch.num_graphs, 1))
+        batch_end = time.perf_counter()
+        batch_wall_times.append(batch_end - batch_start)
+        wait_start = batch_end
+    total_time = time.perf_counter() - epoch_start
     return {
         "train_loss": float(np.mean(losses)) if losses else float("nan"),
         "node_count_mean": float(np.mean(node_counts)) if node_counts else float("nan"),
         "edge_count_mean": float(np.mean(edge_counts)) if edge_counts else float("nan"),
+        "train_epoch_time_sec": total_time,
+        "train_first_batch_wait_time_sec": float(first_batch_wait or 0.0),
+        "train_avg_batch_time_ms": float(np.mean(batch_wall_times) * 1000.0) if batch_wall_times else float("nan"),
+        "train_avg_batch_wait_time_ms": float(np.mean(batch_wait_times) * 1000.0) if batch_wait_times else float("nan"),
+        "train_num_batches": int(len(batch_wall_times)),
     }
 
 
@@ -474,6 +639,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
     parser.add_argument("--prior_dir", default=None)
+    parser.add_argument("--graph_cache_dir", default=None)
     parser.add_argument("--output_dir", default=None)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--max_epochs", type=int, default=None)
@@ -485,6 +651,10 @@ def main() -> None:
     parser.add_argument("--eval_only", action="store_true")
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--also_eval_last", action="store_true")
+    parser.add_argument("--resume_from", default=None)
+    parser.add_argument("--restore_rng", dest="restore_rng", action="store_true")
+    parser.add_argument("--no_restore_rng", dest="restore_rng", action="store_false")
+    parser.set_defaults(restore_rng=True)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -495,6 +665,8 @@ def main() -> None:
         raise ValueError(f"D16 trainer currently supports CE-only modes, got loss.mode={loss_mode!r}")
     if args.prior_dir:
         data_cfg["prior_dir"] = args.prior_dir
+    if args.graph_cache_dir:
+        data_cfg["graph_cache_dir"] = args.graph_cache_dir
     prior_dir = Path(data_cfg.get("prior_dir", "outputs/d16_mediapipe_pixel_priors_best"))
     output_dir = Path(args.output_dir or Path("outputs/d16_runs") / str(cfg.get("run_name", "d16_v0_small")))
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -516,6 +688,8 @@ def main() -> None:
     early_mode = str(early_cfg.get("mode", "max"))
     early_patience = int(early_cfg.get("patience", training_cfg.get("early_stopping_patience", 999)))
     early_min_epochs = int(early_cfg.get("min_epochs_before_stop", 0))
+    eval_every_epoch = bool(training_cfg.get("eval_every_epoch", True))
+    eval_every_n_epochs = int(training_cfg.get("eval_every_n_epochs", 1 if eval_every_epoch else max_epochs))
     epochs_without_improvement = 0
     device = resolve_device(args.device)
     if device.type == "cuda":
@@ -564,6 +738,8 @@ def main() -> None:
 
     best_val_macro_f1 = -math.inf
     best_epoch = 0
+    start_epoch = 1
+    resume_source = None
     train_fields = [
         "epoch",
         "train_loss",
@@ -571,7 +747,18 @@ def main() -> None:
         "val_accuracy",
         "node_count_mean",
         "edge_count_mean",
+        "train_epoch_time_sec",
+        "train_first_batch_wait_time_sec",
+        "train_avg_batch_time_ms",
+        "train_avg_batch_wait_time_ms",
+        "train_num_batches",
+        "val_epoch_time_sec",
+        "val_first_batch_wait_time_sec",
+        "val_avg_batch_time_ms",
+        "val_avg_batch_wait_time_ms",
+        "val_num_batches",
         "epoch_time_sec",
+        "evaluated",
         "memory_reserved_mb",
     ]
     metric_fields = [
@@ -587,45 +774,112 @@ def main() -> None:
         "edge_count_mean",
         "predicted_classes",
         "total",
+        "val_epoch_time_sec",
+        "val_first_batch_wait_time_sec",
+        "val_avg_batch_time_ms",
+        "val_avg_batch_wait_time_ms",
+        "val_num_batches",
+        "test_epoch_time_sec",
+        "test_first_batch_wait_time_sec",
+        "test_avg_batch_time_ms",
+        "test_avg_batch_wait_time_ms",
+        "test_num_batches",
     ]
     per_class_fields = ["split", "epoch", "class_id", "support", "pred_count", "precision", "recall", "f1"]
     pred_fields = ["split", "epoch", "class_id", "pred_count"]
     fallback_fields = ["split", "epoch", "group", "total", "accuracy", "macro_f1"]
 
-    for epoch in range(1, max_epochs + 1):
+    if args.resume_from:
+        resume_state = resume_training(
+            Path(args.resume_from),
+            model,
+            optimizer,
+            device,
+            output_dir,
+            restore_rng=bool(args.restore_rng),
+        )
+        start_epoch = int(resume_state["start_epoch"])
+        best_val_macro_f1 = float(resume_state["best_val_macro_f1"])
+        best_epoch = int(resume_state["best_epoch"])
+        epochs_without_improvement = int(resume_state["epochs_without_improvement"])
+        resume_source = str(resume_state["resume_source"])
+
+    if start_epoch > max_epochs:
+        raise ValueError(f"D16 resume start_epoch={start_epoch} exceeds max_epochs={max_epochs}")
+
+    for epoch in range(start_epoch, max_epochs + 1):
         start = time.time()
         train_stats = train_one_epoch(model, train_loader, optimizer, device)
-        val_row, val_per_class, val_pred_count, val_fallback = evaluate(model, val_loader, device, "val", epoch)
+        should_eval = _should_eval_epoch(epoch, start_epoch, max_epochs, eval_every_n_epochs)
+        val_row: Dict[str, Any] | None = None
+        val_per_class: List[Dict[str, Any]] = []
+        val_pred_count: List[Dict[str, Any]] = []
+        val_fallback: List[Dict[str, Any]] = []
+        if should_eval:
+            val_row, val_per_class, val_pred_count, val_fallback = evaluate(model, val_loader, device, "val", epoch)
         epoch_time = float(time.time() - start)
         memory_reserved = float(torch.cuda.max_memory_reserved(device) / (1024 ** 2)) if device.type == "cuda" else float("nan")
         log_row = {
             "epoch": epoch,
             "train_loss": train_stats["train_loss"],
-            "val_macro_f1": val_row["macro_f1"],
-            "val_accuracy": val_row["accuracy"],
+            "val_macro_f1": None if val_row is None else val_row["macro_f1"],
+            "val_accuracy": None if val_row is None else val_row["accuracy"],
             "node_count_mean": train_stats["node_count_mean"],
             "edge_count_mean": train_stats["edge_count_mean"],
+            "train_epoch_time_sec": train_stats["train_epoch_time_sec"],
+            "train_first_batch_wait_time_sec": train_stats["train_first_batch_wait_time_sec"],
+            "train_avg_batch_time_ms": train_stats["train_avg_batch_time_ms"],
+            "train_avg_batch_wait_time_ms": train_stats["train_avg_batch_wait_time_ms"],
+            "train_num_batches": train_stats["train_num_batches"],
+            "val_epoch_time_sec": None if val_row is None else val_row.get("val_epoch_time_sec"),
+            "val_first_batch_wait_time_sec": None if val_row is None else val_row.get("val_first_batch_wait_time_sec"),
+            "val_avg_batch_time_ms": None if val_row is None else val_row.get("val_avg_batch_time_ms"),
+            "val_avg_batch_wait_time_ms": None if val_row is None else val_row.get("val_avg_batch_wait_time_ms"),
+            "val_num_batches": None if val_row is None else val_row.get("val_num_batches"),
             "epoch_time_sec": epoch_time,
+            "evaluated": int(should_eval),
             "memory_reserved_mb": memory_reserved,
         }
         _append_csv(output_dir / "train_log.csv", log_row, train_fields)
-        _append_csv(output_dir / "val_metrics.csv", val_row, metric_fields)
-        for row in val_per_class:
-            _append_csv(output_dir / "per_class_metrics.csv", row, per_class_fields)
-        for row in val_pred_count:
-            _append_csv(output_dir / "pred_count.csv", row, pred_fields)
-        for row in val_fallback:
-            _append_csv(output_dir / "detected_vs_fallback_metrics.csv", row, fallback_fields)
+        if val_row is not None:
+            _append_csv(output_dir / "val_metrics.csv", val_row, metric_fields)
+            for row in val_per_class:
+                _append_csv(output_dir / "per_class_metrics.csv", row, per_class_fields)
+            for row in val_pred_count:
+                _append_csv(output_dir / "pred_count.csv", row, pred_fields)
+            for row in val_fallback:
+                _append_csv(output_dir / "detected_vs_fallback_metrics.csv", row, fallback_fields)
 
-        improved = float(val_row["macro_f1"]) > best_val_macro_f1
+        improved = val_row is not None and float(val_row["macro_f1"]) > best_val_macro_f1
         if improved:
             best_val_macro_f1 = float(val_row["macro_f1"])
             best_epoch = epoch
             epochs_without_improvement = 0
-            save_checkpoint(output_dir / "checkpoints" / "best.pt", model, optimizer, epoch, best_val_macro_f1, cfg)
+            save_checkpoint(
+                output_dir / "checkpoints" / "best.pt",
+                model,
+                optimizer,
+                epoch,
+                best_val_macro_f1,
+                cfg,
+                best_epoch=best_epoch,
+                epochs_without_improvement=epochs_without_improvement,
+                resume_source=resume_source,
+            )
         else:
-            epochs_without_improvement += 1
-        save_checkpoint(output_dir / "checkpoints" / "last.pt", model, optimizer, epoch, best_val_macro_f1, cfg)
+            if val_row is not None:
+                epochs_without_improvement += 1
+        save_checkpoint(
+            output_dir / "checkpoints" / "last.pt",
+            model,
+            optimizer,
+            epoch,
+            best_val_macro_f1,
+            cfg,
+            best_epoch=best_epoch,
+            epochs_without_improvement=epochs_without_improvement,
+            resume_source=resume_source,
+        )
         print(json.dumps(log_row, indent=2), flush=True)
         if early_enabled:
             if early_metric != "val_macro_f1" or early_mode != "max":

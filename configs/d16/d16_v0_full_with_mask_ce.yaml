@@ -4,6 +4,7 @@ init_checkpoint: null
 
 data:
   use_mediapipe_priors: true
+  graph_cache_dir: null
   graph_mode: full_with_mask
   batch_size: 8
   num_workers: 2

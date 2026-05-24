@@ -9,6 +9,9 @@ import numpy as np
 import torch
 
 
+_FULL_MASK_COORDS_EDGES: tuple[np.ndarray, np.ndarray] | None = None
+
+
 @dataclass
 class D16GraphData:
     x: torch.Tensor
@@ -114,23 +117,42 @@ def _gradients(image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _edges_for_mask(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    global _FULL_MASK_COORDS_EDGES
+    mask_bool = np.asarray(mask, dtype=bool)
+    if mask_bool.shape == (48, 48) and bool(mask_bool.all()):
+        if _FULL_MASK_COORDS_EDGES is None:
+            _FULL_MASK_COORDS_EDGES = _edges_for_mask_uncached(mask_bool)
+        coords, edges = _FULL_MASK_COORDS_EDGES
+        return coords, edges
+    return _edges_for_mask_uncached(mask_bool)
+
+
+def _edges_for_mask_uncached(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     node_ids = -np.ones((48, 48), dtype=np.int64)
     coords = np.argwhere(mask)
-    for idx, (y, x) in enumerate(coords):
-        node_ids[y, x] = idx
-    edges = []
-    for y, x in coords:
-        src = int(node_ids[y, x])
-        for dy in (-1, 0, 1):
-            for dx in (-1, 0, 1):
-                if dy == 0 and dx == 0:
-                    continue
-                ny, nx = int(y + dy), int(x + dx)
-                if 0 <= ny < 48 and 0 <= nx < 48 and node_ids[ny, nx] >= 0:
-                    edges.append((src, int(node_ids[ny, nx])))
-    if not edges:
-        edges = [(0, 0)]
-    return coords.astype(np.int64), np.asarray(edges, dtype=np.int64).T
+    if coords.size == 0:
+        coords = np.asarray([[0, 0]], dtype=np.int64)
+        return coords, np.asarray([[0], [0]], dtype=np.int64)
+    node_ids[coords[:, 0], coords[:, 1]] = np.arange(coords.shape[0], dtype=np.int64)
+    yy = coords[:, 0]
+    xx = coords[:, 1]
+    src_all = node_ids[yy, xx]
+    offsets = np.asarray(
+        [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)],
+        dtype=np.int64,
+    )
+    ny = yy[:, None] + offsets[None, :, 0]
+    nx = xx[:, None] + offsets[None, :, 1]
+    inside = (ny >= 0) & (ny < 48) & (nx >= 0) & (nx < 48)
+    dst = np.full(ny.shape, -1, dtype=np.int64)
+    dst[inside] = node_ids[ny[inside], nx[inside]]
+    valid = dst >= 0
+    if not valid.any():
+        edges = np.asarray([[0], [0]], dtype=np.int64)
+    else:
+        src_matrix = np.repeat(src_all[:, None], offsets.shape[0], axis=1)
+        edges = np.stack([src_matrix[valid], dst[valid]], axis=0).astype(np.int64)
+    return coords.astype(np.int64), edges
 
 
 def build_pixel_graph(prior: Dict[str, np.ndarray], graph_mode: str = "face_plus_context", face_threshold: float = 0.15, context_pixels: int = 2) -> D16GraphData:
