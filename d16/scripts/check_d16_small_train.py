@@ -64,6 +64,8 @@ def check_run(output_dir: Path, strict: bool = False) -> Dict[str, Any]:
         "last_test_metrics.csv": output_dir / "last_test_metrics.csv",
         "per_class_metrics.csv": output_dir / "per_class_metrics.csv",
         "pred_count.csv": output_dir / "pred_count.csv",
+        "predictions.csv": output_dir / "predictions.csv",
+        "confusion_matrix.csv": output_dir / "confusion_matrix.csv",
         "detected_vs_fallback_metrics.csv": output_dir / "detected_vs_fallback_metrics.csv",
     }
     for name, path in required_files.items():
@@ -75,6 +77,8 @@ def check_run(output_dir: Path, strict: bool = False) -> Dict[str, Any]:
     test = _read_csv(output_dir / "test_metrics.csv")
     last_test = _read_csv(output_dir / "last_test_metrics.csv")
     pred = _read_csv(output_dir / "pred_count.csv")
+    predictions = _read_csv(output_dir / "predictions.csv")
+    confusion = _read_csv(output_dir / "confusion_matrix.csv")
     fallback = _read_csv(output_dir / "detected_vs_fallback_metrics.csv")
 
     if not (ckpt_dir / "best.pt").exists():
@@ -109,6 +113,16 @@ def check_run(output_dir: Path, strict: bool = False) -> Dict[str, Any]:
             warnings.append(f"last_test_metrics.csv checkpoint_name={last_name!r}, expected 'last.pt'")
     if fallback.empty or set(fallback.get("group", [])) < {"detected", "fallback"}:
         failures.append("detected_vs_fallback metrics missing detected/fallback groups")
+    if predictions.empty:
+        failures.append("predictions.csv missing or empty")
+    elif not _has_columns(predictions, ["sample_index", "y_true", "y_pred", "checkpoint_name"]):
+        failures.append("predictions.csv missing prediction contract columns")
+    if confusion.empty:
+        failures.append("confusion_matrix.csv missing or empty")
+    elif not _has_columns(confusion, ["true_class", "pred_class", "count", "support", "checkpoint_name"]):
+        failures.append("confusion_matrix.csv missing confusion contract columns")
+    elif len(confusion) != 49:
+        warnings.append(f"confusion_matrix.csv row count={len(confusion)}, expected 49 for 7x7")
 
     predicted_classes = _latest_pred_classes(pred, split="test")
     if predicted_classes == 0 and "predicted_classes" in val and not val.empty:

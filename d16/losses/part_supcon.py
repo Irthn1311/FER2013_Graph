@@ -33,25 +33,45 @@ class PartAwareSupConLoss(torch.nn.Module):
         anchors = positives.any(dim=1)
         return -mean_log_prob_pos[anchors].mean(), positive_count
 
-    def forward(self, part_embeddings: Dict[str, torch.Tensor], valid_part_groups: Dict[str, torch.Tensor], labels: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(
+        self,
+        part_embeddings: Dict[str, torch.Tensor],
+        valid_part_groups: Dict[str, torch.Tensor],
+        labels: torch.Tensor,
+        detected: torch.Tensor | None = None,
+        skip_fallback: bool = True,
+    ) -> Dict[str, torch.Tensor]:
         losses = []
         positive_pairs = 0
+        skipped_parts = 0
+        no_positive_parts = 0
+        per_part: Dict[str, torch.Tensor] = {}
         for name, z in part_embeddings.items():
             if name == "global":
                 continue
             valid = valid_part_groups.get(name)
             if valid is None:
+                skipped_parts += 1
                 continue
+            if skip_fallback and detected is not None:
+                valid = valid.bool() & detected.bool()
             loss, count = self._single_part_loss(z, labels, valid)
+            per_part[f"loss_part_supcon_{name}"] = loss.detach()
             if count > 0:
                 losses.append(loss)
                 positive_pairs += count
+            else:
+                no_positive_parts += 1
         if not losses:
             total = labels.new_tensor(0.0, dtype=torch.float32)
         else:
             total = torch.stack(losses).mean()
-        return {
+        out = {
             "loss_part_supcon": total,
             "part_supcon_positive_pair_count": total.new_tensor(float(positive_pairs)),
             "part_supcon_active_parts": total.new_tensor(float(len(losses))),
+            "part_supcon_no_positive_parts": total.new_tensor(float(no_positive_parts)),
+            "part_supcon_skipped_parts": total.new_tensor(float(skipped_parts)),
         }
+        out.update(per_part)
+        return out
