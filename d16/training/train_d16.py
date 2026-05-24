@@ -386,7 +386,14 @@ def resume_training(
     }
 
 
-def train_one_epoch(model: D16Model, loader: DataLoader, optimizer: torch.optim.Optimizer, device: torch.device) -> Dict[str, Any]:
+def train_one_epoch(
+    model: D16Model,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    device: torch.device,
+    epoch: int,
+    progress_interval: int = 0,
+) -> Dict[str, Any]:
     model.train()
     losses = []
     node_counts, edge_counts = [], []
@@ -395,7 +402,8 @@ def train_one_epoch(model: D16Model, loader: DataLoader, optimizer: torch.optim.
     first_batch_wait = None
     batch_wall_times = []
     batch_wait_times = []
-    for batch in loader:
+    total_batches = len(loader)
+    for batch_idx, batch in enumerate(loader, start=1):
         batch_ready = time.perf_counter()
         wait_time = batch_ready - wait_start
         batch_wait_times.append(wait_time)
@@ -418,6 +426,23 @@ def train_one_epoch(model: D16Model, loader: DataLoader, optimizer: torch.optim.
         batch_end = time.perf_counter()
         batch_wall_times.append(batch_end - batch_start)
         wait_start = batch_end
+        if progress_interval > 0 and (batch_idx == 1 or batch_idx % progress_interval == 0 or batch_idx == total_batches):
+            elapsed = batch_end - epoch_start
+            print(
+                json.dumps(
+                    {
+                        "event": "d16_train_progress",
+                        "epoch": int(epoch),
+                        "batch": int(batch_idx),
+                        "total_batches": int(total_batches),
+                        "elapsed_sec": float(elapsed),
+                        "last_batch_time_sec": float(batch_wall_times[-1]),
+                        "last_batch_wait_sec": float(batch_wait_times[-1]),
+                        "avg_loss_so_far": float(np.mean(losses)) if losses else float("nan"),
+                    }
+                ),
+                flush=True,
+            )
     total_time = time.perf_counter() - epoch_start
     return {
         "train_loss": float(np.mean(losses)) if losses else float("nan"),
@@ -809,7 +834,9 @@ def main() -> None:
 
     for epoch in range(start_epoch, max_epochs + 1):
         start = time.time()
-        train_stats = train_one_epoch(model, train_loader, optimizer, device)
+        progress_interval = int(training_cfg.get("progress_interval_batches", data_cfg.get("progress_interval_batches", 50)) or 0)
+        print(json.dumps({"event": "d16_epoch_start", "epoch": int(epoch), "max_epochs": int(max_epochs)}), flush=True)
+        train_stats = train_one_epoch(model, train_loader, optimizer, device, epoch, progress_interval)
         should_eval = _should_eval_epoch(epoch, start_epoch, max_epochs, eval_every_n_epochs)
         val_row: Dict[str, Any] | None = None
         val_per_class: List[Dict[str, Any]] = []
