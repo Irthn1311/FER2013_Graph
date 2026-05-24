@@ -20,6 +20,12 @@ from d16.data.graph_builder import D16GraphData
 CACHE_SCHEMA_VERSION = "d16_graph_cache_v1"
 
 
+def resolve_cache_path(cache_dir: str | Path, relative_path: str) -> Path:
+    """Resolve cache metadata paths written on Windows or POSIX hosts."""
+    normalized = str(relative_path).replace("\\", "/")
+    return Path(cache_dir).joinpath(*[part for part in normalized.split("/") if part])
+
+
 def graph_to_cache_dict(graph: D16GraphData) -> Dict[str, torch.Tensor]:
     return {
         "x": graph.x,
@@ -105,7 +111,7 @@ class D16GraphCacheDataset(Dataset):
             raise FileNotFoundError(f"Missing split={self.split!r} in graph cache: {metadata_path}")
         self.index: List[tuple[Path, int]] = []
         for chunk in split_meta.get("chunks", []):
-            path = self.cache_dir / chunk["path"]
+            path = resolve_cache_path(self.cache_dir, str(chunk["path"]))
             count = int(chunk["count"])
             for offset in range(count):
                 self.index.append((path, offset))
