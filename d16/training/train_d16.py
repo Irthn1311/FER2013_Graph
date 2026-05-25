@@ -1181,7 +1181,7 @@ def main() -> None:
 
     for epoch in range(start_epoch, max_epochs + 1):
         start = time.time()
-        progress_interval = int(training_cfg.get("progress_interval_batches", data_cfg.get("progress_interval_batches", 50)) or 0)
+        progress_interval = int(training_cfg.get("progress_interval_batches", data_cfg.get("progress_interval_batches", 500)) or 0)
         print(json.dumps({"event": "d16_epoch_start", "epoch": int(epoch), "max_epochs": int(max_epochs)}), flush=True)
         train_stats = train_one_epoch(
             model,
@@ -1253,6 +1253,10 @@ def main() -> None:
             for row in val_fallback:
                 _append_csv(output_dir / "detected_vs_fallback_metrics.csv", row, fallback_fields)
 
+        previous_best_val_macro_f1 = float(best_val_macro_f1)
+        previous_best_epoch = int(best_epoch)
+        previous_epochs_without_improvement = int(epochs_without_improvement)
+        current_val_macro_f1 = None if val_row is None else float(val_row["macro_f1"])
         improved = val_row is not None and float(val_row["macro_f1"]) > best_val_macro_f1
         if improved:
             best_val_macro_f1 = float(val_row["macro_f1"])
@@ -1283,6 +1287,25 @@ def main() -> None:
             epochs_without_improvement=epochs_without_improvement,
             resume_source=resume_source,
         )
+        score_status = {
+            "event": "d16_epoch_score_status",
+            "epoch": int(epoch),
+            "evaluated": bool(val_row is not None),
+            "metric": "val_macro_f1",
+            "is_best": bool(improved),
+            "current_score": current_val_macro_f1,
+            "display_score": float(best_val_macro_f1) if improved else current_val_macro_f1,
+            "best_score_before": None if not math.isfinite(previous_best_val_macro_f1) else previous_best_val_macro_f1,
+            "best_epoch_before": previous_best_epoch,
+            "best_score_current": None if not math.isfinite(float(best_val_macro_f1)) else float(best_val_macro_f1),
+            "best_epoch_current": int(best_epoch),
+            "early_stopping_enabled": bool(early_enabled),
+            "early_stopping_without_improvement_before": previous_epochs_without_improvement,
+            "early_stopping_without_improvement_current": int(epochs_without_improvement),
+            "early_stopping_patience": int(early_patience),
+            "early_stopping_min_epochs": int(early_min_epochs),
+        }
+        print(json.dumps(score_status), flush=True)
         print(json.dumps(log_row, indent=2), flush=True)
         if early_enabled:
             if early_metric != "val_macro_f1" or early_mode != "max":
@@ -1295,6 +1318,7 @@ def main() -> None:
                             "epoch": epoch,
                             "best_epoch": best_epoch,
                             "best_val_macro_f1": best_val_macro_f1,
+                            "epochs_without_improvement": epochs_without_improvement,
                             "patience": early_patience,
                         },
                         indent=2,

@@ -1,4 +1,4 @@
-run_name: d16_v1_hybrid_detected_face_fallback_fullmask_ce
+﻿run_name: d16_v1_hybrid_detected_face_fallback_fullmask_ce
 from_scratch: true
 init_checkpoint: null
 
@@ -43,7 +43,7 @@ training:
   eval_every_epoch: true
   save_best: true
   final_test_checkpoint: best
-  progress_interval_batches: 50
+  progress_interval_batches: 500
   from_scratch: true
   init_checkpoint: null
   early_stopping:
@@ -61,3 +61,4 @@ logging:
     - detected_vs_fallback
     - predictions
     - confusion_matrix
+
