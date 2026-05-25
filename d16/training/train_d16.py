@@ -106,6 +106,14 @@ def resolve_device(requested: str) -> torch.device:
     return torch.device(requested)
 
 
+def set_seed(seed: int) -> None:
+    random.seed(int(seed))
+    np.random.seed(int(seed))
+    torch.manual_seed(int(seed))
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(int(seed))
+
+
 def _loader_kwargs(data_cfg: Dict[str, Any], training_cfg: Dict[str, Any], shuffle: bool) -> Dict[str, Any]:
     num_workers = int(training_cfg.get("num_workers", data_cfg.get("num_workers", 0)) or 0)
     kwargs: Dict[str, Any] = {
@@ -372,6 +380,10 @@ def evaluate(
     sample_indices, missing_flags = [], []
     prediction_rows: List[Dict[str, Any]] = []
     losses = []
+    detected_losses = []
+    fallback_losses = []
+    detected_head_count = 0
+    fallback_head_count = 0
     node_counts, edge_counts = [], []
     epoch_start = time.perf_counter()
     wait_start = epoch_start
@@ -390,20 +402,30 @@ def evaluate(
         batch = batch.to(device)
         out = model(batch)
         logits = out["logits"]
-        loss = F.cross_entropy(logits, batch.y)
+        per_sample_loss = F.cross_entropy(logits, batch.y, reduction="none")
+        loss = per_sample_loss.mean()
         losses.append(float(loss.detach().cpu().item()))
+        detected_mask = batch.landmark_missing_flag.long().eq(0)
+        fallback_mask = ~detected_mask
+        if int(detected_mask.sum().detach().cpu().item()) > 0:
+            detected_losses.append(float(per_sample_loss[detected_mask].detach().mean().cpu().item()))
+        if int(fallback_mask.sum().detach().cpu().item()) > 0:
+            fallback_losses.append(float(per_sample_loss[fallback_mask].detach().mean().cpu().item()))
         pred = logits.argmax(dim=1)
         probs = torch.softmax(logits, dim=1)
+        routed_heads = _routed_head_names(out, batch.detected)
+        detected_head_count += sum(1 for value in routed_heads if value == "detected_head")
+        fallback_head_count += sum(1 for value in routed_heads if value == "fallback_head")
         logits_cpu = logits.detach().cpu()
         probs_cpu = probs.detach().cpu()
         y_cpu = batch.y.detach().cpu()
         pred_cpu = pred.detach().cpu()
         sample_cpu = batch.sample_index.detach().cpu()
-        detected_cpu = batch.detected.detach().cpu()
+        detected_cpu = batch.landmark_missing_flag.detach().cpu().long().eq(0)
         missing_cpu = batch.landmark_missing_flag.detach().cpu()
         y_true.extend(batch.y.detach().cpu().numpy().tolist())
         y_pred.extend(pred.detach().cpu().numpy().tolist())
-        detected_flags.extend(batch.detected.detach().cpu().numpy().astype(bool).tolist())
+        detected_flags.extend(detected_cpu.numpy().astype(bool).tolist())
         sample_indices.extend(sample_cpu.numpy().tolist())
         missing_flags.extend(missing_cpu.numpy().tolist())
         if collect_predictions:
@@ -419,6 +441,7 @@ def evaluate(
                     "correct": int(y_cpu[i].item() == pred_cpu[i].item()),
                     "detected": int(bool(detected_cpu[i].item())),
                     "landmark_missing_flag": int(missing_cpu[i].item()),
+                    "routed_head": routed_heads[i],
                 }
                 for cls in range(logits_cpu.size(1)):
                     item[f"logit_{cls}"] = float(logits_cpu[i, cls].item())
@@ -448,6 +471,10 @@ def evaluate(
         "edge_count_mean": float(np.mean(edge_counts)) if edge_counts else float("nan"),
         "predicted_classes": int(len(set(y_pred))),
         "total": int(len(y_true)),
+        "detected_head_count": int(detected_head_count),
+        "fallback_head_count": int(fallback_head_count),
+        "detected_loss_mean": float(np.mean(detected_losses)) if detected_losses else float("nan"),
+        "fallback_loss_mean": float(np.mean(fallback_losses)) if fallback_losses else float("nan"),
         f"{split}_epoch_time_sec": total_time,
         f"{split}_first_batch_wait_time_sec": float(first_batch_wait or 0.0),
         f"{split}_avg_batch_time_ms": float(np.mean(batch_wall_times) * 1000.0) if batch_wall_times else float("nan"),
@@ -596,6 +623,20 @@ def _infer_class_weights_from_prior_dir(prior_dir: Path, num_classes: int) -> li
     return [float(x) for x in weights.tolist()]
 
 
+def _mean_for_mask(values: torch.Tensor, mask: torch.Tensor) -> float:
+    if int(mask.sum().detach().cpu().item()) <= 0:
+        return float("nan")
+    return float(values[mask].detach().mean().cpu().item())
+
+
+def _routed_head_names(out: Dict[str, Any], detected: torch.Tensor) -> List[str]:
+    routed = out.get("routed_head_id")
+    if isinstance(routed, torch.Tensor):
+        ids = routed.detach().cpu().numpy().astype(int).tolist()
+        return ["detected_head" if int(value) == 0 else "fallback_head" for value in ids]
+    return ["single_head" for _ in range(int(detected.numel()))]
+
+
 def _weighted_ce_loss(logits: torch.Tensor, labels: torch.Tensor, batch: D16Batch, loss_cfg: Dict[str, Any]) -> tuple[torch.Tensor, Dict[str, float]]:
     weights = torch.ones_like(labels, dtype=logits.dtype)
     class_weights = loss_cfg.get("class_weights")
@@ -610,12 +651,17 @@ def _weighted_ce_loss(logits: torch.Tensor, labels: torch.Tensor, batch: D16Batc
     per_sample = F.cross_entropy(logits, labels, reduction="none")
     denom = weights.sum().clamp_min(1e-8)
     loss = (per_sample * weights).sum() / denom
-    fallback_mask = ~batch.detected.bool()
+    detected_mask = batch.landmark_missing_flag.long().eq(0)
+    fallback_mask = ~detected_mask
     return loss, {
         "ce_loss": float(loss.detach().cpu().item()),
         "sample_weight_mean": float(weights.detach().mean().cpu().item()),
         "fallback_weight": fallback_weight,
         "fallback_samples": int(fallback_mask.sum().detach().cpu().item()),
+        "detected_head_count": int(detected_mask.sum().detach().cpu().item()),
+        "fallback_head_count": int(fallback_mask.sum().detach().cpu().item()),
+        "detected_loss_mean": _mean_for_mask(per_sample, detected_mask),
+        "fallback_loss_mean": _mean_for_mask(per_sample, fallback_mask),
     }
 
 
@@ -641,6 +687,10 @@ def train_one_epoch(
     supcon_no_positive_parts = 0.0
     sample_weight_means = []
     fallback_sample_counts = []
+    detected_head_counts = []
+    fallback_head_counts = []
+    detected_loss_means = []
+    fallback_loss_means = []
     node_counts, edge_counts = [], []
     epoch_start = time.perf_counter()
     wait_start = epoch_start
@@ -684,6 +734,12 @@ def train_one_epoch(
         supcon_losses.append(float(supcon_loss.detach().cpu().item()))
         sample_weight_means.append(ce_stats["sample_weight_mean"])
         fallback_sample_counts.append(ce_stats["fallback_samples"])
+        detected_head_counts.append(ce_stats["detected_head_count"])
+        fallback_head_counts.append(ce_stats["fallback_head_count"])
+        if math.isfinite(float(ce_stats["detected_loss_mean"])):
+            detected_loss_means.append(float(ce_stats["detected_loss_mean"]))
+        if math.isfinite(float(ce_stats["fallback_loss_mean"])):
+            fallback_loss_means.append(float(ce_stats["fallback_loss_mean"]))
         if supcon_stats:
             supcon_valid_pairs += float(supcon_stats["part_supcon_positive_pair_count"].detach().cpu().item())
             supcon_skipped_parts += float(supcon_stats["part_supcon_skipped_parts"].detach().cpu().item())
@@ -739,6 +795,10 @@ def train_one_epoch(
         "lambda_part_supcon_current": float(_supcon_lambda(loss_cfg, epoch)),
         "sample_weight_mean": float(np.mean(sample_weight_means)) if sample_weight_means else 1.0,
         "fallback_samples_seen": int(np.sum(fallback_sample_counts)) if fallback_sample_counts else 0,
+        "detected_head_count": int(np.sum(detected_head_counts)) if detected_head_counts else 0,
+        "fallback_head_count": int(np.sum(fallback_head_counts)) if fallback_head_counts else 0,
+        "detected_loss_mean": float(np.mean(detected_loss_means)) if detected_loss_means else float("nan"),
+        "fallback_loss_mean": float(np.mean(fallback_loss_means)) if fallback_loss_means else float("nan"),
     }
 
 
@@ -864,6 +924,7 @@ def _write_eval_outputs(
         "correct",
         "detected",
         "landmark_missing_flag",
+        "routed_head",
     ] + [f"logit_{cls}" for cls in range(7)] + [f"prob_{cls}" for cls in range(7)]
     _write_csv_rows(output_dir / f"{prefix}{split}_metrics.csv", [row], metric_fields)
     _write_csv_rows(output_dir / f"{prefix}per_class_metrics.csv", per_class, per_class_fields)
@@ -907,6 +968,10 @@ def evaluate_checkpoints(
         "edge_count_mean",
         "predicted_classes",
         "total",
+        "detected_head_count",
+        "fallback_head_count",
+        "detected_loss_mean",
+        "fallback_loss_mean",
     ]
     per_class_fields = ["split", "epoch", "class_id", "support", "pred_count", "precision", "recall", "f1"]
     pred_fields = ["split", "epoch", "class_id", "pred_count"]
@@ -995,6 +1060,9 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    seed = cfg.get("seed", cfg.get("training", {}).get("seed"))
+    if seed is not None:
+        set_seed(int(seed))
     data_cfg = cfg.setdefault("data", {})
     training_cfg = cfg.setdefault("training", {})
     loss_mode = str((cfg.get("loss", {}) or {}).get("mode", "ce"))
@@ -1132,6 +1200,10 @@ def main() -> None:
         "lambda_part_supcon_current",
         "sample_weight_mean",
         "fallback_samples_seen",
+        "detected_head_count",
+        "fallback_head_count",
+        "detected_loss_mean",
+        "fallback_loss_mean",
     ]
     metric_fields = [
         "split",
@@ -1146,6 +1218,10 @@ def main() -> None:
         "edge_count_mean",
         "predicted_classes",
         "total",
+        "detected_head_count",
+        "fallback_head_count",
+        "detected_loss_mean",
+        "fallback_loss_mean",
         "val_epoch_time_sec",
         "val_first_batch_wait_time_sec",
         "val_avg_batch_time_ms",
@@ -1242,6 +1318,10 @@ def main() -> None:
             "lambda_part_supcon_current": train_stats["lambda_part_supcon_current"],
             "sample_weight_mean": train_stats["sample_weight_mean"],
             "fallback_samples_seen": train_stats["fallback_samples_seen"],
+            "detected_head_count": train_stats["detected_head_count"],
+            "fallback_head_count": train_stats["fallback_head_count"],
+            "detected_loss_mean": train_stats["detected_loss_mean"],
+            "fallback_loss_mean": train_stats["fallback_loss_mean"],
         }
         _append_csv(output_dir / "train_log.csv", log_row, train_fields)
         if val_row is not None:
