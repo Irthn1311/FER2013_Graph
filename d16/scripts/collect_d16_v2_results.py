@@ -1,4 +1,4 @@
-"""Collect D16 v1 results and compare against D15 plus D16 v0 controls."""
+"""Collect D16 v2 fallback-aware refinement results."""
 
 from __future__ import annotations
 
@@ -23,7 +23,11 @@ CLASS_NAMES = {
 }
 HARD_CLASS_IDS = [0, 2, 4]
 V0_FACE_MACRO_F1 = 0.615703
-V0_FULL_MACRO_F1 = 0.612296
+V1_BEST_MACRO_F1 = 0.632938
+V1_BEST_ACCURACY = 0.639175
+V1_BEST_FALLBACK_MACRO_F1 = 0.409767
+V1_SUPCON_L002_MACRO_F1 = 0.618280
+V1_HYBRID_CE_MACRO_F1 = 0.618734
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -47,10 +51,9 @@ def _write_csv(path: Path, rows: Sequence[Dict[str, Any]], fields: Sequence[str]
 
 def _safe_float(value: Any) -> float:
     try:
-        result = float(value)
+        return float(value)
     except Exception:
         return float("nan")
-    return result
 
 
 def _metric(df: pd.DataFrame, col: str) -> float:
@@ -85,7 +88,6 @@ def _pred_count_stats(pred_count: pd.DataFrame) -> Dict[str, Any]:
     if pred_count.empty or not {"class_id", "pred_count"}.issubset(pred_count.columns):
         return {
             "predicted_classes": 0,
-            "total_predictions": 0,
             "max_pred_ratio": float("nan"),
             "class1_pred_count": 0,
             "class2_pred_count": 0,
@@ -117,7 +119,6 @@ def _pred_count_stats(pred_count: pd.DataFrame) -> Dict[str, Any]:
         order = 0
     return {
         "predicted_classes": predicted_classes,
-        "total_predictions": total,
         "max_pred_ratio": float(max_pred_ratio),
         "class1_pred_count": class1,
         "class2_pred_count": class2,
@@ -137,7 +138,6 @@ def _run_row(path: Path, name: str, kind: str) -> Dict[str, Any]:
     summary = _read_json(path / "d16_train_summary.json")
     detected = fallback[fallback["group"] == "detected"] if not fallback.empty and "group" in fallback else pd.DataFrame()
     fb = fallback[fallback["group"] == "fallback"] if not fallback.empty and "group" in fallback else pd.DataFrame()
-    pred_stats = _pred_count_stats(pred_count)
     detected_macro = _metric(detected, "macro_f1")
     fallback_macro = _metric(fb, "macro_f1")
     row = {
@@ -160,52 +160,57 @@ def _run_row(path: Path, name: str, kind: str) -> Dict[str, Any]:
         "detected_fallback_gap_macro_f1": detected_macro - fallback_macro if math.isfinite(detected_macro) and math.isfinite(fallback_macro) else float("nan"),
         "supcon_loss_total_final": _metric(train, "supcon_loss_total"),
         "lambda_part_supcon_final": _metric(train, "lambda_part_supcon_current"),
+        "sample_weight_mean_final": _metric(train, "sample_weight_mean"),
         "checker_decision": check.get("decision", ""),
         "delta_vs_d15_macro_f1": float("nan"),
-        "delta_vs_d15_accuracy": float("nan"),
-        "delta_vs_v0_face_macro_f1": float("nan"),
-        "delta_vs_v0_full_macro_f1": float("nan"),
+        "delta_vs_v1_best_macro_f1": float("nan"),
+        "delta_vs_v1_best_fallback_macro_f1": float("nan"),
     }
-    row.update(pred_stats)
+    row.update(_pred_count_stats(pred_count))
     return row
 
 
-def _direction_group(run_name: str) -> str:
+def _direction(run_name: str) -> str:
     if "hybrid" in run_name and "supcon" in run_name:
         return "hybrid_supcon"
     if "hybrid" in run_name:
         return "hybrid"
-    if "fallback_weighted" in run_name:
-        return "fallback_aware"
     if "class_weighted" in run_name:
-        return "class_weighting"
+        return "fallback_class_weighted"
     if "supcon" in run_name:
-        return "supcon"
+        return "fallback_supcon"
+    if "fallback" in run_name:
+        return "fallback_weight"
     return "other"
 
 
-def _final_decision(v1_rows: List[Dict[str, Any]], d15_macro: float) -> str:
-    if not v1_rows:
-        return "D16_V1_NO_GAIN_NEEDS_ARCHITECTURE_CHANGE"
-    best = max(v1_rows, key=lambda row: (_safe_float(row.get("test_macro_f1")), _safe_float(row.get("test_accuracy"))))
-    best_macro = _safe_float(best.get("test_macro_f1"))
-    v0_best = max(V0_FACE_MACRO_F1, V0_FULL_MACRO_F1)
-    if not math.isfinite(best_macro) or best_macro <= v0_best + 0.001:
-        return "D16_V1_NO_GAIN_NEEDS_ARCHITECTURE_CHANGE"
-    group = _direction_group(str(best["run_name"]))
-    if best_macro > d15_macro and group == "hybrid_supcon":
-        return "COMBINE_SUPCON_AND_FALLBACK"
-    if group == "hybrid_supcon":
-        return "COMBINE_SUPCON_AND_FALLBACK"
-    if group == "hybrid":
-        return "HYBRID_IS_MAIN_DIRECTION"
-    if group == "fallback_aware":
-        return "FALLBACK_AWARE_IS_MAIN_DIRECTION"
-    if group == "class_weighting":
-        return "CLASS_WEIGHTING_IS_MAIN_DIRECTION"
-    if group == "supcon":
-        return "SUPCON_IS_MAIN_DIRECTION"
-    return "D16_V1_NO_GAIN_NEEDS_ARCHITECTURE_CHANGE"
+def _decision(v2_rows: List[Dict[str, Any]]) -> str:
+    if not v2_rows:
+        return "D16_V2_NO_GAIN_OVER_V1"
+    best = max(v2_rows, key=lambda row: (_safe_float(row["test_macro_f1"]), _safe_float(row["test_accuracy"])))
+    best_macro = _safe_float(best["test_macro_f1"])
+    best_acc = _safe_float(best["test_accuracy"])
+    best_fallback = _safe_float(best["fallback_macro_f1"])
+    no_collapse = str(best.get("collapse_risk")) == "NO_COLLAPSE"
+    new_best = (
+        best_macro > V1_BEST_MACRO_F1
+        and best_acc >= V1_BEST_ACCURACY - 0.005
+        and best_fallback >= V1_BEST_FALLBACK_MACRO_F1 - 0.02
+        and no_collapse
+    )
+    if new_best:
+        return "D16_V2_NEW_BEST"
+    if any("supcon" in str(row["run_name"]) and _safe_float(row["test_macro_f1"]) > V1_BEST_MACRO_F1 for row in v2_rows):
+        return "D16_V2_SUPCON_ADDS_GAIN"
+    if any("hybrid" in str(row["run_name"]) and _safe_float(row["test_macro_f1"]) > V1_BEST_MACRO_F1 for row in v2_rows):
+        return "D16_V2_HYBRID_ADDS_GAIN"
+    if any(
+        _safe_float(row["fallback_macro_f1"]) >= V1_BEST_FALLBACK_MACRO_F1 - 0.02
+        and _safe_float(row["test_macro_f1"]) >= V1_BEST_MACRO_F1 - 0.005
+        for row in v2_rows
+    ):
+        return "D16_V2_FALLBACK_WEIGHT_CONFIRMED"
+    return "D16_V2_NO_GAIN_OVER_V1"
 
 
 def _markdown_table(rows: Sequence[Dict[str, Any]], fields: Sequence[str], max_rows: int = 12) -> List[str]:
@@ -226,7 +231,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runs", nargs="+", required=True)
     parser.add_argument("--names", nargs="+", required=True)
-    parser.add_argument("--output_dir", default="outputs/d16_analysis/v1_results")
+    parser.add_argument("--output_dir", default="outputs/d16_analysis/v2_results")
     parser.add_argument("--d15_baseline_acc", type=float, default=0.645026)
     parser.add_argument("--d15_baseline_macro_f1", type=float, default=0.622471)
     parser.add_argument("--d15_baseline_weighted_f1", type=float, default=0.641866)
@@ -235,54 +240,30 @@ def main() -> None:
         raise ValueError("--runs and --names must have the same length")
     out = Path(args.output_dir)
     out.mkdir(parents=True, exist_ok=True)
-    rows = [_run_row(Path(path), name, "d16_v1") for path, name in zip(args.runs, args.names)]
+    rows = [_run_row(Path(path), name, "d16_v2") for path, name in zip(args.runs, args.names)]
     for row in rows:
+        row["direction_group"] = _direction(str(row["run_name"]))
         row["delta_vs_d15_macro_f1"] = _safe_float(row["test_macro_f1"]) - args.d15_baseline_macro_f1
-        row["delta_vs_d15_accuracy"] = _safe_float(row["test_accuracy"]) - args.d15_baseline_acc
-        row["delta_vs_v0_face_macro_f1"] = _safe_float(row["test_macro_f1"]) - V0_FACE_MACRO_F1
-        row["delta_vs_v0_full_macro_f1"] = _safe_float(row["test_macro_f1"]) - V0_FULL_MACRO_F1
+        row["delta_vs_v1_best_macro_f1"] = _safe_float(row["test_macro_f1"]) - V1_BEST_MACRO_F1
+        row["delta_vs_v1_best_fallback_macro_f1"] = _safe_float(row["fallback_macro_f1"]) - V1_BEST_FALLBACK_MACRO_F1
     controls = [
         {
             "run_name": "D15_m8_basic",
             "kind": "baseline",
-            "output_dir": "",
-            "epoch_count": "",
-            "best_epoch": 133,
-            "best_val_macro_f1": "",
             "test_accuracy": args.d15_baseline_acc,
             "test_macro_f1": args.d15_baseline_macro_f1,
             "test_weighted_f1": args.d15_baseline_weighted_f1,
-            "hard_class_macro_f1": "",
-            "angry_f1": "",
-            "fear_f1": "",
-            "sad_f1": "",
-            "detected_macro_f1": "",
-            "fallback_macro_f1": "",
-            "fallback_accuracy": "",
-            "detected_fallback_gap_macro_f1": "",
-            "predicted_classes": "",
-            "total_predictions": "",
-            "max_pred_ratio": "",
-            "class1_pred_count": "",
-            "class2_pred_count": "",
-            "class4_pred_count": "",
-            "collapse_risk": "",
-            "collapse_risk_order": "",
-            "supcon_loss_total_final": "",
-            "lambda_part_supcon_final": "",
             "checker_decision": "baseline",
-            "delta_vs_d15_macro_f1": 0.0,
-            "delta_vs_d15_accuracy": 0.0,
-            "delta_vs_v0_face_macro_f1": args.d15_baseline_macro_f1 - V0_FACE_MACRO_F1,
-            "delta_vs_v0_full_macro_f1": args.d15_baseline_macro_f1 - V0_FULL_MACRO_F1,
         },
         _run_row(Path("outputs/d16_v0_face_plus_context_ce_full"), "d16_v0_face_plus_context_ce", "d16_v0_control"),
-        _run_row(Path("outputs/d16_v0_full_with_mask_ce_full"), "d16_v0_full_with_mask_ce", "d16_v0_control"),
+        _run_row(Path("outputs/d16_runs/v1/d16_v1_face_plus_context_fallback_weighted_ce"), "d16_v1_fallback_weighted_ce", "d16_v1_control"),
+        _run_row(Path("outputs/d16_runs/v1/d16_v1_face_plus_context_part_supcon_l002"), "d16_v1_face_supcon_l002", "d16_v1_control"),
+        _run_row(Path("outputs/d16_runs/v1/d16_v1_hybrid_detected_face_fallback_fullmask_ce"), "d16_v1_hybrid_ce", "d16_v1_control"),
     ]
-    all_rows = controls + rows
     fields = [
         "run_name",
         "kind",
+        "direction_group",
         "output_dir",
         "epoch_count",
         "best_epoch",
@@ -306,13 +287,13 @@ def main() -> None:
         "collapse_risk",
         "supcon_loss_total_final",
         "lambda_part_supcon_final",
+        "sample_weight_mean_final",
         "checker_decision",
         "delta_vs_d15_macro_f1",
-        "delta_vs_d15_accuracy",
-        "delta_vs_v0_face_macro_f1",
-        "delta_vs_v0_full_macro_f1",
+        "delta_vs_v1_best_macro_f1",
+        "delta_vs_v1_best_fallback_macro_f1",
     ]
-    _write_csv(out / "d16_v1_summary.csv", all_rows, fields)
+    _write_csv(out / "d16_v2_summary.csv", controls + rows, fields)
     ranked = sorted(
         rows,
         key=lambda row: (
@@ -326,8 +307,7 @@ def main() -> None:
     )
     for idx, row in enumerate(ranked, start=1):
         row["rank"] = idx
-        row["direction_group"] = _direction_group(str(row["run_name"]))
-    ranking_fields = [
+    rank_fields = [
         "rank",
         "run_name",
         "direction_group",
@@ -337,13 +317,11 @@ def main() -> None:
         "hard_class_macro_f1",
         "detected_fallback_gap_macro_f1",
         "collapse_risk",
-        "delta_vs_d15_macro_f1",
-        "delta_vs_v0_face_macro_f1",
+        "delta_vs_v1_best_macro_f1",
     ]
-    _write_csv(out / "d16_v1_ranked_summary.csv", ranked, ranking_fields)
+    _write_csv(out / "d16_v2_ranked_summary.csv", ranked, rank_fields)
     per_rows: List[Dict[str, Any]] = []
     fallback_rows: List[Dict[str, Any]] = []
-    supcon_rows: List[Dict[str, Any]] = []
     for path, name in zip(args.runs, args.names):
         run_path = Path(path)
         per = _read_csv(run_path / "per_class_metrics.csv")
@@ -355,59 +333,42 @@ def main() -> None:
         for row in fb.to_dict("records"):
             row["run_name"] = name
             fallback_rows.append(row)
-        train = _read_csv(run_path / "train_log.csv")
-        for _, row in train.iterrows():
-            supcon_rows.append({
-                "run_name": name,
-                "epoch": row.get("epoch"),
-                "supcon_loss_total": row.get("supcon_loss_total"),
-                "lambda_part_supcon_current": row.get("lambda_part_supcon_current"),
-                "supcon_valid_pairs": row.get("supcon_valid_pairs"),
-                "supcon_no_positive_pairs": row.get("supcon_no_positive_pairs"),
-            })
-    _write_csv(out / "d16_v1_per_class.csv", per_rows, sorted(set().union(*(row.keys() for row in per_rows))) if per_rows else ["run_name"])
-    _write_csv(out / "d16_v1_detected_fallback.csv", fallback_rows, sorted(set().union(*(row.keys() for row in fallback_rows))) if fallback_rows else ["run_name"])
-    _write_csv(out / "d16_v1_supcon_stats.csv", supcon_rows, ["run_name", "epoch", "supcon_loss_total", "lambda_part_supcon_current", "supcon_valid_pairs", "supcon_no_positive_pairs"])
+    _write_csv(out / "d16_v2_per_class.csv", per_rows, sorted(set().union(*(row.keys() for row in per_rows))) if per_rows else ["run_name"])
+    _write_csv(out / "d16_v2_detected_fallback.csv", fallback_rows, sorted(set().union(*(row.keys() for row in fallback_rows))) if fallback_rows else ["run_name"])
+    final_decision = _decision(rows)
     best = ranked[0] if ranked else None
-    final_decision = _final_decision(rows, args.d15_baseline_macro_f1)
-    report: List[str] = [
-        "# D16 V1 Results Report",
+    report = [
+        "# D16 V2 Results Report",
         "",
         "No motif, semantic-region, causal-evidence, or interpretability claim is made.",
         "",
         "## Baselines",
-        f"- D15: accuracy `{args.d15_baseline_acc:.6f}`, macro-F1 `{args.d15_baseline_macro_f1:.6f}`, weighted-F1 `{args.d15_baseline_weighted_f1:.6f}`",
-        f"- D16 v0 face_plus_context CE: macro-F1 `{V0_FACE_MACRO_F1:.6f}`",
-        f"- D16 v0 full_with_mask CE: macro-F1 `{V0_FULL_MACRO_F1:.6f}`",
+        f"- D15: accuracy `{args.d15_baseline_acc:.6f}`, macro-F1 `{args.d15_baseline_macro_f1:.6f}`",
+        f"- D16 v0 face_plus_context CE macro-F1: `{V0_FACE_MACRO_F1:.6f}`",
+        f"- D16 v1 fallback_weighted_ce macro-F1: `{V1_BEST_MACRO_F1:.6f}`, accuracy `{V1_BEST_ACCURACY:.6f}`, fallback macro-F1 `{V1_BEST_FALLBACK_MACRO_F1:.6f}`",
+        f"- D16 v1 SupCon l002 macro-F1: `{V1_SUPCON_L002_MACRO_F1:.6f}`",
+        f"- D16 v1 hybrid CE macro-F1: `{V1_HYBRID_CE_MACRO_F1:.6f}`",
         "",
         "## Ranking Criteria",
-        "Runs are ranked lexicographically by test macro-F1, test accuracy, fallback macro-F1, hard-class macro-F1 for Angry/Fear/Sad, smaller detected-vs-fallback macro-F1 gap, then lower prediction collapse risk.",
+        "Runs are ranked by test macro-F1, test accuracy, fallback macro-F1, hard-class macro-F1 for Angry/Fear/Sad, smaller detected-fallback gap, then lower collapse risk.",
         "",
         "## Ranked Summary",
-        *_markdown_table(ranked, ranking_fields, max_rows=12),
+        *_markdown_table(ranked, rank_fields),
         "",
-        "## Best Run",
+        "## Best V2 Run",
         f"- Best run: `{best['run_name'] if best else 'none'}`",
         f"- test_macro_f1: `{_safe_float(best.get('test_macro_f1')):.6f}`" if best else "- test_macro_f1: `nan`",
         f"- test_accuracy: `{_safe_float(best.get('test_accuracy')):.6f}`" if best else "- test_accuracy: `nan`",
         f"- fallback_macro_f1: `{_safe_float(best.get('fallback_macro_f1')):.6f}`" if best else "- fallback_macro_f1: `nan`",
-        f"- hard_class_macro_f1: `{_safe_float(best.get('hard_class_macro_f1')):.6f}`" if best else "- hard_class_macro_f1: `nan`",
-        f"- delta_vs_D15_macro_f1: `{_safe_float(best.get('delta_vs_d15_macro_f1')):.6f}`" if best else "- delta_vs_D15_macro_f1: `nan`",
         "",
-        "## Direction Read",
+        "## Decision",
         f"- Final decision: `{final_decision}`",
-        "- If the best run is a pure SupCon variant, the current evidence favors SupCon as the next main direction.",
-        "- If the best run is hybrid or fallback-weighted, the current evidence favors handling fallback explicitly.",
-        "- If class-weighted CE wins, class imbalance should be treated before adding more mechanisms.",
         "",
-        "## Output Files",
-        "- `d16_v1_summary.csv`",
-        "- `d16_v1_ranked_summary.csv`",
-        "- `d16_v1_per_class.csv`",
-        "- `d16_v1_detected_fallback.csv`",
-        "- `d16_v1_supcon_stats.csv`",
+        "## Success Gates",
+        "- Better than v1 best if macro-F1 > 0.632938, accuracy >= 0.634175, fallback macro-F1 >= 0.389767, and no collapse.",
+        "- Strong v2 if macro-F1 >= 0.645, accuracy >= 0.650, and fallback macro-F1 >= 0.43.",
     ]
-    (out / "D16_V1_RESULTS_REPORT.md").write_text("\n".join(report), encoding="utf-8")
+    (out / "D16_V2_RESULTS_REPORT.md").write_text("\n".join(report), encoding="utf-8")
     print(json.dumps({"output_dir": str(out), "rows": len(rows), "best_run": best["run_name"] if best else None, "final_decision": final_decision}, indent=2))
 
 

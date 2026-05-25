@@ -1,0 +1,73 @@
+run_name: d16_v2_face_plus_context_fallback_w20_supcon_l002
+from_scratch: true
+init_checkpoint: null
+
+data:
+  use_mediapipe_priors: true
+  prior_dir: outputs/d16_mediapipe_pixel_priors_best
+  graph_cache_dir: null
+  graph_mode: face_plus_context
+  batch_size: 16
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+
+graph:
+  graph_mode: face_plus_context
+  face_threshold: 0.15
+  context_pixels: 2
+
+model:
+  name: d16_landmark_aware_pixel_evidence_gnn
+  hidden_dim: 96
+  gnn_layers: 3
+  num_classes: 7
+  dropout: 0.1
+
+loss:
+  mode: ce_part_supcon
+  fallback_weighted: true
+  fallback_weight: 2.0
+  lambda_part_supcon: 0.02
+  supcon_temperature: 0.1
+  supcon_start_epoch: 30
+  supcon_ramp_epochs: 10
+  supcon_skip_fallback: true
+
+training:
+  max_epochs: 150
+  batch_size: 16
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  lr: 0.0003
+  weight_decay: 0.0001
+  eval_every_epoch: true
+  save_best: true
+  final_test_checkpoint: best
+  progress_interval_batches: 500
+  from_scratch: true
+  init_checkpoint: null
+  early_stopping:
+    enabled: true
+    min_epochs_before_stop: 60
+    patience: 30
+    metric: val_macro_f1
+    mode: max
+
+logging:
+  metrics:
+    - train_loss
+    - ce_loss
+    - supcon_loss_total
+    - lambda_part_supcon_current
+    - sample_weight_mean
+    - fallback_samples_seen
+    - val_macro_f1
+    - val_accuracy
+    - detected_vs_fallback
+    - per_class
+    - predictions
+    - confusion_matrix
