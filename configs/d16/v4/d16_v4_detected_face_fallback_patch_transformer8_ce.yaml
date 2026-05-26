@@ -1,4 +1,5 @@
 run_name: d16_v4_detected_face_fallback_patch_transformer8_ce
+seed: 42
 from_scratch: true
 init_checkpoint: null
 
@@ -39,6 +40,7 @@ loss:
   fallback_weight: 1.0
 
 training:
+  seed: 42
   max_epochs: 150
   batch_size: 16
   num_workers: 2
