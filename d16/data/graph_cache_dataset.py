@@ -39,6 +39,7 @@ def graph_to_cache_dict(graph: D16GraphData) -> Dict[str, torch.Tensor]:
         "valid_anchor_mask": graph.valid_anchor_mask,
         "detected": graph.detected,
         "landmark_missing_flag": graph.landmark_missing_flag,
+        "image_48": graph.image_48,
     }
 
 
@@ -55,6 +56,7 @@ def graph_from_cache_dict(row: Dict[str, torch.Tensor]) -> D16GraphData:
         valid_anchor_mask=row["valid_anchor_mask"],
         detected=row["detected"],
         landmark_missing_flag=row["landmark_missing_flag"],
+        image_48=row.get("image_48", torch.zeros((48, 48), dtype=torch.float32)),
     )
 
 
@@ -72,7 +74,10 @@ def compare_graphs(a: D16GraphData, b: D16GraphData) -> List[str]:
         "valid_anchor_mask",
         "detected",
         "landmark_missing_flag",
+        "image_48",
     ):
+        if not hasattr(a, name) or not hasattr(b, name):
+            continue
         left = getattr(a, name)
         right = getattr(b, name)
         if left.shape != right.shape:

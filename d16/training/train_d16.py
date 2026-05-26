@@ -384,6 +384,9 @@ def evaluate(
     fallback_losses = []
     detected_head_count = 0
     fallback_head_count = 0
+    detected_path_count = 0
+    fallback_path_count = 0
+    fallback_token_counts = []
     node_counts, edge_counts = [], []
     epoch_start = time.perf_counter()
     wait_start = epoch_start
@@ -414,8 +417,13 @@ def evaluate(
         pred = logits.argmax(dim=1)
         probs = torch.softmax(logits, dim=1)
         routed_heads = _routed_head_names(out, batch.detected)
+        routed_paths = _routed_path_names(out, batch.detected)
         detected_head_count += sum(1 for value in routed_heads if value == "detected_head")
         fallback_head_count += sum(1 for value in routed_heads if value == "fallback_head")
+        detected_path_count += sum(1 for value in routed_paths if value == "detected_face_path")
+        fallback_path_count += sum(1 for value in routed_paths if value in {"fallback_grid_path", "fallback_transformer_path"})
+        if isinstance(out.get("fallback_token_count"), torch.Tensor):
+            fallback_token_counts.extend(out["fallback_token_count"].detach().cpu().numpy().astype(float).tolist())
         logits_cpu = logits.detach().cpu()
         probs_cpu = probs.detach().cpu()
         y_cpu = batch.y.detach().cpu()
@@ -442,6 +450,7 @@ def evaluate(
                     "detected": int(bool(detected_cpu[i].item())),
                     "landmark_missing_flag": int(missing_cpu[i].item()),
                     "routed_head": routed_heads[i],
+                    "routed_path": routed_paths[i],
                 }
                 for cls in range(logits_cpu.size(1)):
                     item[f"logit_{cls}"] = float(logits_cpu[i, cls].item())
@@ -473,6 +482,9 @@ def evaluate(
         "total": int(len(y_true)),
         "detected_head_count": int(detected_head_count),
         "fallback_head_count": int(fallback_head_count),
+        "detected_path_count": int(detected_path_count),
+        "fallback_path_count": int(fallback_path_count),
+        "fallback_token_count_mean": float(np.mean(fallback_token_counts)) if fallback_token_counts else float("nan"),
         "detected_loss_mean": float(np.mean(detected_losses)) if detected_losses else float("nan"),
         "fallback_loss_mean": float(np.mean(fallback_losses)) if fallback_losses else float("nan"),
         f"{split}_epoch_time_sec": total_time,
@@ -637,6 +649,18 @@ def _routed_head_names(out: Dict[str, Any], detected: torch.Tensor) -> List[str]
     return ["single_head" for _ in range(int(detected.numel()))]
 
 
+def _routed_path_names(out: Dict[str, Any], detected: torch.Tensor) -> List[str]:
+    routed = out.get("routed_path_id")
+    if isinstance(routed, torch.Tensor):
+        ids = routed.detach().cpu().numpy().astype(int).tolist()
+        fallback_type_id = out.get("fallback_encoder_type_id")
+        fallback_name = "fallback_grid_path"
+        if isinstance(fallback_type_id, torch.Tensor) and fallback_type_id.numel() > 0:
+            fallback_name = "fallback_transformer_path" if int(fallback_type_id.detach().cpu().view(-1)[0].item()) == 2 else "fallback_grid_path"
+        return ["detected_face_path" if int(value) == 0 else fallback_name for value in ids]
+    return ["single_path" for _ in range(int(detected.numel()))]
+
+
 def _weighted_ce_loss(logits: torch.Tensor, labels: torch.Tensor, batch: D16Batch, loss_cfg: Dict[str, Any]) -> tuple[torch.Tensor, Dict[str, float]]:
     weights = torch.ones_like(labels, dtype=logits.dtype)
     class_weights = loss_cfg.get("class_weights")
@@ -689,6 +713,9 @@ def train_one_epoch(
     fallback_sample_counts = []
     detected_head_counts = []
     fallback_head_counts = []
+    detected_path_counts = []
+    fallback_path_counts = []
+    fallback_token_counts = []
     detected_loss_means = []
     fallback_loss_means = []
     node_counts, edge_counts = [], []
@@ -736,6 +763,11 @@ def train_one_epoch(
         fallback_sample_counts.append(ce_stats["fallback_samples"])
         detected_head_counts.append(ce_stats["detected_head_count"])
         fallback_head_counts.append(ce_stats["fallback_head_count"])
+        routed_paths = _routed_path_names(out, batch.detected)
+        detected_path_counts.append(sum(1 for value in routed_paths if value == "detected_face_path"))
+        fallback_path_counts.append(sum(1 for value in routed_paths if value in {"fallback_grid_path", "fallback_transformer_path"}))
+        if isinstance(out.get("fallback_token_count"), torch.Tensor):
+            fallback_token_counts.extend(out["fallback_token_count"].detach().cpu().numpy().astype(float).tolist())
         if math.isfinite(float(ce_stats["detected_loss_mean"])):
             detected_loss_means.append(float(ce_stats["detected_loss_mean"]))
         if math.isfinite(float(ce_stats["fallback_loss_mean"])):
@@ -797,6 +829,9 @@ def train_one_epoch(
         "fallback_samples_seen": int(np.sum(fallback_sample_counts)) if fallback_sample_counts else 0,
         "detected_head_count": int(np.sum(detected_head_counts)) if detected_head_counts else 0,
         "fallback_head_count": int(np.sum(fallback_head_counts)) if fallback_head_counts else 0,
+        "detected_path_count": int(np.sum(detected_path_counts)) if detected_path_counts else 0,
+        "fallback_path_count": int(np.sum(fallback_path_counts)) if fallback_path_counts else 0,
+        "fallback_token_count_mean": float(np.mean(fallback_token_counts)) if fallback_token_counts else float("nan"),
         "detected_loss_mean": float(np.mean(detected_loss_means)) if detected_loss_means else float("nan"),
         "fallback_loss_mean": float(np.mean(fallback_loss_means)) if fallback_loss_means else float("nan"),
     }
@@ -925,6 +960,7 @@ def _write_eval_outputs(
         "detected",
         "landmark_missing_flag",
         "routed_head",
+        "routed_path",
     ] + [f"logit_{cls}" for cls in range(7)] + [f"prob_{cls}" for cls in range(7)]
     _write_csv_rows(output_dir / f"{prefix}{split}_metrics.csv", [row], metric_fields)
     _write_csv_rows(output_dir / f"{prefix}per_class_metrics.csv", per_class, per_class_fields)
@@ -970,6 +1006,9 @@ def evaluate_checkpoints(
         "total",
         "detected_head_count",
         "fallback_head_count",
+        "detected_path_count",
+        "fallback_path_count",
+        "fallback_token_count_mean",
         "detected_loss_mean",
         "fallback_loss_mean",
     ]
@@ -1202,6 +1241,9 @@ def main() -> None:
         "fallback_samples_seen",
         "detected_head_count",
         "fallback_head_count",
+        "detected_path_count",
+        "fallback_path_count",
+        "fallback_token_count_mean",
         "detected_loss_mean",
         "fallback_loss_mean",
     ]
@@ -1220,6 +1262,9 @@ def main() -> None:
         "total",
         "detected_head_count",
         "fallback_head_count",
+        "detected_path_count",
+        "fallback_path_count",
+        "fallback_token_count_mean",
         "detected_loss_mean",
         "fallback_loss_mean",
         "val_epoch_time_sec",
@@ -1320,6 +1365,9 @@ def main() -> None:
             "fallback_samples_seen": train_stats["fallback_samples_seen"],
             "detected_head_count": train_stats["detected_head_count"],
             "fallback_head_count": train_stats["fallback_head_count"],
+            "detected_path_count": train_stats["detected_path_count"],
+            "fallback_path_count": train_stats["fallback_path_count"],
+            "fallback_token_count_mean": train_stats["fallback_token_count_mean"],
             "detected_loss_mean": train_stats["detected_loss_mean"],
             "fallback_loss_mean": train_stats["fallback_loss_mean"],
         }

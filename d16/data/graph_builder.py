@@ -25,6 +25,7 @@ class D16GraphData:
     valid_anchor_mask: torch.Tensor
     detected: torch.Tensor
     landmark_missing_flag: torch.Tensor
+    image_48: torch.Tensor
 
     def to_pyg_data(self):
         try:
@@ -43,6 +44,7 @@ class D16GraphData:
             valid_anchor_mask=self.valid_anchor_mask,
             detected=self.detected,
             landmark_missing_flag=self.landmark_missing_flag,
+            image_48=self.image_48,
         )
 
 
@@ -61,6 +63,7 @@ class D16Batch:
     valid_anchor_mask: torch.Tensor
     detected: torch.Tensor
     landmark_missing_flag: torch.Tensor
+    image_48: torch.Tensor
 
     def to(self, device: torch.device | str) -> "D16Batch":
         return D16Batch(
@@ -77,6 +80,7 @@ class D16Batch:
             valid_anchor_mask=self.valid_anchor_mask.to(device),
             detected=self.detected.to(device),
             landmark_missing_flag=self.landmark_missing_flag.to(device),
+            image_48=self.image_48.to(device),
         )
 
     @property
@@ -194,6 +198,7 @@ def build_pixel_graph(prior: Dict[str, np.ndarray], graph_mode: str = "face_plus
         valid_anchor_mask=torch.from_numpy(np.asarray(prior["valid_anchor_mask"], dtype=np.float32)),
         detected=torch.tensor(bool(np.asarray(prior["detected"]).item()), dtype=torch.bool),
         landmark_missing_flag=torch.tensor(int(np.asarray(prior["landmark_missing_flag"]).item()), dtype=torch.long),
+        image_48=torch.from_numpy(image_norm.astype(np.float32)),
     )
 
 
@@ -209,6 +214,7 @@ def collate_d16_graphs(graphs: Iterable[D16GraphData]) -> D16Batch:
     part_soft: List[torch.Tensor] = []
     face: List[torch.Tensor] = []
     ys, sample_indices, valid_parts, valid_anchors, detected, missing = [], [], [], [], [], []
+    images: List[torch.Tensor] = []
     offset = 0
     for batch_id, graph in enumerate(graphs):
         n = int(graph.x.size(0))
@@ -224,6 +230,7 @@ def collate_d16_graphs(graphs: Iterable[D16GraphData]) -> D16Batch:
         valid_anchors.append(graph.valid_anchor_mask)
         detected.append(graph.detected)
         missing.append(graph.landmark_missing_flag)
+        images.append(graph.image_48.float())
         offset += n
         ptr.append(offset)
     return D16Batch(
@@ -240,4 +247,5 @@ def collate_d16_graphs(graphs: Iterable[D16GraphData]) -> D16Batch:
         valid_anchor_mask=torch.stack(valid_anchors).float(),
         detected=torch.stack(detected).bool(),
         landmark_missing_flag=torch.stack(missing).long(),
+        image_48=torch.stack(images).float(),
     )
