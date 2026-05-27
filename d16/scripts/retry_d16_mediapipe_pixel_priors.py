@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,10 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+os.environ.setdefault("GLOG_minloglevel", "2")
+os.environ.setdefault("ABSL_MIN_LOG_LEVEL", "2")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -137,8 +142,11 @@ def _attempt_rescue(
     sample_index: int,
     strategies: list[RetryStrategy],
     detectors: Dict[int, RetryFaceDetector],
+    model_path: str | Path | None = None,
 ) -> tuple[Optional[Dict[str, np.ndarray]], Optional[RetryStrategy], str]:
     for strategy in strategies:
+        if strategy.rank not in detectors:
+            detectors[strategy.rank] = RetryFaceDetector(strategy, model_path=model_path)
         detector = detectors[strategy.rank]
         xy, reason = detector.detect(image48)
         if xy is None:
@@ -225,7 +233,7 @@ def main() -> None:
 
     strategies = _strategy_grid(args)
     mode_ids = {mode: idx for idx, mode in enumerate(args.preprocess_modes)}
-    detectors = {strategy.rank: RetryFaceDetector(strategy, model_path=args.face_landmarker_model_path) for strategy in strategies}
+    detectors: Dict[int, RetryFaceDetector] = {}
     original_records = iter_prior_records(input_prior_dir, args.splits)
     original_df = records_to_frame(original_records)
     target_records = [r for r in original_records if (r.is_fallback or not args.retry_only_fallback)]
@@ -248,7 +256,14 @@ def main() -> None:
             original = load_npz(record.path)
             label = int(record.label if record.label >= 0 else csv_label)
             image48 = pixels_to_image48(pixels)
-            rescued_arrays, strategy, reason = _attempt_rescue(image48, label, record.sample_index, strategies, detectors)
+            rescued_arrays, strategy, reason = _attempt_rescue(
+                image48,
+                label,
+                record.sample_index,
+                strategies,
+                detectors,
+                model_path=args.face_landmarker_model_path,
+            )
             out_path = output_prior_dir / record.split / record.file_name
             if rescued_arrays is not None and strategy is not None:
                 merged = merge_extra_keys(original, rescued_arrays, _metadata_arrays(True, strategy, mode_ids.get(strategy.preprocess_mode, -1), original))
