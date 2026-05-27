@@ -906,6 +906,80 @@ def _read_first_csv_row(path: Path) -> Dict[str, Any]:
         return next(reader, {})
 
 
+@torch.no_grad()
+def _collect_part_attention_diagnostics(
+    model: D16Model,
+    loader: DataLoader,
+    device: torch.device,
+    split: str,
+    checkpoint_name: str,
+    checkpoint_epoch: int,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    if str(getattr(model, "readout_type", "concat")) != "part_attention":
+        return [], []
+    part_names = list(getattr(model, "readout_part_order", []))
+    if not part_names:
+        return [], []
+
+    model.eval()
+    part_count = len(part_names)
+    sums = np.zeros(part_count, dtype=np.float64)
+    counts = np.zeros(part_count, dtype=np.int64)
+    class_sums = np.zeros((7, part_count), dtype=np.float64)
+    class_counts = np.zeros((7, part_count), dtype=np.int64)
+
+    for batch in loader:
+        batch = batch.to(device)
+        out = model(batch)
+        weights = out.get("part_attention_weights") if isinstance(out, dict) else None
+        if not isinstance(weights, torch.Tensor):
+            return [], []
+        if weights.dim() != 2 or int(weights.size(1)) != part_count:
+            raise ValueError(f"part_attention_weights shape {tuple(weights.shape)} does not match part_count={part_count}")
+        if not torch.isfinite(weights).all().item():
+            raise FloatingPointError("part_attention_weights contains NaN or inf")
+        w_np = weights.detach().cpu().numpy().astype(np.float64)
+        y_np = batch.y.detach().cpu().numpy().astype(np.int64)
+        sums += w_np.sum(axis=0)
+        counts += w_np.shape[0]
+        for cls in range(7):
+            mask = y_np == cls
+            if mask.any():
+                class_sums[cls] += w_np[mask].sum(axis=0)
+                class_counts[cls] += int(mask.sum())
+
+    summary_rows = [
+        {
+            "split": split,
+            "checkpoint_name": checkpoint_name,
+            "checkpoint_epoch": int(checkpoint_epoch),
+            "part_index": idx,
+            "part_name": name,
+            "attention_mean": float(sums[idx] / counts[idx]) if counts[idx] > 0 else float("nan"),
+            "samples": int(counts[idx]),
+        }
+        for idx, name in enumerate(part_names)
+    ]
+    by_class_rows: List[Dict[str, Any]] = []
+    for cls in range(7):
+        for idx, name in enumerate(part_names):
+            by_class_rows.append(
+                {
+                    "split": split,
+                    "checkpoint_name": checkpoint_name,
+                    "checkpoint_epoch": int(checkpoint_epoch),
+                    "class_id": cls,
+                    "part_index": idx,
+                    "part_name": name,
+                    "attention_mean": float(class_sums[cls, idx] / class_counts[cls, idx])
+                    if class_counts[cls, idx] > 0
+                    else float("nan"),
+                    "samples": int(class_counts[cls, idx]),
+                }
+            )
+    return summary_rows, by_class_rows
+
+
 def _checkpoint_epoch(checkpoint: Dict[str, Any], fallback: int) -> int:
     try:
         return int(checkpoint.get("epoch", fallback))
@@ -969,6 +1043,38 @@ def _write_eval_outputs(
     _write_csv_rows(output_dir / f"{prefix}detected_fallback_per_class_metrics.csv", group_per_class, group_per_class_fields)
     _write_csv_rows(output_dir / f"{prefix}confusion_matrix.csv", confusion, confusion_fields)
     _write_csv_rows(output_dir / f"{prefix}predictions.csv", predictions, prediction_fields)
+    try:
+        attention_summary, attention_by_class = _collect_part_attention_diagnostics(
+            model,
+            loader,
+            device,
+            split,
+            checkpoint_name,
+            checkpoint_epoch,
+        )
+        if attention_summary:
+            _write_csv_rows(
+                output_dir / f"{prefix}part_attention_summary.csv",
+                attention_summary,
+                ["split", "checkpoint_name", "checkpoint_epoch", "part_index", "part_name", "attention_mean", "samples"],
+            )
+        if attention_by_class:
+            _write_csv_rows(
+                output_dir / f"{prefix}part_attention_by_class.csv",
+                attention_by_class,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "class_id",
+                    "part_index",
+                    "part_name",
+                    "attention_mean",
+                    "samples",
+                ],
+            )
+    except Exception as exc:
+        _write_json(output_dir / f"{prefix}part_attention_diagnostics_error.json", {"error": str(exc)})
     return row
 
 

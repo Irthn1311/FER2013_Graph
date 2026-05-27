@@ -11,6 +11,7 @@ from d16.models.classifier import D16Classifier
 from d16.models.evidence_heads import PartPooling
 from d16.models.fallback_patch_encoder import GridPatchEncoder, PatchTransformerEncoder
 from d16.models.part_aware_gnn import PartAwareGNN
+from d16.models.part_attention_readout import PartAttentionReadout
 from d16.models.pixel_encoder import PixelEncoder
 
 
@@ -30,17 +31,37 @@ class D16Model(torch.nn.Module):
         fallback_gnn_layers: int = 2,
         fallback_transformer_layers: int = 2,
         fallback_transformer_heads: int = 4,
+        readout_type: str = "concat",
+        part_attention: Dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.part_names = list(part_names or PART_NAMES)
         self.dual_head = bool(dual_head)
         self.architecture = str(architecture)
+        self.readout_type = str(readout_type or "concat")
         self.use_routed_fallback_patch = self.architecture == "routed_fallback_patch"
         self.encoder = PixelEncoder(input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout)
         self.gnn = PartAwareGNN(hidden_dim=hidden_dim, layers=gnn_layers, dropout=dropout)
         self.pooling = PartPooling(self.part_names)
         classifier_dim = hidden_dim * 5
         classifier_hidden = hidden_dim * 2
+        self.readout_part_order = ["mouth", "eye", "brow", "nose_cheek", "global"]
+        self.readout = None
+        if self.readout_type == "part_attention":
+            part_attention_cfg = part_attention or {}
+            self.readout = PartAttentionReadout(
+                part_names=self.readout_part_order,
+                hidden_dim=hidden_dim,
+                output_dim=classifier_dim,
+                attn_hidden_dim=int(part_attention_cfg.get("hidden_dim", hidden_dim)),
+                dropout=float(part_attention_cfg.get("dropout", dropout)),
+                use_global_context=bool(part_attention_cfg.get("use_global_context", True)),
+                fusion=str(part_attention_cfg.get("fusion", "attn_plus_global")),
+                use_part_type_embedding=bool(part_attention_cfg.get("use_part_type_embedding", True)),
+                return_attention=bool(part_attention_cfg.get("return_attention", True)),
+            )
+        elif self.readout_type != "concat":
+            raise ValueError(f"Unsupported D16 readout_type={self.readout_type!r}")
         if self.use_routed_fallback_patch:
             self.classifier = D16Classifier(
                 input_dim=classifier_dim,
@@ -114,9 +135,11 @@ class D16Model(torch.nn.Module):
             fallback_transformer_heads=int(
                 fallback_cfg.get("transformer_heads", model_cfg.get("fallback_transformer_heads", 4))
             ),
+            readout_type=str(model_cfg.get("readout_type", "concat")),
+            part_attention=model_cfg.get("part_attention", {}) or {},
         )
 
-    def forward(self, batch) -> Dict[str, torch.Tensor | Dict[str, torch.Tensor]]:
+    def forward(self, batch) -> Dict[str, Any]:
         h = self.encoder(batch.x_cat)
         h = self.gnn(h, batch.edge_index_cat)
         pooled, valid = self.pooling(
@@ -126,16 +149,28 @@ class D16Model(torch.nn.Module):
             batch.num_graphs,
             batch.valid_part_mask,
         )
-        z_image = torch.cat(
-            [pooled["mouth"], pooled["eye"], pooled["brow"], pooled["nose_cheek"], pooled["global"]],
-            dim=1,
-        )
+        if self.readout_type == "part_attention":
+            readout_out = self.readout(pooled, valid)
+            z_image = readout_out["z_image"]
+        else:
+            readout_out = {}
+            z_image = torch.cat(
+                [pooled["mouth"], pooled["eye"], pooled["brow"], pooled["nose_cheek"], pooled["global"]],
+                dim=1,
+            )
         result = {
             "z_image": z_image,
             "node_embeddings": h,
             "part_embeddings": pooled,
             "valid_part_groups": valid,
         }
+        if self.readout_type == "part_attention":
+            result.update(
+                {
+                    "part_attention_weights": readout_out["part_attention_weights"],
+                    "part_names": self.readout_part_order,
+                }
+            )
         if self.use_routed_fallback_patch:
             detected_logits = self.classifier(z_image)
             fallback_out = self.fallback_encoder(batch.image_48)
