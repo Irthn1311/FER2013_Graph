@@ -1077,6 +1077,177 @@ def _collect_part_token_transformer_diagnostics(
     return summary_rows, by_class_rows
 
 
+@torch.no_grad()
+def _collect_part_motif_query_diagnostics(
+    model: D16Model,
+    loader: DataLoader,
+    device: torch.device,
+    split: str,
+    checkpoint_name: str,
+    checkpoint_epoch: int,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    if str(getattr(model, "readout_type", "concat")) != "part_motif_query":
+        return [], [], []
+
+    model.eval()
+    motif_names: List[str] = []
+    motif_parts: List[str] = []
+    usage_sums = entropy_sums = peak_sums = mass_sums = None
+    token_norm_sums = trans_norm_sums = None
+    counts = None
+    class_usage_sums = class_entropy_sums = class_peak_sums = class_mass_sums = None
+    class_counts = None
+    sim_sum = None
+    sim_count = 0
+    effective_values: List[float] = []
+
+    for batch in loader:
+        batch = batch.to(device)
+        out = model(batch)
+        usage = out.get("part_motif_usage") if isinstance(out, dict) else None
+        entropy = out.get("part_motif_attention_entropy") if isinstance(out, dict) else None
+        peak = out.get("part_motif_attention_peak") if isinstance(out, dict) else None
+        mass = out.get("part_motif_part_mass") if isinstance(out, dict) else None
+        tokens = out.get("part_motif_tokens") if isinstance(out, dict) else None
+        transformed = out.get("part_motif_transformed_tokens") if isinstance(out, dict) else None
+        sim = out.get("part_motif_similarity") if isinstance(out, dict) else None
+        effective = out.get("part_motif_effective_count") if isinstance(out, dict) else None
+        if not all(isinstance(x, torch.Tensor) for x in (usage, entropy, peak, mass, tokens, transformed, sim, effective)):
+            return [], [], []
+        if usage.dim() != 2 or tokens.dim() != 3 or transformed.dim() != 3:
+            raise ValueError(
+                f"part motif diagnostics expected usage [B,K], tokens [B,K,H]; got {tuple(usage.shape)}, {tuple(tokens.shape)}"
+            )
+        if not all(torch.isfinite(x).all().item() for x in (usage, entropy, peak, mass, tokens, transformed, sim, effective)):
+            raise FloatingPointError("part motif diagnostics contain NaN or inf")
+        if not motif_names:
+            motif_names = list(out.get("part_motif_names") or [f"motif_{idx}" for idx in range(int(usage.size(1)))])
+            motif_parts = list(out.get("part_motif_parts") or ["unknown" for _ in motif_names])
+            k = len(motif_names)
+            usage_sums = np.zeros(k, dtype=np.float64)
+            entropy_sums = np.zeros(k, dtype=np.float64)
+            peak_sums = np.zeros(k, dtype=np.float64)
+            mass_sums = np.zeros(k, dtype=np.float64)
+            token_norm_sums = np.zeros(k, dtype=np.float64)
+            trans_norm_sums = np.zeros(k, dtype=np.float64)
+            counts = np.zeros(k, dtype=np.int64)
+            class_usage_sums = np.zeros((7, k), dtype=np.float64)
+            class_entropy_sums = np.zeros((7, k), dtype=np.float64)
+            class_peak_sums = np.zeros((7, k), dtype=np.float64)
+            class_mass_sums = np.zeros((7, k), dtype=np.float64)
+            class_counts = np.zeros((7, k), dtype=np.int64)
+            sim_sum = np.zeros((k, k), dtype=np.float64)
+        if int(usage.size(1)) != len(motif_names):
+            raise ValueError(f"part motif count changed within eval: {int(usage.size(1))} != {len(motif_names)}")
+
+        usage_np = usage.detach().cpu().numpy().astype(np.float64)
+        entropy_np = entropy.detach().cpu().numpy().astype(np.float64)
+        peak_np = peak.detach().cpu().numpy().astype(np.float64)
+        mass_np = mass.detach().cpu().numpy().astype(np.float64)
+        token_norm_np = torch.linalg.vector_norm(tokens, dim=-1).detach().cpu().numpy().astype(np.float64)
+        trans_norm_np = torch.linalg.vector_norm(transformed, dim=-1).detach().cpu().numpy().astype(np.float64)
+        sim_np = sim.detach().cpu().numpy().astype(np.float64)
+        y_np = batch.y.detach().cpu().numpy().astype(np.int64)
+        usage_sums += usage_np.sum(axis=0)
+        entropy_sums += entropy_np.sum(axis=0)
+        peak_sums += peak_np.sum(axis=0)
+        mass_sums += mass_np.sum(axis=0)
+        token_norm_sums += token_norm_np.sum(axis=0)
+        trans_norm_sums += trans_norm_np.sum(axis=0)
+        counts += usage_np.shape[0]
+        sim_sum += sim_np.sum(axis=0)
+        sim_count += sim_np.shape[0]
+        effective_values.extend(effective.detach().cpu().numpy().astype(float).tolist())
+        for cls in range(7):
+            cls_mask = y_np == cls
+            if cls_mask.any():
+                class_usage_sums[cls] += usage_np[cls_mask].sum(axis=0)
+                class_entropy_sums[cls] += entropy_np[cls_mask].sum(axis=0)
+                class_peak_sums[cls] += peak_np[cls_mask].sum(axis=0)
+                class_mass_sums[cls] += mass_np[cls_mask].sum(axis=0)
+                class_counts[cls] += int(cls_mask.sum())
+
+    if counts is None or sim_sum is None:
+        return [], [], []
+    effective_mean = float(np.mean(effective_values)) if effective_values else float("nan")
+    sim_mean = sim_sum / max(sim_count, 1)
+    offdiag = sim_mean[~np.eye(sim_mean.shape[0], dtype=bool)]
+    offdiag_mean = float(np.mean(offdiag)) if offdiag.size else float("nan")
+    summary_rows = []
+    for idx, name in enumerate(motif_names):
+        denom = max(int(counts[idx]), 1)
+        summary_rows.append(
+            {
+                "split": split,
+                "checkpoint_name": checkpoint_name,
+                "checkpoint_epoch": int(checkpoint_epoch),
+                "motif_index": idx,
+                "motif_name": name,
+                "part_name": motif_parts[idx],
+                "motif_usage_mean": float(usage_sums[idx] / denom),
+                "motif_attention_entropy_mean": float(entropy_sums[idx] / denom),
+                "motif_attention_peak_mean": float(peak_sums[idx] / denom),
+                "motif_part_mass_mean": float(mass_sums[idx] / denom),
+                "motif_token_norm_mean": float(token_norm_sums[idx] / denom),
+                "motif_transformed_token_norm_mean": float(trans_norm_sums[idx] / denom),
+                "samples": int(counts[idx]),
+                "effective_motif_count_mean": effective_mean,
+                "avg_offdiag_similarity_mean": offdiag_mean,
+            }
+        )
+
+    by_class_rows: List[Dict[str, Any]] = []
+    for cls in range(7):
+        for idx, name in enumerate(motif_names):
+            denom = max(int(class_counts[cls, idx]), 1)
+            by_class_rows.append(
+                {
+                    "split": split,
+                    "checkpoint_name": checkpoint_name,
+                    "checkpoint_epoch": int(checkpoint_epoch),
+                    "class_id": cls,
+                    "motif_index": idx,
+                    "motif_name": name,
+                    "part_name": motif_parts[idx],
+                    "motif_usage_mean": float(class_usage_sums[cls, idx] / denom)
+                    if class_counts[cls, idx] > 0
+                    else float("nan"),
+                    "motif_attention_entropy_mean": float(class_entropy_sums[cls, idx] / denom)
+                    if class_counts[cls, idx] > 0
+                    else float("nan"),
+                    "motif_attention_peak_mean": float(class_peak_sums[cls, idx] / denom)
+                    if class_counts[cls, idx] > 0
+                    else float("nan"),
+                    "motif_part_mass_mean": float(class_mass_sums[cls, idx] / denom)
+                    if class_counts[cls, idx] > 0
+                    else float("nan"),
+                    "samples": int(class_counts[cls, idx]),
+                }
+            )
+
+    similarity_rows: List[Dict[str, Any]] = []
+    for i, name_i in enumerate(motif_names):
+        for j, name_j in enumerate(motif_names):
+            similarity_rows.append(
+                {
+                    "split": split,
+                    "checkpoint_name": checkpoint_name,
+                    "checkpoint_epoch": int(checkpoint_epoch),
+                    "motif_i": i,
+                    "motif_i_name": name_i,
+                    "motif_i_part": motif_parts[i],
+                    "motif_j": j,
+                    "motif_j_name": name_j,
+                    "motif_j_part": motif_parts[j],
+                    "cosine_mean": float(sim_mean[i, j]),
+                    "samples": int(sim_count),
+                    "avg_offdiag_similarity_mean": offdiag_mean,
+                    "effective_motif_count_mean": effective_mean,
+                }
+            )
+    return summary_rows, by_class_rows, similarity_rows
+
+
 def _checkpoint_epoch(checkpoint: Dict[str, Any], fallback: int) -> int:
     try:
         return int(checkpoint.get("epoch", fallback))
@@ -1214,6 +1385,78 @@ def _write_eval_outputs(
             )
     except Exception as exc:
         _write_json(output_dir / f"{prefix}part_token_transformer_diagnostics_error.json", {"error": str(exc)})
+    try:
+        motif_summary, motif_by_class, motif_similarity = _collect_part_motif_query_diagnostics(
+            model,
+            loader,
+            device,
+            split,
+            checkpoint_name,
+            checkpoint_epoch,
+        )
+        if motif_summary:
+            _write_csv_rows(
+                output_dir / f"{prefix}part_motif_summary.csv",
+                motif_summary,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "motif_index",
+                    "motif_name",
+                    "part_name",
+                    "motif_usage_mean",
+                    "motif_attention_entropy_mean",
+                    "motif_attention_peak_mean",
+                    "motif_part_mass_mean",
+                    "motif_token_norm_mean",
+                    "motif_transformed_token_norm_mean",
+                    "samples",
+                    "effective_motif_count_mean",
+                    "avg_offdiag_similarity_mean",
+                ],
+            )
+        if motif_by_class:
+            _write_csv_rows(
+                output_dir / f"{prefix}part_motif_by_class.csv",
+                motif_by_class,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "class_id",
+                    "motif_index",
+                    "motif_name",
+                    "part_name",
+                    "motif_usage_mean",
+                    "motif_attention_entropy_mean",
+                    "motif_attention_peak_mean",
+                    "motif_part_mass_mean",
+                    "samples",
+                ],
+            )
+        if motif_similarity:
+            _write_csv_rows(
+                output_dir / f"{prefix}part_motif_similarity.csv",
+                motif_similarity,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "motif_i",
+                    "motif_i_name",
+                    "motif_i_part",
+                    "motif_j",
+                    "motif_j_name",
+                    "motif_j_part",
+                    "cosine_mean",
+                    "samples",
+                    "avg_offdiag_similarity_mean",
+                    "effective_motif_count_mean",
+                ],
+            )
+    except Exception as exc:
+        _write_json(output_dir / f"{prefix}part_motif_diagnostics_error.json", {"error": str(exc)})
     return row
 
 

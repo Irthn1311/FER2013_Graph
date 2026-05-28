@@ -12,6 +12,7 @@ from d16.models.evidence_heads import PartPooling
 from d16.models.fallback_patch_encoder import GridPatchEncoder, PatchTransformerEncoder
 from d16.models.part_aware_gnn import PartAwareGNN
 from d16.models.part_attention_readout import PartAttentionReadout
+from d16.models.part_motif_query_readout import PartMotifQueryReadout
 from d16.models.part_token_transformer_readout import PartTokenTransformerReadout
 from d16.models.pixel_encoder import PixelEncoder
 
@@ -34,6 +35,7 @@ class D16Model(torch.nn.Module):
         fallback_transformer_heads: int = 4,
         readout_type: str = "concat",
         part_attention: Dict[str, Any] | None = None,
+        part_motif_query: Dict[str, Any] | None = None,
         part_token_transformer: Dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
@@ -76,6 +78,24 @@ class D16Model(torch.nn.Module):
                 use_part_type_embedding=bool(part_token_cfg.get("use_part_type_embedding", True)),
                 pooling=str(part_token_cfg.get("pooling", "cls")),
                 residual_concat=bool(part_token_cfg.get("residual_concat", True)),
+            )
+        elif self.readout_type == "part_motif_query":
+            part_motif_cfg = part_motif_query or {}
+            self.readout = PartMotifQueryReadout(
+                part_names=self.part_names,
+                hidden_dim=hidden_dim,
+                output_dim=classifier_dim,
+                motif_counts=part_motif_cfg.get("motif_counts") or None,
+                lambda_part=float(part_motif_cfg.get("lambda_part", 1.0)),
+                eps=float(part_motif_cfg.get("eps", 1e-6)),
+                use_cls_token=bool(part_motif_cfg.get("use_cls_token", True)),
+                use_motif_type_embedding=bool(part_motif_cfg.get("use_motif_type_embedding", True)),
+                transformer_layers=int(part_motif_cfg.get("transformer_layers", 1)),
+                transformer_heads=int(part_motif_cfg.get("transformer_heads", 4)),
+                mlp_ratio=float(part_motif_cfg.get("mlp_ratio", 2.0)),
+                dropout=float(part_motif_cfg.get("dropout", 0.2)),
+                residual_concat=bool(part_motif_cfg.get("residual_concat", True)),
+                diagnostics=bool(part_motif_cfg.get("diagnostics", True)),
             )
         elif self.readout_type != "concat":
             raise ValueError(f"Unsupported D16 readout_type={self.readout_type!r}")
@@ -154,6 +174,7 @@ class D16Model(torch.nn.Module):
             ),
             readout_type=str(model_cfg.get("readout_type", "concat")),
             part_attention=model_cfg.get("part_attention", {}) or {},
+            part_motif_query=model_cfg.get("part_motif_query", {}) or {},
             part_token_transformer=model_cfg.get("part_token_transformer", {}) or {},
         )
 
@@ -175,6 +196,16 @@ class D16Model(torch.nn.Module):
         )
         if self.readout_type in {"part_attention", "part_token_transformer"}:
             readout_out = self.readout(pooled, valid)
+            z_image = readout_out["z_image"]
+        elif self.readout_type == "part_motif_query":
+            readout_out = self.readout(
+                h,
+                batch.batch_index,
+                batch.part_soft_cat,
+                batch.num_graphs,
+                part_embeddings=pooled,
+                valid_part_groups=valid,
+            )
             z_image = readout_out["z_image"]
         else:
             readout_out = {}
@@ -199,6 +230,22 @@ class D16Model(torch.nn.Module):
                     "part_token_transformed_tokens": readout_out["part_token_transformed_tokens"],
                     "part_token_valid_mask": readout_out["part_token_valid_mask"],
                     "part_names": self.readout_part_order,
+                }
+            )
+        elif self.readout_type == "part_motif_query":
+            result.update(
+                {
+                    "part_motif_tokens": readout_out["motif_tokens"],
+                    "part_motif_transformed_tokens": readout_out["motif_transformed_tokens"],
+                    "part_motif_usage": readout_out["motif_usage"],
+                    "part_motif_attention_entropy": readout_out["motif_attention_entropy"],
+                    "part_motif_attention_peak": readout_out["motif_attention_peak"],
+                    "part_motif_part_mass": readout_out["motif_part_mass"],
+                    "part_motif_similarity": readout_out["motif_similarity"],
+                    "part_motif_effective_count": readout_out["effective_motif_count"],
+                    "part_motif_part_index": readout_out["motif_part_index"],
+                    "part_motif_names": list(getattr(self.readout, "motif_names", [])),
+                    "part_motif_parts": list(getattr(self.readout, "motif_parts", [])),
                 }
             )
         if self.use_routed_fallback_patch:
