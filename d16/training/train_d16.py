@@ -980,6 +980,103 @@ def _collect_part_attention_diagnostics(
     return summary_rows, by_class_rows
 
 
+@torch.no_grad()
+def _collect_part_token_transformer_diagnostics(
+    model: D16Model,
+    loader: DataLoader,
+    device: torch.device,
+    split: str,
+    checkpoint_name: str,
+    checkpoint_epoch: int,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    if str(getattr(model, "readout_type", "concat")) != "part_token_transformer":
+        return [], []
+    part_names = list(getattr(model, "readout_part_order", []))
+    if not part_names:
+        return [], []
+
+    model.eval()
+    part_count = len(part_names)
+    orig_sums = np.zeros(part_count, dtype=np.float64)
+    trans_sums = np.zeros(part_count, dtype=np.float64)
+    counts = np.zeros(part_count, dtype=np.int64)
+    class_orig_sums = np.zeros((7, part_count), dtype=np.float64)
+    class_trans_sums = np.zeros((7, part_count), dtype=np.float64)
+    class_counts = np.zeros((7, part_count), dtype=np.int64)
+
+    for batch in loader:
+        batch = batch.to(device)
+        out = model(batch)
+        original = out.get("part_token_original_tokens") if isinstance(out, dict) else None
+        transformed = out.get("part_token_transformed_tokens") if isinstance(out, dict) else None
+        valid_mask = out.get("part_token_valid_mask") if isinstance(out, dict) else None
+        if not isinstance(original, torch.Tensor) or not isinstance(transformed, torch.Tensor):
+            return [], []
+        if not isinstance(valid_mask, torch.Tensor):
+            valid_mask = torch.ones(original.shape[:2], device=original.device, dtype=torch.bool)
+        if original.dim() != 3 or transformed.dim() != 3 or int(original.size(1)) != part_count:
+            raise ValueError(
+                "part-token diagnostics expected original/transformed tokens [B, P, H], "
+                f"got original={tuple(original.shape)} transformed={tuple(transformed.shape)} part_count={part_count}"
+            )
+        if tuple(valid_mask.shape) != tuple(original.shape[:2]):
+            raise ValueError(f"part-token valid mask shape {tuple(valid_mask.shape)} does not match {tuple(original.shape[:2])}")
+        if not torch.isfinite(original).all().item() or not torch.isfinite(transformed).all().item():
+            raise FloatingPointError("part-token diagnostics contain NaN or inf")
+
+        orig_norm = torch.linalg.vector_norm(original, dim=-1).detach().cpu().numpy().astype(np.float64)
+        trans_norm = torch.linalg.vector_norm(transformed, dim=-1).detach().cpu().numpy().astype(np.float64)
+        valid_np = valid_mask.detach().cpu().numpy().astype(bool)
+        y_np = batch.y.detach().cpu().numpy().astype(np.int64)
+        for idx in range(part_count):
+            mask = valid_np[:, idx]
+            if mask.any():
+                orig_sums[idx] += orig_norm[mask, idx].sum()
+                trans_sums[idx] += trans_norm[mask, idx].sum()
+                counts[idx] += int(mask.sum())
+            for cls in range(7):
+                class_mask = (y_np == cls) & mask
+                if class_mask.any():
+                    class_orig_sums[cls, idx] += orig_norm[class_mask, idx].sum()
+                    class_trans_sums[cls, idx] += trans_norm[class_mask, idx].sum()
+                    class_counts[cls, idx] += int(class_mask.sum())
+
+    summary_rows = [
+        {
+            "split": split,
+            "checkpoint_name": checkpoint_name,
+            "checkpoint_epoch": int(checkpoint_epoch),
+            "part_index": idx,
+            "part_name": name,
+            "token_norm_mean": float(orig_sums[idx] / counts[idx]) if counts[idx] > 0 else float("nan"),
+            "transformed_token_norm_mean": float(trans_sums[idx] / counts[idx]) if counts[idx] > 0 else float("nan"),
+            "valid_samples": int(counts[idx]),
+        }
+        for idx, name in enumerate(part_names)
+    ]
+    by_class_rows: List[Dict[str, Any]] = []
+    for cls in range(7):
+        for idx, name in enumerate(part_names):
+            by_class_rows.append(
+                {
+                    "split": split,
+                    "checkpoint_name": checkpoint_name,
+                    "checkpoint_epoch": int(checkpoint_epoch),
+                    "class_id": cls,
+                    "part_index": idx,
+                    "part_name": name,
+                    "token_norm_mean": float(class_orig_sums[cls, idx] / class_counts[cls, idx])
+                    if class_counts[cls, idx] > 0
+                    else float("nan"),
+                    "transformed_token_norm_mean": float(class_trans_sums[cls, idx] / class_counts[cls, idx])
+                    if class_counts[cls, idx] > 0
+                    else float("nan"),
+                    "valid_samples": int(class_counts[cls, idx]),
+                }
+            )
+    return summary_rows, by_class_rows
+
+
 def _checkpoint_epoch(checkpoint: Dict[str, Any], fallback: int) -> int:
     try:
         return int(checkpoint.get("epoch", fallback))
@@ -1075,6 +1172,48 @@ def _write_eval_outputs(
             )
     except Exception as exc:
         _write_json(output_dir / f"{prefix}part_attention_diagnostics_error.json", {"error": str(exc)})
+    try:
+        token_summary, token_by_class = _collect_part_token_transformer_diagnostics(
+            model,
+            loader,
+            device,
+            split,
+            checkpoint_name,
+            checkpoint_epoch,
+        )
+        if token_summary:
+            _write_csv_rows(
+                output_dir / f"{prefix}part_token_transformer_summary.csv",
+                token_summary,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "part_index",
+                    "part_name",
+                    "token_norm_mean",
+                    "transformed_token_norm_mean",
+                    "valid_samples",
+                ],
+            )
+        if token_by_class:
+            _write_csv_rows(
+                output_dir / f"{prefix}part_token_transformer_by_class.csv",
+                token_by_class,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "class_id",
+                    "part_index",
+                    "part_name",
+                    "token_norm_mean",
+                    "transformed_token_norm_mean",
+                    "valid_samples",
+                ],
+            )
+    except Exception as exc:
+        _write_json(output_dir / f"{prefix}part_token_transformer_diagnostics_error.json", {"error": str(exc)})
     return row
 
 

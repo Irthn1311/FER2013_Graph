@@ -77,12 +77,45 @@ def attention_status(run_dir: Path) -> Dict[str, Any]:
     }
 
 
+def part_token_status(run_dir: Path) -> Dict[str, Any]:
+    summary = read_rows(run_dir / "part_token_transformer_summary.csv")
+    by_class = read_rows(run_dir / "part_token_transformer_by_class.csv")
+    if not summary and not by_class:
+        return {"present": False, "status": "NOT_AVAILABLE", "failures": []}
+    failures: List[str] = []
+    if len(summary) != 5:
+        failures.append(f"part_token_transformer_summary.csv row_count={len(summary)} expected=5")
+    if by_class and len(by_class) != 35:
+        failures.append(f"part_token_transformer_by_class.csv row_count={len(by_class)} expected=35")
+    for name, rows in (
+        ("part_token_transformer_summary.csv", summary),
+        ("part_token_transformer_by_class.csv", by_class),
+    ):
+        for idx, row in enumerate(rows):
+            samples = as_int(row.get("valid_samples"))
+            for field in ("token_norm_mean", "transformed_token_norm_mean"):
+                val = as_float(row.get(field))
+                if samples > 0 and not math.isfinite(val):
+                    failures.append(f"{name} row {idx} {field} is non-finite")
+                if math.isfinite(val) and val < 0.0:
+                    failures.append(f"{name} row {idx} {field} is negative: {val}")
+    return {
+        "present": True,
+        "status": "PASS" if not failures else "FAIL",
+        "summary_rows": len(summary),
+        "by_class_rows": len(by_class),
+        "failures": failures,
+    }
+
+
 def check_run(run_dir: Path) -> Dict[str, Any]:
     failures: List[str] = []
     warnings: List[str] = []
     required = [
         "checkpoints/best.pt",
+        "checkpoints/last.pt",
         "test_metrics.csv",
+        "last_test_metrics.csv",
         "per_class_metrics.csv",
         "detected_vs_fallback_metrics.csv",
         "detected_fallback_per_class_metrics.csv",
@@ -131,10 +164,13 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
             failures.append(f"hard class {row.get('class_id')} f1 non-finite")
 
     attention = attention_status(run_dir)
+    part_token = part_token_status(run_dir)
     if attention["status"] == "FAIL":
         failures.extend(attention["failures"])
-    elif not attention["present"]:
-        warnings.append("part attention diagnostics not found")
+    if part_token["status"] == "FAIL":
+        failures.extend(part_token["failures"])
+    if not attention["present"] and not part_token["present"]:
+        warnings.append("readout diagnostics not found")
 
     if predicted_classes < 7:
         decision = "REJECT_RUN_COLLAPSE"
@@ -150,6 +186,7 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
         "test_macro_f1": test_macro_f1,
         "predicted_classes": predicted_classes,
         "attention": attention,
+        "part_token_transformer": part_token,
         "failures": failures,
         "warnings": warnings,
     }
@@ -157,6 +194,7 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
 
 def write_report(output_dir: Path, summary: Dict[str, Any]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "check_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     (output_dir / "d16_main_branch_check_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     lines = [
         "# D16 Main Branch Run Check",
@@ -167,6 +205,7 @@ def write_report(output_dir: Path, summary: Dict[str, Any]) -> None:
         f"- test_macro_f1: `{as_float(summary.get('test_macro_f1')):.6f}`",
         f"- predicted_classes: `{summary.get('predicted_classes')}`",
         f"- attention_diagnostics: `{summary.get('attention', {}).get('status')}`",
+        f"- part_token_transformer_diagnostics: `{summary.get('part_token_transformer', {}).get('status')}`",
         "",
         "## Failures",
     ]
@@ -176,6 +215,10 @@ def write_report(output_dir: Path, summary: Dict[str, Any]) -> None:
     lines.extend(["", "## Warnings"])
     lines.extend([f"- {item}" for item in warnings] if warnings else ["- none"])
     output_dir.joinpath("D16_MAIN_BRANCH_CHECK.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    output_dir.joinpath("CHECK_D16R_A2_PART_TOKEN_TRANSFORMER.md").write_text(
+        "\n".join(lines).replace("# D16 Main Branch Run Check", "# D16R-A2 Part-token Transformer Check") + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> None:

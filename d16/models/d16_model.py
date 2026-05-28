@@ -12,6 +12,7 @@ from d16.models.evidence_heads import PartPooling
 from d16.models.fallback_patch_encoder import GridPatchEncoder, PatchTransformerEncoder
 from d16.models.part_aware_gnn import PartAwareGNN
 from d16.models.part_attention_readout import PartAttentionReadout
+from d16.models.part_token_transformer_readout import PartTokenTransformerReadout
 from d16.models.pixel_encoder import PixelEncoder
 
 
@@ -33,6 +34,7 @@ class D16Model(torch.nn.Module):
         fallback_transformer_heads: int = 4,
         readout_type: str = "concat",
         part_attention: Dict[str, Any] | None = None,
+        part_token_transformer: Dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.part_names = list(part_names or PART_NAMES)
@@ -59,6 +61,21 @@ class D16Model(torch.nn.Module):
                 fusion=str(part_attention_cfg.get("fusion", "attn_plus_global")),
                 use_part_type_embedding=bool(part_attention_cfg.get("use_part_type_embedding", True)),
                 return_attention=bool(part_attention_cfg.get("return_attention", True)),
+            )
+        elif self.readout_type == "part_token_transformer":
+            part_token_cfg = part_token_transformer or {}
+            self.readout = PartTokenTransformerReadout(
+                part_names=self.readout_part_order,
+                hidden_dim=hidden_dim,
+                output_dim=classifier_dim,
+                num_layers=int(part_token_cfg.get("num_layers", 1)),
+                num_heads=int(part_token_cfg.get("num_heads", 4)),
+                mlp_ratio=float(part_token_cfg.get("mlp_ratio", 2.0)),
+                dropout=float(part_token_cfg.get("dropout", 0.2)),
+                use_cls_token=bool(part_token_cfg.get("use_cls_token", True)),
+                use_part_type_embedding=bool(part_token_cfg.get("use_part_type_embedding", True)),
+                pooling=str(part_token_cfg.get("pooling", "cls")),
+                residual_concat=bool(part_token_cfg.get("residual_concat", True)),
             )
         elif self.readout_type != "concat":
             raise ValueError(f"Unsupported D16 readout_type={self.readout_type!r}")
@@ -137,7 +154,14 @@ class D16Model(torch.nn.Module):
             ),
             readout_type=str(model_cfg.get("readout_type", "concat")),
             part_attention=model_cfg.get("part_attention", {}) or {},
+            part_token_transformer=model_cfg.get("part_token_transformer", {}) or {},
         )
+
+    def _concat_part_tokens(self, pooled: Dict[str, torch.Tensor]) -> torch.Tensor:
+        missing = [name for name in self.readout_part_order if name not in pooled]
+        if missing:
+            raise KeyError(f"Missing D16 part embeddings for concat readout: {missing}")
+        return torch.cat([pooled[name] for name in self.readout_part_order], dim=1)
 
     def forward(self, batch) -> Dict[str, Any]:
         h = self.encoder(batch.x_cat)
@@ -149,15 +173,12 @@ class D16Model(torch.nn.Module):
             batch.num_graphs,
             batch.valid_part_mask,
         )
-        if self.readout_type == "part_attention":
+        if self.readout_type in {"part_attention", "part_token_transformer"}:
             readout_out = self.readout(pooled, valid)
             z_image = readout_out["z_image"]
         else:
             readout_out = {}
-            z_image = torch.cat(
-                [pooled["mouth"], pooled["eye"], pooled["brow"], pooled["nose_cheek"], pooled["global"]],
-                dim=1,
-            )
+            z_image = self._concat_part_tokens(pooled)
         result = {
             "z_image": z_image,
             "node_embeddings": h,
@@ -168,6 +189,15 @@ class D16Model(torch.nn.Module):
             result.update(
                 {
                     "part_attention_weights": readout_out["part_attention_weights"],
+                    "part_names": self.readout_part_order,
+                }
+            )
+        elif self.readout_type == "part_token_transformer":
+            result.update(
+                {
+                    "part_token_original_tokens": readout_out["part_token_original_tokens"],
+                    "part_token_transformed_tokens": readout_out["part_token_transformed_tokens"],
+                    "part_token_valid_mask": readout_out["part_token_valid_mask"],
                     "part_names": self.readout_part_order,
                 }
             )

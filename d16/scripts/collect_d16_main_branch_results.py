@@ -43,6 +43,15 @@ ANCHORS = [
         "source": "anchor",
     },
     {
+        "run_name": "A1: d16r_part_attention_readout_ce_seed42",
+        "test_accuracy": 0.614656,
+        "test_macro_f1": 0.590668,
+        "detected_accuracy": 0.628097,
+        "detected_macro_f1": 0.601891,
+        "predicted_classes": 7,
+        "source": "anchor",
+    },
+    {
         "run_name": "D16 v1 original best observed",
         "test_accuracy": 0.639175,
         "test_macro_f1": 0.632938,
@@ -52,6 +61,13 @@ ANCHORS = [
         "source": "anchor",
     },
 ]
+BEST_RESCUE_ACC = 0.633881
+BEST_RESCUE_HARD_F1 = {
+    0: 0.534737,
+    2: 0.465553,
+    4: 0.499613,
+    6: 0.615020,
+}
 
 
 def read_rows(path: Path) -> List[Dict[str, str]]:
@@ -97,6 +113,16 @@ def group_row(rows: List[Dict[str, str]], group: str) -> Dict[str, str]:
         if str(row.get("group")) == group:
             return row
     return {}
+
+
+def finite(value: Any) -> bool:
+    return math.isfinite(as_float(value))
+
+
+def hard_mean_from_rows(rows: List[Dict[str, Any]]) -> float:
+    vals = [as_float(row.get("f1")) for row in rows if as_int(row.get("class_id")) in HARD_CLASS_IDS]
+    vals = [value for value in vals if math.isfinite(value)]
+    return float(sum(vals) / len(vals)) if vals else float("nan")
 
 
 def collect_run(run_dir: Path) -> tuple[Dict[str, Any] | None, List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
@@ -207,23 +233,243 @@ def decision(run_rows: List[Dict[str, Any]], warnings: List[str]) -> str:
         return "RUN_NOT_AVAILABLE"
     best = max(valid_rows, key=lambda row: as_float(row.get("test_accuracy")))
     acc = as_float(best.get("test_accuracy"))
-    macro = as_float(best.get("test_macro_f1"))
     predicted_classes = as_int(best.get("predicted_classes"))
     if predicted_classes < 7:
         return "REJECT_RUN_COLLAPSE"
     if warnings and best.get("missing_files"):
         return "RUN_FAILED_NEEDS_DEBUG"
-    if acc >= 0.660:
-        return "STRONG_MAIN_BRANCH_SIGNAL"
     if acc >= 0.650:
-        return "KEEP_PART_ATTENTION_AS_D16R_A1"
+        return "STRONG_A2_SIGNAL"
     if acc > D15_ACC:
         return "BEATS_D15_ACCURACY_KEEP_AND_REPEAT"
-    if acc <= D15_ACC and math.isfinite(macro) and macro > D15_MACRO:
-        return "USEFUL_BALANCE_BUT_NOT_ACCURACY_ROUTE"
-    if 0.63 <= acc <= 0.64:
-        return "PART_ATTENTION_NOT_ENOUGH_TRY_DETECTED_TRANSFORMER_OR_ENSEMBLE"
-    return "PART_ATTENTION_NOT_ENOUGH_TRY_DETECTED_TRANSFORMER_OR_ENSEMBLE"
+    if acc > BEST_RESCUE_ACC:
+        return "A2_USEFUL_BUT_NOT_ENOUGH"
+
+    run_dir = Path(str(best.get("output_dir", "")))
+    per_class = read_rows(run_dir / "per_class_metrics.csv")
+    hard_mean = hard_mean_from_rows(per_class)
+    if math.isfinite(hard_mean) and hard_mean > sum(BEST_RESCUE_HARD_F1.values()) / len(BEST_RESCUE_HARD_F1):
+        return "BALANCE_GAIN_NOT_ACCURACY_ROUTE"
+    return "A2_NOT_ENOUGH_MOVE_TO_A3_MOTIF_QUERY"
+
+
+def _top_confusions(run_dir: Path, limit: int = 8) -> List[Dict[str, Any]]:
+    rows = []
+    for row in read_rows(run_dir / "confusion_matrix.csv"):
+        true_cls = as_int(row.get("true_class"))
+        pred_cls = as_int(row.get("pred_class"))
+        count = as_int(row.get("count"))
+        if true_cls == pred_cls or count <= 0:
+            continue
+        rows.append(
+            {
+                "true": true_cls,
+                "predicted": pred_cls,
+                "count": count,
+                "support": as_int(row.get("support")),
+                "row_ratio": as_float(row.get("row_ratio")),
+            }
+        )
+    return sorted(rows, key=lambda row: as_int(row.get("count")), reverse=True)[:limit]
+
+
+def _prediction_distribution(run_dir: Path) -> List[Dict[str, Any]]:
+    rows = read_rows(run_dir / "pred_count.csv")
+    total = sum(as_int(row.get("pred_count")) for row in rows)
+    return [
+        {
+            "class": as_int(row.get("class_id")),
+            "pred_count": as_int(row.get("pred_count")),
+            "pred_ratio": as_int(row.get("pred_count")) / total if total > 0 else float("nan"),
+        }
+        for row in rows
+    ]
+
+
+def _part_token_rows(run_dir: Path) -> List[Dict[str, Any]]:
+    return [
+        {
+            "part": row.get("part_name"),
+            "token_norm_mean": as_float(row.get("token_norm_mean")),
+            "transformed_token_norm_mean": as_float(row.get("transformed_token_norm_mean")),
+            "valid_samples": as_int(row.get("valid_samples")),
+        }
+        for row in read_rows(run_dir / "part_token_transformer_summary.csv")
+    ]
+
+
+def _a2_detailed_report(run_rows: List[Dict[str, Any]], hard_rows: List[Dict[str, Any]], warnings: List[str]) -> List[str]:
+    if not run_rows:
+        return []
+    run = max(run_rows, key=lambda row: as_float(row.get("test_accuracy")))
+    run_dir = Path(str(run.get("output_dir")))
+    summary = read_json(run_dir / "d16_train_summary.json")
+    test = latest(read_rows(run_dir / "test_metrics.csv"))
+    last = latest(read_rows(run_dir / "last_test_metrics.csv"))
+    per_class = read_rows(run_dir / "per_class_metrics.csv")
+    groups = read_rows(run_dir / "detected_vs_fallback_metrics.csv")
+    hard_for_run = [row for row in hard_rows if row.get("run_name") == run.get("run_name")]
+    hard_mean = hard_mean_from_rows(hard_for_run)
+    best_rescue_hard_mean = sum(BEST_RESCUE_HARD_F1.values()) / len(BEST_RESCUE_HARD_F1)
+    dec = decision(run_rows, warnings)
+    required = [
+        "checkpoints/best.pt",
+        "checkpoints/last.pt",
+        "test_metrics.csv",
+        "last_test_metrics.csv",
+        "per_class_metrics.csv",
+        "detected_vs_fallback_metrics.csv",
+        "detected_fallback_per_class_metrics.csv",
+        "pred_count.csv",
+        "confusion_matrix.csv",
+        "predictions.csv",
+        "d16_train_summary.json",
+    ]
+    missing = [name for name in required if not (run_dir / name).exists()]
+    checker_decision = "D16_MAIN_BRANCH_CHECK_PASS" if not missing and as_int(run.get("predicted_classes")) == 7 else "D16_MAIN_BRANCH_CHECK_NOT_PASS"
+    diag_status = "PASS" if read_rows(run_dir / "part_token_transformer_summary.csv") else "NOT_AVAILABLE"
+    accuracy_rows = [
+        {
+            "run": "D15 baseline",
+            "accuracy": D15_ACC,
+            "macro_f1": D15_MACRO,
+            "A2_minus_anchor_acc": as_float(run.get("test_accuracy")) - D15_ACC,
+            "A2_minus_anchor_macro_f1": as_float(run.get("test_macro_f1")) - D15_MACRO,
+        },
+        {
+            "run": "best rescue: d16_v4_grid8_ce_seed42_pixel_rescue",
+            "accuracy": 0.633881,
+            "macro_f1": 0.623164,
+            "A2_minus_anchor_acc": as_float(run.get("test_accuracy")) - 0.633881,
+            "A2_minus_anchor_macro_f1": as_float(run.get("test_macro_f1")) - 0.623164,
+        },
+        {
+            "run": "A1: d16r_part_attention_readout_ce_seed42",
+            "accuracy": 0.614656,
+            "macro_f1": 0.590668,
+            "A2_minus_anchor_acc": as_float(run.get("test_accuracy")) - 0.614656,
+            "A2_minus_anchor_macro_f1": as_float(run.get("test_macro_f1")) - 0.590668,
+        },
+        {
+            "run": str(run.get("run_name")),
+            "accuracy": as_float(run.get("test_accuracy")),
+            "macro_f1": as_float(run.get("test_macro_f1")),
+            "A2_minus_anchor_acc": 0.0,
+            "A2_minus_anchor_macro_f1": 0.0,
+        },
+    ]
+    best_last_rows = [
+        {
+            "checkpoint": "best.pt",
+            "epoch": as_int(test.get("checkpoint_epoch") or test.get("epoch")),
+            "accuracy": as_float(test.get("accuracy")),
+            "macro_f1": as_float(test.get("macro_f1")),
+            "loss": as_float(test.get("loss")),
+            "detected_loss": as_float(test.get("detected_loss_mean")),
+            "fallback_loss": as_float(test.get("fallback_loss_mean")),
+        },
+        {
+            "checkpoint": "last.pt",
+            "epoch": as_int(last.get("checkpoint_epoch") or last.get("epoch")),
+            "accuracy": as_float(last.get("accuracy")),
+            "macro_f1": as_float(last.get("macro_f1")),
+            "loss": as_float(last.get("loss")),
+            "detected_loss": as_float(last.get("detected_loss_mean")),
+            "fallback_loss": as_float(last.get("fallback_loss_mean")),
+        },
+    ]
+    group_rows = [
+        {
+            "group": row.get("group"),
+            "total": as_int(row.get("total")),
+            "accuracy": as_float(row.get("accuracy")),
+            "macro_f1": as_float(row.get("macro_f1")),
+            "delta_acc_vs_best_rescue": as_float(row.get("accuracy")) - (0.647042 if row.get("group") == "detected" else float("nan")),
+            "delta_macro_f1_vs_best_rescue": as_float(row.get("macro_f1")) - (0.635443 if row.get("group") == "detected" else float("nan")),
+        }
+        for row in groups
+    ]
+    class_rows = [
+        {
+            "class": CLASS_NAMES.get(as_int(row.get("class_id")), str(row.get("class_id"))),
+            "support": as_int(row.get("support")),
+            "pred_count": as_int(row.get("pred_count")),
+            "precision": as_float(row.get("precision")),
+            "recall": as_float(row.get("recall")),
+            "f1": as_float(row.get("f1")),
+        }
+        for row in per_class
+    ]
+    hard_compare = [
+        {
+            "class": row.get("class_name"),
+            "A2_f1": as_float(row.get("f1")),
+            "best_rescue_f1": BEST_RESCUE_HARD_F1.get(as_int(row.get("class_id")), float("nan")),
+            "delta": as_float(row.get("f1")) - BEST_RESCUE_HARD_F1.get(as_int(row.get("class_id")), float("nan")),
+        }
+        for row in hard_for_run
+    ]
+    lines = [
+        "# D16R-A2 Part-token Transformer Analysis",
+        "",
+        "## Verdict",
+        f"`{dec}`",
+        "",
+        "D16R-A2 keeps all five part tokens and uses a compact Transformer readout plus residual concat. This report does not make motif, causal-evidence, semantic-region, or interpretability claims.",
+        "",
+        "## Run Integrity",
+        *md_table(
+            [
+                {"item": "checker decision", "value": checker_decision},
+                {"item": "part-token diagnostics", "value": diag_status},
+                {"item": "missing artifacts", "value": len(missing)},
+                {"item": "predicted classes", "value": as_int(run.get("predicted_classes"))},
+                {"item": "best epoch", "value": as_int(summary.get("best_epoch") or test.get("checkpoint_epoch"))},
+                {"item": "final trained epoch", "value": as_int(last.get("checkpoint_epoch") or last.get("epoch"))},
+                {"item": "train samples", "value": as_int(summary.get("train_samples"))},
+                {"item": "val samples", "value": as_int(summary.get("val_samples"))},
+                {"item": "test samples", "value": as_int(summary.get("test_samples") or test.get("total"))},
+                {"item": "device", "value": summary.get("device", "")},
+            ],
+            ["item", "value"],
+        ),
+        "",
+        "## Accuracy-First Anchor Comparison",
+        *md_table(accuracy_rows, ["run", "accuracy", "macro_f1", "A2_minus_anchor_acc", "A2_minus_anchor_macro_f1"]),
+        "",
+        "## Best vs Last Checkpoint",
+        *md_table(best_last_rows, ["checkpoint", "epoch", "accuracy", "macro_f1", "loss", "detected_loss", "fallback_loss"]),
+        "",
+        "## Detected vs Fallback",
+        *md_table(group_rows, ["group", "total", "accuracy", "macro_f1", "delta_acc_vs_best_rescue", "delta_macro_f1_vs_best_rescue"]),
+        "",
+        "## Per-Class Metrics",
+        *md_table(class_rows, ["class", "support", "pred_count", "precision", "recall", "f1"]),
+        "",
+        "## Hard-Class Comparison",
+        f"Hard-class mean A2: `{fmt(hard_mean)}`; best rescue hard-class mean: `{fmt(best_rescue_hard_mean)}`.",
+        *md_table(hard_compare, ["class", "A2_f1", "best_rescue_f1", "delta"]),
+        "",
+        "## Top Confusions",
+        *md_table(_top_confusions(run_dir), ["true", "predicted", "count", "support", "row_ratio"]),
+        "",
+        "## Prediction Distribution",
+        *md_table(_prediction_distribution(run_dir), ["class", "pred_count", "pred_ratio"]),
+    ]
+    token_rows = _part_token_rows(run_dir)
+    if token_rows:
+        lines.extend(["", "## Part-Token Diagnostics", *md_table(token_rows, ["part", "token_norm_mean", "transformed_token_norm_mean", "valid_samples"])])
+    lines.extend(
+        [
+            "",
+            "## Decision",
+            f"`{dec}`",
+            "",
+            "If A2 does not beat D15, the next architecture direction remains A3 MediaPipe-guided Part-conditioned Multi-Motif Query rather than another A1 seed or fallback rescue sweep.",
+            "",
+        ]
+    )
+    return lines
 
 
 def write_report(
@@ -281,6 +527,12 @@ def write_report(
     lines.extend(["", "## Decision", f"`{dec}`", ""])
     output_dir.mkdir(parents=True, exist_ok=True)
     output_dir.joinpath("D16R_MAIN_BRANCH_COMPARE.md").write_text("\n".join(lines), encoding="utf-8")
+    detailed = _a2_detailed_report(run_rows, hard_rows, warnings)
+    if detailed:
+        output_dir.joinpath("D16R_A2_PART_TOKEN_TRANSFORMER_ANALYSIS.md").write_text(
+            "\n".join(detailed),
+            encoding="utf-8",
+        )
     return dec
 
 
