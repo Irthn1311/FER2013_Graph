@@ -1248,6 +1248,255 @@ def _collect_part_motif_query_diagnostics(
     return summary_rows, by_class_rows, similarity_rows
 
 
+@torch.no_grad()
+def _collect_micro_motif_support_diagnostics(
+    model: D16Model,
+    loader: DataLoader,
+    device: torch.device,
+    split: str,
+    checkpoint_name: str,
+    checkpoint_epoch: int,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    if str(getattr(model, "readout_type", "concat")) != "micro_motif_support":
+        return [], [], []
+
+    model.eval()
+    branch_state: Dict[str, Dict[str, Any]] = {}
+    gate_sum = 0.0
+    gate_count = 0
+    detail_available_sum = 0
+    detail_available_count = 0
+
+    def _ensure_branch(name: str, motif_names: List[str], motif_parts: List[str]) -> Dict[str, Any]:
+        if name in branch_state:
+            return branch_state[name]
+        k = len(motif_names)
+        branch_state[name] = {
+            "motif_names": motif_names,
+            "motif_parts": motif_parts,
+            "usage_sums": np.zeros(k, dtype=np.float64),
+            "entropy_sums": np.zeros(k, dtype=np.float64),
+            "peak_sums": np.zeros(k, dtype=np.float64),
+            "mass_sums": np.zeros(k, dtype=np.float64),
+            "detail_sums": np.zeros(k, dtype=np.float64),
+            "token_norm_sums": np.zeros(k, dtype=np.float64),
+            "trans_norm_sums": np.zeros(k, dtype=np.float64),
+            "counts": np.zeros(k, dtype=np.int64),
+            "class_usage_sums": np.zeros((7, k), dtype=np.float64),
+            "class_entropy_sums": np.zeros((7, k), dtype=np.float64),
+            "class_peak_sums": np.zeros((7, k), dtype=np.float64),
+            "class_mass_sums": np.zeros((7, k), dtype=np.float64),
+            "class_detail_sums": np.zeros((7, k), dtype=np.float64),
+            "class_counts": np.zeros((7, k), dtype=np.int64),
+            "sim_sum": np.zeros((k, k), dtype=np.float64),
+            "sim_count": 0,
+            "effective_values": [],
+        }
+        return branch_state[name]
+
+    def _accumulate(
+        state: Dict[str, Any],
+        usage: torch.Tensor,
+        entropy: torch.Tensor,
+        peak: torch.Tensor,
+        mass: torch.Tensor,
+        detail: torch.Tensor | None,
+        tokens: torch.Tensor,
+        transformed: torch.Tensor,
+        sim: torch.Tensor,
+        effective: torch.Tensor,
+        y_np: np.ndarray,
+    ) -> None:
+        if not all(torch.isfinite(x).all().item() for x in (usage, entropy, peak, mass, tokens, transformed, sim, effective)):
+            raise FloatingPointError("micro motif support diagnostics contain NaN or inf")
+        if detail is not None and not torch.isfinite(detail).all().item():
+            raise FloatingPointError("micro motif detail diagnostics contain NaN or inf")
+        usage_np = usage.detach().cpu().numpy().astype(np.float64)
+        entropy_np = entropy.detach().cpu().numpy().astype(np.float64)
+        peak_np = peak.detach().cpu().numpy().astype(np.float64)
+        mass_np = mass.detach().cpu().numpy().astype(np.float64)
+        detail_np = (
+            detail.detach().cpu().numpy().astype(np.float64)
+            if isinstance(detail, torch.Tensor)
+            else np.full_like(usage_np, np.nan, dtype=np.float64)
+        )
+        token_norm_np = torch.linalg.vector_norm(tokens, dim=-1).detach().cpu().numpy().astype(np.float64)
+        trans_norm_np = torch.linalg.vector_norm(transformed, dim=-1).detach().cpu().numpy().astype(np.float64)
+        sim_np = sim.detach().cpu().numpy().astype(np.float64)
+        state["usage_sums"] += usage_np.sum(axis=0)
+        state["entropy_sums"] += entropy_np.sum(axis=0)
+        state["peak_sums"] += peak_np.sum(axis=0)
+        state["mass_sums"] += mass_np.sum(axis=0)
+        state["detail_sums"] += np.nan_to_num(detail_np, nan=0.0).sum(axis=0)
+        state["token_norm_sums"] += token_norm_np.sum(axis=0)
+        state["trans_norm_sums"] += trans_norm_np.sum(axis=0)
+        state["counts"] += usage_np.shape[0]
+        state["sim_sum"] += sim_np.sum(axis=0)
+        state["sim_count"] += sim_np.shape[0]
+        state["effective_values"].extend(effective.detach().cpu().numpy().astype(float).tolist())
+        for cls in range(7):
+            cls_mask = y_np == cls
+            if cls_mask.any():
+                state["class_usage_sums"][cls] += usage_np[cls_mask].sum(axis=0)
+                state["class_entropy_sums"][cls] += entropy_np[cls_mask].sum(axis=0)
+                state["class_peak_sums"][cls] += peak_np[cls_mask].sum(axis=0)
+                state["class_mass_sums"][cls] += mass_np[cls_mask].sum(axis=0)
+                state["class_detail_sums"][cls] += np.nan_to_num(detail_np[cls_mask], nan=0.0).sum(axis=0)
+                state["class_counts"][cls] += int(cls_mask.sum())
+
+    for batch in loader:
+        batch = batch.to(device)
+        out = model(batch)
+        y_np = batch.y.detach().cpu().numpy().astype(np.int64)
+        gate = out.get("micro_support_gate") if isinstance(out, dict) else None
+        if isinstance(gate, torch.Tensor):
+            if not torch.isfinite(gate).all().item():
+                raise FloatingPointError("micro support gate contains NaN or inf")
+            gate_sum += float(gate.detach().mean().cpu().item()) * int(gate.size(0))
+            gate_count += int(gate.size(0))
+        detail_available = out.get("micro_detail_available") if isinstance(out, dict) else None
+        if isinstance(detail_available, torch.Tensor):
+            detail_available_sum += int(detail_available.detach().long().sum().cpu().item())
+            detail_available_count += int(detail_available.numel())
+
+        branch_specs = [
+            (
+                "major",
+                "micro_major_motif",
+                out.get("micro_major_motif_names") or [],
+                out.get("micro_major_motif_parts") or [],
+                None,
+            ),
+            (
+                "micro",
+                "micro_motif",
+                out.get("micro_motif_names") or [],
+                out.get("micro_motif_parts") or [],
+                out.get("micro_motif_detail_score"),
+            ),
+        ]
+        for branch_name, prefix, names, parts, detail in branch_specs:
+            usage = out.get(f"{prefix}_usage")
+            entropy = out.get(f"{prefix}_attention_entropy")
+            peak = out.get(f"{prefix}_attention_peak")
+            mass = out.get(f"{prefix}_part_mass")
+            tokens = out.get(f"{prefix}_tokens")
+            transformed = out.get(f"{prefix}_transformed_tokens")
+            sim = out.get(f"{prefix}_similarity")
+            effective = out.get(f"{prefix}_effective_count")
+            if not all(isinstance(x, torch.Tensor) for x in (usage, entropy, peak, mass, tokens, transformed, sim, effective)):
+                return [], [], []
+            if usage.dim() != 2 or tokens.dim() != 3 or transformed.dim() != 3:
+                raise ValueError(
+                    f"{branch_name} micro support diagnostics expected usage [B,K], tokens [B,K,H]; "
+                    f"got {tuple(usage.shape)}, {tuple(tokens.shape)}"
+                )
+            motif_names = list(names or [f"{branch_name}_{idx}" for idx in range(int(usage.size(1)))])
+            motif_parts = list(parts or ["unknown" for _ in motif_names])
+            state = _ensure_branch(branch_name, motif_names, motif_parts)
+            if int(usage.size(1)) != len(state["motif_names"]):
+                raise ValueError(f"{branch_name} motif count changed within eval")
+            _accumulate(state, usage, entropy, peak, mass, detail, tokens, transformed, sim, effective, y_np)
+
+    if not branch_state:
+        return [], [], []
+
+    micro_gate_mean = gate_sum / max(gate_count, 1) if gate_count else float("nan")
+    detail_available_ratio = detail_available_sum / max(detail_available_count, 1) if detail_available_count else float("nan")
+    summary_rows: List[Dict[str, Any]] = []
+    by_class_rows: List[Dict[str, Any]] = []
+    similarity_rows: List[Dict[str, Any]] = []
+    for branch_name, state in branch_state.items():
+        counts = state["counts"]
+        sim_count = int(state["sim_count"])
+        sim_mean = state["sim_sum"] / max(sim_count, 1)
+        offdiag = sim_mean[~np.eye(sim_mean.shape[0], dtype=bool)]
+        offdiag_mean = float(np.mean(offdiag)) if offdiag.size else float("nan")
+        effective_values = state["effective_values"]
+        effective_mean = float(np.mean(effective_values)) if effective_values else float("nan")
+        for idx, name in enumerate(state["motif_names"]):
+            denom = max(int(counts[idx]), 1)
+            summary_rows.append(
+                {
+                    "split": split,
+                    "checkpoint_name": checkpoint_name,
+                    "checkpoint_epoch": int(checkpoint_epoch),
+                    "branch": branch_name,
+                    "motif_index": idx,
+                    "motif_name": name,
+                    "part_name": state["motif_parts"][idx],
+                    "motif_usage_mean": float(state["usage_sums"][idx] / denom),
+                    "motif_attention_entropy_mean": float(state["entropy_sums"][idx] / denom),
+                    "motif_attention_peak_mean": float(state["peak_sums"][idx] / denom),
+                    "motif_part_mass_mean": float(state["mass_sums"][idx] / denom),
+                    "micro_detail_score_mean": float(state["detail_sums"][idx] / denom)
+                    if branch_name == "micro"
+                    else float("nan"),
+                    "motif_token_norm_mean": float(state["token_norm_sums"][idx] / denom),
+                    "motif_transformed_token_norm_mean": float(state["trans_norm_sums"][idx] / denom),
+                    "samples": int(counts[idx]),
+                    "effective_motif_count_mean": effective_mean,
+                    "avg_offdiag_similarity_mean": offdiag_mean,
+                    "micro_gate_mean": micro_gate_mean,
+                    "detail_available_ratio": detail_available_ratio,
+                }
+            )
+        for cls in range(7):
+            for idx, name in enumerate(state["motif_names"]):
+                class_counts = state["class_counts"]
+                denom = max(int(class_counts[cls, idx]), 1)
+                by_class_rows.append(
+                    {
+                        "split": split,
+                        "checkpoint_name": checkpoint_name,
+                        "checkpoint_epoch": int(checkpoint_epoch),
+                        "class_id": cls,
+                        "branch": branch_name,
+                        "motif_index": idx,
+                        "motif_name": name,
+                        "part_name": state["motif_parts"][idx],
+                        "motif_usage_mean": float(state["class_usage_sums"][cls, idx] / denom)
+                        if class_counts[cls, idx] > 0
+                        else float("nan"),
+                        "motif_attention_entropy_mean": float(state["class_entropy_sums"][cls, idx] / denom)
+                        if class_counts[cls, idx] > 0
+                        else float("nan"),
+                        "motif_attention_peak_mean": float(state["class_peak_sums"][cls, idx] / denom)
+                        if class_counts[cls, idx] > 0
+                        else float("nan"),
+                        "motif_part_mass_mean": float(state["class_mass_sums"][cls, idx] / denom)
+                        if class_counts[cls, idx] > 0
+                        else float("nan"),
+                        "micro_detail_score_mean": float(state["class_detail_sums"][cls, idx] / denom)
+                        if branch_name == "micro" and class_counts[cls, idx] > 0
+                        else float("nan"),
+                        "micro_gate_mean": micro_gate_mean,
+                        "samples": int(class_counts[cls, idx]),
+                    }
+                )
+        for i, name_i in enumerate(state["motif_names"]):
+            for j, name_j in enumerate(state["motif_names"]):
+                similarity_rows.append(
+                    {
+                        "split": split,
+                        "checkpoint_name": checkpoint_name,
+                        "checkpoint_epoch": int(checkpoint_epoch),
+                        "branch": branch_name,
+                        "motif_i": i,
+                        "motif_i_name": name_i,
+                        "motif_i_part": state["motif_parts"][i],
+                        "motif_j": j,
+                        "motif_j_name": name_j,
+                        "motif_j_part": state["motif_parts"][j],
+                        "cosine_mean": float(sim_mean[i, j]),
+                        "samples": int(sim_count),
+                        "avg_offdiag_similarity_mean": offdiag_mean,
+                        "effective_motif_count_mean": effective_mean,
+                    }
+                )
+    return summary_rows, by_class_rows, similarity_rows
+
+
 def _checkpoint_epoch(checkpoint: Dict[str, Any], fallback: int) -> int:
     try:
         return int(checkpoint.get("epoch", fallback))
@@ -1457,6 +1706,86 @@ def _write_eval_outputs(
             )
     except Exception as exc:
         _write_json(output_dir / f"{prefix}part_motif_diagnostics_error.json", {"error": str(exc)})
+    try:
+        micro_summary, micro_by_class, micro_similarity = _collect_micro_motif_support_diagnostics(
+            model,
+            loader,
+            device,
+            split,
+            checkpoint_name,
+            checkpoint_epoch,
+        )
+        if micro_summary:
+            _write_csv_rows(
+                output_dir / f"{prefix}micro_motif_summary.csv",
+                micro_summary,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "branch",
+                    "motif_index",
+                    "motif_name",
+                    "part_name",
+                    "motif_usage_mean",
+                    "motif_attention_entropy_mean",
+                    "motif_attention_peak_mean",
+                    "motif_part_mass_mean",
+                    "micro_detail_score_mean",
+                    "motif_token_norm_mean",
+                    "motif_transformed_token_norm_mean",
+                    "samples",
+                    "effective_motif_count_mean",
+                    "avg_offdiag_similarity_mean",
+                    "micro_gate_mean",
+                    "detail_available_ratio",
+                ],
+            )
+        if micro_by_class:
+            _write_csv_rows(
+                output_dir / f"{prefix}micro_motif_by_class.csv",
+                micro_by_class,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "class_id",
+                    "branch",
+                    "motif_index",
+                    "motif_name",
+                    "part_name",
+                    "motif_usage_mean",
+                    "motif_attention_entropy_mean",
+                    "motif_attention_peak_mean",
+                    "motif_part_mass_mean",
+                    "micro_detail_score_mean",
+                    "micro_gate_mean",
+                    "samples",
+                ],
+            )
+        if micro_similarity:
+            _write_csv_rows(
+                output_dir / f"{prefix}micro_motif_similarity.csv",
+                micro_similarity,
+                [
+                    "split",
+                    "checkpoint_name",
+                    "checkpoint_epoch",
+                    "branch",
+                    "motif_i",
+                    "motif_i_name",
+                    "motif_i_part",
+                    "motif_j",
+                    "motif_j_name",
+                    "motif_j_part",
+                    "cosine_mean",
+                    "samples",
+                    "avg_offdiag_similarity_mean",
+                    "effective_motif_count_mean",
+                ],
+            )
+    except Exception as exc:
+        _write_json(output_dir / f"{prefix}micro_motif_diagnostics_error.json", {"error": str(exc)})
     return row
 
 

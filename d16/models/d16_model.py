@@ -10,6 +10,7 @@ from d16.data.mediapipe_priors import PART_NAMES
 from d16.models.classifier import D16Classifier
 from d16.models.evidence_heads import PartPooling
 from d16.models.fallback_patch_encoder import GridPatchEncoder, PatchTransformerEncoder
+from d16.models.micro_motif_support_readout import MicroMotifSupportReadout
 from d16.models.part_aware_gnn import PartAwareGNN
 from d16.models.part_attention_readout import PartAttentionReadout
 from d16.models.part_motif_query_readout import PartMotifQueryReadout
@@ -37,6 +38,7 @@ class D16Model(torch.nn.Module):
         part_attention: Dict[str, Any] | None = None,
         part_motif_query: Dict[str, Any] | None = None,
         part_token_transformer: Dict[str, Any] | None = None,
+        micro_motif_support: Dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.part_names = list(part_names or PART_NAMES)
@@ -96,6 +98,33 @@ class D16Model(torch.nn.Module):
                 dropout=float(part_motif_cfg.get("dropout", 0.2)),
                 residual_concat=bool(part_motif_cfg.get("residual_concat", True)),
                 diagnostics=bool(part_motif_cfg.get("diagnostics", True)),
+            )
+        elif self.readout_type == "micro_motif_support":
+            micro_cfg = micro_motif_support or {}
+            self.readout = MicroMotifSupportReadout(
+                part_names=self.part_names,
+                hidden_dim=hidden_dim,
+                output_dim=classifier_dim,
+                major_motif_counts=micro_cfg.get("major_motif_counts") or None,
+                micro_motif_counts=micro_cfg.get("micro_motif_counts") or None,
+                lambda_part=float(micro_cfg.get("lambda_part", 1.0)),
+                lambda_micro_part=float(micro_cfg.get("lambda_micro_part", 1.0)),
+                lambda_detail=float(micro_cfg.get("lambda_detail", 0.05)),
+                eps=float(micro_cfg.get("eps", 1e-6)),
+                gradient_x_index=int(micro_cfg.get("gradient_x_index", 1)),
+                gradient_y_index=int(micro_cfg.get("gradient_y_index", 2)),
+                normalize_detail_per_graph=bool(micro_cfg.get("normalize_detail_per_graph", True)),
+                clamp_detail=float(micro_cfg.get("clamp_detail", 2.0)),
+                detach_detail_score=bool(micro_cfg.get("detach_detail_score", True)),
+                use_cls_token=bool(micro_cfg.get("use_cls_token", True)),
+                use_token_type_embedding=bool(micro_cfg.get("use_token_type_embedding", True)),
+                transformer_layers=int(micro_cfg.get("transformer_layers", 1)),
+                transformer_heads=int(micro_cfg.get("transformer_heads", 4)),
+                mlp_ratio=float(micro_cfg.get("mlp_ratio", 2.0)),
+                dropout=float(micro_cfg.get("dropout", 0.2)),
+                residual_concat=bool(micro_cfg.get("residual_concat", True)),
+                micro_support_gate=bool(micro_cfg.get("micro_support_gate", True)),
+                diagnostics=bool(micro_cfg.get("diagnostics", True)),
             )
         elif self.readout_type != "concat":
             raise ValueError(f"Unsupported D16 readout_type={self.readout_type!r}")
@@ -176,6 +205,7 @@ class D16Model(torch.nn.Module):
             part_attention=model_cfg.get("part_attention", {}) or {},
             part_motif_query=model_cfg.get("part_motif_query", {}) or {},
             part_token_transformer=model_cfg.get("part_token_transformer", {}) or {},
+            micro_motif_support=model_cfg.get("micro_motif_support", {}) or {},
         )
 
     def _concat_part_tokens(self, pooled: Dict[str, torch.Tensor]) -> torch.Tensor:
@@ -203,6 +233,17 @@ class D16Model(torch.nn.Module):
                 batch.batch_index,
                 batch.part_soft_cat,
                 batch.num_graphs,
+                part_embeddings=pooled,
+                valid_part_groups=valid,
+            )
+            z_image = readout_out["z_image"]
+        elif self.readout_type == "micro_motif_support":
+            readout_out = self.readout(
+                h,
+                batch.batch_index,
+                batch.part_soft_cat,
+                batch.num_graphs,
+                x_cat=batch.x_cat,
                 part_embeddings=pooled,
                 valid_part_groups=valid,
             )
@@ -246,6 +287,36 @@ class D16Model(torch.nn.Module):
                     "part_motif_part_index": readout_out["motif_part_index"],
                     "part_motif_names": list(getattr(self.readout, "motif_names", [])),
                     "part_motif_parts": list(getattr(self.readout, "motif_parts", [])),
+                }
+            )
+        elif self.readout_type == "micro_motif_support":
+            result.update(
+                {
+                    "micro_major_motif_tokens": readout_out["major_tokens"],
+                    "micro_major_motif_transformed_tokens": readout_out["major_transformed_tokens"],
+                    "micro_major_motif_usage": readout_out["major_usage"],
+                    "micro_major_motif_attention_entropy": readout_out["major_attention_entropy"],
+                    "micro_major_motif_attention_peak": readout_out["major_attention_peak"],
+                    "micro_major_motif_part_mass": readout_out["major_part_mass"],
+                    "micro_major_motif_similarity": readout_out["major_similarity"],
+                    "micro_major_motif_effective_count": readout_out["major_effective_count"],
+                    "micro_major_motif_part_index": readout_out["major_part_index"],
+                    "micro_major_motif_names": list(getattr(self.readout, "major_names", [])),
+                    "micro_major_motif_parts": list(getattr(self.readout, "major_parts", [])),
+                    "micro_motif_tokens": readout_out["micro_tokens"],
+                    "micro_motif_transformed_tokens": readout_out["micro_transformed_tokens"],
+                    "micro_motif_usage": readout_out["micro_usage"],
+                    "micro_motif_attention_entropy": readout_out["micro_attention_entropy"],
+                    "micro_motif_attention_peak": readout_out["micro_attention_peak"],
+                    "micro_motif_part_mass": readout_out["micro_part_mass"],
+                    "micro_motif_detail_score": readout_out["micro_detail_score"],
+                    "micro_motif_similarity": readout_out["micro_similarity"],
+                    "micro_motif_effective_count": readout_out["micro_effective_count"],
+                    "micro_motif_part_index": readout_out["micro_part_index"],
+                    "micro_motif_names": list(getattr(self.readout, "micro_names", [])),
+                    "micro_motif_parts": list(getattr(self.readout, "micro_parts", [])),
+                    "micro_support_gate": readout_out["micro_gate"],
+                    "micro_detail_available": readout_out["detail_available"],
                 }
             )
         if self.use_routed_fallback_patch:

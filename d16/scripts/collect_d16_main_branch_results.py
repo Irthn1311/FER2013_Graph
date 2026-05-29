@@ -24,6 +24,11 @@ D15_ACC = 0.645026
 D15_MACRO = 0.622471
 A2_ACC = 0.618835
 A2_MACRO = 0.600635
+A3_ACC = 0.631652
+A3_MACRO = 0.621532
+A3_DETECTED_ACC = 0.645584
+A3_DETECTED_MACRO = 0.633986
+A3_HARD_MEAN = 0.524581
 
 ANCHORS = [
     {
@@ -68,6 +73,15 @@ ANCHORS = [
         "test_macro_f1": A2_MACRO,
         "detected_accuracy": 0.632760,
         "detected_macro_f1": 0.612370,
+        "predicted_classes": 7,
+        "source": "anchor",
+    },
+    {
+        "run_name": "A3: d16r_part_motif_query_ce_seed42",
+        "test_accuracy": A3_ACC,
+        "test_macro_f1": A3_MACRO,
+        "detected_accuracy": A3_DETECTED_ACC,
+        "detected_macro_f1": A3_DETECTED_MACRO,
         "predicted_classes": 7,
         "source": "anchor",
     },
@@ -144,6 +158,11 @@ def is_a3_run(row: Dict[str, Any]) -> bool:
 def is_a2_run(row: Dict[str, Any]) -> bool:
     name = str(row.get("run_name", ""))
     return "part_token_transformer" in name
+
+
+def is_a4_run(row: Dict[str, Any]) -> bool:
+    name = str(row.get("run_name", ""))
+    return "micro_motif_support" in name
 
 
 def collect_run(run_dir: Path) -> tuple[Dict[str, Any] | None, List[Dict[str, Any]], List[Dict[str, Any]], List[str]]:
@@ -260,6 +279,26 @@ def decision(run_rows: List[Dict[str, Any]], warnings: List[str]) -> str:
     if warnings and best.get("missing_files"):
         return "RUN_FAILED_NEEDS_DEBUG"
     run_dir = Path(str(best.get("output_dir", "")))
+    if is_a4_run(best):
+        micro_warnings = _micro_motif_warnings(run_dir)
+        acc = as_float(best.get("test_accuracy"))
+        if any("micro_noise" in item or "collapse" in item for item in micro_warnings):
+            return "A4_MICRO_NOISE_RISK_DISABLE_DETAIL_BIAS_OR_RETHINK"
+        if micro_warnings:
+            return "A4_MOTIF_COLLAPSE_NEEDS_SIMPLER_DESIGN"
+        if acc >= 0.650:
+            return "STRONG_A4_SIGNAL"
+        if acc > D15_ACC:
+            return "BEATS_D15_KEEP_A4_AND_REPEAT"
+        if acc > BEST_RESCUE_ACC:
+            return "A4_USEFUL_BUT_NOT_ENOUGH"
+        if acc > A3_ACC:
+            return "A4_WEAK_GAIN_NEEDS_ANALYSIS"
+        per_class = read_rows(run_dir / "per_class_metrics.csv")
+        hard_mean = hard_mean_from_rows(per_class)
+        if math.isfinite(hard_mean) and hard_mean > A3_HARD_MEAN and acc <= A3_ACC:
+            return "BALANCE_GAIN_NOT_ACCURACY_ROUTE"
+        return "A4_NOT_ENOUGH_MOVE_TO_NODE_FEATURE_OR_GNN_UPGRADE"
     if is_a3_run(best):
         motif_warnings = _motif_collapse_warnings(run_dir)
         if motif_warnings:
@@ -384,6 +423,70 @@ def _motif_collapse_warnings(run_dir: Path) -> List[str]:
     return warnings
 
 
+def _micro_motif_rows(run_dir: Path) -> List[Dict[str, Any]]:
+    return [
+        {
+            "branch": row.get("branch"),
+            "motif": row.get("motif_name"),
+            "part": row.get("part_name"),
+            "usage": as_float(row.get("motif_usage_mean")),
+            "entropy": as_float(row.get("motif_attention_entropy_mean")),
+            "peak": as_float(row.get("motif_attention_peak_mean")),
+            "part_mass": as_float(row.get("motif_part_mass_mean")),
+            "detail_score": as_float(row.get("micro_detail_score_mean")),
+            "token_norm": as_float(row.get("motif_token_norm_mean")),
+            "transformed_norm": as_float(row.get("motif_transformed_token_norm_mean")),
+            "samples": as_int(row.get("samples")),
+            "effective_motif_count": as_float(row.get("effective_motif_count_mean")),
+            "avg_offdiag_similarity": as_float(row.get("avg_offdiag_similarity_mean")),
+            "micro_gate_mean": as_float(row.get("micro_gate_mean")),
+            "detail_available_ratio": as_float(row.get("detail_available_ratio")),
+        }
+        for row in read_rows(run_dir / "micro_motif_summary.csv")
+    ]
+
+
+def _micro_motif_warnings(run_dir: Path) -> List[str]:
+    rows = _micro_motif_rows(run_dir)
+    micro_rows = [row for row in rows if row.get("branch") == "micro"]
+    if not micro_rows:
+        return []
+    warnings: List[str] = []
+    offdiag = as_float(micro_rows[0].get("avg_offdiag_similarity"))
+    effective = as_float(micro_rows[0].get("effective_motif_count"))
+    gate = as_float(micro_rows[0].get("micro_gate_mean"))
+    if math.isfinite(offdiag) and offdiag > 0.90:
+        warnings.append(f"collapse: avg_micro_offdiag_similarity={offdiag:.6f} > 0.90")
+    if math.isfinite(effective) and effective < 2.0:
+        warnings.append(f"collapse: effective_micro_motif_count={effective:.6f} < 2")
+    if math.isfinite(gate) and gate > 0.90:
+        warnings.append(f"micro_noise: micro_gate_mean={gate:.6f} near 1")
+    if math.isfinite(gate) and gate < 0.05:
+        warnings.append(f"micro_noise: micro_gate_mean={gate:.6f} near 0")
+    usage_by_part: Dict[str, List[float]] = {}
+    for row in micro_rows:
+        part = str(row.get("part", ""))
+        usage_by_part.setdefault(part, []).append(as_float(row.get("usage")))
+        mass = as_float(row.get("part_mass"))
+        if part != "global" and math.isfinite(mass) and mass < 0.20:
+            warnings.append(f"micro_noise: {row.get('motif')} part_mass={mass:.6f} < 0.20")
+        peak = as_float(row.get("peak"))
+        entropy = as_float(row.get("entropy"))
+        detail = as_float(row.get("detail_score"))
+        if math.isfinite(peak) and peak > 0.90:
+            warnings.append(f"micro_noise: {row.get('motif')} peak={peak:.6f} > 0.90")
+        if math.isfinite(entropy) and entropy > 7.5:
+            warnings.append(f"micro_noise: {row.get('motif')} entropy={entropy:.6f} very high")
+        if math.isfinite(detail) and abs(detail) > 5.0:
+            warnings.append(f"micro_noise: {row.get('motif')} detail_score={detail:.6f} abnormal")
+    for part, values in usage_by_part.items():
+        finite_values = [value for value in values if math.isfinite(value)]
+        total = sum(finite_values)
+        if total > 0.0 and len(finite_values) > 1 and max(finite_values) / total > 0.80:
+            warnings.append(f"collapse: one micro motif dominates {part} usage")
+    return warnings
+
+
 def _a3_detailed_report(run_rows: List[Dict[str, Any]], hard_rows: List[Dict[str, Any]], warnings: List[str]) -> List[str]:
     a3_rows = [row for row in run_rows if is_a3_run(row)]
     if not a3_rows:
@@ -476,6 +579,127 @@ def _a3_detailed_report(run_rows: List[Dict[str, Any]], hard_rows: List[Dict[str
         "## Motif Collapse Check",
     ]
     lines.extend([f"- {item}" for item in motif_warnings] if motif_warnings else ["- no collapse warning from aggregate heuristics"])
+    lines.extend(["", "## Decision", f"`{dec}`", ""])
+    return lines
+
+
+def _a4_detailed_report(run_rows: List[Dict[str, Any]], hard_rows: List[Dict[str, Any]], warnings: List[str]) -> List[str]:
+    a4_rows = [row for row in run_rows if is_a4_run(row)]
+    if not a4_rows:
+        return []
+    run = max(a4_rows, key=lambda row: as_float(row.get("test_accuracy")))
+    run_dir = Path(str(run.get("output_dir")))
+    summary = read_json(run_dir / "d16_train_summary.json")
+    test = latest(read_rows(run_dir / "test_metrics.csv"))
+    last = latest(read_rows(run_dir / "last_test_metrics.csv"))
+    per_class = read_rows(run_dir / "per_class_metrics.csv")
+    groups = read_rows(run_dir / "detected_vs_fallback_metrics.csv")
+    hard_for_run = [row for row in hard_rows if row.get("run_name") == run.get("run_name")]
+    hard_mean = hard_mean_from_rows(hard_for_run)
+    best_rescue_hard_mean = sum(BEST_RESCUE_HARD_F1.values()) / len(BEST_RESCUE_HARD_F1)
+    micro_rows = _micro_motif_rows(run_dir)
+    major_rows = [row for row in micro_rows if row.get("branch") == "major"]
+    support_rows = [row for row in micro_rows if row.get("branch") == "micro"]
+    micro_warnings = _micro_motif_warnings(run_dir)
+    dec = decision([run], warnings)
+    accuracy_rows = [
+        {"run": "D15 baseline", "accuracy": D15_ACC, "macro_f1": D15_MACRO, "A4_minus_anchor_acc": as_float(run.get("test_accuracy")) - D15_ACC, "A4_minus_anchor_macro_f1": as_float(run.get("test_macro_f1")) - D15_MACRO},
+        {"run": "best rescue: d16_v4_grid8_ce_seed42_pixel_rescue", "accuracy": BEST_RESCUE_ACC, "macro_f1": 0.623164, "A4_minus_anchor_acc": as_float(run.get("test_accuracy")) - BEST_RESCUE_ACC, "A4_minus_anchor_macro_f1": as_float(run.get("test_macro_f1")) - 0.623164},
+        {"run": "A1: d16r_part_attention_readout_ce_seed42", "accuracy": 0.614656, "macro_f1": 0.590668, "A4_minus_anchor_acc": as_float(run.get("test_accuracy")) - 0.614656, "A4_minus_anchor_macro_f1": as_float(run.get("test_macro_f1")) - 0.590668},
+        {"run": "A2: d16r_part_token_transformer_ce_seed42", "accuracy": A2_ACC, "macro_f1": A2_MACRO, "A4_minus_anchor_acc": as_float(run.get("test_accuracy")) - A2_ACC, "A4_minus_anchor_macro_f1": as_float(run.get("test_macro_f1")) - A2_MACRO},
+        {"run": "A3: d16r_part_motif_query_ce_seed42", "accuracy": A3_ACC, "macro_f1": A3_MACRO, "A4_minus_anchor_acc": as_float(run.get("test_accuracy")) - A3_ACC, "A4_minus_anchor_macro_f1": as_float(run.get("test_macro_f1")) - A3_MACRO},
+        {"run": str(run.get("run_name")), "accuracy": as_float(run.get("test_accuracy")), "macro_f1": as_float(run.get("test_macro_f1")), "A4_minus_anchor_acc": 0.0, "A4_minus_anchor_macro_f1": 0.0},
+    ]
+    best_last_rows = [
+        {"checkpoint": "best.pt", "epoch": as_int(test.get("checkpoint_epoch") or test.get("epoch")), "accuracy": as_float(test.get("accuracy")), "macro_f1": as_float(test.get("macro_f1")), "loss": as_float(test.get("loss")), "detected_loss": as_float(test.get("detected_loss_mean")), "fallback_loss": as_float(test.get("fallback_loss_mean"))},
+        {"checkpoint": "last.pt", "epoch": as_int(last.get("checkpoint_epoch") or last.get("epoch")), "accuracy": as_float(last.get("accuracy")), "macro_f1": as_float(last.get("macro_f1")), "loss": as_float(last.get("loss")), "detected_loss": as_float(last.get("detected_loss_mean")), "fallback_loss": as_float(last.get("fallback_loss_mean"))},
+    ]
+    group_rows = [
+        {"group": row.get("group"), "total": as_int(row.get("total")), "accuracy": as_float(row.get("accuracy")), "macro_f1": as_float(row.get("macro_f1"))}
+        for row in groups
+    ]
+    class_rows = [
+        {"class": CLASS_NAMES.get(as_int(row.get("class_id")), str(row.get("class_id"))), "support": as_int(row.get("support")), "pred_count": as_int(row.get("pred_count")), "precision": as_float(row.get("precision")), "recall": as_float(row.get("recall")), "f1": as_float(row.get("f1"))}
+        for row in per_class
+    ]
+    hard_compare = [
+        {
+            "class": row.get("class_name"),
+            "A4_f1": as_float(row.get("f1")),
+            "A3_f1_or_mean_ref": A3_HARD_MEAN if as_int(row.get("class_id")) not in BEST_RESCUE_HARD_F1 else "",
+            "best_rescue_f1": BEST_RESCUE_HARD_F1.get(as_int(row.get("class_id")), float("nan")),
+            "delta_vs_best_rescue": as_float(row.get("f1")) - BEST_RESCUE_HARD_F1.get(as_int(row.get("class_id")), float("nan")),
+        }
+        for row in hard_for_run
+    ]
+    gate_rows = []
+    if support_rows:
+        gate_rows.append(
+            {
+                "micro_gate_mean": support_rows[0].get("micro_gate_mean"),
+                "detail_available_ratio": support_rows[0].get("detail_available_ratio"),
+                "effective_micro_motif_count": support_rows[0].get("effective_motif_count"),
+                "avg_micro_offdiag_similarity": support_rows[0].get("avg_offdiag_similarity"),
+            }
+        )
+    lines = [
+        "# D16R-A4 Micro-Motif Support Analysis",
+        "",
+        "## Verdict",
+        f"`{dec}`",
+        "",
+        "D16R-A4 adds weak part-gated micro-detail support tokens to A3-style major part-conditioned motif queries. These are learned readout/support tokens, not semantic motifs, evidence, or causal explanations.",
+        "",
+        "## Run Integrity",
+        *md_table(
+            [
+                {"item": "micro diagnostics", "value": "PASS" if micro_rows else "NOT_AVAILABLE"},
+                {"item": "micro/collapse warnings", "value": len(micro_warnings)},
+                {"item": "predicted classes", "value": as_int(run.get("predicted_classes"))},
+                {"item": "best epoch", "value": as_int(summary.get("best_epoch") or test.get("checkpoint_epoch"))},
+                {"item": "final trained epoch", "value": as_int(last.get("checkpoint_epoch") or last.get("epoch"))},
+                {"item": "train samples", "value": as_int(summary.get("train_samples"))},
+                {"item": "val samples", "value": as_int(summary.get("val_samples"))},
+                {"item": "test samples", "value": as_int(summary.get("test_samples") or test.get("total"))},
+                {"item": "device", "value": summary.get("device", "")},
+            ],
+            ["item", "value"],
+        ),
+        "",
+        "## Accuracy-First Anchor Comparison",
+        *md_table(accuracy_rows, ["run", "accuracy", "macro_f1", "A4_minus_anchor_acc", "A4_minus_anchor_macro_f1"]),
+        "",
+        "## Best vs Last Checkpoint",
+        *md_table(best_last_rows, ["checkpoint", "epoch", "accuracy", "macro_f1", "loss", "detected_loss", "fallback_loss"]),
+        "",
+        "## Detected vs Fallback",
+        *md_table(group_rows, ["group", "total", "accuracy", "macro_f1"]),
+        "",
+        "## Per-Class Metrics",
+        *md_table(class_rows, ["class", "support", "pred_count", "precision", "recall", "f1"]),
+        "",
+        "## Hard-Class Comparison",
+        f"Hard-class mean A4: `{fmt(hard_mean)}`; A3 hard-class mean: `{fmt(A3_HARD_MEAN)}`; best rescue hard-class mean: `{fmt(best_rescue_hard_mean)}`.",
+        *md_table(hard_compare, ["class", "A4_f1", "best_rescue_f1", "delta_vs_best_rescue"]),
+        "",
+        "## Top Confusions",
+        *md_table(_top_confusions(run_dir), ["true", "predicted", "count", "support", "row_ratio"]),
+        "",
+        "## Prediction Distribution",
+        *md_table(_prediction_distribution(run_dir), ["class", "pred_count", "pred_ratio"]),
+        "",
+        "## Major Motif Diagnostics",
+        *md_table(major_rows, ["motif", "part", "usage", "entropy", "peak", "part_mass", "effective_motif_count", "avg_offdiag_similarity"]),
+        "",
+        "## Micro Motif Diagnostics",
+        *md_table(support_rows, ["motif", "part", "usage", "entropy", "peak", "part_mass", "detail_score", "effective_motif_count", "avg_offdiag_similarity"]),
+        "",
+        "## Micro Support Gate Diagnostics",
+        *md_table(gate_rows, ["micro_gate_mean", "detail_available_ratio", "effective_micro_motif_count", "avg_micro_offdiag_similarity"]),
+        "",
+        "## Collapse / Noise Check",
+    ]
+    lines.extend([f"- {item}" for item in micro_warnings] if micro_warnings else ["- no collapse/noise warning from aggregate heuristics"])
     lines.extend(["", "## Decision", f"`{dec}`", ""])
     return lines
 
@@ -720,6 +944,12 @@ def write_report(
     if a3_detailed:
         output_dir.joinpath("D16R_A3_PART_MOTIF_QUERY_ANALYSIS.md").write_text(
             "\n".join(a3_detailed),
+            encoding="utf-8",
+        )
+    a4_detailed = _a4_detailed_report(run_rows, hard_rows, warnings)
+    if a4_detailed:
+        output_dir.joinpath("D16R_A4_MICRO_MOTIF_SUPPORT_ANALYSIS.md").write_text(
+            "\n".join(a4_detailed),
             encoding="utf-8",
         )
     return dec

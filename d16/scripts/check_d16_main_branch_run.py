@@ -186,6 +186,109 @@ def part_motif_status(run_dir: Path) -> Dict[str, Any]:
     }
 
 
+def micro_motif_status(run_dir: Path) -> Dict[str, Any]:
+    summary = read_rows(run_dir / "micro_motif_summary.csv")
+    by_class = read_rows(run_dir / "micro_motif_by_class.csv")
+    similarity = read_rows(run_dir / "micro_motif_similarity.csv")
+    if not summary and not by_class and not similarity:
+        return {"present": False, "status": "NOT_AVAILABLE", "failures": [], "warnings": []}
+    failures: List[str] = []
+    warnings: List[str] = []
+    if len(summary) != 20:
+        warnings.append(f"micro_motif_summary.csv row_count={len(summary)} expected=20 for A4 default")
+    if by_class and len(by_class) != 140:
+        warnings.append(f"micro_motif_by_class.csv row_count={len(by_class)} expected=140 for A4 default")
+    if similarity and len(similarity) != 208:
+        warnings.append(f"micro_motif_similarity.csv row_count={len(similarity)} expected=208 for A4 default")
+
+    branch_counts: Dict[str, int] = {}
+    for name, rows in (
+        ("micro_motif_summary.csv", summary),
+        ("micro_motif_by_class.csv", by_class),
+    ):
+        for idx, row in enumerate(rows):
+            samples = as_int(row.get("samples"))
+            branch = str(row.get("branch"))
+            if name == "micro_motif_summary.csv":
+                branch_counts[branch] = branch_counts.get(branch, 0) + 1
+            for field in (
+                "motif_usage_mean",
+                "motif_attention_entropy_mean",
+                "motif_attention_peak_mean",
+                "motif_part_mass_mean",
+            ):
+                val = as_float(row.get(field))
+                if samples > 0 and not math.isfinite(val):
+                    failures.append(f"{name} row {idx} {field} is non-finite")
+                if field in {"motif_usage_mean", "motif_attention_peak_mean", "motif_part_mass_mean"} and math.isfinite(val):
+                    if not (0.0 <= val <= 1.0 + 1e-6):
+                        failures.append(f"{name} row {idx} {field} out of [0,1]: {val}")
+            for field in ("motif_token_norm_mean", "motif_transformed_token_norm_mean"):
+                if field in row:
+                    val = as_float(row.get(field))
+                    if samples > 0 and not math.isfinite(val):
+                        failures.append(f"{name} row {idx} {field} is non-finite")
+            if branch == "micro":
+                detail = as_float(row.get("micro_detail_score_mean"))
+                if samples > 0 and not math.isfinite(detail):
+                    failures.append(f"{name} row {idx} micro_detail_score_mean is non-finite")
+                if math.isfinite(detail) and abs(detail) > 5.0:
+                    warnings.append(f"{row.get('motif_name')} micro_detail_score_mean is unusually large: {detail:.6f}")
+            gate = as_float(row.get("micro_gate_mean"))
+            if math.isfinite(gate) and not (0.0 <= gate <= 1.0 + 1e-6):
+                failures.append(f"{name} row {idx} micro_gate_mean out of [0,1]: {gate}")
+    if summary and (branch_counts.get("major", 0) != 12 or branch_counts.get("micro", 0) != 8):
+        warnings.append(f"micro_motif_summary branch counts expected major=12 micro=8 got {branch_counts}")
+
+    for idx, row in enumerate(similarity):
+        val = as_float(row.get("cosine_mean"))
+        if not math.isfinite(val):
+            failures.append(f"micro_motif_similarity.csv row {idx} cosine_mean is non-finite")
+        elif not (-1.0 - 1e-6 <= val <= 1.0 + 1e-6):
+            failures.append(f"micro_motif_similarity.csv row {idx} cosine_mean out of [-1,1]: {val}")
+
+    micro_rows = [row for row in summary if str(row.get("branch")) == "micro"]
+    if micro_rows:
+        offdiag = as_float(micro_rows[0].get("avg_offdiag_similarity_mean"))
+        effective = as_float(micro_rows[0].get("effective_motif_count_mean"))
+        gate = as_float(micro_rows[0].get("micro_gate_mean"))
+        if math.isfinite(offdiag) and offdiag > 0.90:
+            warnings.append(f"average micro off-diagonal similarity is high: {offdiag:.6f}")
+        if math.isfinite(effective) and effective < 2.0:
+            warnings.append(f"effective micro motif count is very low: {effective:.6f}")
+        if math.isfinite(gate) and gate > 0.90:
+            warnings.append(f"micro_gate_mean near 1; micro support may dominate: {gate:.6f}")
+        if math.isfinite(gate) and gate < 0.05:
+            warnings.append(f"micro_gate_mean near 0; micro support may be unused: {gate:.6f}")
+        usage_by_part: Dict[str, List[float]] = {}
+        for row in micro_rows:
+            part_name = str(row.get("part_name"))
+            usage_by_part.setdefault(part_name, []).append(as_float(row.get("motif_usage_mean")))
+            mass = as_float(row.get("motif_part_mass_mean"))
+            if part_name != "global" and math.isfinite(mass) and mass < 0.20:
+                warnings.append(f"{row.get('motif_name')} micro motif_part_mass is low: {mass:.6f}")
+            peak = as_float(row.get("motif_attention_peak_mean"))
+            entropy = as_float(row.get("motif_attention_entropy_mean"))
+            if math.isfinite(peak) and peak > 0.90:
+                warnings.append(f"{row.get('motif_name')} micro attention peak is very high: {peak:.6f}")
+            if math.isfinite(entropy) and entropy > 7.5:
+                warnings.append(f"{row.get('motif_name')} micro attention entropy is very high: {entropy:.6f}")
+        for part_name, values in usage_by_part.items():
+            finite_values = [value for value in values if math.isfinite(value)]
+            total = sum(finite_values)
+            if total > 0.0 and max(finite_values) / total > 0.80 and len(finite_values) > 1:
+                warnings.append(f"one micro motif dominates usage within {part_name}")
+    return {
+        "present": True,
+        "status": "PASS" if not failures else "FAIL",
+        "summary_rows": len(summary),
+        "by_class_rows": len(by_class),
+        "similarity_rows": len(similarity),
+        "failures": failures,
+        "warnings": warnings,
+    }
+
+
 def check_run(run_dir: Path) -> Dict[str, Any]:
     failures: List[str] = []
     warnings: List[str] = []
@@ -244,14 +347,18 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
     attention = attention_status(run_dir)
     part_token = part_token_status(run_dir)
     part_motif = part_motif_status(run_dir)
+    micro_motif = micro_motif_status(run_dir)
     if attention["status"] == "FAIL":
         failures.extend(attention["failures"])
     if part_token["status"] == "FAIL":
         failures.extend(part_token["failures"])
     if part_motif["status"] == "FAIL":
         failures.extend(part_motif["failures"])
+    if micro_motif["status"] == "FAIL":
+        failures.extend(micro_motif["failures"])
     warnings.extend(part_motif.get("warnings", []))
-    if not attention["present"] and not part_token["present"] and not part_motif["present"]:
+    warnings.extend(micro_motif.get("warnings", []))
+    if not attention["present"] and not part_token["present"] and not part_motif["present"] and not micro_motif["present"]:
         warnings.append("readout diagnostics not found")
 
     if predicted_classes < 7:
@@ -270,6 +377,7 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
         "attention": attention,
         "part_token_transformer": part_token,
         "part_motif_query": part_motif,
+        "micro_motif_support": micro_motif,
         "failures": failures,
         "warnings": warnings,
     }
@@ -290,6 +398,7 @@ def write_report(output_dir: Path, summary: Dict[str, Any]) -> None:
         f"- attention_diagnostics: `{summary.get('attention', {}).get('status')}`",
         f"- part_token_transformer_diagnostics: `{summary.get('part_token_transformer', {}).get('status')}`",
         f"- part_motif_query_diagnostics: `{summary.get('part_motif_query', {}).get('status')}`",
+        f"- micro_motif_support_diagnostics: `{summary.get('micro_motif_support', {}).get('status')}`",
         "",
         "## Failures",
     ]
@@ -305,6 +414,10 @@ def write_report(output_dir: Path, summary: Dict[str, Any]) -> None:
     )
     output_dir.joinpath("CHECK_D16R_A3_PART_MOTIF_QUERY.md").write_text(
         "\n".join(lines).replace("# D16 Main Branch Run Check", "# D16R-A3 Part-Motif Query Check") + "\n",
+        encoding="utf-8",
+    )
+    output_dir.joinpath("CHECK_D16R_A4_MICRO_MOTIF_SUPPORT.md").write_text(
+        "\n".join(lines).replace("# D16 Main Branch Run Check", "# D16R-A4 Micro-Motif Support Check") + "\n",
         encoding="utf-8",
     )
 
