@@ -76,11 +76,11 @@ class MicroMotifSupportReadout(torch.nn.Module):
         self.major_motif_counts = {name: int(major_counts.get(name, 0)) for name in self.part_order}
         self.micro_motif_counts = {name: int(micro_counts.get(name, 0)) for name in self.part_order}
         missing_major = [name for name in self.part_order if self.major_motif_counts[name] <= 0]
-        missing_micro = [name for name in self.part_order if self.micro_motif_counts[name] <= 0]
+        negative_micro = [name for name in self.part_order if self.micro_motif_counts[name] < 0]
         if missing_major:
             raise ValueError(f"micro_motif_support major_motif_counts must be positive for {missing_major}")
-        if missing_micro:
-            raise ValueError(f"micro_motif_support micro_motif_counts must be positive for {missing_micro}")
+        if negative_micro:
+            raise ValueError(f"micro_motif_support micro_motif_counts must be non-negative for {negative_micro}")
 
         self.group_indices = {group_name: self._indices(names) for group_name, names in self.GROUPS.items()}
         missing_groups = [name for name, indices in self.group_indices.items() if not indices]
@@ -91,6 +91,8 @@ class MicroMotifSupportReadout(torch.nn.Module):
         self.micro_parts, self.micro_names = self._build_names(self.micro_motif_counts, suffix="_micro")
         self.num_major = len(self.major_names)
         self.num_micro = len(self.micro_names)
+        if self.num_micro <= 0:
+            raise ValueError("micro_motif_support requires at least one micro motif token")
         self.num_tokens = self.num_major + self.num_micro
         self.register_buffer(
             "major_part_index",

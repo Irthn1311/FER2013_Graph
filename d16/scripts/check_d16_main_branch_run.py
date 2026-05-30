@@ -194,12 +194,21 @@ def micro_motif_status(run_dir: Path) -> Dict[str, Any]:
         return {"present": False, "status": "NOT_AVAILABLE", "failures": [], "warnings": []}
     failures: List[str] = []
     warnings: List[str] = []
-    if len(summary) != 20:
-        warnings.append(f"micro_motif_summary.csv row_count={len(summary)} expected=20 for A4 default")
-    if by_class and len(by_class) != 140:
-        warnings.append(f"micro_motif_by_class.csv row_count={len(by_class)} expected=140 for A4 default")
-    if similarity and len(similarity) != 208:
-        warnings.append(f"micro_motif_similarity.csv row_count={len(similarity)} expected=208 for A4 default")
+    is_a4b = "no_global_micro" in str(run_dir)
+    expected_major = 12
+    expected_micro = 7 if is_a4b else 8
+    expected_summary = expected_major + expected_micro
+    expected_by_class = expected_summary * 7
+    expected_similarity = expected_major * expected_major + expected_micro * expected_micro
+    if len(summary) != expected_summary:
+        message = f"micro_motif_summary.csv row_count={len(summary)} expected={expected_summary}"
+        (failures if is_a4b else warnings).append(message)
+    if by_class and len(by_class) != expected_by_class:
+        message = f"micro_motif_by_class.csv row_count={len(by_class)} expected={expected_by_class}"
+        (failures if is_a4b else warnings).append(message)
+    if similarity and len(similarity) != expected_similarity:
+        message = f"micro_motif_similarity.csv row_count={len(similarity)} expected={expected_similarity}"
+        (failures if is_a4b else warnings).append(message)
 
     branch_counts: Dict[str, int] = {}
     for name, rows in (
@@ -238,7 +247,19 @@ def micro_motif_status(run_dir: Path) -> Dict[str, Any]:
             if math.isfinite(gate) and not (0.0 <= gate <= 1.0 + 1e-6):
                 failures.append(f"{name} row {idx} micro_gate_mean out of [0,1]: {gate}")
     if summary and (branch_counts.get("major", 0) != 12 or branch_counts.get("micro", 0) != 8):
-        warnings.append(f"micro_motif_summary branch counts expected major=12 micro=8 got {branch_counts}")
+        message = (
+            f"micro_motif_summary branch counts expected major={expected_major} "
+            f"micro={expected_micro} got {branch_counts}"
+        )
+        (failures if is_a4b else warnings).append(message)
+    if is_a4b:
+        global_micro = [
+            row.get("motif_name")
+            for row in summary
+            if str(row.get("branch")) == "micro" and str(row.get("motif_name", "")).startswith("global_micro")
+        ]
+        if global_micro:
+            failures.append(f"A4b diagnostics must not include global micro motifs: {global_micro}")
 
     for idx, row in enumerate(similarity):
         val = as_float(row.get("cosine_mean"))
@@ -284,6 +305,8 @@ def micro_motif_status(run_dir: Path) -> Dict[str, Any]:
         "summary_rows": len(summary),
         "by_class_rows": len(by_class),
         "similarity_rows": len(similarity),
+        "expected_micro_tokens": expected_micro,
+        "micro_tokens": branch_counts.get("micro", 0),
         "failures": failures,
         "warnings": warnings,
     }
@@ -418,6 +441,10 @@ def write_report(output_dir: Path, summary: Dict[str, Any]) -> None:
     )
     output_dir.joinpath("CHECK_D16R_A4_MICRO_MOTIF_SUPPORT.md").write_text(
         "\n".join(lines).replace("# D16 Main Branch Run Check", "# D16R-A4 Micro-Motif Support Check") + "\n",
+        encoding="utf-8",
+    )
+    output_dir.joinpath("CHECK_D16R_A4B_NO_GLOBAL_MICRO.md").write_text(
+        "\n".join(lines).replace("# D16 Main Branch Run Check", "# D16R-A4b No-Global-Micro Check") + "\n",
         encoding="utf-8",
     )
 
