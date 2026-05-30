@@ -269,6 +269,98 @@ class MicroMotifSupportReadout(torch.nn.Module):
                 detail_mean[motif_idx] = torch.sum(alpha * detail_score.to(device=h_g.device, dtype=dtype))
         return torch.stack(tokens, dim=0), entropy, peak, part_mass, detail_mean
 
+    def _pad_by_graph(
+        self,
+        node_embeddings: torch.Tensor,
+        part_soft: torch.Tensor,
+        batch_index: torch.Tensor,
+        num_graphs: int,
+        x_cat: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        counts = torch.bincount(batch_index.to(torch.long), minlength=num_graphs)
+        max_nodes = int(counts.max().item()) if counts.numel() else 0
+        if max_nodes <= 0:
+            raise ValueError("A4 micro_motif_support received an empty batch")
+        h_pad = node_embeddings.new_zeros((num_graphs, max_nodes, self.hidden_dim))
+        part_pad = part_soft.new_zeros((num_graphs, max_nodes, part_soft.size(1)))
+        node_valid = torch.zeros((num_graphs, max_nodes), device=node_embeddings.device, dtype=torch.bool)
+        detail_pad = node_embeddings.new_zeros((num_graphs, max_nodes))
+        detail_available = torch.zeros((num_graphs,), device=node_embeddings.device, dtype=torch.bool)
+        for graph_id in range(num_graphs):
+            mask = batch_index == graph_id
+            n_nodes = int(mask.sum().item())
+            if n_nodes <= 0:
+                continue
+            h_pad[graph_id, :n_nodes] = node_embeddings[mask]
+            part_pad[graph_id, :n_nodes] = part_soft[mask]
+            node_valid[graph_id, :n_nodes] = True
+            detail_score, detail_ok = self._detail_score(x_cat, mask)
+            if detail_score is not None:
+                detail_pad[graph_id, :n_nodes] = detail_score.to(device=node_embeddings.device, dtype=node_embeddings.dtype)
+            detail_available[graph_id] = bool(detail_ok)
+        return h_pad, part_pad, node_valid, detail_pad, detail_available
+
+    def _group_priors_padded(self, part_pad: torch.Tensor) -> torch.Tensor:
+        priors = []
+        for group_name in self.part_order:
+            if group_name == "global":
+                prior = torch.ones(part_pad.shape[:2], device=part_pad.device, dtype=part_pad.dtype)
+            else:
+                indices = self.group_indices.get(group_name)
+                if not indices:
+                    raise KeyError(f"Missing D16 part indices for group {group_name!r}")
+                prior = part_pad[:, :, indices].amax(dim=2)
+            priors.append(prior)
+        return torch.stack(priors, dim=1)
+
+    def _attend_branch_padded(
+        self,
+        h_pad: torch.Tensor,
+        group_priors: torch.Tensor,
+        node_valid: torch.Tensor,
+        valid_groups: torch.Tensor,
+        queries: torch.Tensor,
+        key_proj: torch.nn.Linear,
+        value_proj: torch.nn.Linear,
+        motif_parts: List[str],
+        lambda_part: float,
+        detail_score: torch.Tensor | None = None,
+        detail_available: torch.Tensor | None = None,
+        lambda_detail: float = 0.0,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        batch_size = h_pad.size(0)
+        dtype = h_pad.dtype
+        keys = key_proj(h_pad)
+        values = value_proj(h_pad)
+        scale = 1.0 / math.sqrt(float(self.hidden_dim))
+        scores = torch.einsum("kh,bnh->bkn", queries.to(device=h_pad.device, dtype=dtype), keys) * scale
+        part_idx = torch.tensor(
+            [self.part_order.index(part_name) for part_name in motif_parts],
+            device=h_pad.device,
+            dtype=torch.long,
+        )
+        prior = group_priors[:, part_idx, :].clamp_min(self.eps)
+        scores = scores + float(lambda_part) * torch.log(prior)
+        if detail_score is not None and float(lambda_detail) != 0.0:
+            detail = detail_score.to(device=h_pad.device, dtype=dtype)
+            if detail_available is not None:
+                detail = detail * detail_available.to(device=h_pad.device, dtype=dtype).view(batch_size, 1)
+            scores = scores + float(lambda_detail) * detail.unsqueeze(1)
+        scores = scores.masked_fill(~node_valid.unsqueeze(1), torch.finfo(dtype).min)
+        alpha = torch.softmax(scores, dim=-1)
+        motif_valid = valid_groups[:, part_idx].to(dtype=dtype)
+        alpha = alpha * motif_valid.unsqueeze(-1)
+        tokens = torch.bmm(alpha, values)
+        safe_alpha = alpha.clamp_min(self.eps)
+        entropy = -(alpha * torch.log(safe_alpha)).sum(dim=-1)
+        peak = alpha.max(dim=-1).values
+        part_mass = torch.sum(alpha * prior.clamp(0.0, 1.0), dim=-1)
+        if detail_score is None:
+            detail_mean = h_pad.new_zeros((batch_size, len(motif_parts)))
+        else:
+            detail_mean = torch.sum(alpha * detail_score.to(device=h_pad.device, dtype=dtype).unsqueeze(1), dim=-1)
+        return tokens, entropy, peak, part_mass, detail_mean
+
     def forward(
         self,
         node_embeddings: torch.Tensor,
@@ -293,50 +385,40 @@ class MicroMotifSupportReadout(torch.nn.Module):
         device = node_embeddings.device
         dtype = node_embeddings.dtype
         num_graphs = int(num_graphs)
-        major_tokens = node_embeddings.new_zeros((num_graphs, self.num_major, self.hidden_dim))
-        micro_tokens = node_embeddings.new_zeros((num_graphs, self.num_micro, self.hidden_dim))
-        major_entropy = node_embeddings.new_zeros((num_graphs, self.num_major))
-        major_peak = node_embeddings.new_zeros((num_graphs, self.num_major))
-        major_mass = node_embeddings.new_zeros((num_graphs, self.num_major))
-        micro_entropy = node_embeddings.new_zeros((num_graphs, self.num_micro))
-        micro_peak = node_embeddings.new_zeros((num_graphs, self.num_micro))
-        micro_mass = node_embeddings.new_zeros((num_graphs, self.num_micro))
-        micro_detail = node_embeddings.new_zeros((num_graphs, self.num_micro))
-        detail_available = torch.zeros((num_graphs,), device=device, dtype=torch.bool)
         valid_groups = self._valid_group_mask(valid_part_groups, num_graphs, device)
-
-        for graph_id in range(num_graphs):
-            node_mask = batch_index == graph_id
-            h_g = node_embeddings[node_mask]
-            part_g = part_soft[node_mask]
-            if h_g.numel() == 0:
-                continue
-            detail_score, detail_ok = self._detail_score(x_cat, node_mask)
-            detail_available[graph_id] = bool(detail_ok)
-            major_out = self._attend_branch(
-                h_g,
-                part_g,
-                self.major_queries.to(device=device, dtype=dtype),
-                self.major_key_proj,
-                self.major_value_proj,
-                self.major_parts,
-                valid_groups[graph_id],
-                self.lambda_part,
-            )
-            micro_out = self._attend_branch(
-                h_g,
-                part_g,
-                self.micro_queries.to(device=device, dtype=dtype),
-                self.micro_key_proj,
-                self.micro_value_proj,
-                self.micro_parts,
-                valid_groups[graph_id],
-                self.lambda_micro_part,
-                detail_score=detail_score,
-                lambda_detail=self.lambda_detail if detail_ok else 0.0,
-            )
-            major_tokens[graph_id], major_entropy[graph_id], major_peak[graph_id], major_mass[graph_id], _ = major_out
-            micro_tokens[graph_id], micro_entropy[graph_id], micro_peak[graph_id], micro_mass[graph_id], micro_detail[graph_id] = micro_out
+        h_pad, part_pad, node_valid, detail_pad, detail_available = self._pad_by_graph(
+            node_embeddings,
+            part_soft,
+            batch_index,
+            num_graphs,
+            x_cat,
+        )
+        group_priors = self._group_priors_padded(part_pad)
+        major_tokens, major_entropy, major_peak, major_mass, _ = self._attend_branch_padded(
+            h_pad,
+            group_priors,
+            node_valid,
+            valid_groups,
+            self.major_queries.to(device=device, dtype=dtype),
+            self.major_key_proj,
+            self.major_value_proj,
+            self.major_parts,
+            self.lambda_part,
+        )
+        micro_tokens, micro_entropy, micro_peak, micro_mass, micro_detail = self._attend_branch_padded(
+            h_pad,
+            group_priors,
+            node_valid,
+            valid_groups,
+            self.micro_queries.to(device=device, dtype=dtype),
+            self.micro_key_proj,
+            self.micro_value_proj,
+            self.micro_parts,
+            self.lambda_micro_part,
+            detail_score=detail_pad,
+            detail_available=detail_available,
+            lambda_detail=self.lambda_detail,
+        )
 
         all_tokens = torch.cat([major_tokens, micro_tokens], dim=1)
         tokens = all_tokens
