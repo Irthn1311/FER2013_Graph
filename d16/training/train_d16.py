@@ -333,6 +333,42 @@ def _should_eval_epoch(epoch: int, start_epoch: int, max_epochs: int, every_n: i
     return epoch == start_epoch or epoch == max_epochs or (epoch % every_n == 0)
 
 
+def _monitor_value(row: Dict[str, Any] | None, metric: str) -> float | None:
+    if row is None:
+        return None
+    metric = str(metric)
+    key = metric[4:] if metric.startswith("val_") else metric
+    aliases = {
+        "acc": "accuracy",
+        "accuracy": "accuracy",
+        "macro": "macro_f1",
+        "macro_f1": "macro_f1",
+        "loss": "loss",
+    }
+    key = aliases.get(key, key)
+    if key not in row:
+        raise KeyError(f"D16 monitor metric {metric!r} maps to missing validation field {key!r}")
+    value = row.get(key)
+    if value is None:
+        return None
+    value = float(value)
+    if not math.isfinite(value):
+        return None
+    return value
+
+
+def _is_better_score(current: float | None, best: float, mode: str) -> bool:
+    if current is None:
+        return False
+    if not math.isfinite(best):
+        return True
+    if str(mode) == "max":
+        return current > best
+    if str(mode) == "min":
+        return current < best
+    raise ValueError(f"Unsupported D16 monitor mode={mode!r}; expected max or min")
+
+
 def _rng_state() -> Dict[str, Any]:
     state: Dict[str, Any] = {
         "python": random.getstate(),
@@ -537,8 +573,13 @@ def save_checkpoint(
     best_epoch: int = 0,
     epochs_without_improvement: int = 0,
     resume_source: str | None = None,
+    best_monitor_metric: str = "val_macro_f1",
+    best_monitor_mode: str = "max",
+    best_monitor_score: float | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if best_monitor_score is None:
+        best_monitor_score = best_val_macro_f1
     torch.save(
         {
             "checkpoint_format": "d16_resume_v1",
@@ -546,10 +587,16 @@ def save_checkpoint(
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "best_val_macro_f1": float(best_val_macro_f1),
+            "best_monitor_metric": str(best_monitor_metric),
+            "best_monitor_mode": str(best_monitor_mode),
+            "best_monitor_score": float(best_monitor_score),
             "best_epoch": int(best_epoch),
             "early_stopping_state": {
                 "epochs_without_improvement": int(epochs_without_improvement),
                 "best_val_macro_f1": float(best_val_macro_f1),
+                "best_monitor_metric": str(best_monitor_metric),
+                "best_monitor_mode": str(best_monitor_mode),
+                "best_monitor_score": float(best_monitor_score),
                 "best_epoch": int(best_epoch),
             },
             "rng_state": _rng_state(),
@@ -586,9 +633,12 @@ def resume_training(
     restored_rng = _restore_rng_state(checkpoint.get("rng_state", {})) if restore_rng else False
     resumed_epoch = int(checkpoint.get("epoch", 0) or 0)
     best_val_macro_f1 = float(checkpoint.get("best_val_macro_f1", -math.inf))
+    best_monitor_score = float(checkpoint.get("best_monitor_score", best_val_macro_f1))
+    best_monitor_metric = str(checkpoint.get("best_monitor_metric", "val_macro_f1"))
+    best_monitor_mode = str(checkpoint.get("best_monitor_mode", "max"))
     best_epoch = int(checkpoint.get("best_epoch", 0) or 0)
     if best_epoch <= 0:
-        best_epoch = resumed_epoch if math.isfinite(best_val_macro_f1) else 0
+        best_epoch = resumed_epoch if math.isfinite(best_monitor_score) else 0
     early_state = checkpoint.get("early_stopping_state", {}) or {}
     epochs_without_improvement = int(early_state.get("epochs_without_improvement", 0) or 0)
     event = {
@@ -598,6 +648,9 @@ def resume_training(
         "loaded_optimizer": True,
         "restored_rng": bool(restored_rng),
         "best_val_macro_f1": best_val_macro_f1,
+        "best_monitor_metric": best_monitor_metric,
+        "best_monitor_mode": best_monitor_mode,
+        "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
         "epochs_without_improvement": epochs_without_improvement,
         "checkpoint_format": checkpoint.get("checkpoint_format"),
@@ -608,6 +661,9 @@ def resume_training(
     return {
         "start_epoch": resumed_epoch + 1,
         "best_val_macro_f1": best_val_macro_f1,
+        "best_monitor_metric": best_monitor_metric,
+        "best_monitor_mode": best_monitor_mode,
+        "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
         "epochs_without_improvement": epochs_without_improvement,
         "resume_source": str(resume_from),
@@ -1519,6 +1575,13 @@ def _checkpoint_best_val(checkpoint: Dict[str, Any], fallback: float) -> float:
         return float(fallback)
 
 
+def _checkpoint_best_monitor(checkpoint: Dict[str, Any], fallback: float) -> float:
+    try:
+        return float(checkpoint.get("best_monitor_score", checkpoint.get("best_val_macro_f1", fallback)))
+    except Exception:
+        return float(fallback)
+
+
 def _write_eval_outputs(
     output_dir: Path,
     model: D16Model,
@@ -1816,6 +1879,8 @@ def evaluate_checkpoints(
     best_checkpoint = load_checkpoint(best_path, model, device)
     best_epoch = _checkpoint_epoch(best_checkpoint, 0)
     best_val_macro_f1 = _checkpoint_best_val(best_checkpoint, float("nan"))
+    best_monitor_score = _checkpoint_best_monitor(best_checkpoint, best_val_macro_f1)
+    best_monitor_metric = str(best_checkpoint.get("best_monitor_metric", "val_macro_f1"))
     metric_fields = [
         "split",
         "epoch",
@@ -1883,6 +1948,8 @@ def evaluate_checkpoints(
         "final_test_checkpoint": best_path.name,
         "best_epoch": best_epoch,
         "best_val_macro_f1": best_val_macro_f1,
+        "best_monitor_metric": best_monitor_metric,
+        "best_monitor_score": best_monitor_score,
         "test_accuracy": best_row["accuracy"],
         "test_macro_f1": best_row["macro_f1"],
         "last_test_accuracy": None if last_row is None else last_row["accuracy"],
@@ -1972,8 +2039,25 @@ def main() -> None:
     max_epochs = int(args.max_epochs_override or args.max_epochs or training_cfg.get("max_epochs", 30))
     early_cfg = training_cfg.get("early_stopping", {}) or {}
     early_enabled = bool(early_cfg.get("enabled", training_cfg.get("early_stopping", False)))
-    early_metric = str(early_cfg.get("metric", "val_macro_f1"))
+    monitor_metric = str(
+        training_cfg.get(
+            "checkpoint_monitor",
+            training_cfg.get("monitor_metric", training_cfg.get("metric_for_best_model", early_cfg.get("metric", "val_macro_f1"))),
+        )
+    )
+    early_metric = str(early_cfg.get("metric", monitor_metric))
     early_mode = str(early_cfg.get("mode", "max"))
+    monitor_mode = str(training_cfg.get("checkpoint_monitor_mode", training_cfg.get("monitor_mode", early_mode)))
+    if monitor_metric != early_metric:
+        raise ValueError(
+            f"D16 checkpoint monitor ({monitor_metric}) and early_stopping.metric ({early_metric}) must match for this runner"
+        )
+    if monitor_mode != early_mode:
+        raise ValueError(
+            f"D16 checkpoint monitor mode ({monitor_mode}) and early_stopping.mode ({early_mode}) must match for this runner"
+        )
+    if monitor_mode not in {"max", "min"}:
+        raise ValueError(f"D16 monitor mode must be max or min, got {monitor_mode!r}")
     early_patience = int(early_cfg.get("patience", training_cfg.get("early_stopping_patience", 999)))
     early_min_epochs = int(early_cfg.get("min_epochs_before_stop", 0))
     eval_every_epoch = bool(training_cfg.get("eval_every_epoch", True))
@@ -2029,6 +2113,7 @@ def main() -> None:
         supcon_loss_fn = PartAwareSupConLoss(temperature=float(loss_cfg.get("supcon_temperature", 0.1))).to(device)
 
     best_val_macro_f1 = -math.inf
+    best_monitor_score = -math.inf if monitor_mode == "max" else math.inf
     best_epoch = 0
     start_epoch = 1
     resume_source = None
@@ -2037,6 +2122,9 @@ def main() -> None:
         "train_loss",
         "val_macro_f1",
         "val_accuracy",
+        "monitor_metric",
+        "monitor_score",
+        "best_monitor_score",
         "node_count_mean",
         "edge_count_mean",
         "train_epoch_time_sec",
@@ -2118,6 +2206,7 @@ def main() -> None:
         )
         start_epoch = int(resume_state["start_epoch"])
         best_val_macro_f1 = float(resume_state["best_val_macro_f1"])
+        best_monitor_score = float(resume_state.get("best_monitor_score", best_val_macro_f1))
         best_epoch = int(resume_state["best_epoch"])
         epochs_without_improvement = int(resume_state["epochs_without_improvement"])
         resume_source = str(resume_state["resume_source"])
@@ -2161,6 +2250,9 @@ def main() -> None:
             "train_loss": train_stats["train_loss"],
             "val_macro_f1": None if val_row is None else val_row["macro_f1"],
             "val_accuracy": None if val_row is None else val_row["accuracy"],
+            "monitor_metric": monitor_metric,
+            "monitor_score": _monitor_value(val_row, monitor_metric),
+            "best_monitor_score": best_monitor_score,
             "node_count_mean": train_stats["node_count_mean"],
             "edge_count_mean": train_stats["edge_count_mean"],
             "train_epoch_time_sec": train_stats["train_epoch_time_sec"],
@@ -2206,12 +2298,14 @@ def main() -> None:
             for row in val_fallback:
                 _append_csv(output_dir / "detected_vs_fallback_metrics.csv", row, fallback_fields)
 
-        previous_best_val_macro_f1 = float(best_val_macro_f1)
+        previous_best_monitor_score = float(best_monitor_score)
         previous_best_epoch = int(best_epoch)
         previous_epochs_without_improvement = int(epochs_without_improvement)
         current_val_macro_f1 = None if val_row is None else float(val_row["macro_f1"])
-        improved = val_row is not None and float(val_row["macro_f1"]) > best_val_macro_f1
+        current_monitor_score = _monitor_value(val_row, monitor_metric)
+        improved = _is_better_score(current_monitor_score, best_monitor_score, monitor_mode)
         if improved:
+            best_monitor_score = float(current_monitor_score)
             best_val_macro_f1 = float(val_row["macro_f1"])
             best_epoch = epoch
             epochs_without_improvement = 0
@@ -2225,6 +2319,9 @@ def main() -> None:
                 best_epoch=best_epoch,
                 epochs_without_improvement=epochs_without_improvement,
                 resume_source=resume_source,
+                best_monitor_metric=monitor_metric,
+                best_monitor_mode=monitor_mode,
+                best_monitor_score=best_monitor_score,
             )
         else:
             if val_row is not None:
@@ -2239,18 +2336,23 @@ def main() -> None:
             best_epoch=best_epoch,
             epochs_without_improvement=epochs_without_improvement,
             resume_source=resume_source,
+            best_monitor_metric=monitor_metric,
+            best_monitor_mode=monitor_mode,
+            best_monitor_score=best_monitor_score,
         )
         score_status = {
             "event": "d16_epoch_score_status",
             "epoch": int(epoch),
             "evaluated": bool(val_row is not None),
-            "metric": "val_macro_f1",
+            "metric": monitor_metric,
             "is_best": bool(improved),
-            "current_score": current_val_macro_f1,
-            "display_score": float(best_val_macro_f1) if improved else current_val_macro_f1,
-            "best_score_before": None if not math.isfinite(previous_best_val_macro_f1) else previous_best_val_macro_f1,
+            "current_score": current_monitor_score,
+            "current_val_macro_f1": current_val_macro_f1,
+            "display_score": float(best_monitor_score) if improved else current_monitor_score,
+            "best_score_before": None if not math.isfinite(previous_best_monitor_score) else previous_best_monitor_score,
             "best_epoch_before": previous_best_epoch,
-            "best_score_current": None if not math.isfinite(float(best_val_macro_f1)) else float(best_val_macro_f1),
+            "best_score_current": None if not math.isfinite(float(best_monitor_score)) else float(best_monitor_score),
+            "best_val_macro_f1_current": None if not math.isfinite(float(best_val_macro_f1)) else float(best_val_macro_f1),
             "best_epoch_current": int(best_epoch),
             "early_stopping_enabled": bool(early_enabled),
             "early_stopping_without_improvement_before": previous_epochs_without_improvement,
@@ -2261,8 +2363,6 @@ def main() -> None:
         print(json.dumps(score_status), flush=True)
         print(json.dumps(log_row, indent=2), flush=True)
         if early_enabled:
-            if early_metric != "val_macro_f1" or early_mode != "max":
-                raise ValueError("D16 early stopping currently supports metric=val_macro_f1 and mode=max")
             if epoch >= early_min_epochs and epochs_without_improvement >= early_patience:
                 print(
                     json.dumps(
@@ -2271,6 +2371,8 @@ def main() -> None:
                             "epoch": epoch,
                             "best_epoch": best_epoch,
                             "best_val_macro_f1": best_val_macro_f1,
+                            "best_monitor_metric": monitor_metric,
+                            "best_monitor_score": best_monitor_score,
                             "epochs_without_improvement": epochs_without_improvement,
                             "patience": early_patience,
                         },
@@ -2289,6 +2391,9 @@ def main() -> None:
         "max_epochs": max_epochs,
         "final_test_checkpoint": eval_summary["final_test_checkpoint"],
         "best_val_macro_f1": best_val_macro_f1,
+        "best_monitor_metric": monitor_metric,
+        "best_monitor_mode": monitor_mode,
+        "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
         "test_accuracy": eval_summary["test_accuracy"],
         "test_macro_f1": eval_summary["test_macro_f1"],

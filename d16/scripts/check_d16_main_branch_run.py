@@ -348,6 +348,7 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
             warnings.append(f"could not parse resolved_config.json: {exc}")
     run_name = str((resolved.get("run_name") if isinstance(resolved, dict) else "") or run_dir.name)
     is_a5a = "a5a_detail_node_a4" in run_name
+    is_accmon = is_a5a and "accmon" in run_name
 
     test_accuracy = as_float(test.get("accuracy"))
     test_macro_f1 = as_float(test.get("macro_f1"))
@@ -412,6 +413,15 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
         global_micro = ((micro_cfg.get("micro_motif_counts") or {}).get("global"))
         if as_int(global_micro) != 1:
             failures.append(f"A5a must keep A4 global micro count=1, got {global_micro!r}")
+        training_cfg = (resolved.get("training") or {}) if isinstance(resolved, dict) else {}
+        early_cfg = training_cfg.get("early_stopping") or {}
+        if is_accmon:
+            if str(training_cfg.get("checkpoint_monitor")) != "val_accuracy":
+                failures.append("A5a-AccMonitor training.checkpoint_monitor must be val_accuracy")
+            if str(training_cfg.get("checkpoint_monitor_mode")) != "max":
+                failures.append("A5a-AccMonitor training.checkpoint_monitor_mode must be max")
+            if str(early_cfg.get("metric")) != "val_accuracy":
+                failures.append("A5a-AccMonitor early_stopping.metric must be val_accuracy")
 
     if predicted_classes < 7:
         decision = "REJECT_RUN_COLLAPSE"

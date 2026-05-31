@@ -37,6 +37,14 @@ A4_HARD_MEAN = 0.535498
 A4B_ACC = 0.622179
 A4B_MACRO = 0.613900
 A4B_HARD_MEAN = 0.515592
+A5A_ORIGINAL_ACC = 0.635553
+A5A_ORIGINAL_MACRO = 0.623481
+A5A_ORIGINAL_DETECTED_ACC = 0.647042
+A5A_ORIGINAL_DETECTED_MACRO = 0.633697
+A5A_ORIGINAL_LAST_ACC = 0.645026
+A5A_ORIGINAL_LAST_MACRO = 0.631904
+A5A_ORIGINAL_LAST_DETECTED_ACC = 0.659866
+A5A_ORIGINAL_LAST_DETECTED_MACRO = 0.647007
 
 ANCHORS = [
     {
@@ -108,6 +116,24 @@ ANCHORS = [
         "test_macro_f1": A4B_MACRO,
         "detected_accuracy": 0.637423,
         "detected_macro_f1": 0.628297,
+        "predicted_classes": 7,
+        "source": "anchor",
+    },
+    {
+        "run_name": "A5a original best-by-val-macro",
+        "test_accuracy": A5A_ORIGINAL_ACC,
+        "test_macro_f1": A5A_ORIGINAL_MACRO,
+        "detected_accuracy": A5A_ORIGINAL_DETECTED_ACC,
+        "detected_macro_f1": A5A_ORIGINAL_DETECTED_MACRO,
+        "predicted_classes": 7,
+        "source": "anchor",
+    },
+    {
+        "run_name": "A5a original last.pt",
+        "test_accuracy": A5A_ORIGINAL_LAST_ACC,
+        "test_macro_f1": A5A_ORIGINAL_LAST_MACRO,
+        "detected_accuracy": A5A_ORIGINAL_LAST_DETECTED_ACC,
+        "detected_macro_f1": A5A_ORIGINAL_LAST_DETECTED_MACRO,
         "predicted_classes": 7,
         "source": "anchor",
     },
@@ -198,7 +224,12 @@ def is_a4b_run(row: Dict[str, Any]) -> bool:
 
 def is_a5a_run(row: Dict[str, Any]) -> bool:
     name = str(row.get("run_name", ""))
-    return "a5a_detail_node_a4" in name
+    return "a5a_detail_node_a4" in name and "accmon" not in name
+
+
+def is_a5a_accmon_run(row: Dict[str, Any]) -> bool:
+    name = str(row.get("run_name", ""))
+    return "a5a_detail_node_a4" in name and "accmon" in name
 
 
 def _detail_check_summary_for_run(run_dir: Path) -> Dict[str, Any]:
@@ -248,6 +279,8 @@ def collect_run(run_dir: Path) -> tuple[Dict[str, Any] | None, List[Dict[str, An
         "test_accuracy": as_float(summary.get("test_accuracy", test.get("accuracy"))),
         "test_macro_f1": as_float(summary.get("test_macro_f1", test.get("macro_f1"))),
         "best_val_macro_f1": as_float(summary.get("best_val_macro_f1")),
+        "best_monitor_metric": summary.get("best_monitor_metric", ""),
+        "best_monitor_score": as_float(summary.get("best_monitor_score")),
         "best_epoch": as_int(summary.get("best_epoch") or test.get("checkpoint_epoch") or test.get("epoch")),
         "detected_accuracy": as_float(detected.get("accuracy")),
         "detected_macro_f1": as_float(detected.get("macro_f1")),
@@ -329,6 +362,17 @@ def decision(run_rows: List[Dict[str, Any]], warnings: List[str]) -> str:
     if warnings and best.get("missing_files"):
         return "RUN_FAILED_NEEDS_DEBUG"
     run_dir = Path(str(best.get("output_dir", "")))
+    if is_a5a_accmon_run(best):
+        if predicted_classes < 7:
+            return "REJECT_COLLAPSE"
+        macro = as_float(best.get("test_macro_f1"))
+        if acc >= 0.650:
+            return "STRONG_A5A_ACCMON_SIGNAL"
+        if acc >= D15_ACC and macro >= D15_MACRO:
+            return "KEEP_A5A_ACCMON_AS_MAIN_CANDIDATE"
+        if acc < A5A_ORIGINAL_ACC:
+            return "ACC_MONITOR_NOT_HELPFUL"
+        return "A5A_ACCMON_USEFUL_BUT_NOT_MAIN"
     if is_a5a_run(best):
         detail_check = _detail_check_summary_for_run(run_dir)
         if detail_check and str(detail_check.get("decision")) != "PASS":
@@ -1258,6 +1302,86 @@ def _a5a_detailed_report(run_rows: List[Dict[str, Any]], hard_rows: List[Dict[st
     return lines
 
 
+def _a5a_accmon_detailed_report(run_rows: List[Dict[str, Any]], hard_rows: List[Dict[str, Any]], warnings: List[str]) -> List[str]:
+    accmon_rows = [row for row in run_rows if is_a5a_accmon_run(row)]
+    if not accmon_rows:
+        return []
+    run = max(accmon_rows, key=lambda row: as_float(row.get("test_accuracy")))
+    run_dir = Path(str(run.get("output_dir")))
+    summary = read_json(run_dir / "d16_train_summary.json")
+    test = latest(read_rows(run_dir / "test_metrics.csv"))
+    last = latest(read_rows(run_dir / "last_test_metrics.csv"))
+    per_class = read_rows(run_dir / "per_class_metrics.csv")
+    groups = read_rows(run_dir / "detected_vs_fallback_metrics.csv")
+    hard_for_run = [row for row in hard_rows if row.get("run_name") == run.get("run_name")]
+    hard_mean = hard_mean_from_rows(hard_for_run)
+    dec = decision([run], warnings)
+    acc = as_float(run.get("test_accuracy"))
+    macro = as_float(run.get("test_macro_f1"))
+    accuracy_rows = [
+        {"run": "D15 baseline", "accuracy": D15_ACC, "macro_f1": D15_MACRO, "accmon_minus_acc": acc - D15_ACC, "accmon_minus_macro": macro - D15_MACRO},
+        {"run": "best rescue: d16_v4_grid8_ce_seed42_pixel_rescue", "accuracy": BEST_RESCUE_ACC, "macro_f1": 0.623164, "accmon_minus_acc": acc - BEST_RESCUE_ACC, "accmon_minus_macro": macro - 0.623164},
+        {"run": "A4: d16r_micro_motif_support_ce_seed42", "accuracy": A4_ACC, "macro_f1": A4_MACRO, "accmon_minus_acc": acc - A4_ACC, "accmon_minus_macro": macro - A4_MACRO},
+        {"run": "A5a original best-by-val-macro", "accuracy": A5A_ORIGINAL_ACC, "macro_f1": A5A_ORIGINAL_MACRO, "accmon_minus_acc": acc - A5A_ORIGINAL_ACC, "accmon_minus_macro": macro - A5A_ORIGINAL_MACRO},
+        {"run": "A5a original last.pt", "accuracy": A5A_ORIGINAL_LAST_ACC, "macro_f1": A5A_ORIGINAL_LAST_MACRO, "accmon_minus_acc": acc - A5A_ORIGINAL_LAST_ACC, "accmon_minus_macro": macro - A5A_ORIGINAL_LAST_MACRO},
+        {"run": str(run.get("run_name")), "accuracy": acc, "macro_f1": macro, "accmon_minus_acc": 0.0, "accmon_minus_macro": 0.0},
+    ]
+    best_last_rows = [
+        {"checkpoint": "best.pt", "epoch": as_int(test.get("checkpoint_epoch") or test.get("epoch")), "accuracy": as_float(test.get("accuracy")), "macro_f1": as_float(test.get("macro_f1")), "loss": as_float(test.get("loss")), "detected_loss": as_float(test.get("detected_loss_mean")), "fallback_loss": as_float(test.get("fallback_loss_mean"))},
+        {"checkpoint": "last.pt", "epoch": as_int(last.get("checkpoint_epoch") or last.get("epoch")), "accuracy": as_float(last.get("accuracy")), "macro_f1": as_float(last.get("macro_f1")), "loss": as_float(last.get("loss")), "detected_loss": as_float(last.get("detected_loss_mean")), "fallback_loss": as_float(last.get("fallback_loss_mean"))},
+    ]
+    group_rows = [{"group": row.get("group"), "total": as_int(row.get("total")), "accuracy": as_float(row.get("accuracy")), "macro_f1": as_float(row.get("macro_f1"))} for row in groups]
+    class_rows = [
+        {"class": CLASS_NAMES.get(as_int(row.get("class_id")), str(row.get("class_id"))), "support": as_int(row.get("support")), "pred_count": as_int(row.get("pred_count")), "precision": as_float(row.get("precision")), "recall": as_float(row.get("recall")), "f1": as_float(row.get("f1"))}
+        for row in per_class
+    ]
+    monitor_rows = [
+        {"item": "configured monitor", "value": summary.get("best_monitor_metric", run.get("best_monitor_metric", ""))},
+        {"item": "best monitor score", "value": as_float(summary.get("best_monitor_score", run.get("best_monitor_score")))},
+        {"item": "best epoch", "value": as_int(summary.get("best_epoch") or test.get("checkpoint_epoch"))},
+        {"item": "predicted classes", "value": as_int(run.get("predicted_classes"))},
+        {"item": "final checkpoint", "value": summary.get("final_test_checkpoint", "best.pt")},
+    ]
+    lines = [
+        "# D16R-A5a AccMonitor Analysis",
+        "",
+        "## Verdict",
+        f"`{dec}`",
+        "",
+        "D16R-A5a-AccMonitor keeps the exact A5a model, detail node features, loss, seed, prior directory, graph mode, and schedule. The only intended experimental change is selecting `best.pt` and early stopping by `val_accuracy` instead of `val_macro_f1`.",
+        "",
+        "## Run Integrity",
+        *md_table(monitor_rows, ["item", "value"]),
+        "",
+        "## Accuracy-First Anchor Comparison",
+        *md_table(accuracy_rows, ["run", "accuracy", "macro_f1", "accmon_minus_acc", "accmon_minus_macro"]),
+        "",
+        "## Best vs Last Checkpoint",
+        *md_table(best_last_rows, ["checkpoint", "epoch", "accuracy", "macro_f1", "loss", "detected_loss", "fallback_loss"]),
+        "",
+        "## Detected vs Fallback",
+        *md_table(group_rows, ["group", "total", "accuracy", "macro_f1"]),
+        "",
+        "## Per-Class Metrics",
+        *md_table(class_rows, ["class", "support", "pred_count", "precision", "recall", "f1"]),
+        "",
+        "## Hard Classes",
+        f"Hard-class mean AccMonitor: `{fmt(hard_mean)}`; A4 hard-class mean: `{fmt(A4_HARD_MEAN)}`.",
+        *md_table(hard_for_run, ["class_name", "support", "pred_count", "precision", "recall", "f1"]),
+        "",
+        "## Decision Rules",
+        "- `KEEP_A5A_ACCMON_AS_MAIN_CANDIDATE` if accuracy >= D15 accuracy and macro-F1 >= D15 macro-F1.",
+        "- `STRONG_A5A_ACCMON_SIGNAL` if accuracy >= 0.650.",
+        "- `ACC_MONITOR_NOT_HELPFUL` if accuracy is below A5a original best.",
+        "- `REJECT_COLLAPSE` if predicted class count is below 7.",
+        "",
+        "## Decision",
+        f"`{dec}`",
+        "",
+    ]
+    return lines
+
+
 def write_report(
     output_dir: Path,
     run_rows: List[Dict[str, Any]],
@@ -1343,6 +1467,12 @@ def write_report(
             "\n".join(a5a_detailed),
             encoding="utf-8",
         )
+    accmon_detailed = _a5a_accmon_detailed_report(run_rows, hard_rows, warnings)
+    if accmon_detailed:
+        output_dir.joinpath("D16R_A5A_ACCMON_ANALYSIS.md").write_text(
+            "\n".join(accmon_detailed),
+            encoding="utf-8",
+        )
     return dec
 
 
@@ -1373,6 +1503,8 @@ def main() -> None:
             "test_accuracy",
             "test_macro_f1",
             "best_val_macro_f1",
+            "best_monitor_metric",
+            "best_monitor_score",
             "best_epoch",
             "detected_accuracy",
             "detected_macro_f1",
