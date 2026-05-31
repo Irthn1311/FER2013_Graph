@@ -20,6 +20,7 @@ class D16PixelPriorDataset(Dataset):
         graph_mode: str = "face_plus_context",
         face_threshold: float = 0.15,
         context_pixels: int = 2,
+        detail_features: Dict[str, Any] | None = None,
         max_samples: int | None = None,
     ) -> None:
         self.prior_dir = Path(prior_dir)
@@ -35,6 +36,7 @@ class D16PixelPriorDataset(Dataset):
         self.graph_mode = graph_mode
         self.face_threshold = float(face_threshold)
         self.context_pixels = int(context_pixels)
+        self.detail_features = dict(detail_features or {})
         self.part_names = self._read_json("part_names.json")
         self.micro_anchor_names = self._read_json("micro_anchor_names.json")
 
@@ -56,4 +58,5 @@ class D16PixelPriorDataset(Dataset):
             graph_mode=self.graph_mode,
             face_threshold=self.face_threshold,
             context_pixels=self.context_pixels,
+            detail_features=self.detail_features,
         )

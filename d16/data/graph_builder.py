@@ -8,6 +8,8 @@ from typing import Any, Dict, Iterable, List
 import numpy as np
 import torch
 
+from d16.data.detail_node_features import sample_detail_features
+
 
 _FULL_MASK_COORDS_EDGES: tuple[np.ndarray, np.ndarray] | None = None
 
@@ -159,7 +161,19 @@ def _edges_for_mask_uncached(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return coords.astype(np.int64), edges
 
 
-def build_pixel_graph(prior: Dict[str, np.ndarray], graph_mode: str = "face_plus_context", face_threshold: float = 0.15, context_pixels: int = 2) -> D16GraphData:
+def _detail_features_enabled(detail_features: Dict[str, Any] | None) -> bool:
+    if not detail_features:
+        return False
+    return bool(detail_features.get("enabled", False)) and bool(detail_features.get("append_to_x", True))
+
+
+def build_pixel_graph(
+    prior: Dict[str, np.ndarray],
+    graph_mode: str = "face_plus_context",
+    face_threshold: float = 0.15,
+    context_pixels: int = 2,
+    detail_features: Dict[str, Any] | None = None,
+) -> D16GraphData:
     image = np.asarray(prior["image_48"], dtype=np.float32)
     image_norm = image / 255.0 if image.max() > 1.0 else image
     face = np.asarray(prior["face_mask"], dtype=np.float32)
@@ -184,6 +198,15 @@ def build_pixel_graph(prior: Dict[str, np.ndarray], graph_mode: str = "face_plus
         np.transpose(distance_maps[:, yy, xx], (1, 0)),
         np.full((len(coords), 1), missing, dtype=np.float32),
     ]
+    if _detail_features_enabled(detail_features):
+        detail_x, _ = sample_detail_features(
+            image_norm,
+            yy,
+            xx,
+            feature_names=detail_features.get("features"),
+            normalize=str(detail_features.get("normalize", "per_image_safe")),
+        )
+        features.append(detail_x)
     x = np.concatenate(features, axis=1).astype(np.float32)
     pos = np.stack([x_norm, y_norm], axis=1).astype(np.float32)
     return D16GraphData(

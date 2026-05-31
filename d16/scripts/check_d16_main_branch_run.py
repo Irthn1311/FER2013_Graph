@@ -246,7 +246,10 @@ def micro_motif_status(run_dir: Path) -> Dict[str, Any]:
             gate = as_float(row.get("micro_gate_mean"))
             if math.isfinite(gate) and not (0.0 <= gate <= 1.0 + 1e-6):
                 failures.append(f"{name} row {idx} micro_gate_mean out of [0,1]: {gate}")
-    if summary and (branch_counts.get("major", 0) != 12 or branch_counts.get("micro", 0) != 8):
+    if summary and (
+        branch_counts.get("major", 0) != expected_major
+        or branch_counts.get("micro", 0) != expected_micro
+    ):
         message = (
             f"micro_motif_summary branch counts expected major={expected_major} "
             f"micro={expected_micro} got {branch_counts}"
@@ -336,6 +339,15 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
     per_class = read_rows(run_dir / "per_class_metrics.csv")
     groups = read_rows(run_dir / "detected_vs_fallback_metrics.csv")
     group_per_class = read_rows(run_dir / "detected_fallback_per_class_metrics.csv")
+    resolved_path = run_dir / "resolved_config.json"
+    resolved = {}
+    if resolved_path.exists():
+        try:
+            resolved = json.loads(resolved_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            warnings.append(f"could not parse resolved_config.json: {exc}")
+    run_name = str((resolved.get("run_name") if isinstance(resolved, dict) else "") or run_dir.name)
+    is_a5a = "a5a_detail_node_a4" in run_name
 
     test_accuracy = as_float(test.get("accuracy"))
     test_macro_f1 = as_float(test.get("macro_f1"))
@@ -383,6 +395,23 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
     warnings.extend(micro_motif.get("warnings", []))
     if not attention["present"] and not part_token["present"] and not part_motif["present"] and not micro_motif["present"]:
         warnings.append("readout diagnostics not found")
+    if is_a5a:
+        graph_cfg = (resolved.get("graph") or {}) if isinstance(resolved, dict) else {}
+        data_cfg = (resolved.get("data") or {}) if isinstance(resolved, dict) else {}
+        detail_cfg = graph_cfg.get("detail_features") or {}
+        model_cfg = (resolved.get("model") or {}) if isinstance(resolved, dict) else {}
+        micro_cfg = model_cfg.get("micro_motif_support") or {}
+        if not bool(detail_cfg.get("enabled", False)):
+            failures.append("A5a resolved_config graph.detail_features.enabled is not true")
+        if not bool(detail_cfg.get("append_to_x", True)):
+            failures.append("A5a resolved_config graph.detail_features.append_to_x is not true")
+        if data_cfg.get("graph_cache_dir") not in (None, "", "null"):
+            failures.append("A5a resolved_config data.graph_cache_dir must be null")
+        if str(model_cfg.get("readout_type")) != "micro_motif_support":
+            failures.append(f"A5a readout_type={model_cfg.get('readout_type')!r}, expected micro_motif_support")
+        global_micro = ((micro_cfg.get("micro_motif_counts") or {}).get("global"))
+        if as_int(global_micro) != 1:
+            failures.append(f"A5a must keep A4 global micro count=1, got {global_micro!r}")
 
     if predicted_classes < 7:
         decision = "REJECT_RUN_COLLAPSE"
@@ -401,6 +430,11 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
         "part_token_transformer": part_token,
         "part_motif_query": part_motif,
         "micro_motif_support": micro_motif,
+        "a5a_detail_node_config": {
+            "present": bool(is_a5a),
+            "detail_enabled": bool((((resolved.get("graph") or {}) if isinstance(resolved, dict) else {}).get("detail_features") or {}).get("enabled", False)),
+            "graph_cache_dir": ((resolved.get("data") or {}) if isinstance(resolved, dict) else {}).get("graph_cache_dir"),
+        },
         "failures": failures,
         "warnings": warnings,
     }
@@ -445,6 +479,10 @@ def write_report(output_dir: Path, summary: Dict[str, Any]) -> None:
     )
     output_dir.joinpath("CHECK_D16R_A4B_NO_GLOBAL_MICRO.md").write_text(
         "\n".join(lines).replace("# D16 Main Branch Run Check", "# D16R-A4b No-Global-Micro Check") + "\n",
+        encoding="utf-8",
+    )
+    output_dir.joinpath("CHECK_D16R_A5A_DETAIL_NODE_A4.md").write_text(
+        "\n".join(lines).replace("# D16 Main Branch Run Check", "# D16R-A5a Detail Node + A4 Check") + "\n",
         encoding="utf-8",
     )
 
