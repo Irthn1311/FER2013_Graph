@@ -18,6 +18,7 @@ _FULL_MASK_COORDS_EDGES: tuple[np.ndarray, np.ndarray] | None = None
 class D16GraphData:
     x: torch.Tensor
     edge_index: torch.Tensor
+    edge_attr: torch.Tensor | None
     pos: torch.Tensor
     y: torch.Tensor
     sample_index: torch.Tensor
@@ -37,6 +38,7 @@ class D16GraphData:
         return Data(
             x=self.x,
             edge_index=self.edge_index,
+            edge_attr=self.edge_attr,
             pos=self.pos,
             y=self.y,
             sample_index=self.sample_index,
@@ -54,6 +56,7 @@ class D16GraphData:
 class D16Batch:
     x_cat: torch.Tensor
     edge_index_cat: torch.Tensor
+    edge_attr_cat: torch.Tensor | None
     batch_index: torch.Tensor
     ptr: torch.Tensor
     y: torch.Tensor
@@ -71,6 +74,7 @@ class D16Batch:
         return D16Batch(
             x_cat=self.x_cat.to(device),
             edge_index_cat=self.edge_index_cat.to(device),
+            edge_attr_cat=None if self.edge_attr_cat is None else self.edge_attr_cat.to(device),
             batch_index=self.batch_index.to(device),
             ptr=self.ptr.to(device),
             y=self.y.to(device),
@@ -167,12 +171,67 @@ def _detail_features_enabled(detail_features: Dict[str, Any] | None) -> bool:
     return bool(detail_features.get("enabled", False)) and bool(detail_features.get("append_to_x", True))
 
 
+def _edge_features_enabled(edge_features: Dict[str, Any] | None) -> bool:
+    if not edge_features:
+        return False
+    return bool(edge_features.get("enabled", False)) and bool(edge_features.get("append_to_edge_attr", True))
+
+
+def _build_edge_attr(
+    x: np.ndarray,
+    pos: np.ndarray,
+    part_soft: np.ndarray,
+    edges: np.ndarray,
+    feature_names: Iterable[str] | None = None,
+) -> np.ndarray:
+    names = list(feature_names or [])
+    if not names:
+        names = [
+            "dx",
+            "dy",
+            "spatial_dist",
+            "abs_intensity_diff",
+            "abs_grad_mag_diff",
+            "abs_laplacian_diff",
+            "part_similarity",
+            "same_dominant_part",
+        ]
+    src = edges[0].astype(np.int64)
+    dst = edges[1].astype(np.int64)
+    dx = pos[dst, 0] - pos[src, 0]
+    dy = pos[dst, 1] - pos[src, 1]
+    spatial = np.sqrt(dx * dx + dy * dy)
+    parts_src = part_soft[src]
+    parts_dst = part_soft[dst]
+    part_dot = np.sum(parts_src * parts_dst, axis=1)
+    part_norm = np.linalg.norm(parts_src, axis=1) * np.linalg.norm(parts_dst, axis=1)
+    part_similarity = part_dot / np.maximum(part_norm, 1e-6)
+    same_part = (np.argmax(parts_src, axis=1) == np.argmax(parts_dst, axis=1)).astype(np.float32)
+    feature_map = {
+        "dx": dx,
+        "dy": dy,
+        "spatial_dist": spatial,
+        "abs_intensity_diff": np.abs(x[src, 0] - x[dst, 0]),
+        "abs_grad_mag_diff": np.abs(x[src, 32] - x[dst, 32]) if x.shape[1] > 32 else np.zeros_like(dx),
+        "abs_laplacian_diff": np.abs(x[src, 35] - x[dst, 35]) if x.shape[1] > 35 else np.zeros_like(dx),
+        "part_similarity": np.clip(part_similarity, 0.0, 1.0),
+        "same_dominant_part": same_part,
+    }
+    missing = [name for name in names if name not in feature_map]
+    if missing:
+        raise ValueError(f"Unsupported D16 edge feature names: {missing}")
+    edge_attr = np.stack([feature_map[name] for name in names], axis=1).astype(np.float32)
+    edge_attr = np.nan_to_num(edge_attr, nan=0.0, posinf=1.0, neginf=-1.0)
+    return edge_attr
+
+
 def build_pixel_graph(
     prior: Dict[str, np.ndarray],
     graph_mode: str = "face_plus_context",
     face_threshold: float = 0.15,
     context_pixels: int = 2,
     detail_features: Dict[str, Any] | None = None,
+    edge_features: Dict[str, Any] | None = None,
 ) -> D16GraphData:
     image = np.asarray(prior["image_48"], dtype=np.float32)
     image_norm = image / 255.0 if image.max() > 1.0 else image
@@ -209,13 +268,24 @@ def build_pixel_graph(
         features.append(detail_x)
     x = np.concatenate(features, axis=1).astype(np.float32)
     pos = np.stack([x_norm, y_norm], axis=1).astype(np.float32)
+    part_soft_sampled = np.transpose(part_masks[:, yy, xx], (1, 0)).astype(np.float32)
+    edge_attr = None
+    if _edge_features_enabled(edge_features):
+        edge_attr = _build_edge_attr(
+            x=x,
+            pos=pos,
+            part_soft=part_soft_sampled,
+            edges=edges,
+            feature_names=edge_features.get("features"),
+        )
     return D16GraphData(
         x=torch.from_numpy(x),
         edge_index=torch.from_numpy(edges).long(),
+        edge_attr=None if edge_attr is None else torch.from_numpy(edge_attr),
         pos=torch.from_numpy(pos),
         y=torch.tensor(int(np.asarray(prior["label"]).item()), dtype=torch.long),
         sample_index=torch.tensor(int(np.asarray(prior["sample_index"]).item()), dtype=torch.long),
-        part_soft=torch.from_numpy(np.transpose(part_masks[:, yy, xx], (1, 0)).astype(np.float32)),
+        part_soft=torch.from_numpy(part_soft_sampled),
         face_mask=torch.from_numpy(face[yy, xx].astype(np.float32)),
         valid_part_mask=torch.from_numpy(np.asarray(prior["valid_part_mask"], dtype=np.float32)),
         valid_anchor_mask=torch.from_numpy(np.asarray(prior["valid_anchor_mask"], dtype=np.float32)),
@@ -231,6 +301,7 @@ def collate_d16_graphs(graphs: Iterable[D16GraphData]) -> D16Batch:
         raise ValueError("Cannot collate empty D16 graph batch")
     xs: List[torch.Tensor] = []
     edges: List[torch.Tensor] = []
+    edge_attrs: List[torch.Tensor] = []
     batch_index: List[torch.Tensor] = []
     ptr = [0]
     pos: List[torch.Tensor] = []
@@ -243,6 +314,8 @@ def collate_d16_graphs(graphs: Iterable[D16GraphData]) -> D16Batch:
         n = int(graph.x.size(0))
         xs.append(graph.x)
         edges.append(graph.edge_index + offset)
+        if graph.edge_attr is not None:
+            edge_attrs.append(graph.edge_attr)
         batch_index.append(torch.full((n,), batch_id, dtype=torch.long))
         pos.append(graph.pos)
         part_soft.append(graph.part_soft)
@@ -259,6 +332,7 @@ def collate_d16_graphs(graphs: Iterable[D16GraphData]) -> D16Batch:
     return D16Batch(
         x_cat=torch.cat(xs, dim=0),
         edge_index_cat=torch.cat(edges, dim=1),
+        edge_attr_cat=torch.cat(edge_attrs, dim=0) if len(edge_attrs) == len(graphs) else None,
         batch_index=torch.cat(batch_index, dim=0),
         ptr=torch.tensor(ptr, dtype=torch.long),
         y=torch.stack(ys).long(),

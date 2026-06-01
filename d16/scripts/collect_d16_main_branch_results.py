@@ -45,6 +45,11 @@ A5A_ORIGINAL_LAST_ACC = 0.645026
 A5A_ORIGINAL_LAST_MACRO = 0.631904
 A5A_ORIGINAL_LAST_DETECTED_ACC = 0.659866
 A5A_ORIGINAL_LAST_DETECTED_MACRO = 0.647007
+A5A_ACCMON_ACC = 0.638061
+A5A_ACCMON_MACRO = 0.619980
+A5A_ACCMON_DETECTED_ACC = 0.653745
+A5A_ACCMON_DETECTED_MACRO = 0.636329
+A5A_ACCMON_HARD_MEAN = 0.536640
 
 ANCHORS = [
     {
@@ -134,6 +139,15 @@ ANCHORS = [
         "test_macro_f1": A5A_ORIGINAL_LAST_MACRO,
         "detected_accuracy": A5A_ORIGINAL_LAST_DETECTED_ACC,
         "detected_macro_f1": A5A_ORIGINAL_LAST_DETECTED_MACRO,
+        "predicted_classes": 7,
+        "source": "anchor",
+    },
+    {
+        "run_name": "A5a-AccMonitor",
+        "test_accuracy": A5A_ACCMON_ACC,
+        "test_macro_f1": A5A_ACCMON_MACRO,
+        "detected_accuracy": A5A_ACCMON_DETECTED_ACC,
+        "detected_macro_f1": A5A_ACCMON_DETECTED_MACRO,
         "predicted_classes": 7,
         "source": "anchor",
     },
@@ -232,11 +246,33 @@ def is_a5a_accmon_run(row: Dict[str, Any]) -> bool:
     return "a5a_detail_node_a4" in name and "accmon" in name
 
 
+def is_a5b_run(row: Dict[str, Any]) -> bool:
+    name = str(row.get("run_name", ""))
+    return "a5b_edge_context_gnn_a4" in name
+
+
 def _detail_check_summary_for_run(run_dir: Path) -> Dict[str, Any]:
     candidates = [
         run_dir / "detail_node_feature_check_summary.json",
         run_dir.parent.parent.parent / "d16_analysis" / "main_branch" / "d16r_a5a_detail_node_feature_check" / "detail_node_feature_check_summary.json",
         Path("outputs/d16_analysis/main_branch/d16r_a5a_detail_node_feature_check/detail_node_feature_check_summary.json"),
+    ]
+    for path in candidates:
+        payload = read_json(path)
+        if payload:
+            payload["_path"] = str(path)
+            return payload
+    return {}
+
+
+def _edge_context_check_summary_for_run(run_dir: Path) -> Dict[str, Any]:
+    run_name = run_dir.name
+    candidates = [
+        run_dir / "edge_context_gnn_check_summary.json",
+        run_dir.parent / "d16r_a5b_edge_context_gnn_check" / "edge_context_gnn_check_summary.json",
+        run_dir.parent / f"{run_name}_edge_context_gnn_check" / "edge_context_gnn_check_summary.json",
+        run_dir.parent.parent.parent / "d16_analysis" / "main_branch" / "d16r_a5b_edge_context_gnn_check" / "edge_context_gnn_check_summary.json",
+        Path("outputs/d16_analysis/main_branch/d16r_a5b_edge_context_gnn_check/edge_context_gnn_check_summary.json"),
     ]
     for path in candidates:
         payload = read_json(path)
@@ -362,6 +398,25 @@ def decision(run_rows: List[Dict[str, Any]], warnings: List[str]) -> str:
     if warnings and best.get("missing_files"):
         return "RUN_FAILED_NEEDS_DEBUG"
     run_dir = Path(str(best.get("output_dir", "")))
+    if is_a5b_run(best):
+        edge_check = _edge_context_check_summary_for_run(run_dir)
+        if edge_check and str(edge_check.get("decision")) != "PASS":
+            return "REJECT_BAD_EDGE_CONTEXT_IMPLEMENTATION"
+        per_class = read_rows(run_dir / "per_class_metrics.csv")
+        hard_mean = hard_mean_from_rows(per_class)
+        if predicted_classes < 7:
+            return "REJECT_COLLAPSE"
+        if acc >= 0.650:
+            return "STRONG_A5B_SIGNAL"
+        if acc > D15_ACC:
+            return "BEATS_D15_KEEP_A5B_AND_REPEAT"
+        if acc > A5A_ACCMON_ACC:
+            return "A5B_IMPROVES_A5A_EDGE_CONTEXT_USEFUL"
+        if math.isfinite(hard_mean) and hard_mean >= A5A_ACCMON_HARD_MEAN and acc <= A5A_ACCMON_ACC:
+            return "HARD_GAIN_NOT_ACCURACY_ROUTE"
+        if acc > A4_ACC:
+            return "A5B_USEFUL_BUT_NOT_BEST"
+        return "A5B_NOT_ENOUGH_RETHINK_GNN_OR_KEEP_A4_A5A"
     if is_a5a_accmon_run(best):
         if predicted_classes < 7:
             return "REJECT_COLLAPSE"
@@ -1382,6 +1437,139 @@ def _a5a_accmon_detailed_report(run_rows: List[Dict[str, Any]], hard_rows: List[
     return lines
 
 
+def _a5b_detailed_report(run_rows: List[Dict[str, Any]], hard_rows: List[Dict[str, Any]], warnings: List[str]) -> List[str]:
+    a5b_rows = [row for row in run_rows if is_a5b_run(row)]
+    if not a5b_rows:
+        return []
+    run = max(a5b_rows, key=lambda row: as_float(row.get("test_accuracy")))
+    run_dir = Path(str(run.get("output_dir")))
+    summary = read_json(run_dir / "d16_train_summary.json")
+    test = latest(read_rows(run_dir / "test_metrics.csv"))
+    last = latest(read_rows(run_dir / "last_test_metrics.csv"))
+    per_class = read_rows(run_dir / "per_class_metrics.csv")
+    groups = read_rows(run_dir / "detected_vs_fallback_metrics.csv")
+    pred_count = read_rows(run_dir / "pred_count.csv")
+    confusions = read_rows(run_dir / "confusion_matrix.csv")
+    micro_rows = _micro_motif_rows(run_dir)
+    edge_check = _edge_context_check_summary_for_run(run_dir)
+    hard_for_run = [row for row in hard_rows if row.get("run_name") == run.get("run_name")]
+    hard_mean = hard_mean_from_rows(hard_for_run)
+    dec = decision([run], warnings)
+    acc = as_float(run.get("test_accuracy"))
+    macro = as_float(run.get("test_macro_f1"))
+    accuracy_rows = [
+        {"run": "D15 baseline", "accuracy": D15_ACC, "macro_f1": D15_MACRO, "A5b_minus_acc": acc - D15_ACC, "A5b_minus_macro": macro - D15_MACRO},
+        {"run": "best rescue", "accuracy": BEST_RESCUE_ACC, "macro_f1": 0.623164, "A5b_minus_acc": acc - BEST_RESCUE_ACC, "A5b_minus_macro": macro - 0.623164},
+        {"run": "A4 micro-motif support", "accuracy": A4_ACC, "macro_f1": A4_MACRO, "A5b_minus_acc": acc - A4_ACC, "A5b_minus_macro": macro - A4_MACRO},
+        {"run": "A5a detail node", "accuracy": A5A_ORIGINAL_ACC, "macro_f1": A5A_ORIGINAL_MACRO, "A5b_minus_acc": acc - A5A_ORIGINAL_ACC, "A5b_minus_macro": macro - A5A_ORIGINAL_MACRO},
+        {"run": "A5a-AccMonitor", "accuracy": A5A_ACCMON_ACC, "macro_f1": A5A_ACCMON_MACRO, "A5b_minus_acc": acc - A5A_ACCMON_ACC, "A5b_minus_macro": macro - A5A_ACCMON_MACRO},
+        {"run": str(run.get("run_name")), "accuracy": acc, "macro_f1": macro, "A5b_minus_acc": 0.0, "A5b_minus_macro": 0.0},
+    ]
+    best_last_rows = [
+        {"checkpoint": "best.pt", "epoch": as_int(test.get("checkpoint_epoch") or test.get("epoch")), "accuracy": as_float(test.get("accuracy")), "macro_f1": as_float(test.get("macro_f1")), "loss": as_float(test.get("loss"))},
+        {"checkpoint": "last.pt", "epoch": as_int(last.get("checkpoint_epoch") or last.get("epoch")), "accuracy": as_float(last.get("accuracy")), "macro_f1": as_float(last.get("macro_f1")), "loss": as_float(last.get("loss"))},
+    ]
+    group_rows = [{"group": row.get("group"), "total": as_int(row.get("total")), "accuracy": as_float(row.get("accuracy")), "macro_f1": as_float(row.get("macro_f1"))} for row in groups]
+    class_rows = [
+        {"class": CLASS_NAMES.get(as_int(row.get("class_id")), str(row.get("class_id"))), "support": as_int(row.get("support")), "pred_count": as_int(row.get("pred_count")), "precision": as_float(row.get("precision")), "recall": as_float(row.get("recall")), "f1": as_float(row.get("f1"))}
+        for row in per_class
+    ]
+    top_confusions = [
+        {
+            "true": CLASS_NAMES.get(as_int(row.get("true_class")), str(row.get("true_class"))),
+            "predicted": CLASS_NAMES.get(as_int(row.get("pred_class")), str(row.get("pred_class"))),
+            "count": as_int(row.get("count")),
+            "support": as_int(row.get("support")),
+            "row_ratio": as_float(row.get("row_ratio")),
+        }
+        for row in sorted(
+            [r for r in confusions if as_int(r.get("true_class")) != as_int(r.get("pred_class"))],
+            key=lambda r: as_int(r.get("count")),
+            reverse=True,
+        )[:10]
+    ]
+    pred_rows = [
+        {"class": CLASS_NAMES.get(as_int(row.get("class_id")), str(row.get("class_id"))), "pred_count": as_int(row.get("pred_count"))}
+        for row in pred_count
+    ]
+    edge_rows = [
+        {"item": "edge checker decision", "value": edge_check.get("decision", "missing")},
+        {"item": "expected x dim", "value": edge_check.get("expected_x_dim", "")},
+        {"item": "expected edge attr dim", "value": edge_check.get("expected_edge_attr_dim", "")},
+        {"item": "model forward ok", "value": edge_check.get("model_forward_ok", "")},
+        {"item": "model backward ok", "value": edge_check.get("model_backward_ok", "")},
+    ]
+    edge_diag = edge_check.get("edge_context_gnn_diagnostics") or {}
+    edge_diag_rows = [{"metric": key, "value": value} for key, value in edge_diag.items()]
+    micro_gate_rows = [
+        {
+            "branch": row.get("branch"),
+            "effective_motif_count": as_float(row.get("effective_motif_count_mean")),
+            "avg_offdiag_similarity": as_float(row.get("avg_offdiag_similarity_mean")),
+            "micro_gate_mean": as_float(row.get("micro_gate_mean")),
+            "detail_available_ratio": as_float(row.get("detail_available_ratio")),
+        }
+        for row in micro_rows
+        if row.get("motif_index") in ("0", 0)
+    ]
+    lines = [
+        "# D16R-A5b Edge-Context GNN + A4 Analysis",
+        "",
+        "## Verdict",
+        f"`{dec}`",
+        "",
+        "D16R-A5b keeps A5a detail node features and the A4 micro-motif support readout. The only intended representation change is the edge-aware relation GNN with part/global context injection.",
+        "",
+        "## Run Integrity",
+        *md_table([
+            {"item": "configured monitor", "value": summary.get("best_monitor_metric", run.get("best_monitor_metric", ""))},
+            {"item": "best monitor score", "value": as_float(summary.get("best_monitor_score", run.get("best_monitor_score")))},
+            {"item": "best epoch", "value": as_int(summary.get("best_epoch") or test.get("checkpoint_epoch"))},
+            {"item": "predicted classes", "value": as_int(run.get("predicted_classes"))},
+            {"item": "final checkpoint", "value": summary.get("final_test_checkpoint", "best.pt")},
+        ], ["item", "value"]),
+        "",
+        "## Edge Feature Check",
+        *md_table(edge_rows, ["item", "value"]),
+        "",
+        "## Edge-Context GNN Diagnostics",
+        *md_table(edge_diag_rows, ["metric", "value"]),
+        "",
+        "## Accuracy-First Anchor Comparison",
+        *md_table(accuracy_rows, ["run", "accuracy", "macro_f1", "A5b_minus_acc", "A5b_minus_macro"]),
+        "",
+        "## Best vs Last Checkpoint",
+        *md_table(best_last_rows, ["checkpoint", "epoch", "accuracy", "macro_f1", "loss"]),
+        "",
+        "## Detected vs Fallback",
+        *md_table(group_rows, ["group", "total", "accuracy", "macro_f1"]),
+        "",
+        "## Per-Class Metrics",
+        *md_table(class_rows, ["class", "support", "pred_count", "precision", "recall", "f1"]),
+        "",
+        "## Hard-Class Comparison",
+        f"Hard-class mean A5b: `{fmt(hard_mean)}`; A5a-AccMonitor hard-class mean: `{fmt(A5A_ACCMON_HARD_MEAN)}`; A4 hard-class mean: `{fmt(A4_HARD_MEAN)}`.",
+        *md_table(hard_for_run, ["class_name", "support", "pred_count", "precision", "recall", "f1"]),
+        "",
+        "## Top Confusions",
+        *md_table(top_confusions, ["true", "predicted", "count", "support", "row_ratio"]),
+        "",
+        "## Prediction Distribution",
+        *md_table(pred_rows, ["class", "pred_count"]),
+        "",
+        "## A5a vs A5b Targeted Comparison",
+        f"A5b minus A5a-AccMonitor accuracy: `{fmt(acc - A5A_ACCMON_ACC)}`; macro-F1: `{fmt(macro - A5A_ACCMON_MACRO)}`.",
+        "",
+        "## Motif/Micro Diagnostics",
+        *md_table(micro_gate_rows, ["branch", "effective_motif_count", "avg_offdiag_similarity", "micro_gate_mean", "detail_available_ratio"]),
+        "",
+        "## Decision",
+        f"`{dec}`",
+        "",
+    ]
+    return lines
+
+
 def write_report(
     output_dir: Path,
     run_rows: List[Dict[str, Any]],
@@ -1471,6 +1659,12 @@ def write_report(
     if accmon_detailed:
         output_dir.joinpath("D16R_A5A_ACCMON_ANALYSIS.md").write_text(
             "\n".join(accmon_detailed),
+            encoding="utf-8",
+        )
+    a5b_detailed = _a5b_detailed_report(run_rows, hard_rows, warnings)
+    if a5b_detailed:
+        output_dir.joinpath("D16R_A5B_EDGE_CONTEXT_GNN_A4_ANALYSIS.md").write_text(
+            "\n".join(a5b_detailed),
             encoding="utf-8",
         )
     return dec

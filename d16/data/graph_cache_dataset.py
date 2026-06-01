@@ -30,6 +30,7 @@ def graph_to_cache_dict(graph: D16GraphData) -> Dict[str, torch.Tensor]:
     return {
         "x": graph.x,
         "edge_index": graph.edge_index,
+        "edge_attr": graph.edge_attr,
         "pos": graph.pos,
         "y": graph.y,
         "sample_index": graph.sample_index,
@@ -47,6 +48,7 @@ def graph_from_cache_dict(row: Dict[str, torch.Tensor]) -> D16GraphData:
     return D16GraphData(
         x=row["x"],
         edge_index=row["edge_index"],
+        edge_attr=row.get("edge_attr"),
         pos=row["pos"],
         y=row["y"],
         sample_index=row["sample_index"],
@@ -65,6 +67,7 @@ def compare_graphs(a: D16GraphData, b: D16GraphData) -> List[str]:
     for name in (
         "x",
         "edge_index",
+        "edge_attr",
         "pos",
         "y",
         "sample_index",
@@ -80,6 +83,10 @@ def compare_graphs(a: D16GraphData, b: D16GraphData) -> List[str]:
             continue
         left = getattr(a, name)
         right = getattr(b, name)
+        if left is None or right is None:
+            if left is not right:
+                failures.append(f"{name}: one side is None")
+            continue
         if left.shape != right.shape:
             failures.append(f"{name}: shape {tuple(left.shape)} != {tuple(right.shape)}")
             continue

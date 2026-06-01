@@ -349,6 +349,7 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
     run_name = str((resolved.get("run_name") if isinstance(resolved, dict) else "") or run_dir.name)
     is_a5a = "a5a_detail_node_a4" in run_name
     is_accmon = is_a5a and "accmon" in run_name
+    is_a5b = "a5b_edge_context_gnn_a4" in run_name
 
     test_accuracy = as_float(test.get("accuracy"))
     test_macro_f1 = as_float(test.get("macro_f1"))
@@ -396,10 +397,11 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
     warnings.extend(micro_motif.get("warnings", []))
     if not attention["present"] and not part_token["present"] and not part_motif["present"] and not micro_motif["present"]:
         warnings.append("readout diagnostics not found")
-    if is_a5a:
+    if is_a5a or is_a5b:
         graph_cfg = (resolved.get("graph") or {}) if isinstance(resolved, dict) else {}
         data_cfg = (resolved.get("data") or {}) if isinstance(resolved, dict) else {}
         detail_cfg = graph_cfg.get("detail_features") or {}
+        edge_cfg = graph_cfg.get("edge_features") or {}
         model_cfg = (resolved.get("model") or {}) if isinstance(resolved, dict) else {}
         micro_cfg = model_cfg.get("micro_motif_support") or {}
         if not bool(detail_cfg.get("enabled", False)):
@@ -413,15 +415,30 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
         global_micro = ((micro_cfg.get("micro_motif_counts") or {}).get("global"))
         if as_int(global_micro) != 1:
             failures.append(f"A5a must keep A4 global micro count=1, got {global_micro!r}")
+        if is_a5b:
+            if str(model_cfg.get("gnn_type")) != "edge_context_gnn":
+                failures.append(f"A5b gnn_type={model_cfg.get('gnn_type')!r}, expected edge_context_gnn")
+            if not bool(edge_cfg.get("enabled", False)):
+                failures.append("A5b resolved_config graph.edge_features.enabled is not true")
+            if not bool(edge_cfg.get("append_to_edge_attr", True)):
+                failures.append("A5b resolved_config graph.edge_features.append_to_edge_attr is not true")
+            edge_gnn_cfg = model_cfg.get("edge_context_gnn") or {}
+            if as_int(edge_gnn_cfg.get("num_layers")) != 3:
+                failures.append(f"A5b edge_context_gnn.num_layers={edge_gnn_cfg.get('num_layers')!r}, expected 3")
+            context_cfg = edge_gnn_cfg.get("context_injection") or {}
+            if not bool(context_cfg.get("enabled", False)):
+                failures.append("A5b context_injection.enabled must be true")
+            if str(context_cfg.get("when")) != "final":
+                failures.append("A5b context_injection.when must be final")
         training_cfg = (resolved.get("training") or {}) if isinstance(resolved, dict) else {}
         early_cfg = training_cfg.get("early_stopping") or {}
-        if is_accmon:
+        if is_accmon or is_a5b:
             if str(training_cfg.get("checkpoint_monitor")) != "val_accuracy":
-                failures.append("A5a-AccMonitor training.checkpoint_monitor must be val_accuracy")
+                failures.append("A5 accuracy-monitor training.checkpoint_monitor must be val_accuracy")
             if str(training_cfg.get("checkpoint_monitor_mode")) != "max":
-                failures.append("A5a-AccMonitor training.checkpoint_monitor_mode must be max")
+                failures.append("A5 accuracy-monitor training.checkpoint_monitor_mode must be max")
             if str(early_cfg.get("metric")) != "val_accuracy":
-                failures.append("A5a-AccMonitor early_stopping.metric must be val_accuracy")
+                failures.append("A5 accuracy-monitor early_stopping.metric must be val_accuracy")
 
     if predicted_classes < 7:
         decision = "REJECT_RUN_COLLAPSE"
@@ -441,9 +458,14 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
         "part_motif_query": part_motif,
         "micro_motif_support": micro_motif,
         "a5a_detail_node_config": {
-            "present": bool(is_a5a),
+            "present": bool(is_a5a or is_a5b),
             "detail_enabled": bool((((resolved.get("graph") or {}) if isinstance(resolved, dict) else {}).get("detail_features") or {}).get("enabled", False)),
             "graph_cache_dir": ((resolved.get("data") or {}) if isinstance(resolved, dict) else {}).get("graph_cache_dir"),
+        },
+        "a5b_edge_context_gnn_config": {
+            "present": bool(is_a5b),
+            "edge_features_enabled": bool((((resolved.get("graph") or {}) if isinstance(resolved, dict) else {}).get("edge_features") or {}).get("enabled", False)),
+            "gnn_type": ((resolved.get("model") or {}) if isinstance(resolved, dict) else {}).get("gnn_type"),
         },
         "failures": failures,
         "warnings": warnings,

@@ -8,6 +8,7 @@ import torch
 
 from d16.data.mediapipe_priors import PART_NAMES
 from d16.models.classifier import D16Classifier
+from d16.models.edge_context_gnn import EdgeContextGNNEncoder
 from d16.models.evidence_heads import PartPooling
 from d16.models.fallback_patch_encoder import GridPatchEncoder, PatchTransformerEncoder
 from d16.models.micro_motif_support_readout import MicroMotifSupportReadout
@@ -35,19 +36,27 @@ class D16Model(torch.nn.Module):
         fallback_transformer_layers: int = 2,
         fallback_transformer_heads: int = 4,
         readout_type: str = "concat",
+        gnn_type: str = "part_aware",
         part_attention: Dict[str, Any] | None = None,
         part_motif_query: Dict[str, Any] | None = None,
         part_token_transformer: Dict[str, Any] | None = None,
         micro_motif_support: Dict[str, Any] | None = None,
+        edge_context_gnn: Dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.part_names = list(part_names or PART_NAMES)
         self.dual_head = bool(dual_head)
         self.architecture = str(architecture)
         self.readout_type = str(readout_type or "concat")
+        self.gnn_type = str(gnn_type or "part_aware")
         self.use_routed_fallback_patch = self.architecture == "routed_fallback_patch"
         self.encoder = PixelEncoder(input_dim=input_dim, hidden_dim=hidden_dim, dropout=dropout)
-        self.gnn = PartAwareGNN(hidden_dim=hidden_dim, layers=gnn_layers, dropout=dropout)
+        if self.gnn_type == "edge_context_gnn":
+            self.gnn = EdgeContextGNNEncoder.from_config(hidden_dim=hidden_dim, cfg=edge_context_gnn or {})
+        elif self.gnn_type in {"part_aware", "part_aware_gnn", ""}:
+            self.gnn = PartAwareGNN(hidden_dim=hidden_dim, layers=gnn_layers, dropout=dropout)
+        else:
+            raise ValueError(f"Unsupported D16 gnn_type={self.gnn_type!r}")
         self.pooling = PartPooling(self.part_names)
         classifier_dim = hidden_dim * 5
         classifier_hidden = hidden_dim * 2
@@ -202,10 +211,12 @@ class D16Model(torch.nn.Module):
                 fallback_cfg.get("transformer_heads", model_cfg.get("fallback_transformer_heads", 4))
             ),
             readout_type=str(model_cfg.get("readout_type", "concat")),
+            gnn_type=str(model_cfg.get("gnn_type", "part_aware")),
             part_attention=model_cfg.get("part_attention", {}) or {},
             part_motif_query=model_cfg.get("part_motif_query", {}) or {},
             part_token_transformer=model_cfg.get("part_token_transformer", {}) or {},
             micro_motif_support=model_cfg.get("micro_motif_support", {}) or {},
+            edge_context_gnn=model_cfg.get("edge_context_gnn", {}) or {},
         )
 
     def _concat_part_tokens(self, pooled: Dict[str, torch.Tensor]) -> torch.Tensor:
@@ -216,7 +227,17 @@ class D16Model(torch.nn.Module):
 
     def forward(self, batch) -> Dict[str, Any]:
         h = self.encoder(batch.x_cat)
-        h = self.gnn(h, batch.edge_index_cat)
+        if self.gnn_type == "edge_context_gnn":
+            h = self.gnn(
+                h,
+                batch.edge_index_cat,
+                batch.edge_attr_cat,
+                batch.batch_index,
+                batch.part_soft_cat,
+                batch.num_graphs,
+            )
+        else:
+            h = self.gnn(h, batch.edge_index_cat)
         pooled, valid = self.pooling(
             h,
             batch.part_soft_cat,
@@ -257,6 +278,8 @@ class D16Model(torch.nn.Module):
             "part_embeddings": pooled,
             "valid_part_groups": valid,
         }
+        if self.gnn_type == "edge_context_gnn":
+            result["edge_context_gnn_diagnostics"] = dict(getattr(self.gnn, "diagnostics", {}) or {})
         if self.readout_type == "part_attention":
             result.update(
                 {
