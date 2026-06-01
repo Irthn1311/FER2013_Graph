@@ -230,7 +230,7 @@ def main() -> None:
     parser.add_argument("--num_warmup_batches", type=int, default=5)
     parser.add_argument("--num_profile_batches", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=None)
-    parser.add_argument("--num_workers", type=int, default=0)
+    parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--amp", choices=["auto", "on", "off"], default="auto")
     args = parser.parse_args()
     profile(

@@ -25,14 +25,16 @@ python d16/scripts/profile_d16_a5b_heavy_step.py \
   --prior_dir "$PRIOR_DIR" \
   --output_dir "$PROFILE_OUT" \
   --num_warmup_batches 5 \
-  --num_profile_batches 20
+  --num_profile_batches 20 \
+  --num_workers 2
 
 python d16/scripts/benchmark_d16_a5b_heavy_optimized.py \
   --config "$CONFIG" \
   --prior_dir "$PRIOR_DIR" \
   --output_dir "$BENCH_OUT" \
   --num_warmup_batches 5 \
-  --num_benchmark_batches 30
+  --num_benchmark_batches 30 \
+  --num_workers 2
 
 echo "[A5b-heavy-opt] Benchmark complete. Do not full train unless decision permits it:"
 cat "$BENCH_OUT/A5B_HEAVY_OPTIMIZED_BENCHMARK.md"
