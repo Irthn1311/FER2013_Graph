@@ -248,7 +248,7 @@ def is_a5a_accmon_run(row: Dict[str, Any]) -> bool:
 
 def is_a5b_run(row: Dict[str, Any]) -> bool:
     name = str(row.get("run_name", ""))
-    return "a5b_edge_context_gnn_a4" in name
+    return "a5b_edge_context_gnn_a4" in name or "a5b_heavy_opt_a4" in name
 
 
 def _detail_check_summary_for_run(run_dir: Path) -> Dict[str, Any]:

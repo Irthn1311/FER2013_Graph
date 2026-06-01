@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import copy
 import json
 import math
+import os
 import random
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
@@ -90,6 +93,17 @@ def _append_jsonl(path: Path, row: Dict[str, Any]) -> None:
         f.write(json.dumps(row, default=str) + "\n")
 
 
+def _str_bool(value: str | bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    raise argparse.ArgumentTypeError(f"Expected boolean value, got {value!r}")
+
+
 def _write_csv_rows(path: Path, rows: Iterable[Dict[str, Any]], fieldnames: List[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as f:
@@ -97,6 +111,84 @@ def _write_csv_rows(path: Path, rows: Iterable[Dict[str, Any]], fieldnames: List
         writer.writeheader()
         for row in rows:
             writer.writerow({key: row.get(key) for key in fieldnames})
+
+
+def _atomic_torch_save(payload: Dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(path.name + ".tmp")
+    with tmp_path.open("wb") as f:
+        torch.save(payload, f)
+        f.flush()
+        try:
+            os.fsync(f.fileno())
+        except OSError:
+            pass
+    last_exc: OSError | None = None
+    for attempt in range(10):
+        try:
+            os.replace(tmp_path, path)
+            return
+        except OSError as exc:
+            last_exc = exc
+            time.sleep(0.1 * (attempt + 1))
+    raise last_exc or OSError(f"Failed to atomically replace checkpoint: {path}")
+
+
+def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Dict[str, Any]:
+    graph = config.get("graph", {}) or {}
+    model = config.get("model", {}) or {}
+    loss = config.get("loss", {}) or {}
+    detail = graph.get("detail_features", {}) or {}
+    edge = graph.get("edge_features", {}) or {}
+    edge_gnn = model.get("edge_context_gnn", {}) or {}
+    return {
+        "run_name": config.get("run_name"),
+        "seed": config.get("seed", (config.get("training", {}) or {}).get("seed")),
+        "input_dim": None if input_dim is None else int(input_dim),
+        "architecture": model.get("architecture", "single_path"),
+        "readout_type": model.get("readout_type"),
+        "gnn_type": model.get("gnn_type", "part_aware"),
+        "hidden_dim": model.get("hidden_dim", 96),
+        "gnn_layers": model.get("gnn_layers", 3),
+        "num_classes": model.get("num_classes", 7),
+        "dual_head": bool(model.get("dual_head", False)),
+        "edge_attr_dim": edge_gnn.get("edge_attr_dim") if model.get("gnn_type") == "edge_context_gnn" else None,
+        "graph_mode": graph.get("graph_mode", (config.get("data", {}) or {}).get("graph_mode")),
+        "detail_features_enabled": bool(detail.get("enabled", False)),
+        "detail_features": list(detail.get("features") or []),
+        "edge_features_enabled": bool(edge.get("enabled", False)),
+        "edge_features": list(edge.get("features") or []),
+        "loss_mode": loss.get("mode", "ce"),
+        "optimizer_type": "AdamW",
+        "scheduler_type": "none",
+    }
+
+
+def _check_resume_compatibility(
+    checkpoint: Dict[str, Any],
+    current_config: Dict[str, Any],
+    current_input_dim: int | None,
+    strict: bool,
+) -> Dict[str, Any]:
+    checkpoint_sig = checkpoint.get("model_signature") or _model_signature(checkpoint.get("config", {}) or {}, checkpoint.get("input_dim"))
+    current_sig = _model_signature(current_config, current_input_dim)
+    allowed_diff = {"run_name"}
+    mismatches: Dict[str, Dict[str, Any]] = {}
+    for key, current_value in current_sig.items():
+        if key in allowed_diff:
+            continue
+        checkpoint_value = checkpoint_sig.get(key)
+        if checkpoint_value != current_value:
+            mismatches[key] = {"checkpoint": checkpoint_value, "current": current_value}
+    result = {
+        "compatible": not mismatches,
+        "mismatches": mismatches,
+        "checkpoint_signature": checkpoint_sig,
+        "current_signature": current_sig,
+    }
+    if mismatches and strict:
+        raise ValueError("D16 resume config compatibility check failed: " + json.dumps(mismatches, indent=2, default=str))
+    return result
 
 
 def resolve_device(requested: str) -> torch.device:
@@ -408,9 +500,17 @@ def _restore_rng_state(state: Dict[str, Any]) -> bool:
         if "numpy" in state:
             np.random.set_state(state["numpy"])
         if "torch_cpu" in state:
-            torch.set_rng_state(state["torch_cpu"])
+            torch_cpu_state = state["torch_cpu"]
+            if not torch.is_tensor(torch_cpu_state):
+                torch_cpu_state = torch.tensor(torch_cpu_state, dtype=torch.uint8)
+            torch.set_rng_state(torch_cpu_state.detach().cpu().to(dtype=torch.uint8))
         if torch.cuda.is_available() and state.get("torch_cuda"):
-            torch.cuda.set_rng_state_all(state["torch_cuda"])
+            cuda_states = []
+            for cuda_state in state["torch_cuda"]:
+                if not torch.is_tensor(cuda_state):
+                    cuda_state = torch.tensor(cuda_state, dtype=torch.uint8)
+                cuda_states.append(cuda_state.detach().cpu().to(dtype=torch.uint8))
+            torch.cuda.set_rng_state_all(cuda_states)
     except Exception as exc:
         print(f"[D16 resume] RNG restore failed: {exc}", flush=True)
         return False
@@ -591,6 +691,8 @@ def save_checkpoint(
     epoch: int,
     best_val_macro_f1: float,
     config: Dict[str, Any],
+    global_step: int = 0,
+    input_dim: int | None = None,
     best_epoch: int = 0,
     epochs_without_improvement: int = 0,
     resume_source: str | None = None,
@@ -602,42 +704,61 @@ def save_checkpoint(
     path.parent.mkdir(parents=True, exist_ok=True)
     if best_monitor_score is None:
         best_monitor_score = best_val_macro_f1
-    torch.save(
-        {
-            "checkpoint_format": "d16_resume_v1",
-            "epoch": int(epoch),
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "scaler_state_dict": None if scaler is None else scaler.state_dict(),
+    payload = {
+        "checkpoint_format": "d16_resume_v2",
+        "epoch": int(epoch),
+        "global_step": int(global_step),
+        "step": int(global_step),
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "scheduler_state_dict": None,
+        "scheduler_type": "none",
+        "scaler_state_dict": None if scaler is None else scaler.state_dict(),
+        "best_val_macro_f1": float(best_val_macro_f1),
+        "best_metric": float(best_monitor_score),
+        "best_monitor_metric": str(best_monitor_metric),
+        "best_monitor_mode": str(best_monitor_mode),
+        "best_monitor_score": float(best_monitor_score),
+        "best_epoch": int(best_epoch),
+        "best_checkpoint_path": str(path.parent / "best.pt"),
+        "early_stopping_state": {
+            "epochs_without_improvement": int(epochs_without_improvement),
+            "epochs_since_improvement": int(epochs_without_improvement),
             "best_val_macro_f1": float(best_val_macro_f1),
+            "monitor_name": str(best_monitor_metric),
+            "monitor_mode": str(best_monitor_mode),
+            "min_delta": 0.0,
             "best_monitor_metric": str(best_monitor_metric),
             "best_monitor_mode": str(best_monitor_mode),
             "best_monitor_score": float(best_monitor_score),
             "best_epoch": int(best_epoch),
-            "early_stopping_state": {
-                "epochs_without_improvement": int(epochs_without_improvement),
-                "best_val_macro_f1": float(best_val_macro_f1),
-                "best_monitor_metric": str(best_monitor_metric),
-                "best_monitor_mode": str(best_monitor_mode),
-                "best_monitor_score": float(best_monitor_score),
-                "best_epoch": int(best_epoch),
-            },
-            "rng_state": _rng_state(),
-            "config": config,
-            "from_scratch": bool(config.get("from_scratch", True)),
-            "init_checkpoint": config.get("init_checkpoint"),
-            "resume_source": resume_source,
         },
-        path,
-    )
+        "rng_state": _rng_state(),
+        "config": copy.deepcopy(config),
+        "resolved_config": copy.deepcopy(config),
+        "run_name": config.get("run_name"),
+        "input_dim": None if input_dim is None else int(input_dim),
+        "model_signature": _model_signature(config, input_dim),
+        "from_scratch": bool(config.get("from_scratch", True)),
+        "init_checkpoint": config.get("init_checkpoint"),
+        "resume_source": resume_source,
+        "saved_at_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    if path.name == "last.pt" and path.exists():
+        prev_path = path.with_name("last_prev.pt")
+        try:
+            os.replace(path, prev_path)
+        except OSError:
+            pass
+    _atomic_torch_save(payload, path)
 
 
-def load_checkpoint(path: Path, model: D16Model, device: torch.device) -> Dict[str, Any]:
+def load_checkpoint(path: Path, model: D16Model, device: torch.device, strict: bool = True) -> Dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Missing checkpoint: {path}")
     checkpoint = torch.load(path, map_location=device, weights_only=False)
     state = checkpoint.get("model_state_dict", checkpoint)
-    model.load_state_dict(state)
+    model.load_state_dict(state, strict=bool(strict))
     return checkpoint
 
 
@@ -649,15 +770,30 @@ def resume_training(
     output_dir: Path,
     restore_rng: bool = True,
     scaler: Any | None = None,
+    current_config: Dict[str, Any] | None = None,
+    current_input_dim: int | None = None,
+    strict: bool = True,
 ) -> Dict[str, Any]:
-    checkpoint = load_checkpoint(resume_from, model, device)
+    checkpoint = load_checkpoint(resume_from, model, device, strict=bool(strict))
+    compatibility = _check_resume_compatibility(checkpoint, current_config or {}, current_input_dim, strict=bool(strict))
     if checkpoint.get("optimizer_state_dict") is None:
-        raise ValueError(f"D16 resume checkpoint is missing optimizer_state_dict: {resume_from}")
-    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if strict:
+            raise ValueError(f"D16 strict resume checkpoint is missing optimizer_state_dict: {resume_from}")
+        optimizer_restored = False
+    else:
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        optimizer_restored = True
+    scheduler_restored = checkpoint.get("scheduler_state_dict") is None and checkpoint.get("scheduler_type", "none") == "none"
     if scaler is not None and checkpoint.get("scaler_state_dict"):
         scaler.load_state_dict(checkpoint["scaler_state_dict"])
+        scaler_restored = True
+    else:
+        scaler_restored = False
+        if strict and scaler is not None and checkpoint.get("scaler_state_dict") is None:
+            raise ValueError(f"D16 strict resume checkpoint is missing scaler_state_dict: {resume_from}")
     restored_rng = _restore_rng_state(checkpoint.get("rng_state", {})) if restore_rng else False
     resumed_epoch = int(checkpoint.get("epoch", 0) or 0)
+    global_step = int(checkpoint.get("global_step", checkpoint.get("step", 0)) or 0)
     best_val_macro_f1 = float(checkpoint.get("best_val_macro_f1", -math.inf))
     best_monitor_score = float(checkpoint.get("best_monitor_score", best_val_macro_f1))
     best_monitor_metric = str(checkpoint.get("best_monitor_metric", "val_macro_f1"))
@@ -668,24 +804,36 @@ def resume_training(
     early_state = checkpoint.get("early_stopping_state", {}) or {}
     epochs_without_improvement = int(early_state.get("epochs_without_improvement", 0) or 0)
     event = {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "RESUME_ENABLED": True,
         "resume_from": str(resume_from),
+        "resume_path": str(resume_from),
         "resumed_epoch": resumed_epoch,
-        "next_epoch": resumed_epoch + 1,
-        "loaded_optimizer": True,
-        "restored_rng": bool(restored_rng),
+        "start_epoch": resumed_epoch + 1,
+        "global_step": global_step,
+        "optimizer_restored": bool(optimizer_restored),
+        "scheduler_restored": bool(scheduler_restored),
+        "scaler_restored": bool(scaler_restored),
+        "early_stop_state_restored": bool(early_state),
+        "rng_restored": bool(restored_rng),
         "best_val_macro_f1": best_val_macro_f1,
         "best_monitor_metric": best_monitor_metric,
         "best_monitor_mode": best_monitor_mode,
+        "best_metric": best_monitor_score,
         "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
         "epochs_without_improvement": epochs_without_improvement,
         "checkpoint_format": checkpoint.get("checkpoint_format"),
+        "resume_strict": bool(strict),
+        "config_compatibility": compatibility,
         "warning": None if checkpoint.get("rng_state") else "rng_state_missing_in_checkpoint",
     }
     _append_jsonl(output_dir / "resume_events.jsonl", event)
+    _write_json(output_dir / "resume_info.json", event)
     print("[D16 resume] " + json.dumps(event, indent=2, default=str), flush=True)
     return {
         "start_epoch": resumed_epoch + 1,
+        "global_step": global_step,
         "best_val_macro_f1": best_val_macro_f1,
         "best_monitor_metric": best_monitor_metric,
         "best_monitor_mode": best_monitor_mode,
@@ -2021,6 +2169,8 @@ def main() -> None:
     parser.add_argument("--checkpoint", default=None)
     parser.add_argument("--also_eval_last", action="store_true")
     parser.add_argument("--resume_from", default=None)
+    parser.add_argument("--resume_auto", type=_str_bool, nargs="?", const=True, default=False)
+    parser.add_argument("--resume_strict", type=_str_bool, nargs="?", const=True, default=True)
     parser.add_argument("--restore_rng", dest="restore_rng", action="store_true")
     parser.add_argument("--no_restore_rng", dest="restore_rng", action="store_false")
     parser.set_defaults(restore_rng=True)
@@ -2059,6 +2209,14 @@ def main() -> None:
     output_dir = Path(args.output_dir or Path("outputs/d16_runs") / str(cfg.get("run_name", "d16_v0_small")))
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+    resume_path = Path(args.resume_from) if args.resume_from else None
+    if bool(args.resume_auto) and resume_path is None:
+        auto_path = output_dir / "checkpoints" / "last.pt"
+        if auto_path.exists():
+            resume_path = auto_path
+    init_checkpoint = cfg.get("init_checkpoint", training_cfg.get("init_checkpoint"))
+    if resume_path is not None and init_checkpoint not in (None, "", "null"):
+        raise ValueError("D16 resume_from/resume_auto cannot be combined with init_checkpoint; resume must restore full training state.")
     if args.batch_size is not None:
         training_cfg["batch_size"] = int(args.batch_size)
     if args.num_workers is not None:
@@ -2140,7 +2298,8 @@ def main() -> None:
     test_loader = DataLoader(test_ds, **_loader_kwargs(data_cfg, training_cfg, shuffle=False))
 
     first_batch = next(iter(DataLoader(train_ds, batch_size=1, shuffle=False, collate_fn=collate_d16_graphs)))
-    model = D16Model.from_config(cfg, input_dim=first_batch.x_cat.size(1)).to(device)
+    input_dim = int(first_batch.x_cat.size(1))
+    model = D16Model.from_config(cfg, input_dim=input_dim).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
@@ -2156,9 +2315,11 @@ def main() -> None:
     best_monitor_score = -math.inf if monitor_mode == "max" else math.inf
     best_epoch = 0
     start_epoch = 1
+    global_step = 0
     resume_source = None
     train_fields = [
         "epoch",
+        "global_step",
         "train_loss",
         "val_macro_f1",
         "val_accuracy",
@@ -2235,17 +2396,21 @@ def main() -> None:
     pred_fields = ["split", "epoch", "class_id", "pred_count"]
     fallback_fields = ["split", "epoch", "group", "total", "accuracy", "macro_f1"]
 
-    if args.resume_from:
+    if resume_path is not None:
         resume_state = resume_training(
-            Path(args.resume_from),
+            resume_path,
             model,
             optimizer,
             device,
             output_dir,
             restore_rng=bool(args.restore_rng),
             scaler=scaler,
+            current_config=cfg,
+            current_input_dim=input_dim,
+            strict=bool(args.resume_strict),
         )
         start_epoch = int(resume_state["start_epoch"])
+        global_step = int(resume_state.get("global_step", 0) or 0)
         best_val_macro_f1 = float(resume_state["best_val_macro_f1"])
         best_monitor_score = float(resume_state.get("best_monitor_score", best_val_macro_f1))
         best_epoch = int(resume_state["best_epoch"])
@@ -2272,6 +2437,7 @@ def main() -> None:
             amp_enabled=amp_enabled,
             scaler=scaler,
         )
+        global_step += int(train_stats.get("train_num_batches", 0) or 0)
         should_eval = _should_eval_epoch(epoch, start_epoch, max_epochs, eval_every_n_epochs)
         val_row: Dict[str, Any] | None = None
         val_per_class: List[Dict[str, Any]] = []
@@ -2291,6 +2457,7 @@ def main() -> None:
         memory_reserved = float(torch.cuda.max_memory_reserved(device) / (1024 ** 2)) if device.type == "cuda" else float("nan")
         log_row = {
             "epoch": epoch,
+            "global_step": int(global_step),
             "train_loss": train_stats["train_loss"],
             "val_macro_f1": None if val_row is None else val_row["macro_f1"],
             "val_accuracy": None if val_row is None else val_row["accuracy"],
@@ -2360,6 +2527,8 @@ def main() -> None:
                 epoch,
                 best_val_macro_f1,
                 cfg,
+                global_step=global_step,
+                input_dim=input_dim,
                 best_epoch=best_epoch,
                 epochs_without_improvement=epochs_without_improvement,
                 resume_source=resume_source,
@@ -2378,6 +2547,8 @@ def main() -> None:
             epoch,
             best_val_macro_f1,
             cfg,
+            global_step=global_step,
+            input_dim=input_dim,
             best_epoch=best_epoch,
             epochs_without_improvement=epochs_without_improvement,
             resume_source=resume_source,
@@ -2441,6 +2612,7 @@ def main() -> None:
         "best_monitor_mode": monitor_mode,
         "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
+        "global_step": int(global_step),
         "amp": bool(amp_enabled),
         "test_accuracy": eval_summary["test_accuracy"],
         "test_macro_f1": eval_summary["test_macro_f1"],
