@@ -98,6 +98,7 @@ def run_check(config_path: Path, prior_dir: Path, output_dir: Path, max_samples_
     first_forward_diag: Dict[str, Any] = {}
     forward_ok = False
     backward_ok = False
+    vectorized_context_max_abs_diff: float | None = None
 
     for split in ("train", "val", "test"):
         ds = _dataset(cfg, prior_dir, split, max_samples=max_samples_per_split)
@@ -156,6 +157,37 @@ def run_check(config_path: Path, prior_dir: Path, output_dir: Path, max_samples_
                 for key, value in diag.items()
             }
             failures.extend(_finite_diag(diag))
+            context_block = getattr(getattr(model, "gnn", None), "context_block", None)
+            if context_block is not None and hasattr(context_block, "_forward_loop_reference"):
+                was_training = bool(context_block.training)
+                context_block.eval()
+                with torch.no_grad():
+                    torch.manual_seed(123)
+                    h_probe = torch.randn(
+                        batch.x_cat.size(0),
+                        int(getattr(context_block, "hidden_dim", 96)),
+                        dtype=torch.float32,
+                    )
+                    ref = context_block._forward_loop_reference(
+                        h_probe,
+                        batch.part_soft_cat.float(),
+                        batch.batch_index.long(),
+                        batch.num_graphs,
+                    )
+                    vec, _ = context_block(
+                        h_probe,
+                        batch.part_soft_cat.float(),
+                        batch.batch_index.long(),
+                        batch.num_graphs,
+                        collect_diagnostics=False,
+                    )
+                    vectorized_context_max_abs_diff = float((ref - vec).abs().max().item())
+                context_block.train(was_training)
+                if vectorized_context_max_abs_diff > 1.0e-4:
+                    failures.append(
+                        "vectorized context injection differs from loop reference: "
+                        f"max_abs_diff={vectorized_context_max_abs_diff:.6g}"
+                    )
             loss = logits.float().sum() if torch.is_tensor(logits) else torch.tensor(0.0)
             loss.backward()
             backward_ok = True
@@ -180,6 +212,7 @@ def run_check(config_path: Path, prior_dir: Path, output_dir: Path, max_samples_
         "edge_feature_stats": edge_stats,
         "model_forward_ok": forward_ok,
         "model_backward_ok": backward_ok,
+        "vectorized_context_max_abs_diff": vectorized_context_max_abs_diff,
         "edge_context_gnn_diagnostics": first_forward_diag,
         "failures": failures,
         "warnings": warnings,
@@ -193,6 +226,7 @@ def run_check(config_path: Path, prior_dir: Path, output_dir: Path, max_samples_
         f"- expected_edge_attr_dim: `{EXPECTED_EDGE_DIM}`",
         f"- model_forward_ok: `{forward_ok}`",
         f"- model_backward_ok: `{backward_ok}`",
+        f"- vectorized_context_max_abs_diff: `{vectorized_context_max_abs_diff}`",
         "",
         "## Edge Feature Stats",
         "| feature | mean | std | min | max |",

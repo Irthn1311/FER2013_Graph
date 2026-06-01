@@ -106,6 +106,17 @@ def resolve_device(requested: str) -> torch.device:
     return torch.device(requested)
 
 
+def _amp_enabled(training_cfg: Dict[str, Any], device: torch.device) -> bool:
+    return bool(training_cfg.get("amp", training_cfg.get("mixed_precision", False))) and device.type == "cuda"
+
+
+def _make_grad_scaler(enabled: bool):
+    try:
+        return torch.amp.GradScaler("cuda", enabled=bool(enabled))
+    except TypeError:
+        return torch.cuda.amp.GradScaler(enabled=bool(enabled))
+
+
 def set_seed(seed: int) -> None:
     random.seed(int(seed))
     np.random.seed(int(seed))
@@ -418,6 +429,7 @@ def evaluate(
     best_val_macro_f1: float | None = None,
     collect_predictions: bool = False,
     limit_batches: int | None = None,
+    amp_enabled: bool = False,
 ) -> Tuple[
     Dict[str, Any],
     List[Dict[str, Any]],
@@ -455,10 +467,11 @@ def evaluate(
             first_batch_wait = wait_time
         batch_start = batch_ready
         batch = batch.to(device)
-        out = model(batch)
-        logits = out["logits"]
-        per_sample_loss = F.cross_entropy(logits, batch.y, reduction="none")
-        loss = per_sample_loss.mean()
+        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=bool(amp_enabled)):
+            out = model(batch)
+            logits = out["logits"]
+            per_sample_loss = F.cross_entropy(logits, batch.y, reduction="none")
+            loss = per_sample_loss.mean()
         losses.append(float(loss.detach().cpu().item()))
         detected_mask = batch.landmark_missing_flag.long().eq(0)
         fallback_mask = ~detected_mask
@@ -584,6 +597,7 @@ def save_checkpoint(
     best_monitor_metric: str = "val_macro_f1",
     best_monitor_mode: str = "max",
     best_monitor_score: float | None = None,
+    scaler: Any | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if best_monitor_score is None:
@@ -594,6 +608,7 @@ def save_checkpoint(
             "epoch": int(epoch),
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "scaler_state_dict": None if scaler is None else scaler.state_dict(),
             "best_val_macro_f1": float(best_val_macro_f1),
             "best_monitor_metric": str(best_monitor_metric),
             "best_monitor_mode": str(best_monitor_mode),
@@ -633,11 +648,14 @@ def resume_training(
     device: torch.device,
     output_dir: Path,
     restore_rng: bool = True,
+    scaler: Any | None = None,
 ) -> Dict[str, Any]:
     checkpoint = load_checkpoint(resume_from, model, device)
     if checkpoint.get("optimizer_state_dict") is None:
         raise ValueError(f"D16 resume checkpoint is missing optimizer_state_dict: {resume_from}")
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    if scaler is not None and checkpoint.get("scaler_state_dict"):
+        scaler.load_state_dict(checkpoint["scaler_state_dict"])
     restored_rng = _restore_rng_state(checkpoint.get("rng_state", {})) if restore_rng else False
     resumed_epoch = int(checkpoint.get("epoch", 0) or 0)
     best_val_macro_f1 = float(checkpoint.get("best_val_macro_f1", -math.inf))
@@ -771,6 +789,8 @@ def train_one_epoch(
     loss_cfg: Dict[str, Any] | None = None,
     supcon_loss_fn: PartAwareSupConLoss | None = None,
     limit_batches: int | None = None,
+    amp_enabled: bool = False,
+    scaler: Any | None = None,
 ) -> Dict[str, Any]:
     model.train()
     loss_cfg = loss_cfg or {}
@@ -808,26 +828,34 @@ def train_one_epoch(
         batch_start = batch_ready
         batch: D16Batch = batch.to(device)
         optimizer.zero_grad(set_to_none=True)
-        out = model(batch)
-        ce_loss, ce_stats = _weighted_ce_loss(out["logits"], batch.y, batch, loss_cfg)
-        lambda_supcon = _supcon_lambda(loss_cfg, epoch)
-        supcon_loss = batch.y.new_tensor(0.0, dtype=torch.float32)
-        supcon_stats: Dict[str, torch.Tensor] = {}
-        if lambda_supcon > 0.0 and supcon_loss_fn is not None:
-            supcon_stats = supcon_loss_fn(
-                out["part_embeddings"],
-                out["valid_part_groups"],
-                batch.y,
-                detected=batch.detected,
-                skip_fallback=bool(loss_cfg.get("supcon_skip_fallback", True)),
-            )
-            supcon_loss = supcon_stats["loss_part_supcon"]
-        loss = ce_loss + float(lambda_supcon) * supcon_loss
+        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=bool(amp_enabled)):
+            out = model(batch)
+            ce_loss, ce_stats = _weighted_ce_loss(out["logits"], batch.y, batch, loss_cfg)
+            lambda_supcon = _supcon_lambda(loss_cfg, epoch)
+            supcon_loss = batch.y.new_tensor(0.0, dtype=torch.float32)
+            supcon_stats: Dict[str, torch.Tensor] = {}
+            if lambda_supcon > 0.0 and supcon_loss_fn is not None:
+                supcon_stats = supcon_loss_fn(
+                    out["part_embeddings"],
+                    out["valid_part_groups"],
+                    batch.y,
+                    detected=batch.detected,
+                    skip_fallback=bool(loss_cfg.get("supcon_skip_fallback", True)),
+                )
+                supcon_loss = supcon_stats["loss_part_supcon"]
+            loss = ce_loss + float(lambda_supcon) * supcon_loss
         if not torch.isfinite(loss):
             raise FloatingPointError(f"D16 loss is not finite: {float(loss.detach().cpu().item())}")
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
-        optimizer.step()
+        if scaler is not None and bool(amp_enabled):
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            optimizer.step()
         losses.append(float(loss.detach().cpu().item()))
         ce_losses.append(ce_stats["ce_loss"])
         supcon_losses.append(float(supcon_loss.detach().cpu().item()))
@@ -2075,6 +2103,9 @@ def main() -> None:
     if device.type == "cuda":
         torch.cuda.set_device(device)
         torch.cuda.reset_peak_memory_stats()
+        torch.backends.cuda.matmul.allow_tf32 = bool(training_cfg.get("allow_tf32", True))
+        torch.backends.cudnn.allow_tf32 = bool(training_cfg.get("allow_tf32", True))
+    amp_enabled = _amp_enabled(training_cfg, device)
 
     _write_json(output_dir / "resolved_config.json", cfg)
     Path(output_dir / "resolved_config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
@@ -2115,6 +2146,7 @@ def main() -> None:
         lr=float(training_cfg.get("lr", 3e-4)),
         weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
     )
+    scaler = _make_grad_scaler(bool(amp_enabled))
     loss_cfg = cfg.get("loss", {}) or {}
     supcon_loss_fn = None
     if loss_mode == "ce_part_supcon":
@@ -2211,6 +2243,7 @@ def main() -> None:
             device,
             output_dir,
             restore_rng=bool(args.restore_rng),
+            scaler=scaler,
         )
         start_epoch = int(resume_state["start_epoch"])
         best_val_macro_f1 = float(resume_state["best_val_macro_f1"])
@@ -2236,6 +2269,8 @@ def main() -> None:
             loss_cfg=loss_cfg,
             supcon_loss_fn=supcon_loss_fn,
             limit_batches=args.limit_train_batches,
+            amp_enabled=amp_enabled,
+            scaler=scaler,
         )
         should_eval = _should_eval_epoch(epoch, start_epoch, max_epochs, eval_every_n_epochs)
         val_row: Dict[str, Any] | None = None
@@ -2250,6 +2285,7 @@ def main() -> None:
                 "val",
                 epoch,
                 limit_batches=args.limit_val_batches,
+                amp_enabled=amp_enabled,
             )
         epoch_time = float(time.time() - start)
         memory_reserved = float(torch.cuda.max_memory_reserved(device) / (1024 ** 2)) if device.type == "cuda" else float("nan")
@@ -2330,6 +2366,7 @@ def main() -> None:
                 best_monitor_metric=monitor_metric,
                 best_monitor_mode=monitor_mode,
                 best_monitor_score=best_monitor_score,
+                scaler=scaler,
             )
         else:
             if val_row is not None:
@@ -2347,6 +2384,7 @@ def main() -> None:
             best_monitor_metric=monitor_metric,
             best_monitor_mode=monitor_mode,
             best_monitor_score=best_monitor_score,
+            scaler=scaler,
         )
         score_status = {
             "event": "d16_epoch_score_status",
@@ -2403,6 +2441,7 @@ def main() -> None:
         "best_monitor_mode": monitor_mode,
         "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
+        "amp": bool(amp_enabled),
         "test_accuracy": eval_summary["test_accuracy"],
         "test_macro_f1": eval_summary["test_macro_f1"],
         "last_test_accuracy": eval_summary["last_test_accuracy"],

@@ -71,23 +71,36 @@ class EdgeContextGNNLayer(torch.nn.Module):
         )
         self.norm_ffn = torch.nn.LayerNorm(self.hidden_dim) if layer_norm else torch.nn.Identity()
 
-    def forward(self, h: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor) -> tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+    def forward(
+        self,
+        h: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+        src: torch.Tensor | None = None,
+        dst: torch.Tensor | None = None,
+        dst_degree: torch.Tensor | None = None,
+        collect_diagnostics: bool = True,
+    ) -> tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         if edge_attr is None:
             raise ValueError("edge_context_gnn requires edge_attr, but batch.edge_attr_cat is None")
         if edge_attr.dim() != 2 or edge_attr.size(1) != self.edge_attr_dim:
             raise ValueError(f"edge_attr must be [E,{self.edge_attr_dim}], got {tuple(edge_attr.shape)}")
-        src, dst = edge_index[0].long(), edge_index[1].long()
-        edge_emb = self.edge_mlp(edge_attr.float())
+        if src is None or dst is None:
+            src, dst = edge_index[0].long(), edge_index[1].long()
+        edge_emb = self.edge_mlp(edge_attr.to(device=h.device, dtype=h.dtype))
         gate = torch.sigmoid(self.gate(edge_emb))
         msg = self.message(torch.cat([h[src], edge_emb], dim=1)) * gate
-        agg = h.new_zeros(h.shape)
+        agg = msg.new_zeros(h.shape)
         agg.index_add_(0, dst, msg)
         if self.aggregation == "mean":
-            deg = h.new_zeros((h.size(0), 1))
-            deg.index_add_(0, dst, torch.ones((dst.numel(), 1), device=h.device, dtype=h.dtype))
-            agg = agg / deg.clamp_min(1.0)
+            if dst_degree is None:
+                dst_degree = h.new_zeros((h.size(0), 1))
+                dst_degree.index_add_(0, dst, torch.ones((dst.numel(), 1), device=h.device, dtype=h.dtype))
+            agg = agg / dst_degree.clamp_min(1.0)
         h_msg = self.norm_msg(h + agg if self.residual else agg)
         h_out = self.norm_ffn(h_msg + self.ffn(h_msg) if self.residual else self.ffn(h_msg))
+        if not collect_diagnostics:
+            return h_out, {}
         diagnostics = {
             "edge_gate_mean": gate.detach().mean(),
             "edge_gate_std": gate.detach().std(unbiased=False),
@@ -143,16 +156,14 @@ class PartGlobalContextBlock(torch.nn.Module):
             return torch.zeros((part_soft.size(0),), device=part_soft.device, dtype=part_soft.dtype)
         return part_soft[:, indices].max(dim=1).values
 
-    def forward(
+    def _forward_loop_reference(
         self,
         h: torch.Tensor,
         part_soft: torch.Tensor,
         batch_index: torch.Tensor,
         num_graphs: int,
-    ) -> tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+    ) -> torch.Tensor:
         out = h.clone()
-        token_norms: List[torch.Tensor] = []
-        update_norms: List[torch.Tensor] = []
         scale = self.context_scale.to(device=h.device, dtype=h.dtype)
         for graph_id in range(int(num_graphs)):
             mask = batch_index == graph_id
@@ -167,8 +178,6 @@ class PartGlobalContextBlock(torch.nn.Module):
                 tokens.append((h_g * prior.unsqueeze(1)).sum(dim=0) / denom)
             token_stack = torch.stack(tokens, dim=0).unsqueeze(0)
             mixed = self.context_mixer(token_stack).squeeze(0)
-            token_norms.append(mixed.detach().norm(dim=1).mean())
-
             non_global = [i for i, name in enumerate(self.part_groups) if name != "global"]
             if non_global:
                 weights = torch.stack([priors[i] for i in non_global], dim=1)
@@ -182,12 +191,48 @@ class PartGlobalContextBlock(torch.nn.Module):
             else:
                 context = local_context
             update = self.context_update(torch.cat([h_g, context], dim=1))
-            update_norms.append(update.detach().norm(dim=1).mean())
             out[mask] = self.norm(h_g + scale * update)
+        return out
+
+    def forward(
+        self,
+        h: torch.Tensor,
+        part_soft: torch.Tensor,
+        batch_index: torch.Tensor,
+        num_graphs: int,
+        collect_diagnostics: bool = True,
+    ) -> tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        num_graphs = int(num_graphs)
+        scale = self.context_scale.to(device=h.device, dtype=h.dtype)
+        priors = torch.stack([self._prior(part_soft, group).clamp_min(0.0) for group in self.part_groups], dim=1)
+        token_sums = h.new_zeros((num_graphs, len(self.part_groups), self.hidden_dim))
+        token_sums.index_add_(0, batch_index.long(), h.unsqueeze(1) * priors.unsqueeze(2))
+        denom = h.new_zeros((num_graphs, len(self.part_groups)))
+        denom.index_add_(0, batch_index.long(), priors)
+        tokens = token_sums / denom.clamp_min(1e-6).unsqueeze(2)
+        mixed = self.context_mixer(tokens)
+
+        non_global = [i for i, name in enumerate(self.part_groups) if name != "global"]
+        mixed_nodes = mixed[batch_index.long()]
+        if non_global:
+            weights = priors[:, non_global]
+            weights = weights / weights.sum(dim=1, keepdim=True).clamp_min(1e-6)
+            local_context = torch.sum(weights.unsqueeze(2) * mixed_nodes[:, non_global, :], dim=1)
+        else:
+            local_context = h.new_zeros(h.shape)
+        if "global" in self.part_groups:
+            global_context = mixed_nodes[:, self.part_groups.index("global"), :]
+            context = 0.5 * (local_context + global_context)
+        else:
+            context = local_context
+        update = self.context_update(torch.cat([h, context], dim=1))
+        out = self.norm(h + scale * update)
+        if not collect_diagnostics:
+            return out, {}
         diagnostics = {
             "context_scale": scale.detach(),
-            "context_update_norm_mean": torch.stack(update_norms).mean() if update_norms else h.new_zeros(()),
-            "part_context_token_norm_mean": torch.stack(token_norms).mean() if token_norms else h.new_zeros(()),
+            "context_update_norm_mean": update.detach().norm(dim=1).mean(),
+            "part_context_token_norm_mean": mixed.detach().norm(dim=2).mean(),
         }
         return out, diagnostics
 
@@ -206,6 +251,7 @@ class EdgeContextGNNEncoder(torch.nn.Module):
         layer_norm: bool = True,
         aggregation: str = "mean",
         context_injection: Dict[str, Any] | None = None,
+        diagnostics: str | bool = "eval",
     ) -> None:
         super().__init__()
         self.hidden_dim = int(hidden_dim)
@@ -239,6 +285,7 @@ class EdgeContextGNNEncoder(torch.nn.Module):
                 dropout=float(context_cfg.get("dropout", dropout)),
             )
         self.diagnostics: Dict[str, torch.Tensor] = {}
+        self.diagnostics_mode = diagnostics
 
     @classmethod
     def from_config(cls, hidden_dim: int, cfg: Dict[str, Any] | None) -> "EdgeContextGNNEncoder":
@@ -253,6 +300,7 @@ class EdgeContextGNNEncoder(torch.nn.Module):
             layer_norm=bool(cfg.get("layer_norm", True)),
             aggregation=str(cfg.get("aggregation", "mean")),
             context_injection=cfg.get("context_injection", {}) or {},
+            diagnostics=cfg.get("diagnostics", "eval"),
         )
 
     def _inject_after_layer(self, layer_idx: int) -> bool:
@@ -275,16 +323,40 @@ class EdgeContextGNNEncoder(torch.nn.Module):
     ) -> torch.Tensor:
         if edge_attr is None:
             raise ValueError("EdgeContextGNNEncoder requires edge_attr_cat; enable graph.edge_features.")
+        src, dst = edge_index[0].long(), edge_index[1].long()
+        dst_degree = None
+        if self.layers and self.layers[0].aggregation == "mean":
+            dst_degree = h.new_zeros((h.size(0), 1))
+            dst_degree.index_add_(0, dst, torch.ones((dst.numel(), 1), device=h.device, dtype=h.dtype))
+        mode = self.diagnostics_mode
+        collect_diagnostics = bool(mode) if isinstance(mode, bool) else str(mode).lower() in {"always", "true", "1", "yes"}
+        if isinstance(mode, str) and str(mode).lower() in {"eval", "validation", "val"}:
+            collect_diagnostics = not self.training
         diag: Dict[str, torch.Tensor] = {}
         for idx, layer in enumerate(self.layers):
-            h, layer_diag = layer(h, edge_index, edge_attr)
+            h, layer_diag = layer(
+                h,
+                edge_index,
+                edge_attr,
+                src=src,
+                dst=dst,
+                dst_degree=dst_degree,
+                collect_diagnostics=collect_diagnostics,
+            )
             for key, value in layer_diag.items():
                 diag[f"layer{idx + 1}_{key}"] = value
             if self.context_block is not None and self._inject_after_layer(idx):
-                h, context_diag = self.context_block(h, part_soft, batch_index, num_graphs)
+                h, context_diag = self.context_block(
+                    h,
+                    part_soft,
+                    batch_index,
+                    num_graphs,
+                    collect_diagnostics=collect_diagnostics,
+                )
                 for key, value in context_diag.items():
                     diag[key] = value
-        diag["final_node_embedding_norm_mean"] = h.detach().norm(dim=1).mean()
-        diag["final_node_embedding_std_mean"] = h.detach().std(dim=0, unbiased=False).mean()
+        if collect_diagnostics:
+            diag["final_node_embedding_norm_mean"] = h.detach().norm(dim=1).mean()
+            diag["final_node_embedding_std_mean"] = h.detach().std(dim=0, unbiased=False).mean()
         self.diagnostics = diag
         return h
