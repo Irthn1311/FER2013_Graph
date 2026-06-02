@@ -237,6 +237,34 @@ class PartGlobalContextBlock(torch.nn.Module):
         return out, diagnostics
 
 
+class MultiScaleFusionBlock(torch.nn.Module):
+    """Fuse selected EdgeContextGNN layer outputs back to hidden_dim."""
+
+    def __init__(
+        self,
+        hidden_dim: int = 96,
+        num_inputs: int = 2,
+        dropout: float = 0.2,
+        layer_norm: bool = True,
+    ) -> None:
+        super().__init__()
+        self.hidden_dim = int(hidden_dim)
+        self.num_inputs = int(num_inputs)
+        self.proj = torch.nn.Sequential(
+            torch.nn.Linear(self.hidden_dim * self.num_inputs, self.hidden_dim),
+            torch.nn.LayerNorm(self.hidden_dim) if layer_norm else torch.nn.Identity(),
+            torch.nn.GELU(),
+            torch.nn.Dropout(float(dropout)),
+            torch.nn.Linear(self.hidden_dim, self.hidden_dim),
+            torch.nn.LayerNorm(self.hidden_dim) if layer_norm else torch.nn.Identity(),
+        )
+
+    def forward(self, tensors: List[torch.Tensor]) -> torch.Tensor:
+        if len(tensors) != self.num_inputs:
+            raise ValueError(f"MultiScaleFusionBlock expected {self.num_inputs} tensors, got {len(tensors)}")
+        return self.proj(torch.cat(tensors, dim=1))
+
+
 class EdgeContextGNNEncoder(torch.nn.Module):
     """A5b encoder: edge-aware local layers plus part/global context injection."""
 
@@ -250,6 +278,8 @@ class EdgeContextGNNEncoder(torch.nn.Module):
         residual: bool = True,
         layer_norm: bool = True,
         aggregation: str = "mean",
+        layer_output_concat: bool = False,
+        multiscale_fusion: Dict[str, Any] | None = None,
         context_injection: Dict[str, Any] | None = None,
         diagnostics: str | bool = "eval",
     ) -> None:
@@ -271,6 +301,28 @@ class EdgeContextGNNEncoder(torch.nn.Module):
                 for _ in range(self.num_layers)
             ]
         )
+        fusion_cfg = dict(multiscale_fusion or {})
+        self.layer_output_concat = bool(layer_output_concat)
+        self.multiscale_enabled = bool(fusion_cfg.get("enabled", self.layer_output_concat))
+        self.multiscale_mode = str(fusion_cfg.get("mode", "concat_project"))
+        if self.multiscale_mode != "concat_project":
+            raise ValueError(f"Unsupported edge_context_gnn multiscale_fusion.mode={self.multiscale_mode!r}")
+        raw_layers = fusion_cfg.get("layers") or ([1, self.num_layers] if self.layer_output_concat else [])
+        self.multiscale_layers = sorted({int(x) for x in raw_layers if 1 <= int(x) <= self.num_layers})
+        if self.multiscale_enabled and len(self.multiscale_layers) < 2:
+            self.multiscale_layers = sorted({1, self.num_layers})
+        self.multiscale_fusion = None
+        if self.multiscale_enabled:
+            projection_cfg = dict(fusion_cfg.get("projection", {}) or {})
+            projection_type = str(projection_cfg.get("type", "mlp"))
+            if projection_type != "mlp":
+                raise ValueError(f"Unsupported edge_context_gnn multiscale_fusion.projection.type={projection_type!r}")
+            self.multiscale_fusion = MultiScaleFusionBlock(
+                hidden_dim=self.hidden_dim,
+                num_inputs=len(self.multiscale_layers),
+                dropout=float(projection_cfg.get("dropout", dropout)),
+                layer_norm=bool(projection_cfg.get("layer_norm", True)),
+            )
         context_cfg = dict(context_injection or {})
         self.context_enabled = bool(context_cfg.get("enabled", True))
         self.context_when = str(context_cfg.get("when", "final"))
@@ -299,6 +351,8 @@ class EdgeContextGNNEncoder(torch.nn.Module):
             residual=bool(cfg.get("residual", True)),
             layer_norm=bool(cfg.get("layer_norm", True)),
             aggregation=str(cfg.get("aggregation", "mean")),
+            layer_output_concat=bool(cfg.get("layer_output_concat", False)),
+            multiscale_fusion=cfg.get("multiscale_fusion", {}) or {},
             context_injection=cfg.get("context_injection", {}) or {},
             diagnostics=cfg.get("diagnostics", "eval"),
         )
@@ -333,6 +387,7 @@ class EdgeContextGNNEncoder(torch.nn.Module):
         if isinstance(mode, str) and str(mode).lower() in {"eval", "validation", "val"}:
             collect_diagnostics = not self.training
         diag: Dict[str, torch.Tensor] = {}
+        layer_outputs: Dict[int, torch.Tensor] = {}
         for idx, layer in enumerate(self.layers):
             h, layer_diag = layer(
                 h,
@@ -355,6 +410,17 @@ class EdgeContextGNNEncoder(torch.nn.Module):
                 )
                 for key, value in context_diag.items():
                     diag[key] = value
+            layer_number = idx + 1
+            if self.multiscale_enabled and layer_number in self.multiscale_layers:
+                layer_outputs[layer_number] = h
+        if self.multiscale_fusion is not None:
+            selected = [layer_outputs[layer_number] for layer_number in self.multiscale_layers]
+            h = self.multiscale_fusion(selected)
+            if collect_diagnostics:
+                diag["multiscale_fusion_enabled"] = h.new_tensor(1.0).detach()
+                diag["multiscale_fusion_inputs"] = h.new_tensor(float(len(selected))).detach()
+                diag["multiscale_fused_node_embedding_norm_mean"] = h.detach().norm(dim=1).mean()
+                diag["multiscale_fused_node_embedding_std_mean"] = h.detach().std(dim=0, unbiased=False).mean()
         if collect_diagnostics:
             diag["final_node_embedding_norm_mean"] = h.detach().norm(dim=1).mean()
             diag["final_node_embedding_std_mean"] = h.detach().std(dim=0, unbiased=False).mean()
