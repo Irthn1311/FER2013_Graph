@@ -25,6 +25,7 @@ from d16.training.train_d16 import (
     _loader_kwargs,
     _make_grad_scaler,
     _write_json,
+    attach_hard_proto_loss_if_needed,
     build_dataset,
     load_config,
     resume_training,
@@ -118,13 +119,20 @@ def run_check(
     first_batch = next(iter(DataLoader(train_ds, batch_size=1, shuffle=False, collate_fn=collate_d16_graphs)))
     input_dim = int(first_batch.x_cat.size(1))
     model = D16Model.from_config(cfg, input_dim=input_dim).to(device)
+    loss_cfg = cfg.get("loss", {}) or {}
+    hard_proto_loss_fn = attach_hard_proto_loss_if_needed(
+        model,
+        loss_cfg,
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if hard_proto_loss_fn is not None:
+        hard_proto_loss_fn.to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
         weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
     )
     scaler = _make_grad_scaler(bool(amp_enabled))
-    loss_cfg = cfg.get("loss", {}) or {}
 
     before_stats = train_one_epoch(
         model,
@@ -134,6 +142,7 @@ def run_check(
         epoch=1,
         progress_interval=0,
         loss_cfg=loss_cfg,
+        hard_proto_loss_fn=hard_proto_loss_fn,
         limit_batches=int(num_batches_before_ckpt),
         amp_enabled=amp_enabled,
         scaler=scaler,
@@ -167,6 +176,13 @@ def run_check(
     checkpoint = torch.load(output_dir / "checkpoints" / "last.pt", map_location=device, weights_only=False)
 
     model2 = D16Model.from_config(cfg, input_dim=input_dim).to(device)
+    hard_proto_loss_fn2 = attach_hard_proto_loss_if_needed(
+        model2,
+        loss_cfg,
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if hard_proto_loss_fn2 is not None:
+        hard_proto_loss_fn2.to(device)
     optimizer2 = torch.optim.AdamW(
         model2.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
@@ -198,6 +214,7 @@ def run_check(
         epoch=int(resume_state["start_epoch"]),
         progress_interval=0,
         loss_cfg=loss_cfg,
+        hard_proto_loss_fn=hard_proto_loss_fn2,
         limit_batches=int(num_batches_after_resume),
         amp_enabled=amp_enabled,
         scaler=scaler2,

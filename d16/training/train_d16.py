@@ -32,6 +32,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from d16.data.graph_builder import D16Batch, collate_d16_graphs
 from d16.data.graph_cache_dataset import D16GraphCacheDataset
 from d16.data.pixel_prior_dataset import D16PixelPriorDataset
+from d16.losses.hard_proto_separation import (
+    HardPrototypeSeparationLoss,
+    build_hard_proto_separation_loss,
+    hard_proto_lambda,
+)
 from d16.losses.part_supcon import PartAwareSupConLoss
 from d16.models.d16_model import D16Model
 
@@ -932,6 +937,14 @@ def _weighted_ce_loss(logits: torch.Tensor, labels: torch.Tensor, batch: D16Batc
     }
 
 
+def attach_hard_proto_loss_if_needed(model: D16Model, loss_cfg: Dict[str, Any], embedding_dim: int) -> HardPrototypeSeparationLoss | None:
+    hard_proto_loss = build_hard_proto_separation_loss(loss_cfg, embedding_dim=embedding_dim)
+    if hard_proto_loss is None:
+        return None
+    model.add_module("hard_proto_sep_loss", hard_proto_loss)
+    return hard_proto_loss
+
+
 def train_one_epoch(
     model: D16Model,
     loader: DataLoader,
@@ -941,6 +954,7 @@ def train_one_epoch(
     progress_interval: int = 0,
     loss_cfg: Dict[str, Any] | None = None,
     supcon_loss_fn: PartAwareSupConLoss | None = None,
+    hard_proto_loss_fn: HardPrototypeSeparationLoss | None = None,
     limit_batches: int | None = None,
     amp_enabled: bool = False,
     scaler: Any | None = None,
@@ -954,6 +968,12 @@ def train_one_epoch(
     supcon_valid_pairs = 0.0
     supcon_skipped_parts = 0.0
     supcon_no_positive_parts = 0.0
+    hard_proto_losses = []
+    hard_proto_ce_losses = []
+    hard_proto_margin_losses = []
+    hard_proto_sample_counts = []
+    hard_proto_pos_sims = []
+    hard_proto_neg_sims = []
     sample_weight_means = []
     fallback_sample_counts = []
     detected_head_counts = []
@@ -996,7 +1016,16 @@ def train_one_epoch(
                     skip_fallback=bool(loss_cfg.get("supcon_skip_fallback", True)),
                 )
                 supcon_loss = supcon_stats["loss_part_supcon"]
-            loss = ce_loss + float(lambda_supcon) * supcon_loss
+            lambda_hard_proto = hard_proto_lambda(loss_cfg, epoch)
+            hard_proto_loss = batch.y.new_tensor(0.0, dtype=torch.float32)
+            hard_proto_stats: Dict[str, torch.Tensor] = {}
+            if lambda_hard_proto > 0.0 and hard_proto_loss_fn is not None:
+                if "z_image" not in out:
+                    raise KeyError("D16 hard prototype separation requires out['z_image']")
+                hard_proto_stats = hard_proto_loss_fn(out["z_image"], batch.y)
+                hard_proto_loss = hard_proto_stats["loss_hard_proto_sep"]
+            main_ce_weight = float(loss_cfg.get("main_ce_weight", 1.0) or 1.0)
+            loss = main_ce_weight * ce_loss + float(lambda_supcon) * supcon_loss + float(lambda_hard_proto) * hard_proto_loss
         if not torch.isfinite(loss):
             raise FloatingPointError(f"D16 loss is not finite: {float(loss.detach().cpu().item())}")
         if scaler is not None and bool(amp_enabled):
@@ -1012,6 +1041,21 @@ def train_one_epoch(
         losses.append(float(loss.detach().cpu().item()))
         ce_losses.append(ce_stats["ce_loss"])
         supcon_losses.append(float(supcon_loss.detach().cpu().item()))
+        hard_proto_losses.append(float(hard_proto_loss.detach().cpu().item()))
+        if hard_proto_stats:
+            hard_proto_ce_losses.append(float(hard_proto_stats["loss_proto_ce"].detach().cpu().item()))
+            hard_proto_margin_losses.append(float(hard_proto_stats["loss_proto_margin"].detach().cpu().item()))
+            hard_proto_sample_counts.append(float(hard_proto_stats["hard_proto_sample_count"].detach().cpu().item()))
+            pos_sim = hard_proto_stats.get("hard_proto_positive_sim_mean")
+            neg_sim = hard_proto_stats.get("hard_proto_max_negative_sim_mean")
+            if isinstance(pos_sim, torch.Tensor) and torch.isfinite(pos_sim).all():
+                hard_proto_pos_sims.append(float(pos_sim.detach().cpu().item()))
+            if isinstance(neg_sim, torch.Tensor) and torch.isfinite(neg_sim).all():
+                hard_proto_neg_sims.append(float(neg_sim.detach().cpu().item()))
+        else:
+            hard_proto_ce_losses.append(0.0)
+            hard_proto_margin_losses.append(0.0)
+            hard_proto_sample_counts.append(0.0)
         sample_weight_means.append(ce_stats["sample_weight_mean"])
         fallback_sample_counts.append(ce_stats["fallback_samples"])
         detected_head_counts.append(ce_stats["detected_head_count"])
@@ -1054,6 +1098,8 @@ def train_one_epoch(
                         "avg_loss_so_far": float(np.mean(losses)) if losses else float("nan"),
                         "lambda_part_supcon_current": float(lambda_supcon),
                         "supcon_loss_so_far": float(np.mean(supcon_losses)) if supcon_losses else 0.0,
+                        "lambda_hard_proto_current": float(lambda_hard_proto),
+                        "hard_proto_loss_so_far": float(np.mean(hard_proto_losses)) if hard_proto_losses else 0.0,
                     }
                 ),
                 flush=True,
@@ -1078,6 +1124,13 @@ def train_one_epoch(
         "supcon_skipped_parts": float(supcon_skipped_parts),
         "supcon_no_positive_pairs": float(supcon_no_positive_parts),
         "lambda_part_supcon_current": float(_supcon_lambda(loss_cfg, epoch)),
+        "hard_proto_loss_total": float(np.mean(hard_proto_losses)) if hard_proto_losses else 0.0,
+        "hard_proto_loss_ce": float(np.mean(hard_proto_ce_losses)) if hard_proto_ce_losses else 0.0,
+        "hard_proto_loss_margin": float(np.mean(hard_proto_margin_losses)) if hard_proto_margin_losses else 0.0,
+        "hard_proto_sample_count_mean": float(np.mean(hard_proto_sample_counts)) if hard_proto_sample_counts else 0.0,
+        "hard_proto_positive_sim_mean": float(np.mean(hard_proto_pos_sims)) if hard_proto_pos_sims else float("nan"),
+        "hard_proto_max_negative_sim_mean": float(np.mean(hard_proto_neg_sims)) if hard_proto_neg_sims else float("nan"),
+        "lambda_hard_proto_current": float(hard_proto_lambda(loss_cfg, epoch)),
         "sample_weight_mean": float(np.mean(sample_weight_means)) if sample_weight_means else 1.0,
         "fallback_samples_seen": int(np.sum(fallback_sample_counts)) if fallback_sample_counts else 0,
         "detected_head_count": int(np.sum(detected_head_counts)) if detected_head_counts else 0,
@@ -2063,6 +2116,13 @@ def evaluate_checkpoints(
     test_loader = DataLoader(test_ds, **_loader_kwargs(data_cfg, training_cfg, shuffle=False))
     first_batch = next(iter(DataLoader(test_ds, batch_size=1, shuffle=False, collate_fn=collate_d16_graphs)))
     model = D16Model.from_config(cfg, input_dim=first_batch.x_cat.size(1)).to(device)
+    hard_proto_loss_fn = attach_hard_proto_loss_if_needed(
+        model,
+        cfg.get("loss", {}) or {},
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if hard_proto_loss_fn is not None:
+        hard_proto_loss_fn.to(device)
 
     best_path = checkpoint_path or (output_dir / "checkpoints" / "best.pt")
     best_checkpoint = load_checkpoint(best_path, model, device)
@@ -2188,10 +2248,10 @@ def main() -> None:
     data_cfg = cfg.setdefault("data", {})
     training_cfg = cfg.setdefault("training", {})
     loss_mode = str((cfg.get("loss", {}) or {}).get("mode", "ce"))
-    if loss_mode not in {"ce", "ce_only", "ce_part_supcon", "fallback_weighted_ce", "class_weighted_ce"}:
+    if loss_mode not in {"ce", "ce_only", "ce_hard_proto_sep", "ce_part_supcon", "fallback_weighted_ce", "class_weighted_ce"}:
         raise ValueError(
             "D16 trainer supports CE, class_weighted_ce, fallback_weighted_ce, "
-            f"and ce_part_supcon modes, got loss.mode={loss_mode!r}"
+            f"ce_hard_proto_sep, and ce_part_supcon modes, got loss.mode={loss_mode!r}"
         )
     loss_cfg = cfg.setdefault("loss", {})
     if args.supcon_start_epoch_override is not None:
@@ -2305,13 +2365,20 @@ def main() -> None:
     first_batch = next(iter(DataLoader(train_ds, batch_size=1, shuffle=False, collate_fn=collate_d16_graphs)))
     input_dim = int(first_batch.x_cat.size(1))
     model = D16Model.from_config(cfg, input_dim=input_dim).to(device)
+    loss_cfg = cfg.get("loss", {}) or {}
+    hard_proto_loss_fn = attach_hard_proto_loss_if_needed(
+        model,
+        loss_cfg,
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if hard_proto_loss_fn is not None:
+        hard_proto_loss_fn.to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
         weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
     )
     scaler = _make_grad_scaler(bool(amp_enabled))
-    loss_cfg = cfg.get("loss", {}) or {}
     supcon_loss_fn = None
     if loss_mode == "ce_part_supcon":
         supcon_loss_fn = PartAwareSupConLoss(temperature=float(loss_cfg.get("supcon_temperature", 0.1))).to(device)
@@ -2356,6 +2423,13 @@ def main() -> None:
         "supcon_skipped_parts",
         "supcon_no_positive_pairs",
         "lambda_part_supcon_current",
+        "hard_proto_loss_total",
+        "hard_proto_loss_ce",
+        "hard_proto_loss_margin",
+        "hard_proto_sample_count_mean",
+        "hard_proto_positive_sim_mean",
+        "hard_proto_max_negative_sim_mean",
+        "lambda_hard_proto_current",
         "sample_weight_mean",
         "fallback_samples_seen",
         "detected_head_count",
@@ -2438,6 +2512,7 @@ def main() -> None:
             progress_interval,
             loss_cfg=loss_cfg,
             supcon_loss_fn=supcon_loss_fn,
+            hard_proto_loss_fn=hard_proto_loss_fn,
             limit_batches=args.limit_train_batches,
             amp_enabled=amp_enabled,
             scaler=scaler,
@@ -2494,6 +2569,13 @@ def main() -> None:
             "supcon_skipped_parts": train_stats["supcon_skipped_parts"],
             "supcon_no_positive_pairs": train_stats["supcon_no_positive_pairs"],
             "lambda_part_supcon_current": train_stats["lambda_part_supcon_current"],
+            "hard_proto_loss_total": train_stats["hard_proto_loss_total"],
+            "hard_proto_loss_ce": train_stats["hard_proto_loss_ce"],
+            "hard_proto_loss_margin": train_stats["hard_proto_loss_margin"],
+            "hard_proto_sample_count_mean": train_stats["hard_proto_sample_count_mean"],
+            "hard_proto_positive_sim_mean": train_stats["hard_proto_positive_sim_mean"],
+            "hard_proto_max_negative_sim_mean": train_stats["hard_proto_max_negative_sim_mean"],
+            "lambda_hard_proto_current": train_stats["lambda_hard_proto_current"],
             "sample_weight_mean": train_stats["sample_weight_mean"],
             "fallback_samples_seen": train_stats["fallback_samples_seen"],
             "detected_head_count": train_stats["detected_head_count"],

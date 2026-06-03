@@ -4,6 +4,8 @@ dataset
 # Data
 *.csv
 
+lap_gnn_figure_3_1_assets/
+
 # Outputs
 *.pth
 *.pt
