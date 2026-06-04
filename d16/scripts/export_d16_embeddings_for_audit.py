@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 
 from d16.data.graph_builder import collate_d16_graphs
 from d16.models.d16_model import D16Model
-from d16.training.train_d16 import build_dataset, load_checkpoint, resolve_device
+from d16.training.train_d16 import attach_hard_proto_loss_if_needed, build_dataset, load_checkpoint, resolve_device
 
 
 def _read_config(run_dir: Path) -> Dict[str, Any]:
@@ -76,6 +76,7 @@ def export_embeddings(
     num_workers: int = 0,
     batch_size: int | None = None,
     max_prediction_mismatch: int = 0,
+    prediction_csv: Path | None = None,
 ) -> Dict[str, Any]:
     cfg = _read_config(run_dir)
     device = resolve_device(device_name)
@@ -87,6 +88,13 @@ def export_embeddings(
     test_ds = build_dataset(cfg, prior_dir, "test")
     first_batch = next(iter(DataLoader(test_ds, batch_size=1, shuffle=False, collate_fn=collate_d16_graphs)))
     model = D16Model.from_config(cfg, input_dim=first_batch.x_cat.size(1)).to(device)
+    hard_proto_loss = attach_hard_proto_loss_if_needed(
+        model,
+        cfg.get("loss", {}) or {},
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if hard_proto_loss is not None:
+        hard_proto_loss.to(device)
     ckpt_path = _checkpoint_path(run_dir, checkpoint)
     ckpt = load_checkpoint(ckpt_path, model, device)
     model.eval()
@@ -156,6 +164,8 @@ def export_embeddings(
         arrays["major_motif_tokens"] = np.concatenate(major_tokens, axis=0)
     if micro_tokens:
         arrays["micro_motif_tokens"] = np.concatenate(micro_tokens, axis=0)
+    if hard_proto_loss is not None:
+        arrays["hard_proto_prototypes"] = hard_proto_loss.prototypes.detach().float().cpu().numpy().astype(np.float32)
 
     if arrays["sample_index"].shape[0] != 3589:
         raise ValueError(f"Expected 3589 rows, got {arrays['sample_index'].shape[0]}")
@@ -163,7 +173,8 @@ def export_embeddings(
         if np.issubdtype(arr.dtype, np.floating) and not np.isfinite(arr).all():
             raise ValueError(f"NaN/Inf found in {name}")
 
-    existing = _read_existing_predictions(run_dir / "predictions.csv")
+    prediction_csv = prediction_csv or (run_dir / ("last_predictions.csv" if checkpoint == "last" else "predictions.csv"))
+    existing = _read_existing_predictions(prediction_csv)
     mismatch = 0
     if existing:
         artifact_pred = np.array(
@@ -187,10 +198,12 @@ def export_embeddings(
         "row_count": int(arrays["sample_index"].shape[0]),
         "embedding_dim": int(arrays["z_final_before_classifier"].shape[1]),
         "prediction_mismatches": int(mismatch),
+        "prediction_csv": str(prediction_csv),
         "max_prediction_mismatch_allowed": int(max_prediction_mismatch),
         "has_artifact_y_pred": "artifact_y_pred" in arrays,
         "has_major_motif_tokens": "major_motif_tokens" in arrays,
         "has_micro_motif_tokens": "micro_motif_tokens" in arrays,
+        "has_hard_proto_prototypes": "hard_proto_prototypes" in arrays,
     }
     (output_npz.with_suffix(".summary.json")).write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return summary
@@ -206,6 +219,7 @@ def main() -> None:
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--max_prediction_mismatch", type=int, default=0)
+    parser.add_argument("--prediction_csv", default=None)
     args = parser.parse_args()
     summary = export_embeddings(
         run_dir=Path(args.run_dir),
@@ -216,6 +230,7 @@ def main() -> None:
         num_workers=args.num_workers,
         batch_size=args.batch_size,
         max_prediction_mismatch=args.max_prediction_mismatch,
+        prediction_csv=Path(args.prediction_csv) if args.prediction_csv else None,
     )
     print(json.dumps(summary, indent=2))
 

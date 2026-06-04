@@ -26,6 +26,7 @@ from d16.training.train_d16 import (
     _make_grad_scaler,
     _write_json,
     attach_hard_proto_loss_if_needed,
+    attach_pairwise_hard_relation_loss_if_needed,
     build_dataset,
     load_config,
     resume_training,
@@ -127,6 +128,13 @@ def run_check(
     )
     if hard_proto_loss_fn is not None:
         hard_proto_loss_fn.to(device)
+    pairwise_loss_fn = attach_pairwise_hard_relation_loss_if_needed(
+        model,
+        loss_cfg,
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if pairwise_loss_fn is not None:
+        pairwise_loss_fn.to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
@@ -143,6 +151,7 @@ def run_check(
         progress_interval=0,
         loss_cfg=loss_cfg,
         hard_proto_loss_fn=hard_proto_loss_fn,
+        pairwise_loss_fn=pairwise_loss_fn,
         limit_batches=int(num_batches_before_ckpt),
         amp_enabled=amp_enabled,
         scaler=scaler,
@@ -183,6 +192,13 @@ def run_check(
     )
     if hard_proto_loss_fn2 is not None:
         hard_proto_loss_fn2.to(device)
+    pairwise_loss_fn2 = attach_pairwise_hard_relation_loss_if_needed(
+        model2,
+        loss_cfg,
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if pairwise_loss_fn2 is not None:
+        pairwise_loss_fn2.to(device)
     optimizer2 = torch.optim.AdamW(
         model2.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
@@ -215,6 +231,7 @@ def run_check(
         progress_interval=0,
         loss_cfg=loss_cfg,
         hard_proto_loss_fn=hard_proto_loss_fn2,
+        pairwise_loss_fn=pairwise_loss_fn2,
         limit_batches=int(num_batches_after_resume),
         amp_enabled=amp_enabled,
         scaler=scaler2,

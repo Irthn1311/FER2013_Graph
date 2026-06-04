@@ -349,7 +349,12 @@ def check_run(run_dir: Path) -> Dict[str, Any]:
     run_name = str((resolved.get("run_name") if isinstance(resolved, dict) else "") or run_dir.name)
     is_a5a = "a5a_detail_node_a4" in run_name
     is_accmon = is_a5a and "accmon" in run_name
-    is_a5b = "a5b_edge_context_gnn_a4" in run_name or "a5b_heavy_opt_a4" in run_name or "a5c_multiscale_edge_context" in run_name
+    is_a5b = (
+        "a5b_edge_context_gnn_a4" in run_name
+        or "a5b_heavy_opt_a4" in run_name
+        or "a5c_multiscale_edge_context" in run_name
+        or "a6_2b_pairwise_relation_a5b" in run_name
+    )
 
     test_accuracy = as_float(test.get("accuracy"))
     test_macro_f1 = as_float(test.get("macro_f1"))

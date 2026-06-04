@@ -38,6 +38,11 @@ from d16.losses.hard_proto_separation import (
     hard_proto_lambda,
 )
 from d16.losses.part_supcon import PartAwareSupConLoss
+from d16.losses.pairwise_hard_relation import (
+    PairwiseHardRelationLoss,
+    build_pairwise_hard_relation_loss,
+    pairwise_hard_relation_lambda,
+)
 from d16.models.d16_model import D16Model
 
 
@@ -945,6 +950,18 @@ def attach_hard_proto_loss_if_needed(model: D16Model, loss_cfg: Dict[str, Any], 
     return hard_proto_loss
 
 
+def attach_pairwise_hard_relation_loss_if_needed(
+    model: D16Model,
+    loss_cfg: Dict[str, Any],
+    embedding_dim: int,
+) -> PairwiseHardRelationLoss | None:
+    pairwise_loss = build_pairwise_hard_relation_loss(loss_cfg, embedding_dim=embedding_dim)
+    if pairwise_loss is None:
+        return None
+    model.add_module("pairwise_hard_relation_loss", pairwise_loss)
+    return pairwise_loss
+
+
 def train_one_epoch(
     model: D16Model,
     loader: DataLoader,
@@ -955,6 +972,7 @@ def train_one_epoch(
     loss_cfg: Dict[str, Any] | None = None,
     supcon_loss_fn: PartAwareSupConLoss | None = None,
     hard_proto_loss_fn: HardPrototypeSeparationLoss | None = None,
+    pairwise_loss_fn: PairwiseHardRelationLoss | None = None,
     limit_batches: int | None = None,
     amp_enabled: bool = False,
     scaler: Any | None = None,
@@ -974,6 +992,13 @@ def train_one_epoch(
     hard_proto_sample_counts = []
     hard_proto_pos_sims = []
     hard_proto_neg_sims = []
+    pairwise_losses = []
+    pairwise_fear_sad_losses = []
+    pairwise_sad_neutral_losses = []
+    pairwise_fear_sad_counts = []
+    pairwise_sad_neutral_counts = []
+    pairwise_fear_sad_accs = []
+    pairwise_sad_neutral_accs = []
     sample_weight_means = []
     fallback_sample_counts = []
     detected_head_counts = []
@@ -1024,8 +1049,21 @@ def train_one_epoch(
                     raise KeyError("D16 hard prototype separation requires out['z_image']")
                 hard_proto_stats = hard_proto_loss_fn(out["z_image"], batch.y)
                 hard_proto_loss = hard_proto_stats["loss_hard_proto_sep"]
+            lambda_pair = pairwise_hard_relation_lambda(loss_cfg, epoch)
+            pairwise_loss = batch.y.new_tensor(0.0, dtype=torch.float32)
+            pairwise_stats: Dict[str, torch.Tensor] = {}
+            if lambda_pair > 0.0 and pairwise_loss_fn is not None:
+                if "z_image" not in out:
+                    raise KeyError("D16 pairwise hard relation requires out['z_image']")
+                pairwise_stats = pairwise_loss_fn(out["z_image"], batch.y)
+                pairwise_loss = pairwise_stats["loss_pairwise_hard_relation"]
             main_ce_weight = float(loss_cfg.get("main_ce_weight", 1.0) or 1.0)
-            loss = main_ce_weight * ce_loss + float(lambda_supcon) * supcon_loss + float(lambda_hard_proto) * hard_proto_loss
+            loss = (
+                main_ce_weight * ce_loss
+                + float(lambda_supcon) * supcon_loss
+                + float(lambda_hard_proto) * hard_proto_loss
+                + float(lambda_pair) * pairwise_loss
+            )
         if not torch.isfinite(loss):
             raise FloatingPointError(f"D16 loss is not finite: {float(loss.detach().cpu().item())}")
         if scaler is not None and bool(amp_enabled):
@@ -1056,6 +1094,23 @@ def train_one_epoch(
             hard_proto_ce_losses.append(0.0)
             hard_proto_margin_losses.append(0.0)
             hard_proto_sample_counts.append(0.0)
+        pairwise_losses.append(float(pairwise_loss.detach().cpu().item()))
+        if pairwise_stats:
+            pairwise_fear_sad_losses.append(float(pairwise_stats["loss_pairwise_fear_sad"].detach().cpu().item()))
+            pairwise_sad_neutral_losses.append(float(pairwise_stats["loss_pairwise_sad_neutral"].detach().cpu().item()))
+            pairwise_fear_sad_counts.append(float(pairwise_stats["pair_count_fear_sad"].detach().cpu().item()))
+            pairwise_sad_neutral_counts.append(float(pairwise_stats["pair_count_sad_neutral"].detach().cpu().item()))
+            fs_acc = pairwise_stats.get("pair_acc_fear_sad")
+            sn_acc = pairwise_stats.get("pair_acc_sad_neutral")
+            if isinstance(fs_acc, torch.Tensor) and torch.isfinite(fs_acc).all():
+                pairwise_fear_sad_accs.append(float(fs_acc.detach().cpu().item()))
+            if isinstance(sn_acc, torch.Tensor) and torch.isfinite(sn_acc).all():
+                pairwise_sad_neutral_accs.append(float(sn_acc.detach().cpu().item()))
+        else:
+            pairwise_fear_sad_losses.append(0.0)
+            pairwise_sad_neutral_losses.append(0.0)
+            pairwise_fear_sad_counts.append(0.0)
+            pairwise_sad_neutral_counts.append(0.0)
         sample_weight_means.append(ce_stats["sample_weight_mean"])
         fallback_sample_counts.append(ce_stats["fallback_samples"])
         detected_head_counts.append(ce_stats["detected_head_count"])
@@ -1100,6 +1155,8 @@ def train_one_epoch(
                         "supcon_loss_so_far": float(np.mean(supcon_losses)) if supcon_losses else 0.0,
                         "lambda_hard_proto_current": float(lambda_hard_proto),
                         "hard_proto_loss_so_far": float(np.mean(hard_proto_losses)) if hard_proto_losses else 0.0,
+                        "lambda_pair_current": float(lambda_pair),
+                        "pairwise_loss_so_far": float(np.mean(pairwise_losses)) if pairwise_losses else 0.0,
                     }
                 ),
                 flush=True,
@@ -1131,6 +1188,14 @@ def train_one_epoch(
         "hard_proto_positive_sim_mean": float(np.mean(hard_proto_pos_sims)) if hard_proto_pos_sims else float("nan"),
         "hard_proto_max_negative_sim_mean": float(np.mean(hard_proto_neg_sims)) if hard_proto_neg_sims else float("nan"),
         "lambda_hard_proto_current": float(hard_proto_lambda(loss_cfg, epoch)),
+        "pairwise_loss_total": float(np.mean(pairwise_losses)) if pairwise_losses else 0.0,
+        "pairwise_loss_fear_sad": float(np.mean(pairwise_fear_sad_losses)) if pairwise_fear_sad_losses else 0.0,
+        "pairwise_loss_sad_neutral": float(np.mean(pairwise_sad_neutral_losses)) if pairwise_sad_neutral_losses else 0.0,
+        "lambda_pair_current": float(pairwise_hard_relation_lambda(loss_cfg, epoch)),
+        "pair_count_fear_sad": float(np.mean(pairwise_fear_sad_counts)) if pairwise_fear_sad_counts else 0.0,
+        "pair_count_sad_neutral": float(np.mean(pairwise_sad_neutral_counts)) if pairwise_sad_neutral_counts else 0.0,
+        "pair_acc_fear_sad_train": float(np.mean(pairwise_fear_sad_accs)) if pairwise_fear_sad_accs else float("nan"),
+        "pair_acc_sad_neutral_train": float(np.mean(pairwise_sad_neutral_accs)) if pairwise_sad_neutral_accs else float("nan"),
         "sample_weight_mean": float(np.mean(sample_weight_means)) if sample_weight_means else 1.0,
         "fallback_samples_seen": int(np.sum(fallback_sample_counts)) if fallback_sample_counts else 0,
         "detected_head_count": int(np.sum(detected_head_counts)) if detected_head_counts else 0,
@@ -2123,6 +2188,13 @@ def evaluate_checkpoints(
     )
     if hard_proto_loss_fn is not None:
         hard_proto_loss_fn.to(device)
+    pairwise_loss_fn = attach_pairwise_hard_relation_loss_if_needed(
+        model,
+        cfg.get("loss", {}) or {},
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if pairwise_loss_fn is not None:
+        pairwise_loss_fn.to(device)
 
     best_path = checkpoint_path or (output_dir / "checkpoints" / "best.pt")
     best_checkpoint = load_checkpoint(best_path, model, device)
@@ -2248,10 +2320,18 @@ def main() -> None:
     data_cfg = cfg.setdefault("data", {})
     training_cfg = cfg.setdefault("training", {})
     loss_mode = str((cfg.get("loss", {}) or {}).get("mode", "ce"))
-    if loss_mode not in {"ce", "ce_only", "ce_hard_proto_sep", "ce_part_supcon", "fallback_weighted_ce", "class_weighted_ce"}:
+    if loss_mode not in {
+        "ce",
+        "ce_only",
+        "ce_hard_proto_sep",
+        "ce_pairwise_hard_relation",
+        "ce_part_supcon",
+        "fallback_weighted_ce",
+        "class_weighted_ce",
+    }:
         raise ValueError(
             "D16 trainer supports CE, class_weighted_ce, fallback_weighted_ce, "
-            f"ce_hard_proto_sep, and ce_part_supcon modes, got loss.mode={loss_mode!r}"
+            f"ce_hard_proto_sep, ce_pairwise_hard_relation, and ce_part_supcon modes, got loss.mode={loss_mode!r}"
         )
     loss_cfg = cfg.setdefault("loss", {})
     if args.supcon_start_epoch_override is not None:
@@ -2373,6 +2453,13 @@ def main() -> None:
     )
     if hard_proto_loss_fn is not None:
         hard_proto_loss_fn.to(device)
+    pairwise_loss_fn = attach_pairwise_hard_relation_loss_if_needed(
+        model,
+        loss_cfg,
+        embedding_dim=int((cfg.get("model", {}) or {}).get("hidden_dim", 96)) * 5,
+    )
+    if pairwise_loss_fn is not None:
+        pairwise_loss_fn.to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
@@ -2430,6 +2517,14 @@ def main() -> None:
         "hard_proto_positive_sim_mean",
         "hard_proto_max_negative_sim_mean",
         "lambda_hard_proto_current",
+        "pairwise_loss_total",
+        "pairwise_loss_fear_sad",
+        "pairwise_loss_sad_neutral",
+        "lambda_pair_current",
+        "pair_count_fear_sad",
+        "pair_count_sad_neutral",
+        "pair_acc_fear_sad_train",
+        "pair_acc_sad_neutral_train",
         "sample_weight_mean",
         "fallback_samples_seen",
         "detected_head_count",
@@ -2513,6 +2608,7 @@ def main() -> None:
             loss_cfg=loss_cfg,
             supcon_loss_fn=supcon_loss_fn,
             hard_proto_loss_fn=hard_proto_loss_fn,
+            pairwise_loss_fn=pairwise_loss_fn,
             limit_batches=args.limit_train_batches,
             amp_enabled=amp_enabled,
             scaler=scaler,
@@ -2576,6 +2672,14 @@ def main() -> None:
             "hard_proto_positive_sim_mean": train_stats["hard_proto_positive_sim_mean"],
             "hard_proto_max_negative_sim_mean": train_stats["hard_proto_max_negative_sim_mean"],
             "lambda_hard_proto_current": train_stats["lambda_hard_proto_current"],
+            "pairwise_loss_total": train_stats["pairwise_loss_total"],
+            "pairwise_loss_fear_sad": train_stats["pairwise_loss_fear_sad"],
+            "pairwise_loss_sad_neutral": train_stats["pairwise_loss_sad_neutral"],
+            "lambda_pair_current": train_stats["lambda_pair_current"],
+            "pair_count_fear_sad": train_stats["pair_count_fear_sad"],
+            "pair_count_sad_neutral": train_stats["pair_count_sad_neutral"],
+            "pair_acc_fear_sad_train": train_stats["pair_acc_fear_sad_train"],
+            "pair_acc_sad_neutral_train": train_stats["pair_acc_sad_neutral_train"],
             "sample_weight_mean": train_stats["sample_weight_mean"],
             "fallback_samples_seen": train_stats["fallback_samples_seen"],
             "detected_head_count": train_stats["detected_head_count"],
