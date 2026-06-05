@@ -37,6 +37,11 @@ from d16.losses.hard_proto_separation import (
     build_hard_proto_separation_loss,
     hard_proto_lambda,
 )
+from d16.losses.main_logit_pair_margin import (
+    MainLogitPairMarginLoss,
+    build_main_logit_pair_margin_loss,
+    main_logit_pair_margin_lambda,
+)
 from d16.losses.part_supcon import PartAwareSupConLoss
 from d16.losses.pairwise_hard_relation import (
     PairwiseHardRelationLoss,
@@ -973,6 +978,7 @@ def train_one_epoch(
     supcon_loss_fn: PartAwareSupConLoss | None = None,
     hard_proto_loss_fn: HardPrototypeSeparationLoss | None = None,
     pairwise_loss_fn: PairwiseHardRelationLoss | None = None,
+    main_logit_pair_margin_loss_fn: MainLogitPairMarginLoss | None = None,
     limit_batches: int | None = None,
     amp_enabled: bool = False,
     scaler: Any | None = None,
@@ -999,6 +1005,19 @@ def train_one_epoch(
     pairwise_sad_neutral_counts = []
     pairwise_fear_sad_accs = []
     pairwise_sad_neutral_accs = []
+    pair_margin_losses = []
+    pair_margin_fear_sad_losses = []
+    pair_margin_sad_neutral_losses = []
+    pair_margin_neutral_sad_losses = []
+    pair_margin_fear_sad_counts = []
+    pair_margin_sad_neutral_counts = []
+    pair_margin_neutral_sad_counts = []
+    pair_margin_fear_sad_violations = []
+    pair_margin_sad_neutral_violations = []
+    pair_margin_neutral_sad_violations = []
+    pair_margin_fear_sad_satisfied = []
+    pair_margin_sad_neutral_satisfied = []
+    pair_margin_neutral_sad_satisfied = []
     sample_weight_means = []
     fallback_sample_counts = []
     detected_head_counts = []
@@ -1057,12 +1076,19 @@ def train_one_epoch(
                     raise KeyError("D16 pairwise hard relation requires out['z_image']")
                 pairwise_stats = pairwise_loss_fn(out["z_image"], batch.y)
                 pairwise_loss = pairwise_stats["loss_pairwise_hard_relation"]
+            lambda_pair_margin = main_logit_pair_margin_lambda(loss_cfg, epoch)
+            pair_margin_loss = batch.y.new_tensor(0.0, dtype=torch.float32)
+            pair_margin_stats: Dict[str, torch.Tensor] = {}
+            if lambda_pair_margin > 0.0 and main_logit_pair_margin_loss_fn is not None:
+                pair_margin_stats = main_logit_pair_margin_loss_fn(out["logits"], batch.y)
+                pair_margin_loss = pair_margin_stats["main_logit_pair_margin_loss"]
             main_ce_weight = float(loss_cfg.get("main_ce_weight", 1.0) or 1.0)
             loss = (
                 main_ce_weight * ce_loss
                 + float(lambda_supcon) * supcon_loss
                 + float(lambda_hard_proto) * hard_proto_loss
                 + float(lambda_pair) * pairwise_loss
+                + float(lambda_pair_margin) * pair_margin_loss
             )
         if not torch.isfinite(loss):
             raise FloatingPointError(f"D16 loss is not finite: {float(loss.detach().cpu().item())}")
@@ -1111,6 +1137,29 @@ def train_one_epoch(
             pairwise_sad_neutral_losses.append(0.0)
             pairwise_fear_sad_counts.append(0.0)
             pairwise_sad_neutral_counts.append(0.0)
+        pair_margin_losses.append(float(pair_margin_loss.detach().cpu().item()))
+        if pair_margin_stats:
+            for key, target in (
+                ("fear_sad", (pair_margin_fear_sad_losses, pair_margin_fear_sad_counts, pair_margin_fear_sad_violations, pair_margin_fear_sad_satisfied)),
+                ("sad_neutral", (pair_margin_sad_neutral_losses, pair_margin_sad_neutral_counts, pair_margin_sad_neutral_violations, pair_margin_sad_neutral_satisfied)),
+                ("neutral_sad", (pair_margin_neutral_sad_losses, pair_margin_neutral_sad_counts, pair_margin_neutral_sad_violations, pair_margin_neutral_sad_satisfied)),
+            ):
+                losses_list, counts_list, violations_list, satisfied_list = target
+                losses_list.append(float(pair_margin_stats[f"pair_margin_loss_{key}"].detach().cpu().item()))
+                counts_list.append(float(pair_margin_stats[f"pair_margin_count_{key}"].detach().cpu().item()))
+                violation = pair_margin_stats.get(f"mean_margin_violation_{key}")
+                satisfied = pair_margin_stats.get(f"pair_margin_satisfied_ratio_{key}")
+                if isinstance(violation, torch.Tensor) and torch.isfinite(violation).all():
+                    violations_list.append(float(violation.detach().cpu().item()))
+                if isinstance(satisfied, torch.Tensor) and torch.isfinite(satisfied).all():
+                    satisfied_list.append(float(satisfied.detach().cpu().item()))
+        else:
+            pair_margin_fear_sad_losses.append(0.0)
+            pair_margin_sad_neutral_losses.append(0.0)
+            pair_margin_neutral_sad_losses.append(0.0)
+            pair_margin_fear_sad_counts.append(0.0)
+            pair_margin_sad_neutral_counts.append(0.0)
+            pair_margin_neutral_sad_counts.append(0.0)
         sample_weight_means.append(ce_stats["sample_weight_mean"])
         fallback_sample_counts.append(ce_stats["fallback_samples"])
         detected_head_counts.append(ce_stats["detected_head_count"])
@@ -1157,6 +1206,8 @@ def train_one_epoch(
                         "hard_proto_loss_so_far": float(np.mean(hard_proto_losses)) if hard_proto_losses else 0.0,
                         "lambda_pair_current": float(lambda_pair),
                         "pairwise_loss_so_far": float(np.mean(pairwise_losses)) if pairwise_losses else 0.0,
+                        "lambda_pair_margin_current": float(lambda_pair_margin),
+                        "pair_margin_loss_so_far": float(np.mean(pair_margin_losses)) if pair_margin_losses else 0.0,
                     }
                 ),
                 flush=True,
@@ -1192,10 +1243,33 @@ def train_one_epoch(
         "pairwise_loss_fear_sad": float(np.mean(pairwise_fear_sad_losses)) if pairwise_fear_sad_losses else 0.0,
         "pairwise_loss_sad_neutral": float(np.mean(pairwise_sad_neutral_losses)) if pairwise_sad_neutral_losses else 0.0,
         "lambda_pair_current": float(pairwise_hard_relation_lambda(loss_cfg, epoch)),
-        "pair_count_fear_sad": float(np.mean(pairwise_fear_sad_counts)) if pairwise_fear_sad_counts else 0.0,
-        "pair_count_sad_neutral": float(np.mean(pairwise_sad_neutral_counts)) if pairwise_sad_neutral_counts else 0.0,
+        "pair_count_fear_sad": (
+            float(np.mean(pairwise_fear_sad_counts))
+            if pairwise_loss_fn is not None and pairwise_fear_sad_counts
+            else float(np.mean(pair_margin_fear_sad_counts)) if pair_margin_fear_sad_counts else 0.0
+        ),
+        "pair_count_sad_neutral": (
+            float(np.mean(pairwise_sad_neutral_counts))
+            if pairwise_loss_fn is not None and pairwise_sad_neutral_counts
+            else float(np.mean(pair_margin_sad_neutral_counts)) if pair_margin_sad_neutral_counts else 0.0
+        ),
+        "pair_count_neutral_sad": float(np.mean(pair_margin_neutral_sad_counts)) if pair_margin_neutral_sad_counts else 0.0,
         "pair_acc_fear_sad_train": float(np.mean(pairwise_fear_sad_accs)) if pairwise_fear_sad_accs else float("nan"),
         "pair_acc_sad_neutral_train": float(np.mean(pairwise_sad_neutral_accs)) if pairwise_sad_neutral_accs else float("nan"),
+        "pair_margin_loss_total": float(np.mean(pair_margin_losses)) if pair_margin_losses else 0.0,
+        "pair_margin_loss_fear_sad": float(np.mean(pair_margin_fear_sad_losses)) if pair_margin_fear_sad_losses else 0.0,
+        "pair_margin_loss_sad_neutral": float(np.mean(pair_margin_sad_neutral_losses)) if pair_margin_sad_neutral_losses else 0.0,
+        "pair_margin_loss_neutral_sad": float(np.mean(pair_margin_neutral_sad_losses)) if pair_margin_neutral_sad_losses else 0.0,
+        "lambda_pair_margin_current": float(main_logit_pair_margin_lambda(loss_cfg, epoch)),
+        "pair_count_fear_sad_margin": float(np.mean(pair_margin_fear_sad_counts)) if pair_margin_fear_sad_counts else 0.0,
+        "pair_count_sad_neutral_margin": float(np.mean(pair_margin_sad_neutral_counts)) if pair_margin_sad_neutral_counts else 0.0,
+        "pair_count_neutral_sad_margin": float(np.mean(pair_margin_neutral_sad_counts)) if pair_margin_neutral_sad_counts else 0.0,
+        "mean_margin_violation_fear_sad": float(np.mean(pair_margin_fear_sad_violations)) if pair_margin_fear_sad_violations else float("nan"),
+        "mean_margin_violation_sad_neutral": float(np.mean(pair_margin_sad_neutral_violations)) if pair_margin_sad_neutral_violations else float("nan"),
+        "mean_margin_violation_neutral_sad": float(np.mean(pair_margin_neutral_sad_violations)) if pair_margin_neutral_sad_violations else float("nan"),
+        "pair_margin_satisfied_fear_sad": float(np.mean(pair_margin_fear_sad_satisfied)) if pair_margin_fear_sad_satisfied else float("nan"),
+        "pair_margin_satisfied_sad_neutral": float(np.mean(pair_margin_sad_neutral_satisfied)) if pair_margin_sad_neutral_satisfied else float("nan"),
+        "pair_margin_satisfied_neutral_sad": float(np.mean(pair_margin_neutral_sad_satisfied)) if pair_margin_neutral_sad_satisfied else float("nan"),
         "sample_weight_mean": float(np.mean(sample_weight_means)) if sample_weight_means else 1.0,
         "fallback_samples_seen": int(np.sum(fallback_sample_counts)) if fallback_sample_counts else 0,
         "detected_head_count": int(np.sum(detected_head_counts)) if detected_head_counts else 0,
@@ -2325,13 +2399,15 @@ def main() -> None:
         "ce_only",
         "ce_hard_proto_sep",
         "ce_pairwise_hard_relation",
+        "ce_main_logit_pair_margin",
         "ce_part_supcon",
         "fallback_weighted_ce",
         "class_weighted_ce",
     }:
         raise ValueError(
             "D16 trainer supports CE, class_weighted_ce, fallback_weighted_ce, "
-            f"ce_hard_proto_sep, ce_pairwise_hard_relation, and ce_part_supcon modes, got loss.mode={loss_mode!r}"
+            f"ce_hard_proto_sep, ce_pairwise_hard_relation, ce_main_logit_pair_margin, "
+            f"and ce_part_supcon modes, got loss.mode={loss_mode!r}"
         )
     loss_cfg = cfg.setdefault("loss", {})
     if args.supcon_start_epoch_override is not None:
@@ -2460,6 +2536,9 @@ def main() -> None:
     )
     if pairwise_loss_fn is not None:
         pairwise_loss_fn.to(device)
+    main_logit_pair_margin_loss_fn = build_main_logit_pair_margin_loss(loss_cfg)
+    if main_logit_pair_margin_loss_fn is not None:
+        main_logit_pair_margin_loss_fn.to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
@@ -2523,8 +2602,23 @@ def main() -> None:
         "lambda_pair_current",
         "pair_count_fear_sad",
         "pair_count_sad_neutral",
+        "pair_count_neutral_sad",
         "pair_acc_fear_sad_train",
         "pair_acc_sad_neutral_train",
+        "pair_margin_loss_total",
+        "pair_margin_loss_fear_sad",
+        "pair_margin_loss_sad_neutral",
+        "pair_margin_loss_neutral_sad",
+        "lambda_pair_margin_current",
+        "pair_count_fear_sad_margin",
+        "pair_count_sad_neutral_margin",
+        "pair_count_neutral_sad_margin",
+        "mean_margin_violation_fear_sad",
+        "mean_margin_violation_sad_neutral",
+        "mean_margin_violation_neutral_sad",
+        "pair_margin_satisfied_fear_sad",
+        "pair_margin_satisfied_sad_neutral",
+        "pair_margin_satisfied_neutral_sad",
         "sample_weight_mean",
         "fallback_samples_seen",
         "detected_head_count",
@@ -2609,6 +2703,7 @@ def main() -> None:
             supcon_loss_fn=supcon_loss_fn,
             hard_proto_loss_fn=hard_proto_loss_fn,
             pairwise_loss_fn=pairwise_loss_fn,
+            main_logit_pair_margin_loss_fn=main_logit_pair_margin_loss_fn,
             limit_batches=args.limit_train_batches,
             amp_enabled=amp_enabled,
             scaler=scaler,
@@ -2678,8 +2773,23 @@ def main() -> None:
             "lambda_pair_current": train_stats["lambda_pair_current"],
             "pair_count_fear_sad": train_stats["pair_count_fear_sad"],
             "pair_count_sad_neutral": train_stats["pair_count_sad_neutral"],
+            "pair_count_neutral_sad": train_stats["pair_count_neutral_sad"],
             "pair_acc_fear_sad_train": train_stats["pair_acc_fear_sad_train"],
             "pair_acc_sad_neutral_train": train_stats["pair_acc_sad_neutral_train"],
+            "pair_margin_loss_total": train_stats["pair_margin_loss_total"],
+            "pair_margin_loss_fear_sad": train_stats["pair_margin_loss_fear_sad"],
+            "pair_margin_loss_sad_neutral": train_stats["pair_margin_loss_sad_neutral"],
+            "pair_margin_loss_neutral_sad": train_stats["pair_margin_loss_neutral_sad"],
+            "lambda_pair_margin_current": train_stats["lambda_pair_margin_current"],
+            "pair_count_fear_sad_margin": train_stats["pair_count_fear_sad_margin"],
+            "pair_count_sad_neutral_margin": train_stats["pair_count_sad_neutral_margin"],
+            "pair_count_neutral_sad_margin": train_stats["pair_count_neutral_sad_margin"],
+            "mean_margin_violation_fear_sad": train_stats["mean_margin_violation_fear_sad"],
+            "mean_margin_violation_sad_neutral": train_stats["mean_margin_violation_sad_neutral"],
+            "mean_margin_violation_neutral_sad": train_stats["mean_margin_violation_neutral_sad"],
+            "pair_margin_satisfied_fear_sad": train_stats["pair_margin_satisfied_fear_sad"],
+            "pair_margin_satisfied_sad_neutral": train_stats["pair_margin_satisfied_sad_neutral"],
+            "pair_margin_satisfied_neutral_sad": train_stats["pair_margin_satisfied_neutral_sad"],
             "sample_weight_mean": train_stats["sample_weight_mean"],
             "fallback_samples_seen": train_stats["fallback_samples_seen"],
             "detected_head_count": train_stats["detected_head_count"],

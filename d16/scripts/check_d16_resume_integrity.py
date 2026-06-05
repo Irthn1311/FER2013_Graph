@@ -28,6 +28,7 @@ from d16.training.train_d16 import (
     attach_hard_proto_loss_if_needed,
     attach_pairwise_hard_relation_loss_if_needed,
     build_dataset,
+    build_main_logit_pair_margin_loss,
     load_config,
     resume_training,
     resolve_device,
@@ -135,6 +136,9 @@ def run_check(
     )
     if pairwise_loss_fn is not None:
         pairwise_loss_fn.to(device)
+    main_logit_pair_margin_loss_fn = build_main_logit_pair_margin_loss(loss_cfg)
+    if main_logit_pair_margin_loss_fn is not None:
+        main_logit_pair_margin_loss_fn.to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
@@ -152,6 +156,7 @@ def run_check(
         loss_cfg=loss_cfg,
         hard_proto_loss_fn=hard_proto_loss_fn,
         pairwise_loss_fn=pairwise_loss_fn,
+        main_logit_pair_margin_loss_fn=main_logit_pair_margin_loss_fn,
         limit_batches=int(num_batches_before_ckpt),
         amp_enabled=amp_enabled,
         scaler=scaler,
@@ -199,6 +204,9 @@ def run_check(
     )
     if pairwise_loss_fn2 is not None:
         pairwise_loss_fn2.to(device)
+    main_logit_pair_margin_loss_fn2 = build_main_logit_pair_margin_loss(loss_cfg)
+    if main_logit_pair_margin_loss_fn2 is not None:
+        main_logit_pair_margin_loss_fn2.to(device)
     optimizer2 = torch.optim.AdamW(
         model2.parameters(),
         lr=float(training_cfg.get("lr", 3e-4)),
@@ -232,6 +240,7 @@ def run_check(
         loss_cfg=loss_cfg,
         hard_proto_loss_fn=hard_proto_loss_fn2,
         pairwise_loss_fn=pairwise_loss_fn2,
+        main_logit_pair_margin_loss_fn=main_logit_pair_margin_loss_fn2,
         limit_batches=int(num_batches_after_resume),
         amp_enabled=amp_enabled,
         scaler=scaler2,
