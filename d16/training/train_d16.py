@@ -2452,6 +2452,13 @@ def main() -> None:
         num_classes = int(cfg.get("model", {}).get("num_classes", 7))
         loss_cfg["class_weights"] = _infer_class_weights_from_prior_dir(prior_dir, num_classes)
     max_epochs = int(args.max_epochs_override or args.max_epochs or training_cfg.get("max_epochs", 30))
+    eval_train_metrics = bool(training_cfg.get("eval_train_metrics", False))
+    eval_train_limit_batches_cfg = training_cfg.get("eval_train_limit_batches")
+    eval_train_limit_batches = (
+        args.limit_train_batches
+        if eval_train_limit_batches_cfg is None
+        else int(eval_train_limit_batches_cfg)
+    )
     early_cfg = training_cfg.get("early_stopping", {}) or {}
     early_enabled = bool(early_cfg.get("enabled", training_cfg.get("early_stopping", False)))
     monitor_metric = str(
@@ -2559,6 +2566,10 @@ def main() -> None:
         "epoch",
         "global_step",
         "train_loss",
+        "train_eval_loss",
+        "train_accuracy",
+        "train_macro_f1",
+        "val_loss",
         "val_macro_f1",
         "val_accuracy",
         "monitor_metric",
@@ -2571,6 +2582,11 @@ def main() -> None:
         "train_avg_batch_time_ms",
         "train_avg_batch_wait_time_ms",
         "train_num_batches",
+        "train_eval_epoch_time_sec",
+        "train_eval_first_batch_wait_time_sec",
+        "train_eval_avg_batch_time_ms",
+        "train_eval_avg_batch_wait_time_ms",
+        "train_eval_num_batches",
         "val_epoch_time_sec",
         "val_first_batch_wait_time_sec",
         "val_avg_batch_time_ms",
@@ -2649,6 +2665,11 @@ def main() -> None:
         "fallback_token_count_mean",
         "detected_loss_mean",
         "fallback_loss_mean",
+        "train_epoch_time_sec",
+        "train_first_batch_wait_time_sec",
+        "train_avg_batch_time_ms",
+        "train_avg_batch_wait_time_ms",
+        "train_num_batches",
         "val_epoch_time_sec",
         "val_first_batch_wait_time_sec",
         "val_avg_batch_time_ms",
@@ -2710,11 +2731,22 @@ def main() -> None:
         )
         global_step += int(train_stats.get("train_num_batches", 0) or 0)
         should_eval = _should_eval_epoch(epoch, start_epoch, max_epochs, eval_every_n_epochs)
+        train_eval_row: Dict[str, Any] | None = None
         val_row: Dict[str, Any] | None = None
         val_per_class: List[Dict[str, Any]] = []
         val_pred_count: List[Dict[str, Any]] = []
         val_fallback: List[Dict[str, Any]] = []
         if should_eval:
+            if eval_train_metrics:
+                train_eval_row, _, _, _, _, _, _ = evaluate(
+                    model,
+                    train_loader,
+                    device,
+                    "train",
+                    epoch,
+                    limit_batches=eval_train_limit_batches,
+                    amp_enabled=amp_enabled,
+                )
             val_row, val_per_class, val_pred_count, val_fallback, _, _, _ = evaluate(
                 model,
                 val_loader,
@@ -2730,6 +2762,10 @@ def main() -> None:
             "epoch": epoch,
             "global_step": int(global_step),
             "train_loss": train_stats["train_loss"],
+            "train_eval_loss": None if train_eval_row is None else train_eval_row["loss"],
+            "train_accuracy": None if train_eval_row is None else train_eval_row["accuracy"],
+            "train_macro_f1": None if train_eval_row is None else train_eval_row["macro_f1"],
+            "val_loss": None if val_row is None else val_row["loss"],
             "val_macro_f1": None if val_row is None else val_row["macro_f1"],
             "val_accuracy": None if val_row is None else val_row["accuracy"],
             "monitor_metric": monitor_metric,
@@ -2742,6 +2778,11 @@ def main() -> None:
             "train_avg_batch_time_ms": train_stats["train_avg_batch_time_ms"],
             "train_avg_batch_wait_time_ms": train_stats["train_avg_batch_wait_time_ms"],
             "train_num_batches": train_stats["train_num_batches"],
+            "train_eval_epoch_time_sec": None if train_eval_row is None else train_eval_row.get("train_epoch_time_sec"),
+            "train_eval_first_batch_wait_time_sec": None if train_eval_row is None else train_eval_row.get("train_first_batch_wait_time_sec"),
+            "train_eval_avg_batch_time_ms": None if train_eval_row is None else train_eval_row.get("train_avg_batch_time_ms"),
+            "train_eval_avg_batch_wait_time_ms": None if train_eval_row is None else train_eval_row.get("train_avg_batch_wait_time_ms"),
+            "train_eval_num_batches": None if train_eval_row is None else train_eval_row.get("train_num_batches"),
             "val_epoch_time_sec": None if val_row is None else val_row.get("val_epoch_time_sec"),
             "val_first_batch_wait_time_sec": None if val_row is None else val_row.get("val_first_batch_wait_time_sec"),
             "val_avg_batch_time_ms": None if val_row is None else val_row.get("val_avg_batch_time_ms"),
@@ -2801,6 +2842,8 @@ def main() -> None:
             "fallback_loss_mean": train_stats["fallback_loss_mean"],
         }
         _append_csv(output_dir / "train_log.csv", log_row, train_fields)
+        if train_eval_row is not None:
+            _append_csv(output_dir / "train_metrics.csv", train_eval_row, metric_fields)
         if val_row is not None:
             _append_csv(output_dir / "val_metrics.csv", val_row, metric_fields)
             for row in val_per_class:
