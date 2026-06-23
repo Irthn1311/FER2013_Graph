@@ -15,6 +15,7 @@ import os
 import random
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
@@ -117,6 +118,184 @@ def _str_bool(value: str | bool) -> bool:
     if text in {"0", "false", "no", "n", "off"}:
         return False
     raise argparse.ArgumentTypeError(f"Expected boolean value, got {value!r}")
+
+
+def _wandb_cfg(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    logging_cfg = cfg.get("logging", {}) or {}
+    wandb_cfg = logging_cfg.get("wandb", {}) or {}
+    if isinstance(wandb_cfg, bool):
+        return {"enabled": bool(wandb_cfg)}
+    if not isinstance(wandb_cfg, dict):
+        return {"enabled": False}
+    return dict(wandb_cfg)
+
+
+def _wandb_run_id(output_dir: Path, wandb_module: Any) -> str:
+    run_id_path = output_dir / "wandb_run_id.txt"
+    if run_id_path.exists():
+        text = run_id_path.read_text(encoding="utf-8").strip()
+        if text:
+            return text
+    try:
+        run_id = str(wandb_module.util.generate_id())
+    except Exception:
+        run_id = uuid.uuid4().hex[:8]
+    run_id_path.write_text(run_id + "\n", encoding="utf-8")
+    return run_id
+
+
+def _init_wandb(cfg: Dict[str, Any], output_dir: Path, resume_path: Path | None = None):
+    wandb_cfg = _wandb_cfg(cfg)
+    if not bool(wandb_cfg.get("enabled", False)):
+        return None
+    try:
+        import wandb  # type: ignore
+    except Exception as exc:
+        print(f"[D16 wandb] disabled because import failed: {exc}", flush=True)
+        return None
+
+    run_name = str(cfg.get("run_name") or output_dir.name)
+    run_id = _wandb_run_id(output_dir, wandb)
+    init_kwargs = {
+        "project": str(wandb_cfg.get("project") or "lapgnn-d16-overfit-fix-1"),
+        "name": str(wandb_cfg.get("name") or run_name),
+        "id": run_id,
+        "resume": str(wandb_cfg.get("resume", "allow")),
+        "config": cfg,
+        "dir": str(output_dir),
+    }
+    for key in ("entity", "group", "mode", "job_type", "notes"):
+        value = wandb_cfg.get(key)
+        if value not in (None, "", "null"):
+            init_kwargs[key] = value
+    tags = wandb_cfg.get("tags")
+    if tags:
+        init_kwargs["tags"] = list(tags)
+    try:
+        run = wandb.init(**init_kwargs)
+        run.summary["output_dir"] = str(output_dir)
+        run.summary["run_name"] = run_name
+        run.summary["resume_path"] = None if resume_path is None else str(resume_path)
+        print(f"[D16 wandb] enabled project={init_kwargs['project']} run={run_name} id={run_id}", flush=True)
+        return run
+    except Exception as exc:
+        print(f"[D16 wandb] disabled because init failed: {exc}", flush=True)
+        return None
+
+
+def _wandb_number(value: Any) -> float | int | None:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    try:
+        number = float(value)
+    except Exception:
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _wandb_log_epoch(wandb_run: Any, log_row: Dict[str, Any], score_status: Dict[str, Any] | None = None) -> None:
+    if wandb_run is None:
+        return
+    metrics: Dict[str, Any] = {}
+
+    def put(name: str, value: Any) -> None:
+        number = _wandb_number(value)
+        if number is not None:
+            metrics[name] = number
+
+    put("epoch", log_row.get("epoch"))
+    put("train/loss", log_row.get("train_loss"))
+    put("train/eval_loss", log_row.get("train_eval_loss"))
+    put("train/accuracy", log_row.get("train_accuracy"))
+    put("train/macro_f1", log_row.get("train_macro_f1"))
+    put("val/loss", log_row.get("val_loss"))
+    put("val/accuracy", log_row.get("val_accuracy"))
+    put("val/macro_f1", log_row.get("val_macro_f1"))
+    put("loss/ce", log_row.get("ce_loss"))
+    put("monitor/score", log_row.get("monitor_score"))
+    put("monitor/best_score_before_epoch", log_row.get("best_monitor_score"))
+    put("runtime/epoch_time_sec", log_row.get("epoch_time_sec"))
+    put("runtime/memory_reserved_mb", log_row.get("memory_reserved_mb"))
+    put("runtime/train_epoch_time_sec", log_row.get("train_epoch_time_sec"))
+    put("runtime/val_epoch_time_sec", log_row.get("val_epoch_time_sec"))
+    put("data/node_count_mean", log_row.get("node_count_mean"))
+    put("data/edge_count_mean", log_row.get("edge_count_mean"))
+    put("data/fallback_samples_seen", log_row.get("fallback_samples_seen"))
+    if score_status:
+        put("monitor/is_best", score_status.get("is_best"))
+        put("monitor/best_score_current", score_status.get("best_score_current"))
+        put("monitor/best_epoch_current", score_status.get("best_epoch_current"))
+        put("early_stopping/without_improvement_current", score_status.get("early_stopping_without_improvement_current"))
+    if not metrics:
+        return
+    step_value = _wandb_number(log_row.get("global_step"))
+    try:
+        wandb_run.log(metrics, step=None if step_value is None else int(step_value))
+    except Exception as exc:
+        print(f"[D16 wandb] log failed: {exc}", flush=True)
+
+
+def _wandb_log_final_outputs(wandb_run: Any, output_dir: Path) -> None:
+    if wandb_run is None:
+        return
+    try:
+        import wandb  # type: ignore
+    except Exception:
+        wandb = None
+    filenames = [
+        "d16_train_summary.json",
+        "train_log.csv",
+        "train_metrics.csv",
+        "val_metrics.csv",
+        "test_metrics.csv",
+        "last_test_metrics.csv",
+        "confusion_matrix.csv",
+        "last_confusion_matrix.csv",
+        "best_val_loss_confusion_matrix.csv",
+        "confusion_matrix.png",
+        "last_confusion_matrix.png",
+        "best_val_loss_confusion_matrix.png",
+        "per_class_metrics.csv",
+        "pred_count.csv",
+    ]
+    for name in filenames:
+        file_path = output_dir / name
+        if file_path.exists():
+            try:
+                wandb_run.save(str(file_path), base_path=str(output_dir))
+            except Exception as exc:
+                print(f"[D16 wandb] save failed for {file_path}: {exc}", flush=True)
+    confusion_png_path = output_dir / "confusion_matrix.png"
+    if wandb is not None and confusion_png_path.exists():
+        try:
+            wandb_run.log({"test/confusion_matrix_image": wandb.Image(str(confusion_png_path))})
+        except Exception as exc:
+            print(f"[D16 wandb] confusion matrix image failed: {exc}", flush=True)
+    confusion_path = output_dir / "confusion_matrix.csv"
+    if wandb is not None and confusion_path.exists():
+        try:
+            with confusion_path.open("r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+                columns = list(reader.fieldnames or [])
+            if rows and columns:
+                table = wandb.Table(columns=columns, data=[[row.get(col) for col in columns] for row in rows])
+                wandb_run.log({"test/confusion_matrix_table": table})
+        except Exception as exc:
+            print(f"[D16 wandb] confusion matrix table failed: {exc}", flush=True)
+
+
+def _wandb_finish(wandb_run: Any) -> None:
+    if wandb_run is None:
+        return
+    try:
+        wandb_run.finish()
+    except Exception as exc:
+        print(f"[D16 wandb] finish failed: {exc}", flush=True)
 
 
 def _write_csv_rows(path: Path, rows: Iterable[Dict[str, Any]], fieldnames: List[str]) -> None:
@@ -383,6 +562,87 @@ def _per_class_rows(y_true: np.ndarray, y_pred: np.ndarray, split: str, epoch: i
 
 def _pred_count_rows(y_pred: np.ndarray, split: str, epoch: int, num_classes: int = 7) -> List[Dict[str, Any]]:
     return [{"split": split, "epoch": epoch, "class_id": cls, "pred_count": int(np.sum(y_pred == cls))} for cls in range(num_classes)]
+
+
+FER_CLASS_NAMES = ["angry", "disgust", "fear", "happy", "sad", "surprise", "neutral"]
+
+
+def _write_confusion_matrix_png(
+    path: Path,
+    confusion_rows: List[Dict[str, Any]],
+    accuracy: float | None,
+    split: str,
+    class_names: List[str] | None = None,
+) -> None:
+    if not confusion_rows:
+        return
+    class_names = list(class_names or FER_CLASS_NAMES)
+    num_classes = len(class_names)
+    counts = np.zeros((num_classes, num_classes), dtype=np.int64)
+    ratios = np.zeros((num_classes, num_classes), dtype=np.float64)
+    for row in confusion_rows:
+        try:
+            true_cls = int(row.get("true_class"))
+            pred_cls = int(row.get("pred_class"))
+        except Exception:
+            continue
+        if not (0 <= true_cls < num_classes and 0 <= pred_cls < num_classes):
+            continue
+        try:
+            counts[true_cls, pred_cls] = int(float(row.get("count", 0) or 0))
+        except Exception:
+            counts[true_cls, pred_cls] = 0
+        try:
+            ratio = float(row.get("row_ratio"))
+        except Exception:
+            ratio = float("nan")
+        ratios[true_cls, pred_cls] = ratio if math.isfinite(ratio) else 0.0
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg", force=True)
+        import matplotlib.pyplot as plt
+    except Exception as exc:
+        print(f"[D16 confusion] PNG skipped because matplotlib import failed: {exc}", flush=True)
+        return
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(12.5, 9.5), dpi=160)
+    im = ax.imshow(counts, interpolation="nearest", cmap="Blues")
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.ax.tick_params(labelsize=13)
+
+    title_split = str(split).strip() or "test"
+    if accuracy is not None and math.isfinite(float(accuracy)):
+        title = f"Confusion matrix on {title_split} set, acc: {float(accuracy) * 100:.2f}%"
+    else:
+        title = f"Confusion matrix on {title_split} set"
+    ax.set_title(title, fontsize=24, pad=16)
+    ax.set_xlabel("Pred label", fontsize=18)
+    ax.set_ylabel("True label", fontsize=18)
+    ax.set_xticks(np.arange(num_classes))
+    ax.set_yticks(np.arange(num_classes))
+    ax.set_xticklabels(class_names, fontsize=15)
+    ax.set_yticklabels(class_names, fontsize=15, rotation=90, va="center")
+
+    threshold = float(counts.max()) / 2.0 if counts.size and counts.max() > 0 else 0.0
+    for i in range(num_classes):
+        for j in range(num_classes):
+            color = "white" if counts[i, j] > threshold else "#2b2b2b"
+            ax.text(
+                j,
+                i,
+                f"{int(counts[i, j])}\n{ratios[i, j] * 100:.1f}%",
+                ha="center",
+                va="center",
+                color=color,
+                fontsize=15,
+            )
+
+    ax.set_ylim(num_classes - 0.5, -0.5)
+    fig.tight_layout()
+    fig.savefig(path, bbox_inches="tight")
+    plt.close(fig)
 
 
 def _confusion_rows(
@@ -2023,6 +2283,7 @@ def _write_eval_outputs(
     _write_csv_rows(output_dir / f"{prefix}detected_vs_fallback_metrics.csv", fallback, fallback_fields)
     _write_csv_rows(output_dir / f"{prefix}detected_fallback_per_class_metrics.csv", group_per_class, group_per_class_fields)
     _write_csv_rows(output_dir / f"{prefix}confusion_matrix.csv", confusion, confusion_fields)
+    _write_confusion_matrix_png(output_dir / f"{prefix}confusion_matrix.png", confusion, row.get("accuracy"), split)
     _write_csv_rows(output_dir / f"{prefix}predictions.csv", predictions, prediction_fields)
     try:
         attention_summary, attention_by_class = _collect_part_attention_diagnostics(
@@ -2535,6 +2796,7 @@ def main() -> None:
 
     _write_json(output_dir / "resolved_config.json", cfg)
     Path(output_dir / "resolved_config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+    wandb_run = _init_wandb(cfg, output_dir, resume_path)
 
     if args.eval_only:
         summary = evaluate_checkpoints(
@@ -2555,6 +2817,10 @@ def main() -> None:
         existing_summary.update(summary)
         existing_summary.update({"output_dir": str(output_dir), "prior_dir": str(prior_dir), "device": str(device)})
         _write_json(summary_path, existing_summary)
+        if wandb_run is not None:
+            wandb_run.summary.update(existing_summary)
+        _wandb_log_final_outputs(wandb_run, output_dir)
+        _wandb_finish(wandb_run)
         print(json.dumps(existing_summary, indent=2), flush=True)
         return
 
@@ -2988,6 +3254,7 @@ def main() -> None:
             "early_stopping_min_epochs": int(early_min_epochs),
         }
         print(json.dumps(score_status), flush=True)
+        _wandb_log_epoch(wandb_run, log_row, score_status)
         print(json.dumps(log_row, indent=2), flush=True)
         if early_enabled:
             if epoch >= early_min_epochs and epochs_without_improvement >= early_patience:
@@ -3035,9 +3302,14 @@ def main() -> None:
         "train_samples": len(train_ds),
         "val_samples": len(val_ds),
         "test_samples": len(test_ds),
+        "wandb_enabled": bool(wandb_run is not None),
     }
     _write_json(output_dir / "d16_train_summary.json", summary)
     _write_report(output_dir, best_val_macro_f1, best_epoch)
+    if wandb_run is not None:
+        wandb_run.summary.update(summary)
+    _wandb_log_final_outputs(wandb_run, output_dir)
+    _wandb_finish(wandb_run)
     print(json.dumps(summary, indent=2), flush=True)
 
 

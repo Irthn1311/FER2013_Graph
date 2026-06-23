@@ -160,3 +160,14 @@ logging:
   - train_macro_f1
   - train_eval_loss
   - val_loss
+  wandb:
+    enabled: true
+    project: lapgnn-d16-overfit-fix-1
+    group: a5b_overfit_fix_1
+    mode: online
+    resume: allow
+    tags:
+    - d16
+    - a5b
+    - overfit_fix_1
+    - kaggle
