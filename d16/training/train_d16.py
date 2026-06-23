@@ -459,6 +459,14 @@ def _metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     }
 
 
+
+def _label_smoothing(loss_cfg: Dict[str, Any] | None) -> float:
+    value = float((loss_cfg or {}).get("label_smoothing", 0.0) or 0.0)
+    if value < 0.0 or value >= 1.0:
+        raise ValueError(f"loss.label_smoothing must be in [0, 1), got {value}")
+    return value
+
+
 def _should_eval_epoch(epoch: int, start_epoch: int, max_epochs: int, every_n: int) -> bool:
     every_n = max(int(every_n), 1)
     return epoch == start_epoch or epoch == max_epochs or (epoch % every_n == 0)
@@ -550,6 +558,7 @@ def evaluate(
     collect_predictions: bool = False,
     limit_batches: int | None = None,
     amp_enabled: bool = False,
+    loss_cfg: Dict[str, Any] | None = None,
 ) -> Tuple[
     Dict[str, Any],
     List[Dict[str, Any]],
@@ -560,6 +569,7 @@ def evaluate(
     List[Dict[str, Any]],
 ]:
     model.eval()
+    label_smoothing = _label_smoothing(loss_cfg)
     y_true, y_pred, detected_flags = [], [], []
     sample_indices, missing_flags = [], []
     prediction_rows: List[Dict[str, Any]] = []
@@ -590,7 +600,7 @@ def evaluate(
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=bool(amp_enabled)):
             out = model(batch)
             logits = out["logits"]
-            per_sample_loss = F.cross_entropy(logits, batch.y, reduction="none")
+            per_sample_loss = F.cross_entropy(logits, batch.y, reduction="none", label_smoothing=label_smoothing)
             loss = per_sample_loss.mean()
         losses.append(float(loss.detach().cpu().item()))
         detected_mask = batch.landmark_missing_flag.long().eq(0)
@@ -930,7 +940,7 @@ def _weighted_ce_loss(logits: torch.Tensor, labels: torch.Tensor, batch: D16Batc
     fallback_weight = float(loss_cfg.get("fallback_weight", 1.0) or 1.0)
     if bool(loss_cfg.get("fallback_weighted", False)) and fallback_weight != 1.0:
         weights = torch.where(batch.detected.bool(), weights, weights * fallback_weight)
-    per_sample = F.cross_entropy(logits, labels, reduction="none")
+    per_sample = F.cross_entropy(logits, labels, reduction="none", label_smoothing=_label_smoothing(loss_cfg))
     denom = weights.sum().clamp_min(1e-8)
     loss = (per_sample * weights).sum() / denom
     detected_mask = batch.landmark_missing_flag.long().eq(0)
@@ -1977,6 +1987,7 @@ def _write_eval_outputs(
     pred_fields: List[str],
     fallback_fields: List[str],
     prefix: str = "",
+    loss_cfg: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     row, per_class, pred_count, fallback, confusion, predictions, group_per_class = evaluate(
         model,
@@ -1988,6 +1999,7 @@ def _write_eval_outputs(
         checkpoint_epoch=checkpoint_epoch,
         best_val_macro_f1=best_val_macro_f1,
         collect_predictions=True,
+        loss_cfg=loss_cfg,
     )
     confusion_fields = ["split", "epoch", "checkpoint_name", "true_class", "pred_class", "count", "support", "row_ratio"]
     group_per_class_fields = ["split", "epoch", "group", "class_id", "support", "pred_count", "precision", "recall", "f1"]
@@ -2248,6 +2260,7 @@ def evaluate_checkpoints(
     device: torch.device,
     checkpoint_path: Path | None = None,
     also_eval_last: bool = True,
+    also_eval_best_val_loss: bool = False,
 ) -> Dict[str, Any]:
     data_cfg = cfg.get("data", {}) or {}
     training_cfg = cfg.get("training", {}) or {}
@@ -2314,7 +2327,31 @@ def evaluate_checkpoints(
         per_class_fields,
         pred_fields,
         fallback_fields,
+        loss_cfg=cfg.get("loss", {}) or {},
     )
+
+    best_val_loss_row: Dict[str, Any] | None = None
+    best_val_loss_path = output_dir / "checkpoints" / "best_val_loss.pt"
+    if also_eval_best_val_loss and best_val_loss_path.exists():
+        val_loss_checkpoint = load_checkpoint(best_val_loss_path, model, device)
+        val_loss_epoch = _checkpoint_epoch(val_loss_checkpoint, best_epoch)
+        val_loss_best_val = _checkpoint_best_val(val_loss_checkpoint, best_val_macro_f1)
+        best_val_loss_row = _write_eval_outputs(
+            output_dir,
+            model,
+            test_loader,
+            device,
+            "test",
+            best_val_loss_path.name,
+            val_loss_epoch,
+            val_loss_best_val,
+            metric_fields,
+            per_class_fields,
+            pred_fields,
+            fallback_fields,
+            prefix="best_val_loss_",
+            loss_cfg=cfg.get("loss", {}) or {},
+        )
 
     last_row: Dict[str, Any] | None = None
     if also_eval_last:
@@ -2337,6 +2374,7 @@ def evaluate_checkpoints(
                 pred_fields,
                 fallback_fields,
                 prefix="last_",
+                loss_cfg=cfg.get("loss", {}) or {},
             )
 
     summary = {
@@ -2349,6 +2387,8 @@ def evaluate_checkpoints(
         "test_macro_f1": best_row["macro_f1"],
         "last_test_accuracy": None if last_row is None else last_row["accuracy"],
         "last_test_macro_f1": None if last_row is None else last_row["macro_f1"],
+        "best_val_loss_test_accuracy": None if best_val_loss_row is None else best_val_loss_row["accuracy"],
+        "best_val_loss_test_macro_f1": None if best_val_loss_row is None else best_val_loss_row["macro_f1"],
         "test_samples": len(test_ds),
     }
     _write_report(output_dir, best_val_macro_f1, best_epoch)
@@ -2558,6 +2598,9 @@ def main() -> None:
 
     best_val_macro_f1 = -math.inf
     best_monitor_score = -math.inf if monitor_mode == "max" else math.inf
+    save_best_val_loss_diagnostic = bool(training_cfg.get("save_best_val_loss_diagnostic", False))
+    best_val_loss_score = math.inf
+    best_val_loss_epoch = 0
     best_epoch = 0
     start_epoch = 1
     global_step = 0
@@ -2746,6 +2789,7 @@ def main() -> None:
                     epoch,
                     limit_batches=eval_train_limit_batches,
                     amp_enabled=amp_enabled,
+                    loss_cfg=loss_cfg,
                 )
             val_row, val_per_class, val_pred_count, val_fallback, _, _, _ = evaluate(
                 model,
@@ -2755,6 +2799,7 @@ def main() -> None:
                 epoch,
                 limit_batches=args.limit_val_batches,
                 amp_enabled=amp_enabled,
+                loss_cfg=loss_cfg,
             )
         epoch_time = float(time.time() - start)
         memory_reserved = float(torch.cuda.max_memory_reserved(device) / (1024 ** 2)) if device.type == "cuda" else float("nan")
@@ -2857,7 +2902,28 @@ def main() -> None:
         previous_best_epoch = int(best_epoch)
         previous_epochs_without_improvement = int(epochs_without_improvement)
         current_val_macro_f1 = None if val_row is None else float(val_row["macro_f1"])
+        current_val_loss = None if val_row is None else float(val_row["loss"])
         current_monitor_score = _monitor_value(val_row, monitor_metric)
+        if save_best_val_loss_diagnostic and current_val_loss is not None and math.isfinite(current_val_loss) and current_val_loss < best_val_loss_score:
+            best_val_loss_score = float(current_val_loss)
+            best_val_loss_epoch = epoch
+            save_checkpoint(
+                output_dir / "checkpoints" / "best_val_loss.pt",
+                model,
+                optimizer,
+                epoch,
+                float(val_row["macro_f1"]),
+                cfg,
+                global_step=global_step,
+                input_dim=input_dim,
+                best_epoch=best_val_loss_epoch,
+                epochs_without_improvement=epochs_without_improvement,
+                resume_source=resume_source,
+                best_monitor_metric="val_loss",
+                best_monitor_mode="min",
+                best_monitor_score=best_val_loss_score,
+                scaler=scaler,
+            )
         improved = _is_better_score(current_monitor_score, best_monitor_score, monitor_mode)
         if improved:
             best_monitor_score = float(current_monitor_score)
@@ -2943,7 +3009,7 @@ def main() -> None:
                 )
                 break
 
-    eval_summary = evaluate_checkpoints(cfg, prior_dir, output_dir, device, also_eval_last=True)
+    eval_summary = evaluate_checkpoints(cfg, prior_dir, output_dir, device, also_eval_last=True, also_eval_best_val_loss=save_best_val_loss_diagnostic)
 
     summary = {
         "output_dir": str(output_dir),
@@ -2962,6 +3028,10 @@ def main() -> None:
         "test_macro_f1": eval_summary["test_macro_f1"],
         "last_test_accuracy": eval_summary["last_test_accuracy"],
         "last_test_macro_f1": eval_summary["last_test_macro_f1"],
+        "best_val_loss_score": None if not math.isfinite(best_val_loss_score) else float(best_val_loss_score),
+        "best_val_loss_epoch": int(best_val_loss_epoch),
+        "best_val_loss_test_accuracy": eval_summary.get("best_val_loss_test_accuracy"),
+        "best_val_loss_test_macro_f1": eval_summary.get("best_val_loss_test_macro_f1"),
         "train_samples": len(train_ds),
         "val_samples": len(val_ds),
         "test_samples": len(test_ds),
