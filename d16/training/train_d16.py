@@ -359,7 +359,7 @@ def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Di
         "edge_context_multiscale_mode": multiscale.get("mode"),
         "loss_mode": loss.get("mode", "ce"),
         "optimizer_type": "AdamW",
-        "scheduler_type": "none",
+        "scheduler_type": _scheduler_type_from_config(config),
     }
 
 
@@ -406,6 +406,154 @@ def _make_grad_scaler(enabled: bool):
         return torch.amp.GradScaler("cuda", enabled=bool(enabled))
     except TypeError:
         return torch.cuda.amp.GradScaler(enabled=bool(enabled))
+
+
+def _scheduler_cfg(training_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = training_cfg.get("scheduler", {}) or {}
+    if isinstance(cfg, str):
+        cfg = {"type": cfg}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    out = dict(cfg)
+    out["type"] = str(out.get("type", "none") or "none").lower()
+    return out
+
+
+def _scheduler_type_from_config(config: Dict[str, Any]) -> str:
+    return _scheduler_cfg((config.get("training", {}) or {})).get("type", "none")
+
+
+def _build_scheduler(
+    optimizer: torch.optim.Optimizer,
+    training_cfg: Dict[str, Any],
+    max_epochs: int,
+    steps_per_epoch: int,
+):
+    scheduler_cfg = _scheduler_cfg(training_cfg)
+    scheduler_type = str(scheduler_cfg.get("type", "none") or "none").lower()
+    if scheduler_type in {"", "none", "null"}:
+        return None, "none", scheduler_cfg
+    if scheduler_type == "onecycle":
+        if int(steps_per_epoch) <= 0:
+            raise ValueError("OneCycleLR requires steps_per_epoch > 0")
+        max_lr = float(scheduler_cfg.get("max_lr", training_cfg.get("lr", 3e-4)))
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=max_lr,
+            epochs=int(max_epochs),
+            steps_per_epoch=int(steps_per_epoch),
+            pct_start=float(scheduler_cfg.get("pct_start", 0.2)),
+            div_factor=float(scheduler_cfg.get("div_factor", 10.0)),
+            final_div_factor=float(scheduler_cfg.get("final_div_factor", 10.0)),
+            anneal_strategy=str(scheduler_cfg.get("anneal_strategy", "cos")),
+        )
+        return scheduler, scheduler_type, scheduler_cfg
+    if scheduler_type == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=int(scheduler_cfg.get("t_max", max_epochs)),
+            eta_min=float(scheduler_cfg.get("eta_min", 0.0)),
+        )
+        return scheduler, scheduler_type, scheduler_cfg
+    if scheduler_type == "plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode=str(scheduler_cfg.get("mode", "min")),
+            factor=float(scheduler_cfg.get("factor", 0.5)),
+            patience=int(scheduler_cfg.get("patience", 3)),
+            threshold=float(scheduler_cfg.get("threshold", 1e-4)),
+            min_lr=float(scheduler_cfg.get("min_lr", 0.0)),
+        )
+        return scheduler, scheduler_type, scheduler_cfg
+    raise ValueError(f"Unsupported D16 scheduler.type={scheduler_type!r}")
+
+
+def _scheduler_steps_per_batch(scheduler_type: str) -> bool:
+    return str(scheduler_type).lower() == "onecycle"
+
+
+def _current_lr(optimizer: torch.optim.Optimizer) -> float:
+    return float(optimizer.param_groups[0].get("lr", float("nan")))
+
+
+def _step_scheduler_epoch(scheduler: Any | None, scheduler_type: str, val_row: Dict[str, Any] | None, scheduler_cfg: Dict[str, Any]) -> None:
+    if scheduler is None or _scheduler_steps_per_batch(scheduler_type):
+        return
+    if str(scheduler_type).lower() == "plateau":
+        monitor = str(scheduler_cfg.get("monitor", "val_loss"))
+        score = _monitor_value(val_row, monitor)
+        if score is not None and math.isfinite(float(score)):
+            scheduler.step(float(score))
+        return
+    scheduler.step()
+
+
+def _checkpoint_policy_cfg(training_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = training_cfg.get("checkpoint_policy", {}) or {}
+    if isinstance(cfg, str):
+        cfg = {"type": cfg}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    out = dict(cfg)
+    out["type"] = str(out.get("type", "standard") or "standard").lower()
+    return out
+
+
+def _loss_guard_ok(val_row: Dict[str, Any] | None, best_guard_loss: float, checkpoint_policy: Dict[str, Any]) -> bool:
+    if val_row is None:
+        return False
+    loss_metric = str(checkpoint_policy.get("loss_metric", "val_loss"))
+    current_loss = _monitor_value(val_row, loss_metric)
+    if current_loss is None or not math.isfinite(float(current_loss)):
+        return False
+    if not math.isfinite(float(best_guard_loss)):
+        return True
+    abs_tol = float(checkpoint_policy.get("max_loss_degrade_abs", 0.0) or 0.0)
+    rel_tol = float(checkpoint_policy.get("max_loss_degrade_rel", 0.0) or 0.0)
+    limit = float(best_guard_loss) + abs_tol
+    if rel_tol > 0.0:
+        limit = max(limit, float(best_guard_loss) * (1.0 + rel_tol))
+    return float(current_loss) <= limit
+
+
+def _clone_batch_with_regularized_features(batch: D16Batch, x_cat: torch.Tensor, edge_attr_cat: torch.Tensor | None) -> D16Batch:
+    return D16Batch(
+        x_cat=x_cat,
+        edge_index_cat=batch.edge_index_cat,
+        edge_attr_cat=edge_attr_cat,
+        batch_index=batch.batch_index,
+        ptr=batch.ptr,
+        y=batch.y,
+        sample_index=batch.sample_index,
+        pos_cat=batch.pos_cat,
+        part_soft_cat=batch.part_soft_cat,
+        face_mask_cat=batch.face_mask_cat,
+        valid_part_mask=batch.valid_part_mask,
+        valid_anchor_mask=batch.valid_anchor_mask,
+        detected=batch.detected,
+        landmark_missing_flag=batch.landmark_missing_flag,
+        image_48=batch.image_48,
+    )
+
+
+def _apply_train_graph_regularization(batch: D16Batch, cfg: Dict[str, Any] | None) -> D16Batch:
+    cfg = cfg or {}
+    if not bool(cfg.get("enabled", False)):
+        return batch
+    x_cat = batch.x_cat
+    edge_attr_cat = batch.edge_attr_cat
+    noise_std = float(cfg.get("node_feature_noise_std", 0.0) or 0.0)
+    node_dropout = float(cfg.get("node_feature_dropout", 0.0) or 0.0)
+    edge_dropout = float(cfg.get("edge_attr_dropout", 0.0) or 0.0)
+    if noise_std > 0.0:
+        x_cat = x_cat + torch.randn_like(x_cat) * noise_std
+    if node_dropout > 0.0:
+        x_cat = F.dropout(x_cat, p=min(max(node_dropout, 0.0), 0.95), training=True)
+    if edge_attr_cat is not None and edge_dropout > 0.0:
+        edge_attr_cat = F.dropout(edge_attr_cat, p=min(max(edge_dropout, 0.0), 0.95), training=True)
+    if x_cat is batch.x_cat and edge_attr_cat is batch.edge_attr_cat:
+        return batch
+    return _clone_batch_with_regularized_features(batch, x_cat, edge_attr_cat)
 
 
 def set_seed(seed: int) -> None:
@@ -990,6 +1138,11 @@ def save_checkpoint(
     best_monitor_mode: str = "max",
     best_monitor_score: float | None = None,
     scaler: Any | None = None,
+    scheduler: Any | None = None,
+    scheduler_type: str = "none",
+    best_early_metric: str | None = None,
+    best_early_mode: str | None = None,
+    best_early_score: float | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if best_monitor_score is None:
@@ -1001,8 +1154,8 @@ def save_checkpoint(
         "step": int(global_step),
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
-        "scheduler_state_dict": None,
-        "scheduler_type": "none",
+        "scheduler_state_dict": None if scheduler is None else scheduler.state_dict(),
+        "scheduler_type": str(scheduler_type or "none"),
         "scaler_state_dict": None if scaler is None else scaler.state_dict(),
         "best_val_macro_f1": float(best_val_macro_f1),
         "best_metric": float(best_monitor_score),
@@ -1022,6 +1175,9 @@ def save_checkpoint(
             "best_monitor_mode": str(best_monitor_mode),
             "best_monitor_score": float(best_monitor_score),
             "best_epoch": int(best_epoch),
+            "best_early_metric": str(best_early_metric or best_monitor_metric),
+            "best_early_mode": str(best_early_mode or best_monitor_mode),
+            "best_early_score": float(best_monitor_score if best_early_score is None else best_early_score),
         },
         "rng_state": _rng_state(),
         "config": copy.deepcopy(config),
@@ -1060,6 +1216,8 @@ def resume_training(
     output_dir: Path,
     restore_rng: bool = True,
     scaler: Any | None = None,
+    scheduler: Any | None = None,
+    scheduler_type: str = "none",
     current_config: Dict[str, Any] | None = None,
     current_input_dim: int | None = None,
     strict: bool = True,
@@ -1073,7 +1231,18 @@ def resume_training(
     else:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         optimizer_restored = True
-    scheduler_restored = checkpoint.get("scheduler_state_dict") is None and checkpoint.get("scheduler_type", "none") == "none"
+    checkpoint_scheduler_state = checkpoint.get("scheduler_state_dict")
+    checkpoint_scheduler_type = str(checkpoint.get("scheduler_type", "none") or "none")
+    requested_scheduler_type = str(scheduler_type or "none")
+    if scheduler is not None and checkpoint_scheduler_state is not None:
+        scheduler.load_state_dict(checkpoint_scheduler_state)
+        scheduler_restored = True
+    elif scheduler is None:
+        scheduler_restored = checkpoint_scheduler_state is None and checkpoint_scheduler_type == "none"
+    else:
+        scheduler_restored = False
+        if strict and requested_scheduler_type != "none":
+            raise ValueError(f"D16 strict resume checkpoint is missing scheduler_state_dict: {resume_from}")
     if scaler is not None and checkpoint.get("scaler_state_dict"):
         scaler.load_state_dict(checkpoint["scaler_state_dict"])
         scaler_restored = True
@@ -1093,6 +1262,9 @@ def resume_training(
         best_epoch = resumed_epoch if math.isfinite(best_monitor_score) else 0
     early_state = checkpoint.get("early_stopping_state", {}) or {}
     epochs_without_improvement = int(early_state.get("epochs_without_improvement", 0) or 0)
+    best_early_score = float(early_state.get("best_early_score", best_monitor_score))
+    best_early_metric = str(early_state.get("best_early_metric", best_monitor_metric))
+    best_early_mode = str(early_state.get("best_early_mode", best_monitor_mode))
     event = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "RESUME_ENABLED": True,
@@ -1112,7 +1284,11 @@ def resume_training(
         "best_metric": best_monitor_score,
         "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
+        "scheduler_type": scheduler_type,
         "epochs_without_improvement": epochs_without_improvement,
+        "best_early_metric": best_early_metric,
+        "best_early_mode": best_early_mode,
+        "best_early_score": best_early_score,
         "checkpoint_format": checkpoint.get("checkpoint_format"),
         "resume_strict": bool(strict),
         "config_compatibility": compatibility,
@@ -1130,6 +1306,9 @@ def resume_training(
         "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
         "epochs_without_improvement": epochs_without_improvement,
+        "best_early_metric": best_early_metric,
+        "best_early_mode": best_early_mode,
+        "best_early_score": best_early_score,
         "resume_source": str(resume_from),
     }
 
@@ -1252,6 +1431,9 @@ def train_one_epoch(
     limit_batches: int | None = None,
     amp_enabled: bool = False,
     scaler: Any | None = None,
+    scheduler: Any | None = None,
+    scheduler_type: str = "none",
+    graph_regularization: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     model.train()
     loss_cfg = loss_cfg or {}
@@ -1314,6 +1496,7 @@ def train_one_epoch(
             first_batch_wait = wait_time
         batch_start = batch_ready
         batch: D16Batch = batch.to(device)
+        batch = _apply_train_graph_regularization(batch, graph_regularization)
         optimizer.zero_grad(set_to_none=True)
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=bool(amp_enabled)):
             out = model(batch)
@@ -1372,6 +1555,8 @@ def train_one_epoch(
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             optimizer.step()
+        if scheduler is not None and _scheduler_steps_per_batch(scheduler_type):
+            scheduler.step()
         losses.append(float(loss.detach().cpu().item()))
         ce_losses.append(ce_stats["ce_loss"])
         supcon_losses.append(float(supcon_loss.detach().cpu().item()))
@@ -2770,17 +2955,16 @@ def main() -> None:
     )
     early_metric = str(early_cfg.get("metric", monitor_metric))
     early_mode = str(early_cfg.get("mode", "max"))
-    monitor_mode = str(training_cfg.get("checkpoint_monitor_mode", training_cfg.get("monitor_mode", early_mode)))
-    if monitor_metric != early_metric:
-        raise ValueError(
-            f"D16 checkpoint monitor ({monitor_metric}) and early_stopping.metric ({early_metric}) must match for this runner"
-        )
-    if monitor_mode != early_mode:
-        raise ValueError(
-            f"D16 checkpoint monitor mode ({monitor_mode}) and early_stopping.mode ({early_mode}) must match for this runner"
-        )
+    monitor_mode = str(training_cfg.get("checkpoint_monitor_mode", training_cfg.get("monitor_mode", "max")))
+    checkpoint_policy = _checkpoint_policy_cfg(training_cfg)
+    checkpoint_policy_type = str(checkpoint_policy.get("type", "standard"))
+    if checkpoint_policy_type != "standard":
+        monitor_metric = str(checkpoint_policy.get("primary_metric", monitor_metric))
+        monitor_mode = str(checkpoint_policy.get("primary_mode", monitor_mode))
     if monitor_mode not in {"max", "min"}:
         raise ValueError(f"D16 monitor mode must be max or min, got {monitor_mode!r}")
+    if early_mode not in {"max", "min"}:
+        raise ValueError(f"D16 early stopping mode must be max or min, got {early_mode!r}")
     early_patience = int(early_cfg.get("patience", training_cfg.get("early_stopping_patience", 999)))
     early_min_epochs = int(early_cfg.get("min_epochs_before_stop", 0))
     eval_every_epoch = bool(training_cfg.get("eval_every_epoch", True))
@@ -2857,6 +3041,8 @@ def main() -> None:
         lr=float(training_cfg.get("lr", 3e-4)),
         weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
     )
+    train_steps_per_epoch = len(train_loader) if args.limit_train_batches is None else min(len(train_loader), int(args.limit_train_batches))
+    scheduler, scheduler_type, scheduler_cfg = _build_scheduler(optimizer, training_cfg, max_epochs, train_steps_per_epoch)
     scaler = _make_grad_scaler(bool(amp_enabled))
     supcon_loss_fn = None
     if loss_mode == "ce_part_supcon":
@@ -2864,6 +3050,8 @@ def main() -> None:
 
     best_val_macro_f1 = -math.inf
     best_monitor_score = -math.inf if monitor_mode == "max" else math.inf
+    best_early_score = -math.inf if early_mode == "max" else math.inf
+    best_guard_loss = math.inf
     save_best_val_loss_diagnostic = bool(training_cfg.get("save_best_val_loss_diagnostic", False))
     best_val_loss_score = math.inf
     best_val_loss_epoch = 0
@@ -2884,6 +3072,13 @@ def main() -> None:
         "monitor_metric",
         "monitor_score",
         "best_monitor_score",
+        "early_metric",
+        "early_score",
+        "best_early_score",
+        "checkpoint_policy",
+        "checkpoint_loss_guard_ok",
+        "lr",
+        "scheduler_type",
         "node_count_mean",
         "edge_count_mean",
         "train_epoch_time_sec",
@@ -3003,6 +3198,8 @@ def main() -> None:
             output_dir,
             restore_rng=bool(args.restore_rng),
             scaler=scaler,
+            scheduler=scheduler,
+            scheduler_type=scheduler_type,
             current_config=cfg,
             current_input_dim=input_dim,
             strict=bool(args.resume_strict),
@@ -3013,6 +3210,7 @@ def main() -> None:
         best_monitor_score = float(resume_state.get("best_monitor_score", best_val_macro_f1))
         best_epoch = int(resume_state["best_epoch"])
         epochs_without_improvement = int(resume_state["epochs_without_improvement"])
+        best_early_score = float(resume_state.get("best_early_score", best_early_score))
         resume_source = str(resume_state["resume_source"])
 
     if start_epoch > max_epochs:
@@ -3037,6 +3235,9 @@ def main() -> None:
             limit_batches=args.limit_train_batches,
             amp_enabled=amp_enabled,
             scaler=scaler,
+            scheduler=scheduler,
+            scheduler_type=scheduler_type,
+            graph_regularization=training_cfg.get("graph_regularization", {}) or {},
         )
         global_step += int(train_stats.get("train_num_batches", 0) or 0)
         should_eval = _should_eval_epoch(epoch, start_epoch, max_epochs, eval_every_n_epochs)
@@ -3082,6 +3283,13 @@ def main() -> None:
             "monitor_metric": monitor_metric,
             "monitor_score": _monitor_value(val_row, monitor_metric),
             "best_monitor_score": best_monitor_score,
+            "early_metric": early_metric,
+            "early_score": _monitor_value(val_row, early_metric),
+            "best_early_score": best_early_score,
+            "checkpoint_policy": checkpoint_policy_type,
+            "checkpoint_loss_guard_ok": None,
+            "lr": _current_lr(optimizer),
+            "scheduler_type": scheduler_type,
             "node_count_mean": train_stats["node_count_mean"],
             "edge_count_mean": train_stats["edge_count_mean"],
             "train_epoch_time_sec": train_stats["train_epoch_time_sec"],
@@ -3152,7 +3360,6 @@ def main() -> None:
             "detected_loss_mean": train_stats["detected_loss_mean"],
             "fallback_loss_mean": train_stats["fallback_loss_mean"],
         }
-        _append_csv(output_dir / "train_log.csv", log_row, train_fields)
         if train_eval_row is not None:
             _append_csv(output_dir / "train_metrics.csv", train_eval_row, metric_fields)
         if val_row is not None:
@@ -3170,6 +3377,17 @@ def main() -> None:
         current_val_macro_f1 = None if val_row is None else float(val_row["macro_f1"])
         current_val_loss = None if val_row is None else float(val_row["loss"])
         current_monitor_score = _monitor_value(val_row, monitor_metric)
+        current_early_score = _monitor_value(val_row, early_metric)
+        if current_val_loss is not None and math.isfinite(float(current_val_loss)):
+            best_guard_loss = min(best_guard_loss, float(current_val_loss))
+        loss_guard_ok = _loss_guard_ok(val_row, best_guard_loss, checkpoint_policy) if checkpoint_policy_type == "hybrid_val_acc_loss_guard" else True
+        log_row["checkpoint_loss_guard_ok"] = None if val_row is None else int(bool(loss_guard_ok))
+        early_improved = _is_better_score(current_early_score, best_early_score, early_mode)
+        if early_improved:
+            best_early_score = float(current_early_score)
+            epochs_without_improvement = 0
+        elif val_row is not None:
+            epochs_without_improvement += 1
         if save_best_val_loss_diagnostic and current_val_loss is not None and math.isfinite(current_val_loss) and current_val_loss < best_val_loss_score:
             best_val_loss_score = float(current_val_loss)
             best_val_loss_epoch = epoch
@@ -3189,13 +3407,17 @@ def main() -> None:
                 best_monitor_mode="min",
                 best_monitor_score=best_val_loss_score,
                 scaler=scaler,
+                scheduler=scheduler,
+                scheduler_type=scheduler_type,
+                best_early_metric=early_metric,
+                best_early_mode=early_mode,
+                best_early_score=best_early_score,
             )
-        improved = _is_better_score(current_monitor_score, best_monitor_score, monitor_mode)
+        improved = _is_better_score(current_monitor_score, best_monitor_score, monitor_mode) and bool(loss_guard_ok)
         if improved:
             best_monitor_score = float(current_monitor_score)
             best_val_macro_f1 = float(val_row["macro_f1"])
             best_epoch = epoch
-            epochs_without_improvement = 0
             save_checkpoint(
                 output_dir / "checkpoints" / "best.pt",
                 model,
@@ -3212,10 +3434,14 @@ def main() -> None:
                 best_monitor_mode=monitor_mode,
                 best_monitor_score=best_monitor_score,
                 scaler=scaler,
+                scheduler=scheduler,
+                scheduler_type=scheduler_type,
+                best_early_metric=early_metric,
+                best_early_mode=early_mode,
+                best_early_score=best_early_score,
             )
-        else:
-            if val_row is not None:
-                epochs_without_improvement += 1
+        _step_scheduler_epoch(scheduler, scheduler_type, val_row, scheduler_cfg)
+        log_row["lr"] = _current_lr(optimizer)
         save_checkpoint(
             output_dir / "checkpoints" / "last.pt",
             model,
@@ -3232,15 +3458,29 @@ def main() -> None:
             best_monitor_mode=monitor_mode,
             best_monitor_score=best_monitor_score,
             scaler=scaler,
+            scheduler=scheduler,
+            scheduler_type=scheduler_type,
+            best_early_metric=early_metric,
+            best_early_mode=early_mode,
+            best_early_score=best_early_score,
         )
+        log_row["best_monitor_score"] = best_monitor_score
+        log_row["best_early_score"] = best_early_score
+        log_row["early_score"] = current_early_score
+        _append_csv(output_dir / "train_log.csv", log_row, train_fields)
         score_status = {
             "event": "d16_epoch_score_status",
             "epoch": int(epoch),
             "evaluated": bool(val_row is not None),
             "metric": monitor_metric,
+            "early_metric": early_metric,
+            "checkpoint_policy": checkpoint_policy_type,
+            "checkpoint_loss_guard_ok": None if val_row is None else bool(loss_guard_ok),
             "is_best": bool(improved),
             "current_score": current_monitor_score,
             "current_val_macro_f1": current_val_macro_f1,
+            "current_early_score": current_early_score,
+            "best_early_score_current": None if not math.isfinite(float(best_early_score)) else float(best_early_score),
             "display_score": float(best_monitor_score) if improved else current_monitor_score,
             "best_score_before": None if not math.isfinite(previous_best_monitor_score) else previous_best_monitor_score,
             "best_epoch_before": previous_best_epoch,
@@ -3289,6 +3529,11 @@ def main() -> None:
         "best_monitor_mode": monitor_mode,
         "best_monitor_score": best_monitor_score,
         "best_epoch": best_epoch,
+        "early_stopping_metric": early_metric,
+        "early_stopping_mode": early_mode,
+        "best_early_score": best_early_score,
+        "checkpoint_policy": checkpoint_policy_type,
+        "scheduler_type": scheduler_type,
         "global_step": int(global_step),
         "amp": bool(amp_enabled),
         "test_accuracy": eval_summary["test_accuracy"],
