@@ -1,0 +1,187 @@
+run_name: d16r_a5b_ofix3_onecycle75_lite_reg_seed42
+seed: 42
+from_scratch: true
+init_checkpoint: null
+data:
+  use_mediapipe_priors: true
+  prior_dir: outputs/d16_mediapipe_pixel_priors_best_retry_rescue
+  graph_cache_dir: null
+  graph_mode: face_plus_context
+  batch_size: 16
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+graph:
+  graph_mode: face_plus_context
+  face_threshold: 0.15
+  context_pixels: 2
+  detail_features:
+    enabled: true
+    features:
+    - grad_mag
+    - local_mean_3x3
+    - local_std_3x3
+    - laplacian_abs
+    - center_surround
+    normalize: per_image_safe
+    append_to_x: true
+  edge_features:
+    enabled: true
+    features:
+    - dx
+    - dy
+    - spatial_dist
+    - abs_intensity_diff
+    - abs_grad_mag_diff
+    - abs_laplacian_diff
+    - part_similarity
+    - same_dominant_part
+    normalize: safe
+    append_to_edge_attr: true
+model:
+  name: d16_landmark_aware_pixel_evidence_gnn
+  architecture: single_path
+  hidden_dim: 96
+  gnn_layers: 3
+  gnn_type: edge_context_gnn
+  num_classes: 7
+  dropout: 0.15
+  dual_head: false
+  readout_type: micro_motif_support
+  edge_context_gnn:
+    num_layers: 3
+    edge_attr_dim: 8
+    edge_hidden_dim: 32
+    dropout: 0.20
+    residual: true
+    layer_norm: true
+    message_type: gated_edge_mlp
+    aggregation: mean
+    layer_output_concat: false
+    diagnostics: eval
+    context_injection:
+      enabled: true
+      when: final
+      part_groups:
+      - mouth
+      - eye
+      - brow
+      - nose_cheek
+      - global
+      transformer_layers: 1
+      transformer_heads: 4
+      context_scale_init: 0.5
+      dropout: 0.20
+  micro_motif_support:
+    major_motif_counts:
+      mouth: 3
+      eye: 3
+      brow: 3
+      nose_cheek: 1
+      global: 2
+    micro_motif_counts:
+      mouth: 2
+      eye: 2
+      brow: 2
+      nose_cheek: 1
+      global: 1
+    lambda_part: 1.0
+    lambda_micro_part: 1.0
+    lambda_detail: 0.05
+    eps: 1.0e-06
+    gradient_x_index: 1
+    gradient_y_index: 2
+    normalize_detail_per_graph: true
+    clamp_detail: 2.0
+    detach_detail_score: true
+    use_cls_token: true
+    use_token_type_embedding: true
+    transformer_layers: 1
+    transformer_heads: 4
+    mlp_ratio: 2.0
+    dropout: 0.15
+    residual_concat: true
+    micro_support_gate: true
+    diagnostics: true
+loss:
+  mode: ce_only
+  part_supcon_weight: 0.0
+  fallback_weighted: false
+  fallback_weight: 1.0
+  label_smoothing: 0.0
+training:
+  seed: 42
+  max_epochs: 75
+  batch_size: 16
+  num_workers: 2
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  lr: 0.0003
+  weight_decay: 0.0005
+  eval_every_epoch: true
+  save_best: true
+  final_test_checkpoint: best
+  checkpoint_monitor: val_accuracy
+  checkpoint_monitor_mode: max
+  metric_for_best_model: val_accuracy
+  best_metric: val_accuracy
+  progress_interval_batches: 500
+  amp: true
+  allow_tf32: true
+  from_scratch: true
+  init_checkpoint: null
+  early_stopping:
+    enabled: true
+    min_epochs_before_stop: 25
+    patience: 15
+    metric: val_loss
+    mode: min
+  checkpoint_policy:
+    type: hybrid_val_acc_loss_guard
+    primary_metric: val_accuracy
+    primary_mode: max
+    loss_metric: val_loss
+    max_loss_degrade_abs: 0.22
+    max_loss_degrade_rel: 0.18
+  scheduler:
+    type: onecycle
+    max_lr: 0.0003
+    pct_start: 0.25
+    div_factor: 10.0
+    final_div_factor: 20.0
+    anneal_strategy: cos
+  eval_train_metrics: true
+  eval_train_limit_batches: null
+  save_best_val_loss_diagnostic: true
+logging:
+  metrics:
+  - train_loss
+  - ce_loss
+  - val_macro_f1
+  - val_accuracy
+  - test_from_best_pt
+  - pred_count
+  - per_class_f1
+  - detected_vs_fallback
+  - micro_motif_summary
+  - micro_motif_by_class
+  - micro_motif_similarity
+  - predictions
+  - confusion_matrix
+  - train_accuracy
+  - train_macro_f1
+  - train_eval_loss
+  - val_loss
+  wandb:
+    enabled: true
+    project: lapgnn-d16-overfit-fix-3
+    group: a5b_overfit_fix_3
+    mode: online
+    resume: allow
+    tags:
+    - d16
+    - a5b
+    - overfit_fix_3
+    - kaggle
