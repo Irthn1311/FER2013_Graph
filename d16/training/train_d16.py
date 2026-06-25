@@ -499,9 +499,17 @@ def _checkpoint_policy_cfg(training_cfg: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
-def _loss_guard_ok(val_row: Dict[str, Any] | None, best_guard_loss: float, checkpoint_policy: Dict[str, Any]) -> bool:
+def _loss_guard_ok(
+    val_row: Dict[str, Any] | None,
+    best_guard_loss: float,
+    checkpoint_policy: Dict[str, Any],
+    epoch: int | None = None,
+) -> bool:
     if val_row is None:
         return False
+    guard_start_epoch = int(checkpoint_policy.get("guard_start_epoch", 0) or 0)
+    if epoch is not None and guard_start_epoch > 0 and int(epoch) < guard_start_epoch:
+        return True
     loss_metric = str(checkpoint_policy.get("loss_metric", "val_loss"))
     current_loss = _monitor_value(val_row, loss_metric)
     if current_loss is None or not math.isfinite(float(current_loss)):
@@ -3380,7 +3388,7 @@ def main() -> None:
         current_early_score = _monitor_value(val_row, early_metric)
         if current_val_loss is not None and math.isfinite(float(current_val_loss)):
             best_guard_loss = min(best_guard_loss, float(current_val_loss))
-        loss_guard_ok = _loss_guard_ok(val_row, best_guard_loss, checkpoint_policy) if checkpoint_policy_type == "hybrid_val_acc_loss_guard" else True
+        loss_guard_ok = _loss_guard_ok(val_row, best_guard_loss, checkpoint_policy, epoch=epoch) if checkpoint_policy_type == "hybrid_val_acc_loss_guard" else True
         log_row["checkpoint_loss_guard_ok"] = None if val_row is None else int(bool(loss_guard_ok))
         early_improved = _is_better_score(current_early_score, best_early_score, early_mode)
         if early_improved:
