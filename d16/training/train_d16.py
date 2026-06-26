@@ -216,6 +216,8 @@ def _wandb_log_epoch(wandb_run: Any, log_row: Dict[str, Any], score_status: Dict
     put("val/accuracy", log_row.get("val_accuracy"))
     put("val/macro_f1", log_row.get("val_macro_f1"))
     put("loss/ce", log_row.get("ce_loss"))
+    put("loss/consistency", log_row.get("consistency_loss_total"))
+    put("loss/lambda_consistency", log_row.get("lambda_consistency_current"))
     put("monitor/score", log_row.get("monitor_score"))
     put("monitor/best_score_before_epoch", log_row.get("best_monitor_score"))
     put("runtime/epoch_time_sec", log_row.get("epoch_time_sec"))
@@ -524,10 +526,15 @@ def _loss_guard_ok(
     return float(current_loss) <= limit
 
 
-def _clone_batch_with_regularized_features(batch: D16Batch, x_cat: torch.Tensor, edge_attr_cat: torch.Tensor | None) -> D16Batch:
+def _clone_batch_with_regularized_features(
+    batch: D16Batch,
+    x_cat: torch.Tensor,
+    edge_attr_cat: torch.Tensor | None,
+    edge_index_cat: torch.Tensor | None = None,
+) -> D16Batch:
     return D16Batch(
         x_cat=x_cat,
-        edge_index_cat=batch.edge_index_cat,
+        edge_index_cat=batch.edge_index_cat if edge_index_cat is None else edge_index_cat,
         edge_attr_cat=edge_attr_cat,
         batch_index=batch.batch_index,
         ptr=batch.ptr,
@@ -549,19 +556,59 @@ def _apply_train_graph_regularization(batch: D16Batch, cfg: Dict[str, Any] | Non
     if not bool(cfg.get("enabled", False)):
         return batch
     x_cat = batch.x_cat
+    edge_index_cat = batch.edge_index_cat
     edge_attr_cat = batch.edge_attr_cat
     noise_std = float(cfg.get("node_feature_noise_std", 0.0) or 0.0)
-    node_dropout = float(cfg.get("node_feature_dropout", 0.0) or 0.0)
-    edge_dropout = float(cfg.get("edge_attr_dropout", 0.0) or 0.0)
+    node_feature_dropout = float(cfg.get("node_feature_dropout", 0.0) or 0.0)
+    node_dropout = float(cfg.get("node_dropout_prob", 0.0) or 0.0)
+    edge_attr_dropout = float(cfg.get("edge_attr_dropout", 0.0) or 0.0)
+    edge_drop_prob = float(cfg.get("edge_dropout_prob", 0.0) or 0.0)
     if noise_std > 0.0:
         x_cat = x_cat + torch.randn_like(x_cat) * noise_std
-    if node_dropout > 0.0:
-        x_cat = F.dropout(x_cat, p=min(max(node_dropout, 0.0), 0.95), training=True)
-    if edge_attr_cat is not None and edge_dropout > 0.0:
-        edge_attr_cat = F.dropout(edge_attr_cat, p=min(max(edge_dropout, 0.0), 0.95), training=True)
-    if x_cat is batch.x_cat and edge_attr_cat is batch.edge_attr_cat:
+    if node_feature_dropout > 0.0:
+        x_cat = F.dropout(x_cat, p=min(max(node_feature_dropout, 0.0), 0.95), training=True)
+    if node_dropout > 0.0 and x_cat.numel() > 0:
+        keep = torch.rand((x_cat.size(0), 1), device=x_cat.device, dtype=x_cat.dtype) >= min(max(node_dropout, 0.0), 0.95)
+        x_cat = x_cat * keep
+    if edge_drop_prob > 0.0 and edge_index_cat.numel() > 0:
+        keep_prob = 1.0 - min(max(edge_drop_prob, 0.0), 0.95)
+        keep_edge = torch.rand((edge_index_cat.size(1),), device=edge_index_cat.device) < keep_prob
+        if bool(keep_edge.any()):
+            edge_index_cat = edge_index_cat[:, keep_edge]
+            if edge_attr_cat is not None:
+                edge_attr_cat = edge_attr_cat[keep_edge]
+    if edge_attr_cat is not None and edge_attr_dropout > 0.0:
+        edge_attr_cat = F.dropout(edge_attr_cat, p=min(max(edge_attr_dropout, 0.0), 0.95), training=True)
+    if x_cat is batch.x_cat and edge_attr_cat is batch.edge_attr_cat and edge_index_cat is batch.edge_index_cat:
         return batch
-    return _clone_batch_with_regularized_features(batch, x_cat, edge_attr_cat)
+    return _clone_batch_with_regularized_features(batch, x_cat, edge_attr_cat, edge_index_cat=edge_index_cat)
+
+
+def _graph_consistency_cfg(graph_regularization: Dict[str, Any] | None, epoch: int) -> tuple[Dict[str, Any], float]:
+    cfg = graph_regularization or {}
+    cons_cfg = cfg.get("consistency", {}) or {}
+    if not bool(cons_cfg.get("enabled", False)):
+        return cons_cfg, 0.0
+    start_epoch = int(cons_cfg.get("start_epoch", 1) or 1)
+    if int(epoch) < start_epoch:
+        return cons_cfg, 0.0
+    weight = float(cons_cfg.get("weight", 0.0) or 0.0)
+    return cons_cfg, max(weight, 0.0)
+
+
+def _logit_consistency_loss(logits_a: torch.Tensor, logits_b: torch.Tensor, cfg: Dict[str, Any] | None) -> torch.Tensor:
+    cfg = cfg or {}
+    temperature = max(float(cfg.get("temperature", 1.0) or 1.0), 1e-6)
+    symmetric = bool(cfg.get("symmetric", True))
+    logp_a = F.log_softmax(logits_a / temperature, dim=1)
+    logp_b = F.log_softmax(logits_b / temperature, dim=1)
+    prob_a = F.softmax(logits_a.detach() / temperature, dim=1)
+    prob_b = F.softmax(logits_b.detach() / temperature, dim=1)
+    loss_ab = F.kl_div(logp_a, prob_b, reduction="batchmean")
+    if not symmetric:
+        return loss_ab * (temperature * temperature)
+    loss_ba = F.kl_div(logp_b, prob_a, reduction="batchmean")
+    return 0.5 * (loss_ab + loss_ba) * (temperature * temperature)
 
 
 def set_seed(seed: int) -> None:
@@ -998,6 +1045,7 @@ def evaluate(
     fallback_path_count = 0
     fallback_token_counts = []
     node_counts, edge_counts = [], []
+    consistency_losses = []
     epoch_start = time.perf_counter()
     wait_start = epoch_start
     first_batch_wait = None
@@ -1494,6 +1542,7 @@ def train_one_epoch(
     batch_wall_times = []
     batch_wait_times = []
     total_batches = len(loader) if limit_batches is None else min(len(loader), int(limit_batches))
+    consistency_cfg, consistency_weight = _graph_consistency_cfg(graph_regularization, epoch)
     for batch_idx, batch in enumerate(loader, start=1):
         if limit_batches is not None and batch_idx > int(limit_batches):
             break
@@ -1504,7 +1553,13 @@ def train_one_epoch(
             first_batch_wait = wait_time
         batch_start = batch_ready
         batch: D16Batch = batch.to(device)
-        batch = _apply_train_graph_regularization(batch, graph_regularization)
+        base_batch = batch
+        consistency_batch = None
+        if consistency_weight > 0.0:
+            batch = _apply_train_graph_regularization(base_batch, graph_regularization)
+            consistency_batch = _apply_train_graph_regularization(base_batch, graph_regularization)
+        else:
+            batch = _apply_train_graph_regularization(base_batch, graph_regularization)
         optimizer.zero_grad(set_to_none=True)
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=bool(amp_enabled)):
             out = model(batch)
@@ -1543,6 +1598,10 @@ def train_one_epoch(
             if lambda_pair_margin > 0.0 and main_logit_pair_margin_loss_fn is not None:
                 pair_margin_stats = main_logit_pair_margin_loss_fn(out["logits"], batch.y)
                 pair_margin_loss = pair_margin_stats["main_logit_pair_margin_loss"]
+            consistency_loss = batch.y.new_tensor(0.0, dtype=torch.float32)
+            if consistency_batch is not None:
+                out_consistency = model(consistency_batch)
+                consistency_loss = _logit_consistency_loss(out["logits"], out_consistency["logits"], consistency_cfg)
             main_ce_weight = float(loss_cfg.get("main_ce_weight", 1.0) or 1.0)
             loss = (
                 main_ce_weight * ce_loss
@@ -1550,6 +1609,7 @@ def train_one_epoch(
                 + float(lambda_hard_proto) * hard_proto_loss
                 + float(lambda_pair) * pairwise_loss
                 + float(lambda_pair_margin) * pair_margin_loss
+                + float(consistency_weight) * consistency_loss
             )
         if not torch.isfinite(loss):
             raise FloatingPointError(f"D16 loss is not finite: {float(loss.detach().cpu().item())}")
@@ -1567,6 +1627,7 @@ def train_one_epoch(
             scheduler.step()
         losses.append(float(loss.detach().cpu().item()))
         ce_losses.append(ce_stats["ce_loss"])
+        consistency_losses.append(float(consistency_loss.detach().cpu().item()))
         supcon_losses.append(float(supcon_loss.detach().cpu().item()))
         hard_proto_losses.append(float(hard_proto_loss.detach().cpu().item()))
         if hard_proto_stats:
@@ -1671,6 +1732,8 @@ def train_one_epoch(
                         "pairwise_loss_so_far": float(np.mean(pairwise_losses)) if pairwise_losses else 0.0,
                         "lambda_pair_margin_current": float(lambda_pair_margin),
                         "pair_margin_loss_so_far": float(np.mean(pair_margin_losses)) if pair_margin_losses else 0.0,
+                        "consistency_loss_so_far": float(np.mean(consistency_losses)) if consistency_losses else 0.0,
+                        "lambda_consistency_current": float(consistency_weight),
                     }
                 ),
                 flush=True,
@@ -1686,6 +1749,11 @@ def train_one_epoch(
         "train_avg_batch_wait_time_ms": float(np.mean(batch_wait_times) * 1000.0) if batch_wait_times else float("nan"),
         "train_num_batches": int(len(batch_wall_times)),
         "ce_loss": float(np.mean(ce_losses)) if ce_losses else float("nan"),
+        "consistency_loss_total": float(np.mean(consistency_losses)) if consistency_losses else 0.0,
+        "lambda_consistency_current": float(consistency_weight),
+        "graph_aug_node_dropout_prob": float((graph_regularization or {}).get("node_dropout_prob", 0.0) or 0.0),
+        "graph_aug_edge_dropout_prob": float((graph_regularization or {}).get("edge_dropout_prob", 0.0) or 0.0),
+        "graph_aug_node_feature_noise_std": float((graph_regularization or {}).get("node_feature_noise_std", 0.0) or 0.0),
         "supcon_loss_total": float(np.mean(supcon_losses)) if supcon_losses else 0.0,
         "supcon_loss_mouth": float(supcon_part_sums["mouth"] / max(len(batch_wall_times), 1)),
         "supcon_loss_eye": float(supcon_part_sums["eye"] / max(len(batch_wall_times), 1)),
@@ -3108,6 +3176,11 @@ def main() -> None:
         "evaluated",
         "memory_reserved_mb",
         "ce_loss",
+        "consistency_loss_total",
+        "lambda_consistency_current",
+        "graph_aug_node_dropout_prob",
+        "graph_aug_edge_dropout_prob",
+        "graph_aug_node_feature_noise_std",
         "supcon_loss_total",
         "supcon_loss_mouth",
         "supcon_loss_eye",
@@ -3319,6 +3392,11 @@ def main() -> None:
             "evaluated": int(should_eval),
             "memory_reserved_mb": memory_reserved,
             "ce_loss": train_stats["ce_loss"],
+            "consistency_loss_total": train_stats["consistency_loss_total"],
+            "lambda_consistency_current": train_stats["lambda_consistency_current"],
+            "graph_aug_node_dropout_prob": train_stats["graph_aug_node_dropout_prob"],
+            "graph_aug_edge_dropout_prob": train_stats["graph_aug_edge_dropout_prob"],
+            "graph_aug_node_feature_noise_std": train_stats["graph_aug_node_feature_noise_std"],
             "supcon_loss_total": train_stats["supcon_loss_total"],
             "supcon_loss_mouth": train_stats["supcon_loss_mouth"],
             "supcon_loss_eye": train_stats["supcon_loss_eye"],
