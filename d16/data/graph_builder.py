@@ -165,6 +165,111 @@ def _edges_for_mask_uncached(mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return coords.astype(np.int64), edges
 
 
+_ANCHOR_GROUP_INDICES = {
+    "mouth": [5, 6, 7],
+    "eye": [0, 1],
+    "brow": [2, 3],
+    "nose_cheek": [4, 8, 9],
+}
+
+
+def _anchor_group_prior(part_soft: np.ndarray, group: str, part_count: int) -> np.ndarray:
+    if group == "global":
+        return np.ones((part_soft.shape[0],), dtype=np.float32)
+    indices = [idx for idx in _ANCHOR_GROUP_INDICES.get(group, []) if idx < int(part_count)]
+    if not indices:
+        return np.zeros((part_soft.shape[0],), dtype=np.float32)
+    return np.max(part_soft[:, indices], axis=1).astype(np.float32)
+
+
+def _top_indices_by_weight(weights: np.ndarray, threshold: float, max_count: int) -> np.ndarray:
+    eligible = np.flatnonzero(weights >= float(threshold))
+    if eligible.size == 0:
+        eligible = np.flatnonzero(weights > 0.0)
+    if eligible.size == 0:
+        return eligible.astype(np.int64)
+    if max_count > 0 and eligible.size > int(max_count):
+        order = np.argsort(weights[eligible])[::-1][: int(max_count)]
+        eligible = eligible[order]
+    return eligible.astype(np.int64)
+
+
+def _add_part_anchor_nodes(
+    x: np.ndarray,
+    pos: np.ndarray,
+    part_soft: np.ndarray,
+    face_values: np.ndarray,
+    edges: np.ndarray,
+    anchor_cfg: Dict[str, Any] | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    cfg = dict(anchor_cfg or {})
+    if not bool(cfg.get("enabled", False)):
+        return x, pos, part_soft, face_values, edges
+    groups = list(cfg.get("groups") or ["mouth", "eye", "brow", "nose_cheek", "global"])
+    groups = [str(group) for group in groups if str(group)]
+    if not groups:
+        return x, pos, part_soft, face_values, edges
+    connect_threshold = float(cfg.get("connect_threshold", 0.20))
+    max_pixels = int(cfg.get("max_pixels_per_anchor", 384) or 0)
+    connect_global_to_pixels = bool(cfg.get("connect_global_to_pixels", False))
+    anchor_to_anchor = bool(cfg.get("anchor_to_anchor", True))
+    bidirectional = bool(cfg.get("bidirectional", True))
+    part_count = int(part_soft.shape[1])
+    anchor_x: List[np.ndarray] = []
+    anchor_pos: List[np.ndarray] = []
+    anchor_part: List[np.ndarray] = []
+    anchor_face: List[float] = []
+    anchor_edges: List[tuple[int, int]] = []
+    base_n = int(x.shape[0])
+    for group_idx, group in enumerate(groups):
+        weights = _anchor_group_prior(part_soft, group, part_count).astype(np.float32)
+        if group == "global":
+            weights = np.maximum(face_values.astype(np.float32), 1e-6)
+        denom = float(np.sum(weights))
+        if denom <= 1e-6:
+            node_x = np.zeros((x.shape[1],), dtype=np.float32)
+            node_pos = np.zeros((pos.shape[1],), dtype=np.float32)
+        else:
+            normalized = (weights / denom).astype(np.float32)
+            node_x = np.sum(x * normalized[:, None], axis=0).astype(np.float32)
+            node_pos = np.sum(pos * normalized[:, None], axis=0).astype(np.float32)
+        node_part = np.zeros((part_count,), dtype=np.float32)
+        if group == "global":
+            node_part[:] = np.mean(part_soft, axis=0).astype(np.float32)
+        else:
+            for part_idx in [idx for idx in _ANCHOR_GROUP_INDICES.get(group, []) if idx < part_count]:
+                node_part[part_idx] = 1.0
+        anchor_x.append(node_x)
+        anchor_pos.append(node_pos)
+        anchor_part.append(node_part)
+        anchor_face.append(1.0)
+        anchor_id = base_n + group_idx
+        if group != "global" or connect_global_to_pixels:
+            selected = _top_indices_by_weight(weights, connect_threshold, max_pixels)
+            for node_id in selected.tolist():
+                anchor_edges.append((int(node_id), anchor_id))
+                if bidirectional:
+                    anchor_edges.append((anchor_id, int(node_id)))
+    if anchor_to_anchor and len(groups) > 1:
+        for i in range(len(groups)):
+            for j in range(len(groups)):
+                if i == j:
+                    continue
+                anchor_edges.append((base_n + i, base_n + j))
+    if not anchor_x:
+        return x, pos, part_soft, face_values, edges
+    x_out = np.concatenate([x, np.stack(anchor_x, axis=0).astype(np.float32)], axis=0)
+    pos_out = np.concatenate([pos, np.stack(anchor_pos, axis=0).astype(np.float32)], axis=0)
+    part_out = np.concatenate([part_soft, np.stack(anchor_part, axis=0).astype(np.float32)], axis=0)
+    face_out = np.concatenate([face_values.astype(np.float32), np.asarray(anchor_face, dtype=np.float32)], axis=0)
+    if anchor_edges:
+        extra_edges = np.asarray(anchor_edges, dtype=np.int64).T
+        edges_out = np.concatenate([edges.astype(np.int64), extra_edges], axis=1)
+    else:
+        edges_out = edges.astype(np.int64)
+    return x_out.astype(np.float32), pos_out.astype(np.float32), part_out.astype(np.float32), face_out.astype(np.float32), edges_out.astype(np.int64)
+
+
 def _detail_features_enabled(detail_features: Dict[str, Any] | None) -> bool:
     if not detail_features:
         return False
@@ -232,6 +337,7 @@ def build_pixel_graph(
     context_pixels: int = 2,
     detail_features: Dict[str, Any] | None = None,
     edge_features: Dict[str, Any] | None = None,
+    anchor_nodes: Dict[str, Any] | None = None,
 ) -> D16GraphData:
     image = np.asarray(prior["image_48"], dtype=np.float32)
     image_norm = image / 255.0 if image.max() > 1.0 else image
@@ -269,6 +375,15 @@ def build_pixel_graph(
     x = np.concatenate(features, axis=1).astype(np.float32)
     pos = np.stack([x_norm, y_norm], axis=1).astype(np.float32)
     part_soft_sampled = np.transpose(part_masks[:, yy, xx], (1, 0)).astype(np.float32)
+    face_sampled = face[yy, xx].astype(np.float32)
+    x, pos, part_soft_sampled, face_sampled, edges = _add_part_anchor_nodes(
+        x,
+        pos,
+        part_soft_sampled,
+        face_sampled,
+        edges,
+        anchor_nodes,
+    )
     edge_attr = None
     if _edge_features_enabled(edge_features):
         edge_attr = _build_edge_attr(
@@ -286,7 +401,7 @@ def build_pixel_graph(
         y=torch.tensor(int(np.asarray(prior["label"]).item()), dtype=torch.long),
         sample_index=torch.tensor(int(np.asarray(prior["sample_index"]).item()), dtype=torch.long),
         part_soft=torch.from_numpy(part_soft_sampled),
-        face_mask=torch.from_numpy(face[yy, xx].astype(np.float32)),
+        face_mask=torch.from_numpy(face_sampled.astype(np.float32)),
         valid_part_mask=torch.from_numpy(np.asarray(prior["valid_part_mask"], dtype=np.float32)),
         valid_anchor_mask=torch.from_numpy(np.asarray(prior["valid_anchor_mask"], dtype=np.float32)),
         detected=torch.tensor(bool(np.asarray(prior["detected"]).item()), dtype=torch.bool),

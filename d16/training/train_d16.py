@@ -643,6 +643,7 @@ def _single_dataset(
     max_samples: int | None,
     detail_features: Dict[str, Any] | None = None,
     edge_features: Dict[str, Any] | None = None,
+    anchor_nodes: Dict[str, Any] | None = None,
     graph_cache_dir: str | Path | None = None,
     chunk_cache_size: int = 2,
 ):
@@ -650,6 +651,8 @@ def _single_dataset(
         raise ValueError("D16 detail node features require graph_cache_dir=null unless a matching 37-dim cache is built.")
     if graph_cache_dir and bool((edge_features or {}).get("enabled", False)):
         raise ValueError("D16 edge features require graph_cache_dir=null unless a matching edge-attr cache is built.")
+    if graph_cache_dir and bool((anchor_nodes or {}).get("enabled", False)):
+        raise ValueError("D16 anchor nodes require graph_cache_dir=null unless a matching anchor-node cache is built.")
     if graph_cache_dir:
         return D16GraphCacheDataset(
             graph_cache_dir,
@@ -668,6 +671,7 @@ def _single_dataset(
         context_pixels=context_pixels,
         detail_features=detail_features,
         edge_features=edge_features,
+        anchor_nodes=anchor_nodes,
         max_samples=max_samples,
     )
 
@@ -684,6 +688,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
     context_pixels = int(graph_cfg.get("context_pixels", 2))
     detail_features = graph_cfg.get("detail_features", {}) or {}
     edge_features = graph_cfg.get("edge_features", {}) or {}
+    anchor_nodes = graph_cfg.get("anchor_nodes", {}) or {}
     chunk_cache_size = int(data_cfg.get("graph_cache_chunk_cache_size", 2))
     if graph_mode == "hybrid_detected_face_fallback_fullmask":
         detected_ds = _single_dataset(
@@ -695,6 +700,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
             max_samples,
             detail_features=detail_features,
             edge_features=edge_features,
+            anchor_nodes=anchor_nodes,
             graph_cache_dir=data_cfg.get("graph_cache_dir_detected"),
             chunk_cache_size=chunk_cache_size,
         )
@@ -707,6 +713,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
             max_samples,
             detail_features=detail_features,
             edge_features=edge_features,
+            anchor_nodes=anchor_nodes,
             graph_cache_dir=data_cfg.get("graph_cache_dir_fallback"),
             chunk_cache_size=chunk_cache_size,
         )
@@ -721,6 +728,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
         max_samples,
         detail_features=detail_features,
         edge_features=edge_features,
+        anchor_nodes=anchor_nodes,
         graph_cache_dir=graph_cache_dir,
         chunk_cache_size=chunk_cache_size,
     )
