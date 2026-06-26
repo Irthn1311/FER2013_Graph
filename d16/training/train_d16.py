@@ -1536,6 +1536,7 @@ def train_one_epoch(
     detected_loss_means = []
     fallback_loss_means = []
     node_counts, edge_counts = [], []
+    consistency_losses = []
     epoch_start = time.perf_counter()
     wait_start = epoch_start
     first_batch_wait = None
