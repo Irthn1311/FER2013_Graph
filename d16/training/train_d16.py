@@ -64,9 +64,25 @@ class D16HybridDetectedFallbackDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.detected_ds)
 
+    def set_epoch(self, epoch: int) -> None:
+        for dataset in (self.detected_ds, self.fallback_ds):
+            setter = getattr(dataset, "set_epoch", None)
+            if callable(setter):
+                setter(int(epoch))
+
+    def current_corruption_probability(self) -> float:
+        getter = getattr(self.detected_ds, "current_corruption_probability", None)
+        if callable(getter):
+            return float(getter())
+        return 0.0
+
     def __getitem__(self, index: int):
+        raw_detected = None
+        detector = getattr(self.detected_ds, "raw_detected", None)
+        if callable(detector):
+            raw_detected = bool(detector(index))
         detected_graph = self.detected_ds[index]
-        if bool(detected_graph.detected.item()):
+        if bool(detected_graph.detected.item()) or raw_detected is True:
             return detected_graph
         fallback_graph = self.fallback_ds[index]
         if int(detected_graph.sample_index.item()) != int(fallback_graph.sample_index.item()):
@@ -619,6 +635,19 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(int(seed))
 
 
+def _set_dataset_epoch(dataset: Any, epoch: int) -> None:
+    setter = getattr(dataset, "set_epoch", None)
+    if callable(setter):
+        setter(int(epoch))
+
+
+def _dataset_prior_corruption_probability(dataset: Any) -> float:
+    getter = getattr(dataset, "current_corruption_probability", None)
+    if callable(getter):
+        return float(getter())
+    return 0.0
+
+
 def _loader_kwargs(data_cfg: Dict[str, Any], training_cfg: Dict[str, Any], shuffle: bool) -> Dict[str, Any]:
     num_workers = int(training_cfg.get("num_workers", data_cfg.get("num_workers", 0)) or 0)
     kwargs: Dict[str, Any] = {
@@ -644,6 +673,7 @@ def _single_dataset(
     detail_features: Dict[str, Any] | None = None,
     edge_features: Dict[str, Any] | None = None,
     anchor_nodes: Dict[str, Any] | None = None,
+    prior_corruption: Dict[str, Any] | None = None,
     graph_cache_dir: str | Path | None = None,
     chunk_cache_size: int = 2,
 ):
@@ -653,6 +683,8 @@ def _single_dataset(
         raise ValueError("D16 edge features require graph_cache_dir=null unless a matching edge-attr cache is built.")
     if graph_cache_dir and bool((anchor_nodes or {}).get("enabled", False)):
         raise ValueError("D16 anchor nodes require graph_cache_dir=null unless a matching anchor-node cache is built.")
+    if graph_cache_dir and bool((prior_corruption or {}).get("enabled", False)):
+        raise ValueError("D16 prior corruption requires graph_cache_dir=null because priors are mutated before graph building.")
     if graph_cache_dir:
         return D16GraphCacheDataset(
             graph_cache_dir,
@@ -672,6 +704,7 @@ def _single_dataset(
         detail_features=detail_features,
         edge_features=edge_features,
         anchor_nodes=anchor_nodes,
+        prior_corruption=prior_corruption,
         max_samples=max_samples,
     )
 
@@ -689,6 +722,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
     detail_features = graph_cfg.get("detail_features", {}) or {}
     edge_features = graph_cfg.get("edge_features", {}) or {}
     anchor_nodes = graph_cfg.get("anchor_nodes", {}) or {}
+    prior_corruption = graph_cfg.get("prior_corruption", {}) or {}
     chunk_cache_size = int(data_cfg.get("graph_cache_chunk_cache_size", 2))
     if graph_mode == "hybrid_detected_face_fallback_fullmask":
         detected_ds = _single_dataset(
@@ -701,6 +735,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
             detail_features=detail_features,
             edge_features=edge_features,
             anchor_nodes=anchor_nodes,
+            prior_corruption=prior_corruption,
             graph_cache_dir=data_cfg.get("graph_cache_dir_detected"),
             chunk_cache_size=chunk_cache_size,
         )
@@ -714,6 +749,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
             detail_features=detail_features,
             edge_features=edge_features,
             anchor_nodes=anchor_nodes,
+            prior_corruption=prior_corruption,
             graph_cache_dir=data_cfg.get("graph_cache_dir_fallback"),
             chunk_cache_size=chunk_cache_size,
         )
@@ -729,6 +765,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
         detail_features=detail_features,
         edge_features=edge_features,
         anchor_nodes=anchor_nodes,
+        prior_corruption=prior_corruption,
         graph_cache_dir=graph_cache_dir,
         chunk_cache_size=chunk_cache_size,
     )
@@ -3190,6 +3227,7 @@ def main() -> None:
         "graph_aug_node_dropout_prob",
         "graph_aug_edge_dropout_prob",
         "graph_aug_node_feature_noise_std",
+        "prior_corruption_probability",
         "supcon_loss_total",
         "supcon_loss_mouth",
         "supcon_loss_eye",
@@ -3309,7 +3347,9 @@ def main() -> None:
     for epoch in range(start_epoch, max_epochs + 1):
         start = time.time()
         progress_interval = int(training_cfg.get("progress_interval_batches", data_cfg.get("progress_interval_batches", 500)) or 0)
-        print(json.dumps({"event": "d16_epoch_start", "epoch": int(epoch), "max_epochs": int(max_epochs)}), flush=True)
+        _set_dataset_epoch(train_ds, epoch)
+        prior_corruption_probability = _dataset_prior_corruption_probability(train_ds)
+        print(json.dumps({"event": "d16_epoch_start", "epoch": int(epoch), "max_epochs": int(max_epochs), "prior_corruption_probability": prior_corruption_probability}), flush=True)
         train_stats = train_one_epoch(
             model,
             train_loader,
@@ -3406,6 +3446,7 @@ def main() -> None:
             "graph_aug_node_dropout_prob": train_stats["graph_aug_node_dropout_prob"],
             "graph_aug_edge_dropout_prob": train_stats["graph_aug_edge_dropout_prob"],
             "graph_aug_node_feature_noise_std": train_stats["graph_aug_node_feature_noise_std"],
+            "prior_corruption_probability": prior_corruption_probability,
             "supcon_loss_total": train_stats["supcon_loss_total"],
             "supcon_loss_mouth": train_stats["supcon_loss_mouth"],
             "supcon_loss_eye": train_stats["supcon_loss_eye"],
