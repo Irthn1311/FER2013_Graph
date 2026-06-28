@@ -124,10 +124,14 @@ class PartGlobalContextBlock(torch.nn.Module):
         transformer_heads: int = 4,
         context_scale_init: float = 0.5,
         dropout: float = 0.2,
+        prior_gate: Dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self.hidden_dim = int(hidden_dim)
         self.part_groups = list(part_groups or ["mouth", "eye", "brow", "nose_cheek", "global"])
+        gate_cfg = dict(prior_gate or {})
+        self.context_prior_gate_enabled = bool(gate_cfg.get("enabled", False))
+        self.context_prior_gate_learnable = bool(gate_cfg.get("learnable", True))
         heads = _valid_num_heads(self.hidden_dim, int(transformer_heads))
         enc_layer = torch.nn.TransformerEncoderLayer(
             d_model=self.hidden_dim,
@@ -147,6 +151,14 @@ class PartGlobalContextBlock(torch.nn.Module):
         )
         self.norm = torch.nn.LayerNorm(self.hidden_dim)
         self.context_scale = torch.nn.Parameter(torch.tensor(float(context_scale_init), dtype=torch.float32))
+        prior_gate_init = self._prior_gate_init_values(gate_cfg.get("init", 1.0))
+        if self.context_prior_gate_enabled and self.context_prior_gate_learnable:
+            self.context_prior_gate_logit = torch.nn.Parameter(self._logit(prior_gate_init))
+            self.register_buffer("context_prior_gate_value", torch.ones(len(self.part_groups), dtype=torch.float32), persistent=False)
+        else:
+            self.context_prior_gate_logit = None
+            gate_value = prior_gate_init if self.context_prior_gate_enabled else torch.ones(len(self.part_groups), dtype=torch.float32)
+            self.register_buffer("context_prior_gate_value", gate_value, persistent=False)
 
     def _prior(self, part_soft: torch.Tensor, group: str) -> torch.Tensor:
         if group == "global":
@@ -155,6 +167,33 @@ class PartGlobalContextBlock(torch.nn.Module):
         if not indices:
             return torch.zeros((part_soft.size(0),), device=part_soft.device, dtype=part_soft.dtype)
         return part_soft[:, indices].max(dim=1).values
+
+    @staticmethod
+    def _logit(values: torch.Tensor) -> torch.Tensor:
+        values = values.clamp(1e-4, 1.0 - 1e-4)
+        return torch.log(values / (1.0 - values))
+
+    def _prior_gate_init_values(self, init: Any) -> torch.Tensor:
+        if isinstance(init, dict):
+            values = [float(init.get(name, 1.0)) for name in self.part_groups]
+        else:
+            values = [float(init)] * len(self.part_groups)
+        return torch.tensor(values, dtype=torch.float32).clamp(0.0, 1.0)
+
+    def _prior_gate_values(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        if not self.context_prior_gate_enabled:
+            return torch.ones(len(self.part_groups), device=device, dtype=dtype)
+        if self.context_prior_gate_logit is not None:
+            return torch.sigmoid(self.context_prior_gate_logit).to(device=device, dtype=dtype)
+        return self.context_prior_gate_value.to(device=device, dtype=dtype)
+
+    def _effective_priors(self, part_soft: torch.Tensor) -> torch.Tensor:
+        raw = torch.stack([self._prior(part_soft, group).clamp_min(0.0) for group in self.part_groups], dim=1)
+        if not self.context_prior_gate_enabled:
+            return raw
+        gates = self._prior_gate_values(part_soft.device, part_soft.dtype).view(1, -1)
+        uniform = torch.ones_like(raw)
+        return gates * raw + (1.0 - gates) * uniform
 
     def _forward_loop_reference(
         self,
@@ -171,7 +210,7 @@ class PartGlobalContextBlock(torch.nn.Module):
                 continue
             h_g = h[mask]
             part_g = part_soft[mask]
-            priors = [self._prior(part_g, group).clamp_min(0.0) for group in self.part_groups]
+            priors = [self._effective_priors(part_g)[:, idx] for idx in range(len(self.part_groups))]
             tokens = []
             for prior in priors:
                 denom = prior.sum().clamp_min(1e-6)
@@ -204,7 +243,7 @@ class PartGlobalContextBlock(torch.nn.Module):
     ) -> tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         num_graphs = int(num_graphs)
         scale = self.context_scale.to(device=h.device, dtype=h.dtype)
-        priors = torch.stack([self._prior(part_soft, group).clamp_min(0.0) for group in self.part_groups], dim=1)
+        priors = self._effective_priors(part_soft)
         token_sums = h.new_zeros((num_graphs, len(self.part_groups), self.hidden_dim))
         token_sums.index_add_(0, batch_index.long(), h.unsqueeze(1) * priors.unsqueeze(2))
         denom = h.new_zeros((num_graphs, len(self.part_groups)))
@@ -231,6 +270,7 @@ class PartGlobalContextBlock(torch.nn.Module):
             return out, {}
         diagnostics = {
             "context_scale": scale.detach(),
+            "context_prior_gate_mean": self._prior_gate_values(h.device, h.dtype).detach().mean(),
             "context_update_norm_mean": update.detach().norm(dim=1).mean(),
             "part_context_token_norm_mean": mixed.detach().norm(dim=2).mean(),
         }
@@ -335,6 +375,7 @@ class EdgeContextGNNEncoder(torch.nn.Module):
                 transformer_heads=int(context_cfg.get("transformer_heads", 4)),
                 context_scale_init=float(context_cfg.get("context_scale_init", 0.5)),
                 dropout=float(context_cfg.get("dropout", dropout)),
+                prior_gate=context_cfg.get("prior_gate", {}) or {},
             )
         self.diagnostics: Dict[str, torch.Tensor] = {}
         self.diagnostics_mode = diagnostics

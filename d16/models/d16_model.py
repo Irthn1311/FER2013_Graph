@@ -133,6 +133,7 @@ class D16Model(torch.nn.Module):
                 dropout=float(micro_cfg.get("dropout", 0.2)),
                 residual_concat=bool(micro_cfg.get("residual_concat", True)),
                 micro_support_gate=bool(micro_cfg.get("micro_support_gate", True)),
+                prior_gate=micro_cfg.get("prior_gate", {}) or {},
                 diagnostics=bool(micro_cfg.get("diagnostics", True)),
             )
         elif self.readout_type != "concat":
@@ -339,6 +340,7 @@ class D16Model(torch.nn.Module):
                     "micro_motif_names": list(getattr(self.readout, "micro_names", [])),
                     "micro_motif_parts": list(getattr(self.readout, "micro_parts", [])),
                     "micro_support_gate": readout_out["micro_gate"],
+                    "micro_prior_gate_values": readout_out.get("prior_gate_values"),
                     "micro_detail_available": readout_out["detail_available"],
                 }
             )

@@ -8,7 +8,7 @@ causal explanations.
 from __future__ import annotations
 
 import math
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List
 
 import torch
 import torch.nn.functional as F
@@ -50,6 +50,7 @@ class MicroMotifSupportReadout(torch.nn.Module):
         dropout: float = 0.2,
         residual_concat: bool = True,
         micro_support_gate: bool = True,
+        prior_gate: Dict[str, Any] | None = None,
         diagnostics: bool = True,
     ) -> None:
         super().__init__()
@@ -70,6 +71,9 @@ class MicroMotifSupportReadout(torch.nn.Module):
         self.micro_support_gate = bool(micro_support_gate)
         self.diagnostics = bool(diagnostics)
         self.part_order = ["mouth", "eye", "brow", "nose_cheek", "global"]
+        gate_cfg = dict(prior_gate or {})
+        self.prior_gate_enabled = bool(gate_cfg.get("enabled", False))
+        self.prior_gate_learnable = bool(gate_cfg.get("learnable", True))
 
         major_counts = major_motif_counts or {"mouth": 3, "eye": 3, "brow": 3, "nose_cheek": 1, "global": 2}
         micro_counts = micro_motif_counts or {"mouth": 2, "eye": 2, "brow": 2, "nose_cheek": 1, "global": 1}
@@ -104,6 +108,15 @@ class MicroMotifSupportReadout(torch.nn.Module):
             torch.tensor([self.part_order.index(name) for name in self.micro_parts], dtype=torch.long),
             persistent=False,
         )
+
+        prior_gate_init = self._prior_gate_init_values(gate_cfg.get("init", 1.0))
+        if self.prior_gate_enabled and self.prior_gate_learnable:
+            self.prior_gate_logit = torch.nn.Parameter(self._logit(prior_gate_init))
+            self.register_buffer("prior_gate_value", torch.ones(len(self.part_order), dtype=torch.float32), persistent=False)
+        else:
+            self.prior_gate_logit = None
+            gate_value = prior_gate_init if self.prior_gate_enabled else torch.ones(len(self.part_order), dtype=torch.float32)
+            self.register_buffer("prior_gate_value", gate_value, persistent=False)
 
         self.major_queries = torch.nn.Parameter(torch.randn(self.num_major, self.hidden_dim) * 0.02)
         self.micro_queries = torch.nn.Parameter(torch.randn(self.num_micro, self.hidden_dim) * 0.02)
@@ -166,6 +179,25 @@ class MicroMotifSupportReadout(torch.nn.Module):
 
     def _indices(self, names: Iterable[str]) -> List[int]:
         return [self.part_names.index(name) for name in names if name in self.part_names]
+
+    @staticmethod
+    def _logit(values: torch.Tensor) -> torch.Tensor:
+        values = values.clamp(1e-4, 1.0 - 1e-4)
+        return torch.log(values / (1.0 - values))
+
+    def _prior_gate_init_values(self, init: Any) -> torch.Tensor:
+        if isinstance(init, dict):
+            values = [float(init.get(name, 1.0)) for name in self.part_order]
+        else:
+            values = [float(init)] * len(self.part_order)
+        return torch.tensor(values, dtype=torch.float32).clamp(0.0, 1.0)
+
+    def _prior_gate_values(self, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+        if not self.prior_gate_enabled:
+            return torch.ones(len(self.part_order), device=device, dtype=dtype)
+        if self.prior_gate_logit is not None:
+            return torch.sigmoid(self.prior_gate_logit).to(device=device, dtype=dtype)
+        return self.prior_gate_value.to(device=device, dtype=dtype)
 
     def _stack_parts(self, part_embeddings: Dict[str, torch.Tensor]) -> torch.Tensor:
         missing = [name for name in self.part_order if name not in part_embeddings]
@@ -258,7 +290,8 @@ class MicroMotifSupportReadout(torch.nn.Module):
                 tokens.append(values.new_zeros((self.hidden_dim,)))
                 continue
             prior = self._group_prior(part_g, group_name).to(dtype=dtype).clamp_min(self.eps)
-            scores = content_scores[motif_idx] + float(lambda_part) * torch.log(prior)
+            prior_gate = self._prior_gate_values(h_g.device, dtype)[group_idx]
+            scores = content_scores[motif_idx] + float(lambda_part) * prior_gate * torch.log(prior)
             if detail_score is not None and float(lambda_detail) != 0.0:
                 scores = scores + float(lambda_detail) * detail_score.to(device=h_g.device, dtype=dtype)
             alpha = torch.softmax(scores, dim=0)
@@ -342,7 +375,8 @@ class MicroMotifSupportReadout(torch.nn.Module):
             dtype=torch.long,
         )
         prior = group_priors[:, part_idx, :].clamp_min(self.eps)
-        scores = scores + float(lambda_part) * torch.log(prior)
+        prior_gate = self._prior_gate_values(h_pad.device, dtype)[part_idx].view(1, -1, 1)
+        scores = scores + float(lambda_part) * prior_gate * torch.log(prior)
         if detail_score is not None and float(lambda_detail) != 0.0:
             detail = detail_score.to(device=h_pad.device, dtype=dtype)
             if detail_available is not None:
@@ -488,5 +522,8 @@ class MicroMotifSupportReadout(torch.nn.Module):
             "micro_effective_count": micro_effective,
             "micro_part_index": self.micro_part_index.to(device=device),
             "micro_gate": gate,
+            "prior_gate_values": self._prior_gate_values(device, dtype),
             "detail_available": detail_available,
         }
+
+

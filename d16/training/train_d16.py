@@ -353,6 +353,8 @@ def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Di
     detail = graph.get("detail_features", {}) or {}
     edge = graph.get("edge_features", {}) or {}
     edge_gnn = model.get("edge_context_gnn", {}) or {}
+    micro = model.get("micro_motif_support", {}) or {}
+    context = edge_gnn.get("context_injection", {}) or {}
     multiscale = edge_gnn.get("multiscale_fusion", {}) or {}
     return {
         "run_name": config.get("run_name"),
@@ -375,6 +377,8 @@ def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Di
         "edge_context_multiscale_enabled": bool(multiscale.get("enabled", False)),
         "edge_context_multiscale_layers": list(multiscale.get("layers") or []),
         "edge_context_multiscale_mode": multiscale.get("mode"),
+        "micro_prior_gate": micro.get("prior_gate", {}) or {},
+        "context_prior_gate": context.get("prior_gate", {}) or {},
         "loss_mode": loss.get("mode", "ce"),
         "optimizer_type": "AdamW",
         "scheduler_type": _scheduler_type_from_config(config),
