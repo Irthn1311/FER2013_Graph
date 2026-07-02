@@ -652,6 +652,13 @@ def _dataset_prior_corruption_probability(dataset: Any) -> float:
     return 0.0
 
 
+
+def _dataset_edge_prior_regularization_probability(dataset: Any) -> float:
+    getter = getattr(dataset, "current_edge_prior_regularization_probability", None)
+    if callable(getter):
+        return float(getter())
+    return 0.0
+
 def _loader_kwargs(data_cfg: Dict[str, Any], training_cfg: Dict[str, Any], shuffle: bool) -> Dict[str, Any]:
     num_workers = int(training_cfg.get("num_workers", data_cfg.get("num_workers", 0)) or 0)
     kwargs: Dict[str, Any] = {
@@ -3232,6 +3239,7 @@ def main() -> None:
         "graph_aug_edge_dropout_prob",
         "graph_aug_node_feature_noise_std",
         "prior_corruption_probability",
+        "edge_prior_regularization_probability",
         "supcon_loss_total",
         "supcon_loss_mouth",
         "supcon_loss_eye",
@@ -3353,7 +3361,8 @@ def main() -> None:
         progress_interval = int(training_cfg.get("progress_interval_batches", data_cfg.get("progress_interval_batches", 500)) or 0)
         _set_dataset_epoch(train_ds, epoch)
         prior_corruption_probability = _dataset_prior_corruption_probability(train_ds)
-        print(json.dumps({"event": "d16_epoch_start", "epoch": int(epoch), "max_epochs": int(max_epochs), "prior_corruption_probability": prior_corruption_probability}), flush=True)
+        edge_prior_regularization_probability = _dataset_edge_prior_regularization_probability(train_ds)
+        print(json.dumps({"event": "d16_epoch_start", "epoch": int(epoch), "max_epochs": int(max_epochs), "prior_corruption_probability": prior_corruption_probability, "edge_prior_regularization_probability": edge_prior_regularization_probability}), flush=True)
         train_stats = train_one_epoch(
             model,
             train_loader,
@@ -3451,6 +3460,7 @@ def main() -> None:
             "graph_aug_edge_dropout_prob": train_stats["graph_aug_edge_dropout_prob"],
             "graph_aug_node_feature_noise_std": train_stats["graph_aug_node_feature_noise_std"],
             "prior_corruption_probability": prior_corruption_probability,
+            "edge_prior_regularization_probability": edge_prior_regularization_probability,
             "supcon_loss_total": train_stats["supcon_loss_total"],
             "supcon_loss_mouth": train_stats["supcon_loss_mouth"],
             "supcon_loss_eye": train_stats["supcon_loss_eye"],

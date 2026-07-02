@@ -282,12 +282,54 @@ def _edge_features_enabled(edge_features: Dict[str, Any] | None) -> bool:
     return bool(edge_features.get("enabled", False)) and bool(edge_features.get("append_to_edge_attr", True))
 
 
+def _edge_regularization_probability(cfg: Dict[str, Any]) -> float:
+    probability = float(cfg.get("probability", 0.0) or 0.0)
+    epoch = int(cfg.get("current_epoch", 0) or 0)
+    for item in cfg.get("schedule") or []:
+        if epoch >= int(item.get("start_epoch", 1) or 1):
+            probability = float(item.get("probability", probability) or 0.0)
+    return float(np.clip(probability, 0.0, 1.0))
+
+
+def _regularize_edge_attr(edge_attr: np.ndarray, names: List[str], edge_features: Dict[str, Any] | None) -> np.ndarray:
+    cfg = dict((edge_features or {}).get("prior_regularization", {}) or {})
+    if not bool(cfg.get("enabled", False)):
+        return edge_attr
+    probability = _edge_regularization_probability(cfg)
+    if probability <= 0.0:
+        return edge_attr
+    seed = int(cfg.get("rng_seed", cfg.get("seed", 137)) or 137)
+    rng = np.random.default_rng(seed)
+    if float(rng.random()) >= probability:
+        return edge_attr
+    target_features = [str(name) for name in cfg.get("target_features") or ["part_similarity", "same_dominant_part"]]
+    target_indices = [names.index(name) for name in target_features if name in names]
+    if not target_indices:
+        return edge_attr
+    mode = str(cfg.get("mode", "dropout"))
+    neutral_values = dict(cfg.get("neutral_values") or {})
+    out = np.array(edge_attr, copy=True)
+    for idx in target_indices:
+        name = names[idx]
+        neutral = float(neutral_values.get(name, 0.0))
+        if mode == "dropout":
+            out[:, idx] = neutral
+        elif mode == "attenuate":
+            keep = float(cfg.get("keep", 0.5))
+            keep = float(np.clip(keep, 0.0, 1.0))
+            out[:, idx] = out[:, idx] * keep + neutral * (1.0 - keep)
+        else:
+            raise ValueError(f"Unsupported D16 edge prior regularization mode={mode!r}")
+    return out.astype(np.float32)
+
+
 def _build_edge_attr(
     x: np.ndarray,
     pos: np.ndarray,
     part_soft: np.ndarray,
     edges: np.ndarray,
     feature_names: Iterable[str] | None = None,
+    edge_features: Dict[str, Any] | None = None,
 ) -> np.ndarray:
     names = list(feature_names or [])
     if not names:
@@ -326,6 +368,7 @@ def _build_edge_attr(
     if missing:
         raise ValueError(f"Unsupported D16 edge feature names: {missing}")
     edge_attr = np.stack([feature_map[name] for name in names], axis=1).astype(np.float32)
+    edge_attr = _regularize_edge_attr(edge_attr, names, edge_features)
     edge_attr = np.nan_to_num(edge_attr, nan=0.0, posinf=1.0, neginf=-1.0)
     return edge_attr
 
@@ -392,6 +435,7 @@ def build_pixel_graph(
             part_soft=part_soft_sampled,
             edges=edges,
             feature_names=edge_features.get("features"),
+            edge_features=edge_features,
         )
     return D16GraphData(
         x=torch.from_numpy(x),

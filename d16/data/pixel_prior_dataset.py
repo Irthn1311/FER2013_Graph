@@ -67,6 +67,40 @@ class D16PixelPriorDataset(Dataset):
     def current_corruption_probability(self) -> float:
         return self._current_probability() if self._corruption_enabled() else 0.0
 
+    def current_edge_prior_regularization_probability(self) -> float:
+        cfg = self._edge_prior_regularization_cfg()
+        return self._scheduled_probability(cfg) if self._edge_prior_regularization_enabled(cfg) else 0.0
+
+    def _edge_prior_regularization_cfg(self) -> Dict[str, Any]:
+        return dict((self.edge_features.get("prior_regularization", {}) or {}))
+
+    def _edge_prior_regularization_enabled(self, cfg: Dict[str, Any]) -> bool:
+        if not bool(cfg.get("enabled", False)):
+            return False
+        if bool(cfg.get("train_only", True)) and self.split != "train":
+            return False
+        return True
+
+    def _scheduled_probability(self, cfg: Dict[str, Any]) -> float:
+        probability = float(cfg.get("probability", 0.0) or 0.0)
+        for item in cfg.get("schedule") or []:
+            if int(self.epoch) >= int(item.get("start_epoch", 1) or 1):
+                probability = float(item.get("probability", probability) or 0.0)
+        return float(np.clip(probability, 0.0, 1.0))
+
+    def _edge_features_for(self, index: int) -> Dict[str, Any]:
+        edge_features = dict(self.edge_features or {})
+        cfg = self._edge_prior_regularization_cfg()
+        if not self._edge_prior_regularization_enabled(cfg):
+            edge_features.pop("prior_regularization", None)
+            return edge_features
+        cfg["current_epoch"] = int(self.epoch)
+        cfg["probability"] = self._scheduled_probability(cfg)
+        seed = int(cfg.get("seed", 2719) or 2719)
+        cfg["rng_seed"] = int((seed + int(self.epoch) * 1_000_003 + int(index) * 97_531) % (2**32 - 1))
+        edge_features["prior_regularization"] = cfg
+        return edge_features
+
     def _corruption_enabled(self) -> bool:
         cfg = self.prior_corruption
         if not bool(cfg.get("enabled", False)):
@@ -194,6 +228,6 @@ class D16PixelPriorDataset(Dataset):
             face_threshold=self.face_threshold,
             context_pixels=self.context_pixels,
             detail_features=self.detail_features,
-            edge_features=self.edge_features,
+            edge_features=self._edge_features_for(int(index)),
             anchor_nodes=self.anchor_nodes,
         )
