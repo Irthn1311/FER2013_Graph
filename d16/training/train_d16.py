@@ -551,6 +551,8 @@ def _clone_batch_with_regularized_features(
     x_cat: torch.Tensor,
     edge_attr_cat: torch.Tensor | None,
     edge_index_cat: torch.Tensor | None = None,
+    part_soft_cat: torch.Tensor | None = None,
+    face_mask_cat: torch.Tensor | None = None,
 ) -> D16Batch:
     return D16Batch(
         x_cat=x_cat,
@@ -561,8 +563,8 @@ def _clone_batch_with_regularized_features(
         y=batch.y,
         sample_index=batch.sample_index,
         pos_cat=batch.pos_cat,
-        part_soft_cat=batch.part_soft_cat,
-        face_mask_cat=batch.face_mask_cat,
+        part_soft_cat=batch.part_soft_cat if part_soft_cat is None else part_soft_cat,
+        face_mask_cat=batch.face_mask_cat if face_mask_cat is None else face_mask_cat,
         valid_part_mask=batch.valid_part_mask,
         valid_anchor_mask=batch.valid_anchor_mask,
         detected=batch.detected,
@@ -571,13 +573,92 @@ def _clone_batch_with_regularized_features(
     )
 
 
-def _apply_train_graph_regularization(batch: D16Batch, cfg: Dict[str, Any] | None) -> D16Batch:
+def _scheduled_graph_probability(cfg: Dict[str, Any], epoch: int, default: float = 0.0) -> float:
+    probability = float(cfg.get("probability", default) or 0.0)
+    for item in cfg.get("schedule") or []:
+        if int(epoch) >= int(item.get("start_epoch", 1) or 1):
+            probability = float(item.get("probability", probability) or 0.0)
+    return min(max(probability, 0.0), 1.0)
+
+
+def _node_prior_regularization_probability(graph_regularization: Dict[str, Any] | None, epoch: int) -> float:
+    cfg = (graph_regularization or {}).get("node_prior_regularization", {}) or {}
+    if not bool(cfg.get("enabled", False)):
+        return 0.0
+    return _scheduled_graph_probability(cfg, epoch)
+
+
+def _apply_node_prior_regularization(
+    batch: D16Batch,
+    x_cat: torch.Tensor,
+    cfg: Dict[str, Any],
+    epoch: int,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    if not bool(cfg.get("enabled", False)):
+        return x_cat, batch.part_soft_cat, batch.face_mask_cat
+    probability = _scheduled_graph_probability(cfg, epoch)
+    if probability <= 0.0 or x_cat.numel() == 0:
+        return x_cat, batch.part_soft_cat, batch.face_mask_cat
+
+    x_out = x_cat.clone()
+    part_out = batch.part_soft_cat.clone()
+    face_out = batch.face_mask_cat.clone()
+
+    face_index = int(cfg.get("face_index", 5))
+    part_indices = [int(v) for v in (cfg.get("part_indices") or list(range(6, 13)))]
+    distance_indices = [int(v) for v in (cfg.get("distance_indices") or list(range(13, 20)))]
+    mode = str(cfg.get("mode", "attenuate"))
+    keep = min(max(float(cfg.get("keep", 0.65) or 0.65), 0.0), 1.0)
+    distance_neutral = float(cfg.get("distance_neutral", 1.0))
+    face_neutral = float(cfg.get("face_neutral", 0.0))
+    part_neutral = float(cfg.get("part_neutral", 0.0))
+    apply_face = bool(cfg.get("apply_face", True)) and 0 <= face_index < x_out.size(1)
+    apply_part = bool(cfg.get("apply_part", True))
+    apply_distance = bool(cfg.get("apply_distance", True))
+
+    def mix(values: torch.Tensor, neutral: float) -> torch.Tensor:
+        neutral_tensor = torch.full_like(values, float(neutral))
+        if mode == "dropout":
+            return neutral_tensor
+        if mode == "attenuate":
+            return values * keep + neutral_tensor * (1.0 - keep)
+        raise ValueError(f"Unsupported D16 node_prior_regularization mode={mode!r}")
+
+    for graph_idx in range(batch.num_graphs):
+        if float(torch.rand((), device=x_out.device).item()) >= probability:
+            continue
+        start = int(batch.ptr[graph_idx].item())
+        end = int(batch.ptr[graph_idx + 1].item())
+        if end <= start:
+            continue
+        node_slice = slice(start, end)
+        if apply_face:
+            x_out[node_slice, face_index] = mix(x_out[node_slice, face_index], face_neutral)
+            face_out[node_slice] = mix(face_out[node_slice], face_neutral)
+        if apply_part:
+            valid_part_indices = [idx for idx in part_indices if 0 <= idx < x_out.size(1)]
+            if valid_part_indices:
+                x_out[node_slice, valid_part_indices] = mix(x_out[node_slice, valid_part_indices], part_neutral)
+            part_out[node_slice] = mix(part_out[node_slice], part_neutral)
+        if apply_distance:
+            valid_distance_indices = [idx for idx in distance_indices if 0 <= idx < x_out.size(1)]
+            if valid_distance_indices:
+                x_out[node_slice, valid_distance_indices] = mix(x_out[node_slice, valid_distance_indices], distance_neutral)
+    return x_out, part_out, face_out
+
+
+def _apply_train_graph_regularization(batch: D16Batch, cfg: Dict[str, Any] | None, epoch: int = 0) -> D16Batch:
     cfg = cfg or {}
     if not bool(cfg.get("enabled", False)):
         return batch
     x_cat = batch.x_cat
     edge_index_cat = batch.edge_index_cat
     edge_attr_cat = batch.edge_attr_cat
+    part_soft_cat = batch.part_soft_cat
+    face_mask_cat = batch.face_mask_cat
+    node_prior_cfg = cfg.get("node_prior_regularization", {}) or {}
+    if bool(node_prior_cfg.get("enabled", False)):
+        x_cat, part_soft_cat, face_mask_cat = _apply_node_prior_regularization(batch, x_cat, node_prior_cfg, epoch)
     noise_std = float(cfg.get("node_feature_noise_std", 0.0) or 0.0)
     node_feature_dropout = float(cfg.get("node_feature_dropout", 0.0) or 0.0)
     node_dropout = float(cfg.get("node_dropout_prob", 0.0) or 0.0)
@@ -599,9 +680,22 @@ def _apply_train_graph_regularization(batch: D16Batch, cfg: Dict[str, Any] | Non
                 edge_attr_cat = edge_attr_cat[keep_edge]
     if edge_attr_cat is not None and edge_attr_dropout > 0.0:
         edge_attr_cat = F.dropout(edge_attr_cat, p=min(max(edge_attr_dropout, 0.0), 0.95), training=True)
-    if x_cat is batch.x_cat and edge_attr_cat is batch.edge_attr_cat and edge_index_cat is batch.edge_index_cat:
+    if (
+        x_cat is batch.x_cat
+        and edge_attr_cat is batch.edge_attr_cat
+        and edge_index_cat is batch.edge_index_cat
+        and part_soft_cat is batch.part_soft_cat
+        and face_mask_cat is batch.face_mask_cat
+    ):
         return batch
-    return _clone_batch_with_regularized_features(batch, x_cat, edge_attr_cat, edge_index_cat=edge_index_cat)
+    return _clone_batch_with_regularized_features(
+        batch,
+        x_cat,
+        edge_attr_cat,
+        edge_index_cat=edge_index_cat,
+        part_soft_cat=part_soft_cat,
+        face_mask_cat=face_mask_cat,
+    )
 
 
 def _graph_consistency_cfg(graph_regularization: Dict[str, Any] | None, epoch: int) -> tuple[Dict[str, Any], float]:
@@ -1613,10 +1707,14 @@ def train_one_epoch(
         base_batch = batch
         consistency_batch = None
         if consistency_weight > 0.0:
-            batch = _apply_train_graph_regularization(base_batch, graph_regularization)
-            consistency_batch = _apply_train_graph_regularization(base_batch, graph_regularization)
+            if bool(consistency_cfg.get("clean_anchor", False)):
+                batch = base_batch
+                consistency_batch = _apply_train_graph_regularization(base_batch, graph_regularization, epoch=epoch)
+            else:
+                batch = _apply_train_graph_regularization(base_batch, graph_regularization, epoch=epoch)
+                consistency_batch = _apply_train_graph_regularization(base_batch, graph_regularization, epoch=epoch)
         else:
-            batch = _apply_train_graph_regularization(base_batch, graph_regularization)
+            batch = _apply_train_graph_regularization(base_batch, graph_regularization, epoch=epoch)
         optimizer.zero_grad(set_to_none=True)
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=bool(amp_enabled)):
             out = model(batch)
@@ -1811,6 +1909,7 @@ def train_one_epoch(
         "graph_aug_node_dropout_prob": float((graph_regularization or {}).get("node_dropout_prob", 0.0) or 0.0),
         "graph_aug_edge_dropout_prob": float((graph_regularization or {}).get("edge_dropout_prob", 0.0) or 0.0),
         "graph_aug_node_feature_noise_std": float((graph_regularization or {}).get("node_feature_noise_std", 0.0) or 0.0),
+        "node_prior_regularization_probability": float(_node_prior_regularization_probability(graph_regularization, epoch)),
         "supcon_loss_total": float(np.mean(supcon_losses)) if supcon_losses else 0.0,
         "supcon_loss_mouth": float(supcon_part_sums["mouth"] / max(len(batch_wall_times), 1)),
         "supcon_loss_eye": float(supcon_part_sums["eye"] / max(len(batch_wall_times), 1)),
@@ -3238,6 +3337,7 @@ def main() -> None:
         "graph_aug_node_dropout_prob",
         "graph_aug_edge_dropout_prob",
         "graph_aug_node_feature_noise_std",
+        "node_prior_regularization_probability",
         "prior_corruption_probability",
         "edge_prior_regularization_probability",
         "supcon_loss_total",
@@ -3459,6 +3559,7 @@ def main() -> None:
             "graph_aug_node_dropout_prob": train_stats["graph_aug_node_dropout_prob"],
             "graph_aug_edge_dropout_prob": train_stats["graph_aug_edge_dropout_prob"],
             "graph_aug_node_feature_noise_std": train_stats["graph_aug_node_feature_noise_std"],
+            "node_prior_regularization_probability": train_stats["node_prior_regularization_probability"],
             "prior_corruption_probability": prior_corruption_probability,
             "edge_prior_regularization_probability": edge_prior_regularization_probability,
             "supcon_loss_total": train_stats["supcon_loss_total"],
