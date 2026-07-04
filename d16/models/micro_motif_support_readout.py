@@ -392,7 +392,9 @@ class MicroMotifSupportReadout(torch.nn.Module):
             if detail_available is not None:
                 detail = detail * detail_available.to(device=h_pad.device, dtype=dtype).view(batch_size, 1)
             scores = scores + float(lambda_detail) * detail.unsqueeze(1)
-        scores = scores.masked_fill(~node_valid.unsqueeze(1), torch.finfo(dtype).min)
+        score_dtype = scores.dtype
+        mask_value = -1.0e4 if score_dtype in (torch.float16, torch.bfloat16) else -1.0e9
+        scores = scores.masked_fill(~node_valid.unsqueeze(1), scores.new_tensor(mask_value))
         alpha = torch.softmax(scores, dim=-1)
         motif_valid = valid_groups[:, part_idx].to(dtype=dtype)
         alpha = alpha * motif_valid.unsqueeze(-1)

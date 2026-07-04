@@ -168,7 +168,7 @@ training:
   metric_for_best_model: val_macro_f1
   best_metric: val_macro_f1
   progress_interval_batches: 500
-  amp: true
+  amp: false
   allow_tf32: true
   from_scratch: true
   init_checkpoint: null
