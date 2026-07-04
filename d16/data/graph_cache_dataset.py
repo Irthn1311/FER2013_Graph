@@ -41,6 +41,8 @@ def graph_to_cache_dict(graph: D16GraphData) -> Dict[str, torch.Tensor]:
         "detected": graph.detected,
         "landmark_missing_flag": graph.landmark_missing_flag,
         "image_48": graph.image_48,
+        "node_feature_names": graph.node_feature_names,
+        "edge_feature_names": graph.edge_feature_names,
     }
 
 
@@ -59,6 +61,8 @@ def graph_from_cache_dict(row: Dict[str, torch.Tensor]) -> D16GraphData:
         detected=row["detected"],
         landmark_missing_flag=row["landmark_missing_flag"],
         image_48=row.get("image_48", torch.zeros((48, 48), dtype=torch.float32)),
+        node_feature_names=row.get("node_feature_names"),
+        edge_feature_names=row.get("edge_feature_names"),
     )
 
 

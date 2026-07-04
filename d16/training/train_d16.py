@@ -371,6 +371,8 @@ def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Di
         "graph_mode": graph.get("graph_mode", (config.get("data", {}) or {}).get("graph_mode")),
         "detail_features_enabled": bool(detail.get("enabled", False)),
         "detail_features": list(detail.get("features") or []),
+        "node_features": dict(graph.get("node_features", {}) or {}),
+        "prior_usage": graph.get("prior_usage"),
         "edge_features_enabled": bool(edge.get("enabled", False)),
         "edge_features": list(edge.get("features") or []),
         "edge_context_layer_output_concat": bool(edge_gnn.get("layer_output_concat", False)),
@@ -378,6 +380,8 @@ def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Di
         "edge_context_multiscale_layers": list(multiscale.get("layers") or []),
         "edge_context_multiscale_mode": multiscale.get("mode"),
         "micro_prior_gate": micro.get("prior_gate", {}) or {},
+        "micro_prior_usage": micro.get("prior_usage"),
+        "micro_use_log_prior_bias": micro.get("use_log_prior_bias"),
         "context_prior_gate": context.get("prior_gate", {}) or {},
         "loss_mode": loss.get("mode", "ce"),
         "optimizer_type": "AdamW",
@@ -778,6 +782,8 @@ def _single_dataset(
     detail_features: Dict[str, Any] | None = None,
     edge_features: Dict[str, Any] | None = None,
     anchor_nodes: Dict[str, Any] | None = None,
+    node_features: Dict[str, Any] | None = None,
+    prior_usage: str | None = None,
     prior_corruption: Dict[str, Any] | None = None,
     graph_cache_dir: str | Path | None = None,
     chunk_cache_size: int = 2,
@@ -809,6 +815,8 @@ def _single_dataset(
         detail_features=detail_features,
         edge_features=edge_features,
         anchor_nodes=anchor_nodes,
+        node_features=node_features,
+        prior_usage=prior_usage,
         prior_corruption=prior_corruption,
         max_samples=max_samples,
     )
@@ -827,6 +835,8 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
     detail_features = graph_cfg.get("detail_features", {}) or {}
     edge_features = graph_cfg.get("edge_features", {}) or {}
     anchor_nodes = graph_cfg.get("anchor_nodes", {}) or {}
+    node_features = graph_cfg.get("node_features", {}) or {}
+    prior_usage = graph_cfg.get("prior_usage")
     prior_corruption = graph_cfg.get("prior_corruption", {}) or {}
     chunk_cache_size = int(data_cfg.get("graph_cache_chunk_cache_size", 2))
     if graph_mode == "hybrid_detected_face_fallback_fullmask":
@@ -840,6 +850,8 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
             detail_features=detail_features,
             edge_features=edge_features,
             anchor_nodes=anchor_nodes,
+            node_features=node_features,
+            prior_usage=prior_usage,
             prior_corruption=prior_corruption,
             graph_cache_dir=data_cfg.get("graph_cache_dir_detected"),
             chunk_cache_size=chunk_cache_size,
@@ -854,6 +866,8 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
             detail_features=detail_features,
             edge_features=edge_features,
             anchor_nodes=anchor_nodes,
+            node_features=node_features,
+            prior_usage=prior_usage,
             prior_corruption=prior_corruption,
             graph_cache_dir=data_cfg.get("graph_cache_dir_fallback"),
             chunk_cache_size=chunk_cache_size,
@@ -870,6 +884,8 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
         detail_features=detail_features,
         edge_features=edge_features,
         anchor_nodes=anchor_nodes,
+        node_features=node_features,
+        prior_usage=prior_usage,
         prior_corruption=prior_corruption,
         graph_cache_dir=graph_cache_dir,
         chunk_cache_size=chunk_cache_size,
@@ -3249,6 +3265,18 @@ def main() -> None:
 
     first_batch = next(iter(DataLoader(train_ds, batch_size=1, shuffle=False, collate_fn=collate_d16_graphs)))
     input_dim = int(first_batch.x_cat.size(1))
+    edge_dim = None if first_batch.edge_attr_cat is None else int(first_batch.edge_attr_cat.size(1))
+    feature_schema = {
+        "node_dim": input_dim,
+        "edge_dim": edge_dim,
+        "node_feature_names": list(first_batch.node_feature_names or []),
+        "edge_feature_names": list(first_batch.edge_feature_names or []),
+        "graph_prior_usage": (cfg.get("graph", {}) or {}).get("prior_usage"),
+        "graph_node_features": (cfg.get("graph", {}) or {}).get("node_features", {}) or {},
+        "graph_edge_features": (cfg.get("graph", {}) or {}).get("edge_features", {}) or {},
+        "anchor_nodes": (cfg.get("graph", {}) or {}).get("anchor_nodes", {}) or {},
+    }
+    _write_json(output_dir / "feature_schema.json", feature_schema)
     model = D16Model.from_config(cfg, input_dim=input_dim).to(device)
     loss_cfg = cfg.get("loss", {}) or {}
     hard_proto_loss_fn = attach_hard_proto_loss_if_needed(

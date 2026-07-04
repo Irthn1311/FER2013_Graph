@@ -24,6 +24,8 @@ class D16PixelPriorDataset(Dataset):
         detail_features: Dict[str, Any] | None = None,
         edge_features: Dict[str, Any] | None = None,
         anchor_nodes: Dict[str, Any] | None = None,
+        node_features: Dict[str, Any] | None = None,
+        prior_usage: str | None = None,
         prior_corruption: Dict[str, Any] | None = None,
         max_samples: int | None = None,
     ) -> None:
@@ -43,6 +45,8 @@ class D16PixelPriorDataset(Dataset):
         self.detail_features = dict(detail_features or {})
         self.edge_features = dict(edge_features or {})
         self.anchor_nodes = dict(anchor_nodes or {})
+        self.node_features = dict(node_features or {})
+        self.prior_usage = None if prior_usage is None else str(prior_usage)
         self.prior_corruption = dict(prior_corruption or {})
         self.epoch = 0
         self.part_names = self._read_json("part_names.json")
@@ -230,4 +234,6 @@ class D16PixelPriorDataset(Dataset):
             detail_features=self.detail_features,
             edge_features=self._edge_features_for(int(index)),
             anchor_nodes=self.anchor_nodes,
+            node_features=self.node_features,
+            prior_usage=self.prior_usage,
         )

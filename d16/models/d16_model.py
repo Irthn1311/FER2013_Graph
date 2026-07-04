@@ -58,7 +58,7 @@ class D16Model(torch.nn.Module):
         else:
             raise ValueError(f"Unsupported D16 gnn_type={self.gnn_type!r}")
         self.pooling = PartPooling(self.part_names)
-        classifier_dim = hidden_dim * 5
+        classifier_dim = hidden_dim if self.readout_type == "global_mean" else hidden_dim * 5
         classifier_hidden = hidden_dim * 2
         self.readout_part_order = ["mouth", "eye", "brow", "nose_cheek", "global"]
         self.readout = None
@@ -134,8 +134,12 @@ class D16Model(torch.nn.Module):
                 residual_concat=bool(micro_cfg.get("residual_concat", True)),
                 micro_support_gate=bool(micro_cfg.get("micro_support_gate", True)),
                 prior_gate=micro_cfg.get("prior_gate", {}) or {},
+                prior_usage=str(micro_cfg.get("prior_usage", "score_bias")),
+                use_log_prior_bias=micro_cfg.get("use_log_prior_bias"),
                 diagnostics=bool(micro_cfg.get("diagnostics", True)),
             )
+        elif self.readout_type == "global_mean":
+            self.readout = None
         elif self.readout_type != "concat":
             raise ValueError(f"Unsupported D16 readout_type={self.readout_type!r}")
         if self.use_routed_fallback_patch:
@@ -270,6 +274,9 @@ class D16Model(torch.nn.Module):
                 valid_part_groups=valid,
             )
             z_image = readout_out["z_image"]
+        elif self.readout_type == "global_mean":
+            readout_out = {"z_image": pooled["global"]}
+            z_image = pooled["global"]
         else:
             readout_out = {}
             z_image = self._concat_part_tokens(pooled)
@@ -341,6 +348,7 @@ class D16Model(torch.nn.Module):
                     "micro_motif_parts": list(getattr(self.readout, "micro_parts", [])),
                     "micro_support_gate": readout_out["micro_gate"],
                     "micro_prior_gate_values": readout_out.get("prior_gate_values"),
+                    "micro_use_log_prior_bias": readout_out.get("use_log_prior_bias"),
                     "micro_detail_available": readout_out["detail_available"],
                 }
             )

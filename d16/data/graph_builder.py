@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List
 import numpy as np
 import torch
 
-from d16.data.detail_node_features import sample_detail_features
+from d16.data.detail_node_features import DEFAULT_DETAIL_FEATURES, sample_detail_features
 
 
 _FULL_MASK_COORDS_EDGES: tuple[np.ndarray, np.ndarray] | None = None
@@ -29,6 +29,8 @@ class D16GraphData:
     detected: torch.Tensor
     landmark_missing_flag: torch.Tensor
     image_48: torch.Tensor
+    node_feature_names: List[str] | None = None
+    edge_feature_names: List[str] | None = None
 
     def to_pyg_data(self):
         try:
@@ -49,6 +51,8 @@ class D16GraphData:
             detected=self.detected,
             landmark_missing_flag=self.landmark_missing_flag,
             image_48=self.image_48,
+            node_feature_names=self.node_feature_names,
+            edge_feature_names=self.edge_feature_names,
         )
 
 
@@ -69,6 +73,8 @@ class D16Batch:
     detected: torch.Tensor
     landmark_missing_flag: torch.Tensor
     image_48: torch.Tensor
+    node_feature_names: List[str] | None = None
+    edge_feature_names: List[str] | None = None
 
     def to(self, device: torch.device | str) -> "D16Batch":
         return D16Batch(
@@ -87,6 +93,8 @@ class D16Batch:
             detected=self.detected.to(device),
             landmark_missing_flag=self.landmark_missing_flag.to(device),
             image_48=self.image_48.to(device),
+            node_feature_names=self.node_feature_names,
+            edge_feature_names=self.edge_feature_names,
         )
 
     @property
@@ -282,6 +290,47 @@ def _edge_features_enabled(edge_features: Dict[str, Any] | None) -> bool:
     return bool(edge_features.get("enabled", False)) and bool(edge_features.get("append_to_edge_attr", True))
 
 
+def _routing_only_node_features(node_features: Dict[str, Any] | None, prior_usage: str | None = None) -> bool:
+    cfg = dict(node_features or {})
+    mode = str(
+        cfg.get(
+            "feature_prior_mode",
+            cfg.get("prior_mode", cfg.get("mode", prior_usage or "")),
+        )
+        or ""
+    ).lower()
+    if mode in {"routing_only", "no_prior_features", "pixel_only", "deprioritized"}:
+        return True
+    return bool(cfg.get("exclude_prior_features", False))
+
+
+def _node_feature_flags(node_features: Dict[str, Any] | None, prior_usage: str | None = None) -> Dict[str, bool]:
+    cfg = dict(node_features or {})
+    routing_only = _routing_only_node_features(cfg, prior_usage=prior_usage)
+    return {
+        "face": bool(cfg.get("include_face_mask", not routing_only)),
+        "part": bool(cfg.get("include_part_soft", cfg.get("include_part_soft_masks", not routing_only))),
+        "distance": bool(cfg.get("include_distance_maps", not routing_only)),
+        "missing": bool(cfg.get("include_landmark_missing_flag", not routing_only)),
+    }
+
+
+def _edge_feature_names(edge_features: Dict[str, Any] | None) -> List[str]:
+    names = list((edge_features or {}).get("features") or [])
+    if names:
+        return [str(name) for name in names]
+    return [
+        "dx",
+        "dy",
+        "spatial_dist",
+        "abs_intensity_diff",
+        "abs_grad_mag_diff",
+        "abs_laplacian_diff",
+        "part_similarity",
+        "same_dominant_part",
+    ]
+
+
 def _edge_regularization_probability(cfg: Dict[str, Any]) -> float:
     probability = float(cfg.get("probability", 0.0) or 0.0)
     epoch = int(cfg.get("current_epoch", 0) or 0)
@@ -330,24 +379,28 @@ def _build_edge_attr(
     edges: np.ndarray,
     feature_names: Iterable[str] | None = None,
     edge_features: Dict[str, Any] | None = None,
+    node_feature_names: Iterable[str] | None = None,
 ) -> np.ndarray:
-    names = list(feature_names or [])
-    if not names:
-        names = [
-            "dx",
-            "dy",
-            "spatial_dist",
-            "abs_intensity_diff",
-            "abs_grad_mag_diff",
-            "abs_laplacian_diff",
-            "part_similarity",
-            "same_dominant_part",
-        ]
+    names = [str(name) for name in feature_names] if feature_names else _edge_feature_names(edge_features)
     src = edges[0].astype(np.int64)
     dst = edges[1].astype(np.int64)
     dx = pos[dst, 0] - pos[src, 0]
     dy = pos[dst, 1] - pos[src, 1]
     spatial = np.sqrt(dx * dx + dy * dy)
+    node_names = list(node_feature_names or [])
+    node_index = {name: idx for idx, name in enumerate(node_names)}
+
+    def column(name: str) -> np.ndarray | None:
+        idx = node_index.get(name)
+        if idx is None or idx >= x.shape[1]:
+            return None
+        return x[:, idx]
+
+    grad_mag = column("grad_mag")
+    if grad_mag is None and x.shape[1] > 2:
+        grad_mag = np.sqrt(x[:, 1] * x[:, 1] + x[:, 2] * x[:, 2]).astype(np.float32)
+    laplacian_abs = column("laplacian_abs")
+
     parts_src = part_soft[src]
     parts_dst = part_soft[dst]
     part_dot = np.sum(parts_src * parts_dst, axis=1)
@@ -359,8 +412,8 @@ def _build_edge_attr(
         "dy": dy,
         "spatial_dist": spatial,
         "abs_intensity_diff": np.abs(x[src, 0] - x[dst, 0]),
-        "abs_grad_mag_diff": np.abs(x[src, 32] - x[dst, 32]) if x.shape[1] > 32 else np.zeros_like(dx),
-        "abs_laplacian_diff": np.abs(x[src, 35] - x[dst, 35]) if x.shape[1] > 35 else np.zeros_like(dx),
+        "abs_grad_mag_diff": np.abs(grad_mag[src] - grad_mag[dst]) if grad_mag is not None else np.zeros_like(dx),
+        "abs_laplacian_diff": np.abs(laplacian_abs[src] - laplacian_abs[dst]) if laplacian_abs is not None else np.zeros_like(dx),
         "part_similarity": np.clip(part_similarity, 0.0, 1.0),
         "same_dominant_part": same_part,
     }
@@ -381,6 +434,8 @@ def build_pixel_graph(
     detail_features: Dict[str, Any] | None = None,
     edge_features: Dict[str, Any] | None = None,
     anchor_nodes: Dict[str, Any] | None = None,
+    node_features: Dict[str, Any] | None = None,
+    prior_usage: str | None = None,
 ) -> D16GraphData:
     image = np.asarray(prior["image_48"], dtype=np.float32)
     image_norm = image / 255.0 if image.max() > 1.0 else image
@@ -395,26 +450,38 @@ def build_pixel_graph(
     gx, gy = _gradients(image_norm)
     x_norm = (xx.astype(np.float32) / 47.0) * 2.0 - 1.0
     y_norm = (yy.astype(np.float32) / 47.0) * 2.0 - 1.0
+    feature_flags = _node_feature_flags(node_features, prior_usage=prior_usage)
     features = [
         image_norm[yy, xx][:, None],
         gx[yy, xx][:, None],
         gy[yy, xx][:, None],
         x_norm[:, None],
         y_norm[:, None],
-        face[yy, xx][:, None],
-        np.transpose(part_masks[:, yy, xx], (1, 0)),
-        np.transpose(distance_maps[:, yy, xx], (1, 0)),
-        np.full((len(coords), 1), missing, dtype=np.float32),
     ]
+    node_feature_names = ["intensity", "gx", "gy", "x_norm", "y_norm"]
+    if feature_flags["face"]:
+        features.append(face[yy, xx][:, None])
+        node_feature_names.append("face_mask")
+    if feature_flags["part"]:
+        features.append(np.transpose(part_masks[:, yy, xx], (1, 0)))
+        node_feature_names.extend([f"part_soft_{idx}" for idx in range(part_masks.shape[0])])
+    if feature_flags["distance"]:
+        features.append(np.transpose(distance_maps[:, yy, xx], (1, 0)))
+        node_feature_names.extend([f"distance_map_{idx}" for idx in range(distance_maps.shape[0])])
+    if feature_flags["missing"]:
+        features.append(np.full((len(coords), 1), missing, dtype=np.float32))
+        node_feature_names.append("landmark_missing_flag")
     if _detail_features_enabled(detail_features):
-        detail_x, _ = sample_detail_features(
+        detail_names = list(detail_features.get("features") or DEFAULT_DETAIL_FEATURES)
+        detail_x, detail_names = sample_detail_features(
             image_norm,
             yy,
             xx,
-            feature_names=detail_features.get("features"),
+            feature_names=detail_names,
             normalize=str(detail_features.get("normalize", "per_image_safe")),
         )
         features.append(detail_x)
+        node_feature_names.extend(detail_names)
     x = np.concatenate(features, axis=1).astype(np.float32)
     pos = np.stack([x_norm, y_norm], axis=1).astype(np.float32)
     part_soft_sampled = np.transpose(part_masks[:, yy, xx], (1, 0)).astype(np.float32)
@@ -436,6 +503,7 @@ def build_pixel_graph(
             edges=edges,
             feature_names=edge_features.get("features"),
             edge_features=edge_features,
+            node_feature_names=node_feature_names,
         )
     return D16GraphData(
         x=torch.from_numpy(x),
@@ -451,6 +519,8 @@ def build_pixel_graph(
         detected=torch.tensor(bool(np.asarray(prior["detected"]).item()), dtype=torch.bool),
         landmark_missing_flag=torch.tensor(int(np.asarray(prior["landmark_missing_flag"]).item()), dtype=torch.long),
         image_48=torch.from_numpy(image_norm.astype(np.float32)),
+        node_feature_names=list(node_feature_names),
+        edge_feature_names=_edge_feature_names(edge_features) if _edge_features_enabled(edge_features) else None,
     )
 
 
@@ -504,4 +574,7 @@ def collate_d16_graphs(graphs: Iterable[D16GraphData]) -> D16Batch:
         detected=torch.stack(detected).bool(),
         landmark_missing_flag=torch.stack(missing).long(),
         image_48=torch.stack(images).float(),
+        node_feature_names=list(graphs[0].node_feature_names or []) or None,
+        edge_feature_names=list(graphs[0].edge_feature_names or []) or None,
     )
+

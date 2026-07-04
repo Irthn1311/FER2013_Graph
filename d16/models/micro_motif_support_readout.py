@@ -51,6 +51,8 @@ class MicroMotifSupportReadout(torch.nn.Module):
         residual_concat: bool = True,
         micro_support_gate: bool = True,
         prior_gate: Dict[str, Any] | None = None,
+        prior_usage: str = "score_bias",
+        use_log_prior_bias: bool | None = None,
         diagnostics: bool = True,
     ) -> None:
         super().__init__()
@@ -69,6 +71,11 @@ class MicroMotifSupportReadout(torch.nn.Module):
         self.use_cls_token = bool(use_cls_token)
         self.residual_concat = bool(residual_concat)
         self.micro_support_gate = bool(micro_support_gate)
+        self.prior_usage = str(prior_usage or "score_bias")
+        if use_log_prior_bias is None:
+            self.use_log_prior_bias = self.prior_usage.lower() in {"score_bias", "log_bias", "attention_bias"}
+        else:
+            self.use_log_prior_bias = bool(use_log_prior_bias)
         self.diagnostics = bool(diagnostics)
         self.part_order = ["mouth", "eye", "brow", "nose_cheek", "global"]
         gate_cfg = dict(prior_gate or {})
@@ -290,8 +297,10 @@ class MicroMotifSupportReadout(torch.nn.Module):
                 tokens.append(values.new_zeros((self.hidden_dim,)))
                 continue
             prior = self._group_prior(part_g, group_name).to(dtype=dtype).clamp_min(self.eps)
-            prior_gate = self._prior_gate_values(h_g.device, dtype)[group_idx]
-            scores = content_scores[motif_idx] + float(lambda_part) * prior_gate * torch.log(prior)
+            scores = content_scores[motif_idx]
+            if self.use_log_prior_bias:
+                prior_gate = self._prior_gate_values(h_g.device, dtype)[group_idx]
+                scores = scores + float(lambda_part) * prior_gate * torch.log(prior)
             if detail_score is not None and float(lambda_detail) != 0.0:
                 scores = scores + float(lambda_detail) * detail_score.to(device=h_g.device, dtype=dtype)
             alpha = torch.softmax(scores, dim=0)
@@ -375,8 +384,9 @@ class MicroMotifSupportReadout(torch.nn.Module):
             dtype=torch.long,
         )
         prior = group_priors[:, part_idx, :].clamp_min(self.eps)
-        prior_gate = self._prior_gate_values(h_pad.device, dtype)[part_idx].view(1, -1, 1)
-        scores = scores + float(lambda_part) * prior_gate * torch.log(prior)
+        if self.use_log_prior_bias:
+            prior_gate = self._prior_gate_values(h_pad.device, dtype)[part_idx].view(1, -1, 1)
+            scores = scores + float(lambda_part) * prior_gate * torch.log(prior)
         if detail_score is not None and float(lambda_detail) != 0.0:
             detail = detail_score.to(device=h_pad.device, dtype=dtype)
             if detail_available is not None:
@@ -523,6 +533,7 @@ class MicroMotifSupportReadout(torch.nn.Module):
             "micro_part_index": self.micro_part_index.to(device=device),
             "micro_gate": gate,
             "prior_gate_values": self._prior_gate_values(device, dtype),
+            "use_log_prior_bias": node_embeddings.new_tensor(float(self.use_log_prior_bias)),
             "detail_available": detail_available,
         }
 
