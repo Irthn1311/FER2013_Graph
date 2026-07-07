@@ -278,6 +278,63 @@ def _add_part_anchor_nodes(
     return x_out.astype(np.float32), pos_out.astype(np.float32), part_out.astype(np.float32), face_out.astype(np.float32), edges_out.astype(np.int64)
 
 
+def _unique_directed_edges(edges: np.ndarray) -> np.ndarray:
+    edges = np.asarray(edges, dtype=np.int64)
+    if edges.ndim != 2 or edges.shape[0] != 2:
+        raise ValueError(f"D16 edges must have shape [2,E], got {edges.shape}")
+    if edges.shape[1] == 0:
+        return edges
+    edge_pairs = edges.T.astype(np.int64, copy=False)
+    unique_pairs = np.unique(edge_pairs, axis=0)
+    return unique_pairs.T.astype(np.int64, copy=False)
+
+
+def _add_knn_edges(
+    x: np.ndarray,
+    edges: np.ndarray,
+    node_feature_names: Iterable[str],
+    knn_cfg: Dict[str, Any] | None,
+) -> np.ndarray:
+    cfg = dict(knn_cfg or {})
+    if not bool(cfg.get("enabled", False)):
+        return edges
+    k = int(cfg.get("k", 6) or 6)
+    if k <= 0 or x.shape[0] <= 1:
+        return edges
+    metric = str(cfg.get("metric", "standardized_euclidean"))
+    if metric != "standardized_euclidean":
+        raise ValueError(f"Unsupported D16 knn_edges.metric={metric!r}")
+    names = list(node_feature_names or [])
+    default_feature_names = [
+        "intensity",
+        "gx",
+        "gy",
+        "grad_mag",
+        "local_mean_3x3",
+        "local_std_3x3",
+        "laplacian_abs",
+        "center_surround",
+    ]
+    feature_names = [str(name) for name in (cfg.get("feature_names") or default_feature_names)]
+    feature_indices = [names.index(name) for name in feature_names if name in names]
+    if not feature_indices:
+        raise ValueError(f"D16 knn_edges found no matching feature_names in node schema: {feature_names}")
+    features = np.asarray(x[:, feature_indices], dtype=np.float32)
+    mean = np.mean(features, axis=0, keepdims=True)
+    std = np.std(features, axis=0, keepdims=True)
+    features = (features - mean) / np.maximum(std, 1e-6)
+    n = int(features.shape[0])
+    kk = min(k, n - 1)
+    sq_norm = np.sum(features * features, axis=1, dtype=np.float32)
+    dist = sq_norm[:, None] + sq_norm[None, :] - 2.0 * (features @ features.T)
+    dist = np.maximum(dist.astype(np.float32, copy=False), 0.0)
+    np.fill_diagonal(dist, np.inf)
+    dst = np.argpartition(dist, kth=kk - 1, axis=1)[:, :kk]
+    src = np.repeat(np.arange(n, dtype=np.int64), kk)
+    knn_edges = np.stack([src, dst.reshape(-1).astype(np.int64)], axis=0)
+    return _unique_directed_edges(np.concatenate([edges.astype(np.int64), knn_edges], axis=1))
+
+
 def _detail_features_enabled(detail_features: Dict[str, Any] | None) -> bool:
     if not detail_features:
         return False
@@ -435,6 +492,7 @@ def build_pixel_graph(
     edge_features: Dict[str, Any] | None = None,
     anchor_nodes: Dict[str, Any] | None = None,
     node_features: Dict[str, Any] | None = None,
+    knn_edges: Dict[str, Any] | None = None,
     prior_usage: str | None = None,
 ) -> D16GraphData:
     image = np.asarray(prior["image_48"], dtype=np.float32)
@@ -486,6 +544,12 @@ def build_pixel_graph(
     pos = np.stack([x_norm, y_norm], axis=1).astype(np.float32)
     part_soft_sampled = np.transpose(part_masks[:, yy, xx], (1, 0)).astype(np.float32)
     face_sampled = face[yy, xx].astype(np.float32)
+    edges = _add_knn_edges(
+        x,
+        edges,
+        node_feature_names=node_feature_names,
+        knn_cfg=knn_edges,
+    )
     x, pos, part_soft_sampled, face_sampled, edges = _add_part_anchor_nodes(
         x,
         pos,

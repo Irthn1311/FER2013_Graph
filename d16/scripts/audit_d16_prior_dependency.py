@@ -183,6 +183,7 @@ class PriorCounterfactualDataset(Dataset):
             edge_features=self.graph_cfg.get("edge_features", {}) or {},
             anchor_nodes=self.graph_cfg.get("anchor_nodes", {}) or {},
             node_features=self.graph_cfg.get("node_features", {}) or {},
+            knn_edges=self.graph_cfg.get("knn_edges", {}) or {},
             prior_usage=self.graph_cfg.get("prior_usage"),
         )
 

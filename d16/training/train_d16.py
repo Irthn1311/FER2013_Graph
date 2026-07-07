@@ -352,6 +352,7 @@ def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Di
     loss = config.get("loss", {}) or {}
     detail = graph.get("detail_features", {}) or {}
     edge = graph.get("edge_features", {}) or {}
+    knn = graph.get("knn_edges", {}) or {}
     edge_gnn = model.get("edge_context_gnn", {}) or {}
     micro = model.get("micro_motif_support", {}) or {}
     context = edge_gnn.get("context_injection", {}) or {}
@@ -375,6 +376,7 @@ def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Di
         "prior_usage": graph.get("prior_usage"),
         "edge_features_enabled": bool(edge.get("enabled", False)),
         "edge_features": list(edge.get("features") or []),
+        "knn_edges": dict(knn or {}),
         "edge_context_layer_output_concat": bool(edge_gnn.get("layer_output_concat", False)),
         "edge_context_multiscale_enabled": bool(multiscale.get("enabled", False)),
         "edge_context_multiscale_layers": list(multiscale.get("layers") or []),
@@ -783,6 +785,7 @@ def _single_dataset(
     edge_features: Dict[str, Any] | None = None,
     anchor_nodes: Dict[str, Any] | None = None,
     node_features: Dict[str, Any] | None = None,
+    knn_edges: Dict[str, Any] | None = None,
     prior_usage: str | None = None,
     prior_corruption: Dict[str, Any] | None = None,
     graph_cache_dir: str | Path | None = None,
@@ -794,6 +797,8 @@ def _single_dataset(
         raise ValueError("D16 edge features require graph_cache_dir=null unless a matching edge-attr cache is built.")
     if graph_cache_dir and bool((anchor_nodes or {}).get("enabled", False)):
         raise ValueError("D16 anchor nodes require graph_cache_dir=null unless a matching anchor-node cache is built.")
+    if graph_cache_dir and bool((knn_edges or {}).get("enabled", False)):
+        raise ValueError("D16 k-NN edges require graph_cache_dir=null unless a matching k-NN edge cache is built.")
     if graph_cache_dir and bool((prior_corruption or {}).get("enabled", False)):
         raise ValueError("D16 prior corruption requires graph_cache_dir=null because priors are mutated before graph building.")
     if graph_cache_dir:
@@ -816,6 +821,7 @@ def _single_dataset(
         edge_features=edge_features,
         anchor_nodes=anchor_nodes,
         node_features=node_features,
+        knn_edges=knn_edges,
         prior_usage=prior_usage,
         prior_corruption=prior_corruption,
         max_samples=max_samples,
@@ -836,6 +842,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
     edge_features = graph_cfg.get("edge_features", {}) or {}
     anchor_nodes = graph_cfg.get("anchor_nodes", {}) or {}
     node_features = graph_cfg.get("node_features", {}) or {}
+    knn_edges = graph_cfg.get("knn_edges", {}) or {}
     prior_usage = graph_cfg.get("prior_usage")
     prior_corruption = graph_cfg.get("prior_corruption", {}) or {}
     chunk_cache_size = int(data_cfg.get("graph_cache_chunk_cache_size", 2))
@@ -851,6 +858,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
             edge_features=edge_features,
             anchor_nodes=anchor_nodes,
             node_features=node_features,
+            knn_edges=knn_edges,
             prior_usage=prior_usage,
             prior_corruption=prior_corruption,
             graph_cache_dir=data_cfg.get("graph_cache_dir_detected"),
@@ -867,6 +875,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
             edge_features=edge_features,
             anchor_nodes=anchor_nodes,
             node_features=node_features,
+            knn_edges=knn_edges,
             prior_usage=prior_usage,
             prior_corruption=prior_corruption,
             graph_cache_dir=data_cfg.get("graph_cache_dir_fallback"),
@@ -885,6 +894,7 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
         edge_features=edge_features,
         anchor_nodes=anchor_nodes,
         node_features=node_features,
+        knn_edges=knn_edges,
         prior_usage=prior_usage,
         prior_corruption=prior_corruption,
         graph_cache_dir=graph_cache_dir,
@@ -3225,6 +3235,12 @@ def main() -> None:
         torch.backends.cuda.matmul.allow_tf32 = bool(training_cfg.get("allow_tf32", True))
         torch.backends.cudnn.allow_tf32 = bool(training_cfg.get("allow_tf32", True))
     amp_enabled = _amp_enabled(training_cfg, device)
+    if "drop_edge_p" in training_cfg:
+        drop_edge_p = float(training_cfg.get("drop_edge_p", 0.0) or 0.0)
+        graph_reg = dict(training_cfg.get("graph_regularization", {}) or {})
+        graph_reg["edge_dropout_prob"] = drop_edge_p
+        graph_reg["enabled"] = bool(graph_reg.get("enabled", False) or drop_edge_p > 0.0)
+        training_cfg["graph_regularization"] = graph_reg
 
     _write_json(output_dir / "resolved_config.json", cfg)
     Path(output_dir / "resolved_config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
@@ -3275,6 +3291,7 @@ def main() -> None:
         "graph_node_features": (cfg.get("graph", {}) or {}).get("node_features", {}) or {},
         "graph_edge_features": (cfg.get("graph", {}) or {}).get("edge_features", {}) or {},
         "anchor_nodes": (cfg.get("graph", {}) or {}).get("anchor_nodes", {}) or {},
+        "knn_edges": (cfg.get("graph", {}) or {}).get("knn_edges", {}) or {},
     }
     _write_json(output_dir / "feature_schema.json", feature_schema)
     model = D16Model.from_config(cfg, input_dim=input_dim).to(device)

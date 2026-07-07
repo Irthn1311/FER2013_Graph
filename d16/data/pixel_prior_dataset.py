@@ -25,6 +25,7 @@ class D16PixelPriorDataset(Dataset):
         edge_features: Dict[str, Any] | None = None,
         anchor_nodes: Dict[str, Any] | None = None,
         node_features: Dict[str, Any] | None = None,
+        knn_edges: Dict[str, Any] | None = None,
         prior_usage: str | None = None,
         prior_corruption: Dict[str, Any] | None = None,
         max_samples: int | None = None,
@@ -46,6 +47,7 @@ class D16PixelPriorDataset(Dataset):
         self.edge_features = dict(edge_features or {})
         self.anchor_nodes = dict(anchor_nodes or {})
         self.node_features = dict(node_features or {})
+        self.knn_edges = dict(knn_edges or {})
         self.prior_usage = None if prior_usage is None else str(prior_usage)
         self.prior_corruption = dict(prior_corruption or {})
         self.epoch = 0
@@ -235,5 +237,6 @@ class D16PixelPriorDataset(Dataset):
             edge_features=self._edge_features_for(int(index)),
             anchor_nodes=self.anchor_nodes,
             node_features=self.node_features,
+            knn_edges=self.knn_edges,
             prior_usage=self.prior_usage,
         )
