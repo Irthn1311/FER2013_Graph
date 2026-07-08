@@ -174,6 +174,11 @@ class PriorCounterfactualDataset(Dataset):
     def __getitem__(self, index: int) -> D16GraphData:
         prior = _load_npz(self.files[int(index)])
         prior = self._mutate(int(index), prior)
+        knn_edges = dict(self.graph_cfg.get("knn_edges", {}) or {})
+        if knn_edges:
+            knn_edges["cache_split"] = self.split
+        if self.variant != "official":
+            knn_edges["cache_enabled"] = False
         return build_pixel_graph(
             prior,
             graph_mode=self._graph_mode_for(prior),
@@ -183,7 +188,7 @@ class PriorCounterfactualDataset(Dataset):
             edge_features=self.graph_cfg.get("edge_features", {}) or {},
             anchor_nodes=self.graph_cfg.get("anchor_nodes", {}) or {},
             node_features=self.graph_cfg.get("node_features", {}) or {},
-            knn_edges=self.graph_cfg.get("knn_edges", {}) or {},
+            knn_edges=knn_edges,
             prior_usage=self.graph_cfg.get("prior_usage"),
         )
 

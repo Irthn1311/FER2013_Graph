@@ -8,9 +8,9 @@ data:
   graph_cache_dir: null
   graph_mode: face_plus_context
   batch_size: 16
-  num_workers: 2
+  num_workers: 4
   pin_memory: true
-  persistent_workers: false
+  persistent_workers: true
   prefetch_factor: 2
 graph:
   graph_mode: face_plus_context
@@ -90,6 +90,8 @@ graph:
     - local_std_3x3
     - laplacian_abs
     - center_surround
+    cache_dir: outputs\d16_knn_edge_cache\ofix14_k6_routing_only
+    cache_enabled: true
 model:
   name: d16_landmark_aware_pixel_evidence_gnn
   architecture: single_path
@@ -167,9 +169,9 @@ training:
   seed: 42
   max_epochs: 90
   batch_size: 16
-  num_workers: 2
+  num_workers: 4
   pin_memory: true
-  persistent_workers: false
+  persistent_workers: true
   prefetch_factor: 2
   lr: 0.0003
   weight_decay: 0.001

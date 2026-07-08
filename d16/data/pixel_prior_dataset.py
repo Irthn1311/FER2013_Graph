@@ -107,6 +107,14 @@ class D16PixelPriorDataset(Dataset):
         edge_features["prior_regularization"] = cfg
         return edge_features
 
+    def _knn_edges_for(self, corruption_mode: str | None) -> Dict[str, Any]:
+        knn_edges = dict(self.knn_edges or {})
+        if knn_edges:
+            knn_edges["cache_split"] = self.split
+        if corruption_mode is not None:
+            knn_edges["cache_enabled"] = False
+        return knn_edges
+
     def _corruption_enabled(self) -> bool:
         cfg = self.prior_corruption
         if not bool(cfg.get("enabled", False)):
@@ -237,6 +245,6 @@ class D16PixelPriorDataset(Dataset):
             edge_features=self._edge_features_for(int(index)),
             anchor_nodes=self.anchor_nodes,
             node_features=self.node_features,
-            knn_edges=self.knn_edges,
+            knn_edges=self._knn_edges_for(corruption_mode),
             prior_usage=self.prior_usage,
         )

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Iterable, List
+import hashlib
 
 import numpy as np
 import torch
@@ -289,21 +291,17 @@ def _unique_directed_edges(edges: np.ndarray) -> np.ndarray:
     return unique_pairs.T.astype(np.int64, copy=False)
 
 
-def _add_knn_edges(
-    x: np.ndarray,
-    edges: np.ndarray,
-    node_feature_names: Iterable[str],
-    knn_cfg: Dict[str, Any] | None,
-) -> np.ndarray:
+def _node_coord_hash(coords: np.ndarray) -> str:
+    arr = np.asarray(coords, dtype=np.int16)
+    return hashlib.blake2b(arr.tobytes(), digest_size=8).hexdigest()
+
+
+def _knn_cache_path(cache_dir: str | Path, split: str, sample_index: int) -> Path:
+    return Path(cache_dir) / str(split) / f"{int(sample_index):06d}.npz"
+
+
+def _knn_feature_indices(node_feature_names: Iterable[str], knn_cfg: Dict[str, Any] | None) -> List[int]:
     cfg = dict(knn_cfg or {})
-    if not bool(cfg.get("enabled", False)):
-        return edges
-    k = int(cfg.get("k", 6) or 6)
-    if k <= 0 or x.shape[0] <= 1:
-        return edges
-    metric = str(cfg.get("metric", "standardized_euclidean"))
-    if metric != "standardized_euclidean":
-        raise ValueError(f"Unsupported D16 knn_edges.metric={metric!r}")
     names = list(node_feature_names or [])
     default_feature_names = [
         "intensity",
@@ -319,6 +317,22 @@ def _add_knn_edges(
     feature_indices = [names.index(name) for name in feature_names if name in names]
     if not feature_indices:
         raise ValueError(f"D16 knn_edges found no matching feature_names in node schema: {feature_names}")
+    return feature_indices
+
+
+def compute_knn_dst(
+    x: np.ndarray,
+    node_feature_names: Iterable[str],
+    knn_cfg: Dict[str, Any] | None,
+) -> np.ndarray:
+    cfg = dict(knn_cfg or {})
+    k = int(cfg.get("k", 6) or 6)
+    if k <= 0 or x.shape[0] <= 1:
+        return np.zeros((int(x.shape[0]), 0), dtype=np.uint16)
+    metric = str(cfg.get("metric", "standardized_euclidean"))
+    if metric != "standardized_euclidean":
+        raise ValueError(f"Unsupported D16 knn_edges.metric={metric!r}")
+    feature_indices = _knn_feature_indices(node_feature_names, cfg)
     features = np.asarray(x[:, feature_indices], dtype=np.float32)
     mean = np.mean(features, axis=0, keepdims=True)
     std = np.std(features, axis=0, keepdims=True)
@@ -330,8 +344,62 @@ def _add_knn_edges(
     dist = np.maximum(dist.astype(np.float32, copy=False), 0.0)
     np.fill_diagonal(dist, np.inf)
     dst = np.argpartition(dist, kth=kk - 1, axis=1)[:, :kk]
-    src = np.repeat(np.arange(n, dtype=np.int64), kk)
-    knn_edges = np.stack([src, dst.reshape(-1).astype(np.int64)], axis=0)
+    return dst.astype(np.uint16, copy=False)
+
+
+def _load_knn_dst_from_cache(
+    knn_cfg: Dict[str, Any],
+    coords: np.ndarray,
+    sample_index: int | None,
+) -> np.ndarray | None:
+    cache_dir = knn_cfg.get("cache_dir") or knn_cfg.get("cache_root")
+    split = knn_cfg.get("cache_split") or knn_cfg.get("split")
+    if not cache_dir or not split or sample_index is None:
+        return None
+    path = _knn_cache_path(cache_dir, str(split), int(sample_index))
+    if not path.exists():
+        return None
+    node_count = int(np.asarray(coords).shape[0])
+    coord_hash = _node_coord_hash(coords)
+    try:
+        with np.load(path, allow_pickle=False) as data:
+            cached_count = int(np.asarray(data["node_count"]).item())
+            cached_k = int(np.asarray(data["k"]).item())
+            cached_hash = str(np.asarray(data["coord_hash"]).item())
+            expected_k = int(knn_cfg.get("k", 6) or 6)
+            if cached_count != node_count or cached_k != min(expected_k, max(node_count - 1, 0)) or cached_hash != coord_hash:
+                return None
+            return np.asarray(data["knn_dst"], dtype=np.uint16)
+    except Exception:
+        return None
+
+
+def _add_knn_edges(
+    x: np.ndarray,
+    edges: np.ndarray,
+    node_feature_names: Iterable[str],
+    knn_cfg: Dict[str, Any] | None,
+    coords: np.ndarray | None = None,
+    sample_index: int | None = None,
+) -> np.ndarray:
+    cfg = dict(knn_cfg or {})
+    if not bool(cfg.get("enabled", False)):
+        return edges
+    k = int(cfg.get("k", 6) or 6)
+    if k <= 0 or x.shape[0] <= 1:
+        return edges
+    knn_dst = None
+    if coords is not None and bool(cfg.get("cache_enabled", True)):
+        knn_dst = _load_knn_dst_from_cache(cfg, coords, sample_index)
+    if knn_dst is None:
+        knn_dst = compute_knn_dst(x, node_feature_names, cfg)
+    if knn_dst.size == 0:
+        return edges
+    if knn_dst.shape[0] != x.shape[0]:
+        return edges
+    kk = int(knn_dst.shape[1])
+    src = np.repeat(np.arange(int(x.shape[0]), dtype=np.int64), kk)
+    knn_edges = np.stack([src, knn_dst.reshape(-1).astype(np.int64)], axis=0)
     return _unique_directed_edges(np.concatenate([edges.astype(np.int64), knn_edges], axis=1))
 
 
@@ -496,6 +564,7 @@ def build_pixel_graph(
     prior_usage: str | None = None,
 ) -> D16GraphData:
     image = np.asarray(prior["image_48"], dtype=np.float32)
+    sample_index_value = int(np.asarray(prior["sample_index"]).item())
     image_norm = image / 255.0 if image.max() > 1.0 else image
     face = np.asarray(prior["face_mask"], dtype=np.float32)
     part_masks = np.asarray(prior["part_soft_masks"], dtype=np.float32)
@@ -549,6 +618,8 @@ def build_pixel_graph(
         edges,
         node_feature_names=node_feature_names,
         knn_cfg=knn_edges,
+        coords=coords,
+        sample_index=sample_index_value,
     )
     x, pos, part_soft_sampled, face_sampled, edges = _add_part_anchor_nodes(
         x,
