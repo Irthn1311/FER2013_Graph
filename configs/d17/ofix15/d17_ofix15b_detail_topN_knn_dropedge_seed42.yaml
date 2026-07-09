@@ -1,0 +1,88 @@
+run_name: d17_ofix15b_detail_topN_knn_dropedge_seed42
+seed: 42
+output_dir: outputs/d17_runs/ofix15/d17_ofix15b_detail_topN_knn_dropedge_seed42
+
+data:
+  prior_dir: outputs/d16_mediapipe_pixel_priors_best_retry_rescue
+  batch_size: 16
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+
+graph:
+  node_support_mode: detail_topN_knn
+  target_node_count: 1800
+  knn_edges:
+    k: 6
+    metric: standardized_euclidean
+    feature_names:
+      - intensity
+      - gx
+      - gy
+      - grad_mag
+      - local_mean_3x3
+      - local_std_3x3
+      - laplacian_abs
+      - center_surround
+
+model:
+  name: d17_evidence_preserving_pixel_gnn
+  hidden_dim: 96
+  num_classes: 7
+  dropout: 0.2
+  edge_context_gnn:
+    num_layers: 3
+    edge_attr_dim: 6
+    edge_hidden_dim: 32
+    dropout: 0.25
+    residual: true
+    layer_norm: true
+    aggregation: mean
+
+training:
+  seed: 42
+  max_epochs: 90
+  batch_size: 16
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  lr: 0.0003
+  weight_decay: 0.001
+  checkpoint_monitor: val_macro_f1
+  checkpoint_monitor_mode: max
+  final_test_checkpoint: best
+  progress_interval_batches: 500
+  amp: false
+  allow_tf32: true
+  drop_edge_p: 0.15
+  early_stopping:
+    enabled: true
+    min_epochs_before_stop: 30
+    patience: 15
+    metric: val_loss
+    mode: min
+  scheduler:
+    type: plateau
+    monitor: val_loss
+    mode: min
+    factor: 0.5
+    patience: 5
+    min_lr: 0.00003
+
+logging:
+  wandb:
+    enabled: true
+    project: lapgnn-d17-ofix15
+    group: ofix15
+    mode: online
+    resume: allow
+    tags:
+      - d17
+      - ofix15
+      - eppg
+      - detail_topN
+      - knn_k6
+      - dropedge_p015
+
