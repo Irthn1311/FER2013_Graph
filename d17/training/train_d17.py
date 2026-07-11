@@ -8,6 +8,7 @@ import json
 import math
 import random
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -38,6 +39,12 @@ def write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
 def append_csv(path: Path, row: Dict[str, Any], fieldnames: Iterable[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     exists = path.exists()
@@ -54,6 +61,19 @@ def set_seed(seed: int) -> None:
     torch.manual_seed(int(seed))
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(int(seed))
+
+
+def restore_rng(payload: Dict[str, Any]) -> None:
+    if payload.get("python_random_state") is not None:
+        random.setstate(payload["python_random_state"])
+    if payload.get("numpy_random_state") is not None:
+        np.random.set_state(payload["numpy_random_state"])
+    if payload.get("torch_rng_state") is not None:
+        torch.set_rng_state(payload["torch_rng_state"])
+    elif payload.get("rng_state") is not None:
+        torch.set_rng_state(payload["rng_state"])
+    if torch.cuda.is_available() and payload.get("cuda_rng_state_all") is not None:
+        torch.cuda.set_rng_state_all(payload["cuda_rng_state_all"])
 
 
 def resolve_device(text: str | None) -> torch.device:
@@ -171,11 +191,23 @@ def train_one_epoch(
     epoch: int,
 ) -> Dict[str, Any]:
     model.train()
+    start = time.perf_counter()
+    last_end = start
     loss_sum = 0.0
     count = 0
+    y_true: List[int] = []
+    y_pred: List[int] = []
     node_counts: List[float] = []
     edge_counts: List[float] = []
-    for batch_idx, batch in enumerate(loader, start=1):
+    wait_times: List[float] = []
+    batch_times: List[float] = []
+    iterator = iter(loader)
+    total_batches = len(loader)
+    for batch_idx in range(1, total_batches + 1):
+        fetch_start = time.perf_counter()
+        batch = next(iterator)
+        fetch_done = time.perf_counter()
+        wait_time = fetch_done - last_end
         batch = batch.to(device)
         train_batch = apply_dropedge(batch, drop_edge_p)
         optimizer.zero_grad(set_to_none=True)
@@ -183,34 +215,55 @@ def train_one_epoch(
         loss = loss_fn(logits, train_batch.y)
         loss.backward()
         optimizer.step()
+        batch_done = time.perf_counter()
         bs = int(train_batch.y.numel())
         loss_sum += float(loss.detach().item()) * bs
         count += bs
+        y_true.extend(train_batch.y.detach().cpu().tolist())
+        y_pred.extend(logits.detach().argmax(dim=1).cpu().tolist())
         node_counts.extend(((batch.ptr[1:] - batch.ptr[:-1]).detach().cpu().numpy()).tolist())
         edge_counts.extend(batch.total_edge_count.detach().cpu().numpy().tolist())
-        if progress_interval > 0 and (batch_idx == 1 or batch_idx % progress_interval == 0 or batch_idx == len(loader)):
+        wait_times.append(wait_time)
+        batch_times.append(batch_done - fetch_done)
+        last_end = batch_done
+        if progress_interval > 0 and (batch_idx == 1 or batch_idx % progress_interval == 0 or batch_idx == total_batches):
+            elapsed = batch_done - start
             print(
                 json.dumps(
                     {
                         "event": "d17_train_progress",
                         "epoch": epoch,
                         "batch": batch_idx,
-                        "total_batches": len(loader),
+                        "total_batches": total_batches,
+                        "elapsed_sec": elapsed,
+                        "last_batch_time_sec": batch_times[-1],
+                        "last_batch_wait_sec": wait_times[-1],
                         "avg_loss_so_far": loss_sum / max(count, 1),
                     }
                 ),
                 flush=True,
             )
+    train_metrics = metrics_from_predictions(y_true, y_pred, loss_sum, count)
+    epoch_time = time.perf_counter() - start
     return {
         "train_loss": loss_sum / max(count, 1),
+        "train_accuracy": train_metrics["accuracy"],
+        "train_macro_f1": train_metrics["macro_f1"],
         "node_count_mean": float(np.mean(node_counts)) if node_counts else math.nan,
         "edge_count_mean": float(np.mean(edge_counts)) if edge_counts else math.nan,
+        "train_epoch_time_sec": epoch_time,
+        "train_first_batch_wait_time_sec": wait_times[0] if wait_times else math.nan,
+        "train_avg_batch_time_ms": float(np.mean(batch_times) * 1000.0) if batch_times else math.nan,
+        "train_avg_batch_wait_time_ms": float(np.mean(wait_times) * 1000.0) if wait_times else math.nan,
+        "train_num_batches": total_batches,
     }
 
 
 @torch.no_grad()
 def evaluate(model: EPPGNN, loader: DataLoader, device: torch.device, loss_fn: torch.nn.Module) -> tuple[Dict[str, Any], Dict[str, Any]]:
     model.eval()
+    start = time.perf_counter()
+    last_end = start
     y_true: List[int] = []
     y_pred: List[int] = []
     detected: List[bool] = []
@@ -221,11 +274,21 @@ def evaluate(model: EPPGNN, loader: DataLoader, device: torch.device, loss_fn: t
     local_counts: List[float] = []
     knn_counts: List[float] = []
     edge_counts: List[float] = []
-    for batch in loader:
+    wait_times: List[float] = []
+    batch_times: List[float] = []
+    iterator = iter(loader)
+    total_batches = len(loader)
+    for _ in range(total_batches):
+        batch = next(iterator)
+        fetch_done = time.perf_counter()
+        wait_times.append(fetch_done - last_end)
         batch = batch.to(device)
         logits = model(batch)["logits"]
         loss = loss_fn(logits, batch.y)
         pred = logits.argmax(dim=1)
+        batch_done = time.perf_counter()
+        batch_times.append(batch_done - fetch_done)
+        last_end = batch_done
         bs = int(batch.y.numel())
         loss_sum += float(loss.item()) * bs
         count += bs
@@ -244,33 +307,73 @@ def evaluate(model: EPPGNN, loader: DataLoader, device: torch.device, loss_fn: t
             "local_edge_count_mean": float(np.mean(local_counts)) if local_counts else math.nan,
             "knn_edge_count_mean": float(np.mean(knn_counts)) if knn_counts else math.nan,
             "edge_count_mean": float(np.mean(edge_counts)) if edge_counts else math.nan,
+            "eval_epoch_time_sec": time.perf_counter() - start,
+            "eval_first_batch_wait_time_sec": wait_times[0] if wait_times else math.nan,
+            "eval_avg_batch_time_ms": float(np.mean(batch_times) * 1000.0) if batch_times else math.nan,
+            "eval_avg_batch_wait_time_ms": float(np.mean(wait_times) * 1000.0) if wait_times else math.nan,
+            "eval_num_batches": total_batches,
         }
     )
     detail = {"y_true": y_true, "y_pred": y_pred, "detected": detected, "sample_index": sample_index}
     return row, detail
 
 
-def save_checkpoint(path: Path, model: EPPGNN, optimizer: torch.optim.Optimizer, epoch: int, best_score: float, cfg: Dict[str, Any]) -> None:
+def save_checkpoint(
+    path: Path,
+    model: EPPGNN,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau | None,
+    epoch: int,
+    best_score: float,
+    best_epoch: int,
+    best_val_loss: float,
+    best_val_loss_epoch: int,
+    epochs_without_improvement: int,
+    global_step: int,
+    cfg: Dict[str, Any],
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
             "epoch": int(epoch),
             "best_score": float(best_score),
+            "best_epoch": int(best_epoch),
+            "best_val_loss": float(best_val_loss),
+            "best_val_loss_epoch": int(best_val_loss_epoch),
+            "epochs_without_improvement": int(epochs_without_improvement),
+            "global_step": int(global_step),
             "config": cfg,
-            "rng_state": torch.get_rng_state(),
+            "python_random_state": random.getstate(),
+            "numpy_random_state": np.random.get_state(),
+            "torch_rng_state": torch.get_rng_state(),
             "cuda_rng_state_all": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
         },
         path,
     )
 
 
-def load_checkpoint(path: Path, model: EPPGNN, optimizer: torch.optim.Optimizer | None = None, device: torch.device | str = "cpu") -> Dict[str, Any]:
-    payload = torch.load(path, map_location=device)
+def load_checkpoint(
+    path: Path,
+    model: EPPGNN,
+    optimizer: torch.optim.Optimizer | None = None,
+    scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau | None = None,
+    device: torch.device | str = "cpu",
+    restore_random_state: bool = False,
+) -> Dict[str, Any]:
+    try:
+        payload = torch.load(path, map_location=device, weights_only=False)
+    except TypeError:
+        payload = torch.load(path, map_location=device)
     model.load_state_dict(payload["model_state_dict"])
     if optimizer is not None and payload.get("optimizer_state_dict") is not None:
         optimizer.load_state_dict(payload["optimizer_state_dict"])
+    if scheduler is not None and payload.get("scheduler_state_dict") is not None:
+        scheduler.load_state_dict(payload["scheduler_state_dict"])
+    if restore_random_state:
+        restore_rng(payload)
     return payload
 
 
@@ -304,7 +407,7 @@ def write_eval_outputs(output_dir: Path, prefix: str, row: Dict[str, Any], detai
         for i in range(cm.shape[0]):
             denom = max(int(cm[i].sum()), 1)
             for j in range(cm.shape[1]):
-                ax.text(j, i, f"{cm[i,j]}\\n{cm[i,j]/denom*100:.1f}%", ha="center", va="center", fontsize=8)
+                ax.text(j, i, f"{cm[i,j]}\n{cm[i,j]/denom*100:.1f}%", ha="center", va="center", fontsize=8)
         fig.colorbar(im, ax=ax)
         fig.tight_layout()
         fig.savefig(output_dir / f"{prefix}confusion_matrix.png", dpi=180)
@@ -322,6 +425,7 @@ def write_graph_schema(output_dir: Path, cfg: Dict[str, Any], eval_row: Dict[str
         "local_edge_count_mean": eval_row.get("local_edge_count_mean"),
         "knn_edge_count_mean": eval_row.get("knn_edge_count_mean"),
         "total_edge_count_mean": eval_row.get("edge_count_mean"),
+        "graph_cache": graph_cfg.get("cache", {}),
         "node_feature_names": [
             "intensity",
             "gx",
@@ -390,8 +494,42 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
     epochs_wo = 0
     max_epochs = int(train_cfg.get("max_epochs", 90))
     drop_edge_p = float(train_cfg.get("drop_edge_p", 0.0) or 0.0)
+    global_step = 0
+    start_epoch = 1
+    resume_from = args.resume_from or train_cfg.get("resume_from")
+    if resume_from:
+        resume_path = Path(resume_from)
+        if not resume_path.exists():
+            if args.resume_strict:
+                raise FileNotFoundError(f"Missing resume checkpoint: {resume_path}")
+            print(f"[D17 resume] checkpoint not found, starting fresh: {resume_path}", flush=True)
+        else:
+            payload = load_checkpoint(resume_path, model, optimizer=optimizer, scheduler=scheduler, device=device, restore_random_state=True)
+            start_epoch = int(payload.get("epoch", 0)) + 1
+            best_score = float(payload.get("best_score", best_score))
+            best_epoch = int(payload.get("best_epoch", payload.get("epoch", 0)))
+            best_val_loss = float(payload.get("best_val_loss", best_val_loss))
+            best_val_loss_epoch = int(payload.get("best_val_loss_epoch", 0))
+            epochs_wo = int(payload.get("epochs_without_improvement", 0))
+            global_step = int(payload.get("global_step", 0))
+            info = {
+                "event": "d17_resume_loaded",
+                "resume_from": str(resume_path),
+                "start_epoch": start_epoch,
+                "best_score": best_score,
+                "best_epoch": best_epoch,
+                "best_val_loss": best_val_loss,
+                "best_val_loss_epoch": best_val_loss_epoch,
+                "epochs_without_improvement": epochs_wo,
+                "global_step": global_step,
+            }
+            write_json(output_dir / "resume_info.json", info)
+            append_jsonl(output_dir / "resume_events.jsonl", info)
+            print(json.dumps(info), flush=True)
+
     fields = [
         "epoch",
+        "global_step",
         "train_loss",
         "train_eval_loss",
         "train_accuracy",
@@ -400,14 +538,31 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "val_accuracy",
         "val_macro_f1",
         "best_val_macro_f1",
+        "best_epoch",
         "lr",
         "node_count_mean",
         "local_edge_count_mean",
         "knn_edge_count_mean",
         "edge_count_mean",
         "drop_edge_p",
+        "train_epoch_time_sec",
+        "train_first_batch_wait_time_sec",
+        "train_avg_batch_time_ms",
+        "train_avg_batch_wait_time_ms",
+        "train_num_batches",
+        "val_epoch_time_sec",
+        "val_first_batch_wait_time_sec",
+        "val_avg_batch_time_ms",
+        "val_avg_batch_wait_time_ms",
+        "val_num_batches",
+        "epoch_time_sec",
+        "memory_reserved_mb",
+        "cache_enabled",
+        "cache_dir",
     ]
-    for epoch in range(1, max_epochs + 1):
+    graph_cache = ((cfg.get("graph", {}) or {}).get("cache", {}) or {})
+    for epoch in range(start_epoch, max_epochs + 1):
+        epoch_start = time.perf_counter()
         train_stats = train_one_epoch(
             model,
             train_loader,
@@ -418,7 +573,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
             progress_interval=int(train_cfg.get("progress_interval_batches", 500) or 500),
             epoch=epoch,
         )
-        train_eval, _ = evaluate(model, train_loader, device, loss_fn)
+        global_step += int(train_stats.get("train_num_batches", len(train_loader)))
         val_row, _ = evaluate(model, val_loader, device, loss_fn)
         scheduler.step(float(val_row["loss"]))
         improved = float(val_row["macro_f1"]) > best_score
@@ -426,39 +581,60 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
             best_score = float(val_row["macro_f1"])
             best_epoch = epoch
             epochs_wo = 0
-            save_checkpoint(output_dir / "checkpoints" / "best.pt", model, optimizer, epoch, best_score, cfg)
+            save_checkpoint(output_dir / "checkpoints" / "best.pt", model, optimizer, scheduler, epoch, best_score, best_epoch, best_val_loss, best_val_loss_epoch, epochs_wo, global_step, cfg)
         else:
             epochs_wo += 1
         if float(val_row["loss"]) < best_val_loss:
             best_val_loss = float(val_row["loss"])
             best_val_loss_epoch = epoch
-            save_checkpoint(output_dir / "checkpoints" / "best_val_loss.pt", model, optimizer, epoch, best_score, cfg)
-        save_checkpoint(output_dir / "checkpoints" / "last.pt", model, optimizer, epoch, best_score, cfg)
+            save_checkpoint(output_dir / "checkpoints" / "best_val_loss.pt", model, optimizer, scheduler, epoch, best_score, best_epoch, best_val_loss, best_val_loss_epoch, epochs_wo, global_step, cfg)
+        save_checkpoint(output_dir / "checkpoints" / "last.pt", model, optimizer, scheduler, epoch, best_score, best_epoch, best_val_loss, best_val_loss_epoch, epochs_wo, global_step, cfg)
+        epoch_time = time.perf_counter() - epoch_start
         log_row = {
             "epoch": epoch,
+            "global_step": global_step,
             "train_loss": train_stats["train_loss"],
-            "train_eval_loss": train_eval["loss"],
-            "train_accuracy": train_eval["accuracy"],
-            "train_macro_f1": train_eval["macro_f1"],
+            "train_eval_loss": train_stats["train_loss"],
+            "train_accuracy": train_stats["train_accuracy"],
+            "train_macro_f1": train_stats["train_macro_f1"],
             "val_loss": val_row["loss"],
             "val_accuracy": val_row["accuracy"],
             "val_macro_f1": val_row["macro_f1"],
             "best_val_macro_f1": best_score,
+            "best_epoch": best_epoch,
             "lr": optimizer.param_groups[0]["lr"],
             "node_count_mean": val_row["node_count_mean"],
             "local_edge_count_mean": val_row["local_edge_count_mean"],
             "knn_edge_count_mean": val_row["knn_edge_count_mean"],
             "edge_count_mean": val_row["edge_count_mean"],
             "drop_edge_p": drop_edge_p,
+            "train_epoch_time_sec": train_stats["train_epoch_time_sec"],
+            "train_first_batch_wait_time_sec": train_stats["train_first_batch_wait_time_sec"],
+            "train_avg_batch_time_ms": train_stats["train_avg_batch_time_ms"],
+            "train_avg_batch_wait_time_ms": train_stats["train_avg_batch_wait_time_ms"],
+            "train_num_batches": train_stats["train_num_batches"],
+            "val_epoch_time_sec": val_row["eval_epoch_time_sec"],
+            "val_first_batch_wait_time_sec": val_row["eval_first_batch_wait_time_sec"],
+            "val_avg_batch_time_ms": val_row["eval_avg_batch_time_ms"],
+            "val_avg_batch_wait_time_ms": val_row["eval_avg_batch_wait_time_ms"],
+            "val_num_batches": val_row["eval_num_batches"],
+            "epoch_time_sec": epoch_time,
+            "memory_reserved_mb": float(torch.cuda.memory_reserved(device) / (1024**2)) if device.type == "cuda" else 0.0,
+            "cache_enabled": bool(graph_cache.get("enabled", False)),
+            "cache_dir": graph_cache.get("dir"),
         }
         append_csv(output_dir / "train_log.csv", log_row, fields)
-        print(json.dumps({"event": "d17_epoch", **log_row, "best_epoch": best_epoch}), flush=True)
+        print(json.dumps({"event": "d17_epoch", **log_row}), flush=True)
         if epoch >= min_epochs and epochs_wo >= patience:
-            print(json.dumps({"early_stopped": True, "epoch": epoch, "best_epoch": best_epoch}), flush=True)
+            stop_info = {"early_stopped": True, "epoch": epoch, "best_epoch": best_epoch, "epochs_without_improvement": epochs_wo, "patience": patience}
+            append_jsonl(output_dir / "resume_events.jsonl", {"event": "d17_early_stop", **stop_info})
+            print(json.dumps(stop_info), flush=True)
             break
 
-    # Evaluate best and last.
-    load_checkpoint(output_dir / "checkpoints" / "best.pt", model, optimizer=None, device=device)
+    best_ckpt = output_dir / "checkpoints" / "best.pt"
+    if not best_ckpt.exists():
+        best_ckpt = output_dir / "checkpoints" / "last.pt"
+    load_checkpoint(best_ckpt, model, optimizer=None, device=device)
     test_row, test_detail = evaluate(model, test_loader, device, loss_fn)
     write_eval_outputs(output_dir, "", test_row, test_detail)
     load_checkpoint(output_dir / "checkpoints" / "last.pt", model, optimizer=None, device=device)
@@ -470,6 +646,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "run_name": cfg.get("run_name", output_dir.name),
         "device": str(device),
         "max_epochs": max_epochs,
+        "final_test_checkpoint": best_ckpt.name,
         "best_epoch": best_epoch,
         "best_val_macro_f1": best_score,
         "best_val_loss": best_val_loss,
@@ -481,6 +658,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "train_samples": len(train_ds),
         "val_samples": len(val_ds),
         "test_samples": len(test_ds),
+        "graph_cache": graph_cache,
     }
     write_json(output_dir / "d17_train_summary.json", summary)
     print(json.dumps(summary, indent=2), flush=True)
@@ -493,6 +671,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output_dir", default=None)
     parser.add_argument("--device", default=None)
     parser.add_argument("--max_samples", type=int, default=None)
+    parser.add_argument("--resume_from", default=None)
+    parser.add_argument("--resume_strict", action="store_true")
     return parser.parse_args()
 
 
@@ -502,4 +682,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

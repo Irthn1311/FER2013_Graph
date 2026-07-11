@@ -1,7 +1,6 @@
 run_name: d17_ofix15a_detail_topN_knn_seed42
 seed: 42
 output_dir: outputs/d17_runs/ofix15/d17_ofix15a_detail_topN_knn_seed42
-
 data:
   prior_dir: outputs/d16_mediapipe_pixel_priors_best_retry_rescue
   batch_size: 16
@@ -9,7 +8,6 @@ data:
   pin_memory: true
   persistent_workers: true
   prefetch_factor: 2
-
 graph:
   node_support_mode: detail_topN_knn
   target_node_count: 1800
@@ -17,15 +15,18 @@ graph:
     k: 6
     metric: standardized_euclidean
     feature_names:
-      - intensity
-      - gx
-      - gy
-      - grad_mag
-      - local_mean_3x3
-      - local_std_3x3
-      - laplacian_abs
-      - center_surround
-
+    - intensity
+    - gx
+    - gy
+    - grad_mag
+    - local_mean_3x3
+    - local_std_3x3
+    - laplacian_abs
+    - center_surround
+  cache:
+    enabled: false
+    dir: null
+    strict: true
 model:
   name: d17_evidence_preserving_pixel_gnn
   hidden_dim: 96
@@ -39,7 +40,6 @@ model:
     residual: true
     layer_norm: true
     aggregation: mean
-
 training:
   seed: 42
   max_epochs: 90
@@ -69,8 +69,7 @@ training:
     mode: min
     factor: 0.5
     patience: 5
-    min_lr: 0.00003
-
+    min_lr: 3.0e-05
 logging:
   wandb:
     enabled: true
@@ -79,9 +78,8 @@ logging:
     mode: online
     resume: allow
     tags:
-      - d17
-      - ofix15
-      - eppg
-      - detail_topN
-      - knn_k6
-
+    - d17
+    - ofix15
+    - eppg
+    - detail_topN
+    - knn_k6
