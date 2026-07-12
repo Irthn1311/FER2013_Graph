@@ -1,7 +1,6 @@
-"""Counterfactual prior audit for D17.
+"""Counterfactual prior audit for D18.
 
-D17 graph construction should ignore prior tensors. The audit intentionally
-mutates prior tensors while keeping image/label/sample id unchanged.
+D18 graph construction uses priors only for structure-edge topology. The audit mutates prior tensors while keeping image/label/sample id unchanged.
 """
 
 from __future__ import annotations
@@ -22,10 +21,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from d17.data.collate import collate_epp_graphs
-from d17.data.epp_graph_builder import build_epp_graph
-from d17.models.epp_gnn import EPPGNN
-from d17.training.train_d17 import build_dataset, evaluate, load_checkpoint, read_config, resolve_device
+from d18.data.collate import collate_d18_graphs
+from d18.data.structure_graph_builder import build_structure_graph
+from d18.models.structure_gnn import StructureGNN
+from d18.training.train_d18 import build_dataset, evaluate, load_checkpoint, read_config, resolve_device
 
 
 VARIANTS = ["official", "zero_prior", "shuffle_prior", "forced_fallback"]
@@ -58,7 +57,7 @@ def _shuffle_prior(base: Dict[str, np.ndarray], donor: Dict[str, np.ndarray]) ->
     return out
 
 
-class D17PriorAuditDataset(Dataset):
+class D18PriorAuditDataset(Dataset):
     def __init__(self, prior_dir: Path, split: str, graph_cfg: Dict[str, Any], variant: str, seed: int = 42) -> None:
         self.split_dir = prior_dir / split
         self.files = sorted(self.split_dir.glob("*.npz"))
@@ -84,7 +83,7 @@ class D17PriorAuditDataset(Dataset):
                 prior["detected"] = np.asarray(False)
         elif self.variant != "official":
             raise ValueError(f"Unknown variant={self.variant}")
-        return build_epp_graph(prior, self.graph_cfg)
+        return build_structure_graph(prior, self.graph_cfg)
 
 
 def main() -> None:
@@ -104,29 +103,29 @@ def main() -> None:
     prior_dir = Path(args.prior_dir or (cfg.get("data", {}) or {}).get("prior_dir"))
     device = resolve_device(args.device)
     first_ds = build_dataset(cfg, args.split, max_samples=2)
-    first_batch = next(iter(DataLoader(first_ds, batch_size=2, collate_fn=collate_epp_graphs)))
-    model = EPPGNN.from_config(cfg, input_dim=first_batch.x_cat.size(1), edge_attr_dim=first_batch.edge_attr_cat.size(1)).to(device)
+    first_batch = next(iter(DataLoader(first_ds, batch_size=2, collate_fn=collate_d18_graphs)))
+    model = StructureGNN.from_config(cfg, input_dim=first_batch.x_cat.size(1), edge_attr_dim=first_batch.edge_attr_cat.size(1)).to(device)
     ckpt = args.checkpoint
     if ckpt in {"best", "last", "best_val_loss"}:
         ckpt = f"{ckpt}.pt"
     load_checkpoint(run_dir / "checkpoints" / ckpt, model, device=device)
-    output_dir = Path(args.output_dir or Path("outputs/d17_analysis/ofix15/prior_audit") / run_dir.name)
+    output_dir = Path(args.output_dir or Path("outputs/d18_analysis/ofix16/prior_audit") / run_dir.name)
     output_dir.mkdir(parents=True, exist_ok=True)
     rows: List[Dict[str, Any]] = []
     for variant in [x.strip() for x in args.variants.split(",") if x.strip()]:
-        ds = D17PriorAuditDataset(prior_dir, args.split, cfg.get("graph", {}) or {}, variant)
-        loader = DataLoader(ds, batch_size=int(args.batch_size or (cfg.get("training", {}) or {}).get("batch_size", 16)), shuffle=False, num_workers=0, collate_fn=collate_epp_graphs)
-        print(json.dumps({"event": "d17_prior_audit_start", "variant": variant, "split": args.split, "samples": len(ds), "batches": len(loader)}), flush=True)
+        ds = D18PriorAuditDataset(prior_dir, args.split, cfg.get("graph", {}) or {}, variant)
+        loader = DataLoader(ds, batch_size=int(args.batch_size or (cfg.get("training", {}) or {}).get("batch_size", 16)), shuffle=False, num_workers=0, collate_fn=collate_d18_graphs)
+        print(json.dumps({"event": "d18_prior_audit_start", "variant": variant, "split": args.split, "samples": len(ds), "batches": len(loader)}), flush=True)
         start = time.perf_counter()
         if int(args.progress_interval or 0) <= 0:
             row, _ = evaluate(model, loader, device, torch.nn.CrossEntropyLoss())
         else:
             # Reuse the trainer evaluator behavior, but emit lightweight progress by wrapping the dataset loop here.
-            # The D17 audit intentionally rebuilds counterfactual graphs online; without this, Kaggle appears idle.
+            # The D18 audit intentionally rebuilds counterfactual graphs online; without this, Kaggle appears idle.
             y_true, y_pred, detected, sample_index = [], [], [], []
             loss_sum = 0.0
             count = 0
-            node_counts, local_counts, knn_counts, edge_counts = [], [], [], []
+            node_counts, local_counts, knn_counts, structure_counts, edge_counts = [], [], [], [], []
             loss_fn = torch.nn.CrossEntropyLoss()
             model.eval()
             with torch.no_grad():
@@ -145,25 +144,27 @@ def main() -> None:
                     node_counts.extend(((batch.ptr[1:] - batch.ptr[:-1]).detach().cpu().numpy()).tolist())
                     local_counts.extend(batch.local_edge_count.detach().cpu().numpy().tolist())
                     knn_counts.extend(batch.knn_edge_count.detach().cpu().numpy().tolist())
+                    structure_counts.extend(batch.structure_edge_count.detach().cpu().numpy().tolist())
                     edge_counts.extend(batch.total_edge_count.detach().cpu().numpy().tolist())
                     if batch_idx == 1 or batch_idx % int(args.progress_interval) == 0 or batch_idx == len(loader):
-                        print(json.dumps({"event": "d17_prior_audit_progress", "variant": variant, "batch": batch_idx, "total_batches": len(loader), "elapsed_sec": time.perf_counter() - start}), flush=True)
-            from d17.training.train_d17 import metrics_from_predictions
+                        print(json.dumps({"event": "d18_prior_audit_progress", "variant": variant, "batch": batch_idx, "total_batches": len(loader), "elapsed_sec": time.perf_counter() - start}), flush=True)
+            from d18.training.train_d18 import metrics_from_predictions
             row = metrics_from_predictions(y_true, y_pred, loss_sum, count)
             row.update({
                 "node_count_mean": float(np.mean(node_counts)) if node_counts else float("nan"),
                 "local_edge_count_mean": float(np.mean(local_counts)) if local_counts else float("nan"),
                 "knn_edge_count_mean": float(np.mean(knn_counts)) if knn_counts else float("nan"),
+                "structure_edge_count_mean": float(np.mean(structure_counts)) if structure_counts else float("nan"),
                 "edge_count_mean": float(np.mean(edge_counts)) if edge_counts else float("nan"),
             })
         rows.append({"variant": variant, "accuracy": row["accuracy"], "macro_f1": row["macro_f1"], "loss": row["loss"]})
-        print(json.dumps({"event": "d17_prior_audit_done", "variant": variant, "accuracy": row["accuracy"], "macro_f1": row["macro_f1"], "elapsed_sec": time.perf_counter() - start}), flush=True)
+        print(json.dumps({"event": "d18_prior_audit_done", "variant": variant, "accuracy": row["accuracy"], "macro_f1": row["macro_f1"], "elapsed_sec": time.perf_counter() - start}), flush=True)
     with (output_dir / "prior_counterfactual_summary.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["variant", "accuracy", "macro_f1", "loss"])
         writer.writeheader()
         writer.writerows(rows)
     official = next((r for r in rows if r["variant"] == "official"), rows[0])
-    lines = ["# D17 Prior Dependency Audit", "", "| variant | accuracy | macro-F1 | delta macro-F1 vs official |", "|---|---:|---:|---:|"]
+    lines = ["# D18 Prior Dependency Audit", "", "| variant | accuracy | macro-F1 | delta macro-F1 vs official |", "|---|---:|---:|---:|"]
     for r in rows:
         lines.append(f"| {r['variant']} | {r['accuracy']*100:.2f}% | {r['macro_f1']*100:.2f}% | {(r['macro_f1']-official['macro_f1'])*100:.2f}pp |")
     (output_dir / "PRIOR_DEPENDENCY_AUDIT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

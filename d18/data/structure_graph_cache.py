@@ -1,0 +1,85 @@
+"""On-disk graph cache helpers for D18 structure-guided graphs.
+
+The cache stores already-built graph tensors so Kaggle training does not rebuild
+node support, local edges, kNN edges, and structure relation edges every epoch.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+
+from d18.data.structure_graph_builder import (
+    BASE_EDGE_FEATURE_NAMES,
+    NODE_FEATURE_NAMES,
+    STRUCTURE_EDGE_FEATURE_NAMES,
+    D18GraphData,
+)
+
+
+def graph_cache_path(cache_dir: str | Path, split: str, prior_file: str | Path) -> Path:
+    return Path(cache_dir) / str(split) / Path(prior_file).name
+
+
+def _edge_names_for_dim(edge_dim: int) -> list[str]:
+    if int(edge_dim) == len(STRUCTURE_EDGE_FEATURE_NAMES):
+        return list(STRUCTURE_EDGE_FEATURE_NAMES)
+    return list(BASE_EDGE_FEATURE_NAMES)
+
+
+def save_d18_graph_cache(graph: D18GraphData, path: str | Path, compressed: bool = False) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, Any] = {
+        "x": graph.x.detach().cpu().numpy().astype(np.float16),
+        "edge_index": graph.edge_index.detach().cpu().numpy().astype(np.uint16),
+        "edge_attr": graph.edge_attr.detach().cpu().numpy().astype(np.float16),
+        "pos": graph.pos.detach().cpu().numpy().astype(np.float16),
+        "y": np.asarray(int(graph.y), dtype=np.int16),
+        "sample_index": np.asarray(int(graph.sample_index), dtype=np.int64),
+        "detected": np.asarray(bool(graph.detected), dtype=np.bool_),
+        "landmark_missing_flag": np.asarray(int(graph.landmark_missing_flag), dtype=np.int8),
+        "image_48": graph.image_48.detach().cpu().numpy().astype(np.float16),
+        "local_edge_count": np.asarray(int(graph.local_edge_count), dtype=np.int32),
+        "knn_edge_count": np.asarray(int(graph.knn_edge_count), dtype=np.int32),
+        "structure_edge_count": np.asarray(int(graph.structure_edge_count), dtype=np.int32),
+        "total_edge_count": np.asarray(int(graph.total_edge_count), dtype=np.int32),
+        "node_support_mode": np.asarray(str(graph.node_support_mode)),
+        "edge_feature_names": np.asarray(graph.edge_feature_names),
+    }
+    if compressed:
+        np.savez_compressed(path, **payload)
+    else:
+        np.savez(path, **payload)
+
+
+def load_d18_graph_cache(path: str | Path) -> D18GraphData:
+    path = Path(path)
+    with np.load(path, allow_pickle=False) as data:
+        edge_index = data["edge_index"].astype(np.int64, copy=False)
+        edge_attr = data["edge_attr"].astype(np.float32, copy=False)
+        if "edge_feature_names" in data.files:
+            edge_feature_names = [str(x) for x in data["edge_feature_names"].tolist()]
+        else:
+            edge_feature_names = _edge_names_for_dim(edge_attr.shape[1])
+        return D18GraphData(
+            x=torch.from_numpy(data["x"].astype(np.float32, copy=False)),
+            edge_index=torch.from_numpy(edge_index).long(),
+            edge_attr=torch.from_numpy(edge_attr),
+            pos=torch.from_numpy(data["pos"].astype(np.float32, copy=False)),
+            y=torch.tensor(int(data["y"]), dtype=torch.long),
+            sample_index=torch.tensor(int(data["sample_index"]), dtype=torch.long),
+            detected=torch.tensor(bool(data["detected"]), dtype=torch.bool),
+            landmark_missing_flag=torch.tensor(int(data["landmark_missing_flag"]), dtype=torch.long),
+            image_48=torch.from_numpy(data["image_48"].astype(np.float32, copy=False)),
+            node_feature_names=list(NODE_FEATURE_NAMES),
+            edge_feature_names=edge_feature_names,
+            local_edge_count=int(data["local_edge_count"]),
+            knn_edge_count=int(data["knn_edge_count"]),
+            structure_edge_count=int(data["structure_edge_count"]) if "structure_edge_count" in data.files else 0,
+            total_edge_count=int(data["total_edge_count"]),
+            node_support_mode=str(data["node_support_mode"]) if "node_support_mode" in data.files else "cached",
+        )
