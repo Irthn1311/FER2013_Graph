@@ -56,8 +56,16 @@ class StructureGNN(torch.nn.Module):
 
     def forward(self, batch) -> Dict[str, torch.Tensor]:
         h = self.encoder(batch.x_cat)
-        h = self.gnn(h, batch.edge_index_cat, batch.edge_attr_cat)
+        edge_type = getattr(batch, "edge_type_cat", None)
+        h = self.gnn(h, batch.edge_index_cat, batch.edge_attr_cat, edge_type=edge_type)
         z = self.readout(h, batch.batch_index, batch.num_graphs)
         logits = self.classifier(z)
-        return {"logits": logits, "z_image": z, "node_embeddings": h}
+        out = {"logits": logits, "z_image": z, "node_embeddings": h}
+        penalty = self.gnn.structure_gate_penalty()
+        if penalty is not None:
+            out["structure_gate_penalty"] = penalty
+        gate_stats = self.gnn.gate_stats()
+        if gate_stats:
+            out["gate_stats"] = gate_stats
+        return out
 

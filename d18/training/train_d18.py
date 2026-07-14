@@ -153,13 +153,7 @@ def detected_fallback_metrics(y_true: List[int], y_pred: List[int], detected: Li
     return rows
 
 
-def apply_dropedge(batch: D18Batch, p: float) -> D18Batch:
-    p = float(p)
-    if p <= 0.0 or batch.edge_index_cat.size(1) <= 1:
-        return batch
-    keep = torch.rand((batch.edge_index_cat.size(1),), device=batch.edge_index_cat.device) >= p
-    if not bool(keep.any()):
-        keep[int(torch.randint(0, keep.numel(), (1,), device=keep.device).item())] = True
+def _filter_batch_edges(batch: D18Batch, keep: torch.Tensor) -> D18Batch:
     return D18Batch(
         x_cat=batch.x_cat,
         edge_index_cat=batch.edge_index_cat[:, keep],
@@ -172,12 +166,87 @@ def apply_dropedge(batch: D18Batch, p: float) -> D18Batch:
         detected=batch.detected,
         landmark_missing_flag=batch.landmark_missing_flag,
         image_48=batch.image_48,
+        edge_type_cat=batch.edge_type_cat[keep],
+        structure_relation_id_cat=batch.structure_relation_id_cat[keep],
         local_edge_count=batch.local_edge_count,
         knn_edge_count=batch.knn_edge_count,
         structure_edge_count=batch.structure_edge_count,
         total_edge_count=batch.total_edge_count,
+        structure_edge_count_before_purification=batch.structure_edge_count_before_purification,
+        structure_edge_count_after_purification=batch.structure_edge_count_after_purification,
+        purification_compatibility_kept_mean=batch.purification_compatibility_kept_mean,
+        purification_compatibility_dropped_mean=batch.purification_compatibility_dropped_mean,
         node_feature_names=batch.node_feature_names,
         edge_feature_names=batch.edge_feature_names,
+    )
+
+
+def apply_dropedge(batch: D18Batch, p: float) -> D18Batch:
+    p = float(p)
+    if p <= 0.0 or batch.edge_index_cat.size(1) <= 1:
+        return batch
+    keep = torch.rand((batch.edge_index_cat.size(1),), device=batch.edge_index_cat.device) >= p
+    if not bool(keep.any()):
+        keep[int(torch.randint(0, keep.numel(), (1,), device=keep.device).item())] = True
+    return _filter_batch_edges(batch, keep)
+
+
+def apply_graph_regularization(batch: D18Batch, train_cfg: Dict[str, Any]) -> tuple[D18Batch, Dict[str, Any]]:
+    reg_cfg = dict((train_cfg.get("graph_regularization") or {}))
+    mix_cfg = dict((train_cfg.get("structure_mode_mix") or {}))
+    edge_type = batch.edge_type_cat.long()
+    keep = torch.ones((edge_type.numel(),), dtype=torch.bool, device=edge_type.device)
+    before_structure = int((edge_type == 2).sum().item())
+    before_local = int((edge_type == 0).sum().item())
+    before_knn = int((edge_type == 1).sum().item())
+    forced_samples = 0
+    if bool(mix_cfg.get("enabled", False)) and float(mix_cfg.get("p_forced_structure", 0.0) or 0.0) > 0.0 and before_structure > 0:
+        p_forced = float(mix_cfg.get("p_forced_structure", 0.0) or 0.0)
+        sample_force = torch.rand((batch.num_graphs,), device=edge_type.device) < p_forced
+        forced_samples = int(sample_force.sum().item())
+        if forced_samples > 0:
+            src = batch.edge_index_cat[0].long()
+            graph_for_edge = torch.bucketize(src, batch.ptr[1:].to(src.device), right=True)
+            forced_edge = sample_force[graph_for_edge]
+            keep = keep & ~((edge_type == 2) & forced_edge)
+    probs = {
+        0: float(reg_cfg.get("drop_local_edge_p", 0.0) or 0.0),
+        1: float(reg_cfg.get("drop_knn_edge_p", 0.0) or 0.0),
+        2: float(reg_cfg.get("drop_structure_edge_p", 0.0) or 0.0),
+    }
+    for etype, prob in probs.items():
+        if prob <= 0.0:
+            continue
+        mask = (edge_type == int(etype)) & keep
+        if bool(mask.any()):
+            keep[mask] = torch.rand((int(mask.sum().item()),), device=edge_type.device) >= prob
+    if not bool(keep.any()):
+        keep[int(torch.randint(0, keep.numel(), (1,), device=keep.device).item())] = True
+    after_type = edge_type[keep]
+    stats = {
+        "structure_edges_before_drop": before_structure,
+        "structure_edges_after_drop": int((after_type == 2).sum().item()),
+        "local_edges_after_drop": int((after_type == 0).sum().item()),
+        "knn_edges_after_drop": int((after_type == 1).sum().item()),
+        "structure_drop_fraction_observed": float(1.0 - (int((after_type == 2).sum().item()) / max(before_structure, 1))),
+        "structure_mode_forced_sample_count": forced_samples,
+        "structure_mode_forced_sample_pct": float(forced_samples / max(batch.num_graphs, 1)),
+        "structure_edges_train_mean": float(before_structure / max(batch.num_graphs, 1)),
+    }
+    return _filter_batch_edges(batch, keep), stats
+
+
+def structure_gate_penalty_lambda(cfg: Dict[str, Any]) -> float:
+    model_cfg = ((cfg.get("model") or {}).get("edge_context_gnn") or {})
+    scalar_cfg = dict(model_cfg.get("scalar_edge_gate") or {})
+    edge_gate_cfg = dict(model_cfg.get("edge_gate") or {})
+    train_reg = dict((cfg.get("training") or {}).get("graph_regularization") or {})
+    return float(
+        train_reg.get(
+            "structure_gate_penalty_lambda",
+            edge_gate_cfg.get("structure_gate_penalty_lambda", scalar_cfg.get("structure_gate_penalty_lambda", 0.0)),
+        )
+        or 0.0
     )
 
 
@@ -188,6 +257,8 @@ def train_one_epoch(
     device: torch.device,
     loss_fn: torch.nn.Module,
     drop_edge_p: float,
+    graph_regularization_cfg: Dict[str, Any],
+    gate_penalty_lambda: float,
     progress_interval: int,
     epoch: int,
 ) -> Dict[str, Any]:
@@ -200,8 +271,19 @@ def train_one_epoch(
     y_pred: List[int] = []
     node_counts: List[float] = []
     edge_counts: List[float] = []
+    purify_before_counts: List[float] = []
+    purify_after_counts: List[float] = []
+    purify_kept_means: List[float] = []
+    purify_dropped_means: List[float] = []
     wait_times: List[float] = []
     batch_times: List[float] = []
+    structure_before_drop: List[float] = []
+    structure_after_drop: List[float] = []
+    local_after_drop: List[float] = []
+    knn_after_drop: List[float] = []
+    structure_drop_fraction: List[float] = []
+    structure_mode_forced_pct: List[float] = []
+    gate_metric_values: Dict[str, List[float]] = {}
     iterator = iter(loader)
     total_batches = len(loader)
     for batch_idx in range(1, total_batches + 1):
@@ -211,9 +293,15 @@ def train_one_epoch(
         wait_time = fetch_done - last_end
         batch = batch.to(device)
         train_batch = apply_dropedge(batch, drop_edge_p)
+        train_batch, reg_stats = apply_graph_regularization(train_batch, graph_regularization_cfg)
         optimizer.zero_grad(set_to_none=True)
-        logits = model(train_batch)["logits"]
+        out = model(train_batch)
+        logits = out["logits"]
+        for key, value in dict(out.get("gate_stats", {})).items():
+            gate_metric_values.setdefault(key, []).append(float(value.detach().cpu().item()))
         loss = loss_fn(logits, train_batch.y)
+        if gate_penalty_lambda > 0.0 and out.get("structure_gate_penalty") is not None:
+            loss = loss + float(gate_penalty_lambda) * out["structure_gate_penalty"]
         loss.backward()
         optimizer.step()
         batch_done = time.perf_counter()
@@ -224,6 +312,12 @@ def train_one_epoch(
         y_pred.extend(logits.detach().argmax(dim=1).cpu().tolist())
         node_counts.extend(((batch.ptr[1:] - batch.ptr[:-1]).detach().cpu().numpy()).tolist())
         edge_counts.extend(batch.total_edge_count.detach().cpu().numpy().tolist())
+        structure_before_drop.append(float(reg_stats.get("structure_edges_before_drop", 0)) / max(train_batch.num_graphs, 1))
+        structure_after_drop.append(float(reg_stats.get("structure_edges_after_drop", 0)) / max(train_batch.num_graphs, 1))
+        local_after_drop.append(float(reg_stats.get("local_edges_after_drop", 0)) / max(train_batch.num_graphs, 1))
+        knn_after_drop.append(float(reg_stats.get("knn_edges_after_drop", 0)) / max(train_batch.num_graphs, 1))
+        structure_drop_fraction.append(float(reg_stats.get("structure_drop_fraction_observed", 0.0)))
+        structure_mode_forced_pct.append(float(reg_stats.get("structure_mode_forced_sample_pct", 0.0)))
         wait_times.append(wait_time)
         batch_times.append(batch_done - fetch_done)
         last_end = batch_done
@@ -240,6 +334,7 @@ def train_one_epoch(
                         "last_batch_time_sec": batch_times[-1],
                         "last_batch_wait_sec": wait_times[-1],
                         "avg_loss_so_far": loss_sum / max(count, 1),
+                        "structure_drop_fraction_observed_so_far": float(np.mean(structure_drop_fraction)) if structure_drop_fraction else 0.0,
                     }
                 ),
                 flush=True,
@@ -257,6 +352,13 @@ def train_one_epoch(
         "train_avg_batch_time_ms": float(np.mean(batch_times) * 1000.0) if batch_times else math.nan,
         "train_avg_batch_wait_time_ms": float(np.mean(wait_times) * 1000.0) if wait_times else math.nan,
         "train_num_batches": total_batches,
+        "structure_edges_before_drop_mean": float(np.mean(structure_before_drop)) if structure_before_drop else 0.0,
+        "structure_edges_after_drop_mean": float(np.mean(structure_after_drop)) if structure_after_drop else 0.0,
+        "structure_drop_fraction_observed": float(np.mean(structure_drop_fraction)) if structure_drop_fraction else 0.0,
+        "local_edges_after_drop_mean": float(np.mean(local_after_drop)) if local_after_drop else 0.0,
+        "knn_edges_after_drop_mean": float(np.mean(knn_after_drop)) if knn_after_drop else 0.0,
+        "structure_mode_forced_sample_pct": float(np.mean(structure_mode_forced_pct)) if structure_mode_forced_pct else 0.0,
+        **{key: float(np.mean(values)) for key, values in gate_metric_values.items() if values},
     }
 
 
@@ -276,8 +378,18 @@ def evaluate(model: StructureGNN, loader: DataLoader, device: torch.device, loss
     knn_counts: List[float] = []
     structure_counts: List[float] = []
     edge_counts: List[float] = []
+    purify_before_counts: List[float] = []
+    purify_after_counts: List[float] = []
+    purify_kept_means: List[float] = []
+    purify_dropped_means: List[float] = []
     wait_times: List[float] = []
     batch_times: List[float] = []
+    structure_before_drop: List[float] = []
+    structure_after_drop: List[float] = []
+    local_after_drop: List[float] = []
+    knn_after_drop: List[float] = []
+    structure_drop_fraction: List[float] = []
+    structure_mode_forced_pct: List[float] = []
     edge_feature_names: List[str] = []
     iterator = iter(loader)
     total_batches = len(loader)
@@ -306,6 +418,10 @@ def evaluate(model: StructureGNN, loader: DataLoader, device: torch.device, loss
         knn_counts.extend(batch.knn_edge_count.detach().cpu().numpy().tolist())
         structure_counts.extend(batch.structure_edge_count.detach().cpu().numpy().tolist())
         edge_counts.extend(batch.total_edge_count.detach().cpu().numpy().tolist())
+        purify_before_counts.extend(batch.structure_edge_count_before_purification.detach().cpu().numpy().tolist())
+        purify_after_counts.extend(batch.structure_edge_count_after_purification.detach().cpu().numpy().tolist())
+        purify_kept_means.extend(batch.purification_compatibility_kept_mean.detach().cpu().numpy().tolist())
+        purify_dropped_means.extend(batch.purification_compatibility_dropped_mean.detach().cpu().numpy().tolist())
     row = metrics_from_predictions(y_true, y_pred, loss_sum, count)
     row["edge_feature_names"] = edge_feature_names
     row.update(
@@ -315,6 +431,11 @@ def evaluate(model: StructureGNN, loader: DataLoader, device: torch.device, loss
             "knn_edge_count_mean": float(np.mean(knn_counts)) if knn_counts else math.nan,
             "structure_edge_count_mean": float(np.mean(structure_counts)) if structure_counts else math.nan,
             "edge_count_mean": float(np.mean(edge_counts)) if edge_counts else math.nan,
+            "structure_edges_before_purification_mean": float(np.mean(purify_before_counts)) if purify_before_counts else math.nan,
+            "structure_edges_after_purification_mean": float(np.mean(purify_after_counts)) if purify_after_counts else math.nan,
+            "purification_keep_ratio_observed": float(np.mean(purify_after_counts) / max(np.mean(purify_before_counts), 1.0)) if purify_before_counts and purify_after_counts else math.nan,
+            "compatibility_mean_kept": float(np.nanmean(purify_kept_means)) if purify_kept_means else math.nan,
+            "compatibility_mean_dropped": float(np.nanmean(purify_dropped_means)) if purify_dropped_means else math.nan,
             "eval_epoch_time_sec": time.perf_counter() - start,
             "eval_first_batch_wait_time_sec": wait_times[0] if wait_times else math.nan,
             "eval_avg_batch_time_ms": float(np.mean(batch_times) * 1000.0) if batch_times else math.nan,
@@ -426,6 +547,13 @@ def write_eval_outputs(output_dir: Path, prefix: str, row: Dict[str, Any], detai
 
 def write_graph_schema(output_dir: Path, cfg: Dict[str, Any], eval_row: Dict[str, Any]) -> None:
     graph_cfg = cfg.get("graph", {}) or {}
+    train_cfg = cfg.get("training", {}) or {}
+    structure_cfg = graph_cfg.get("structure_edges", {}) or {}
+    purification_cfg = structure_cfg.get("purification", {}) or {}
+    reg_cfg = train_cfg.get("graph_regularization", {}) or {}
+    mix_cfg = train_cfg.get("structure_mode_mix", {}) or {}
+    gnn_cfg = ((cfg.get("model", {}) or {}).get("edge_context_gnn", {}) or {})
+    scalar_cfg = gnn_cfg.get("scalar_edge_gate", {}) or {}
     payload = {
         "node_support_mode": graph_cfg.get("node_support_mode", "stratified_detail_knn"),
         "target_node_count": int(graph_cfg.get("target_node_count", 1800)),
@@ -434,7 +562,24 @@ def write_graph_schema(output_dir: Path, cfg: Dict[str, Any], eval_row: Dict[str
         "knn_edge_count_mean": eval_row.get("knn_edge_count_mean"),
         "structure_edge_count_mean": eval_row.get("structure_edge_count_mean"),
         "total_edge_count_mean": eval_row.get("edge_count_mean"),
+        "structure_edges_before_purification_mean": eval_row.get("structure_edges_before_purification_mean"),
+        "structure_edges_after_purification_mean": eval_row.get("structure_edges_after_purification_mean"),
+        "purification_keep_ratio_observed": eval_row.get("purification_keep_ratio_observed"),
+        "compatibility_mean_kept": eval_row.get("compatibility_mean_kept"),
+        "compatibility_mean_dropped": eval_row.get("compatibility_mean_dropped"),
         "graph_cache": graph_cfg.get("cache", {}),
+        "edge_type_available": True,
+        "structure_relation_available": True,
+        "drop_structure_edge_p": float(reg_cfg.get("drop_structure_edge_p", 0.0) or 0.0),
+        "drop_knn_edge_p": float(reg_cfg.get("drop_knn_edge_p", 0.0) or 0.0),
+        "drop_local_edge_p": float(reg_cfg.get("drop_local_edge_p", 0.0) or 0.0),
+        "structure_mode_mix_enabled": bool(mix_cfg.get("enabled", False)),
+        "structure_mode_mix_p": float(mix_cfg.get("p_forced_structure", 0.0) or 0.0),
+        "structure_mode_mix_p_forced_structure": float(mix_cfg.get("p_forced_structure", 0.0) or 0.0),
+        "structure_purification_enabled": bool(purification_cfg.get("enabled", False)),
+        "structure_purification_keep_ratio": float(purification_cfg.get("keep_ratio", 1.0) or 1.0),
+        "structure_gate_cap": scalar_cfg.get("structure_gate_cap"),
+        "structure_gate_penalty_lambda": structure_gate_penalty_lambda(cfg),
         "node_feature_names": [
             "intensity",
             "gx",
@@ -453,6 +598,7 @@ def write_graph_schema(output_dir: Path, cfg: Dict[str, Any], eval_row: Dict[str
         "uses_structure_prior_for_edge_topology": bool((graph_cfg.get("structure_edges") or {}).get("enabled", True)),
         "uses_anchor_nodes": False,
         "uses_log_prior_bias": False,
+        "uses_node_prior_features": False,
     }
     write_json(output_dir / "graph_schema.json", payload)
     write_json(output_dir / "feature_schema.json", {"node_feature_names": payload["node_feature_names"], "edge_feature_names": payload["edge_feature_names"]})
@@ -497,6 +643,8 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
     epochs_wo = 0
     max_epochs = int(train_cfg.get("max_epochs", 90))
     drop_edge_p = float(train_cfg.get("drop_edge_p", 0.0) or 0.0)
+    graph_regularization_cfg = train_cfg
+    gate_penalty_lambda = structure_gate_penalty_lambda(cfg)
     global_step = 0
     start_epoch = 1
     resume_from = args.resume_from or train_cfg.get("resume_from")
@@ -548,7 +696,28 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "knn_edge_count_mean",
         "structure_edge_count_mean",
         "edge_count_mean",
+        "structure_edges_before_purification_mean",
+        "structure_edges_after_purification_mean",
+        "purification_keep_ratio_observed",
+        "compatibility_mean_kept",
+        "compatibility_mean_dropped",
         "drop_edge_p",
+        "drop_structure_edge_p",
+        "drop_knn_edge_p",
+        "drop_local_edge_p",
+        "structure_edges_before_drop_mean",
+        "structure_edges_after_drop_mean",
+        "structure_drop_fraction_observed",
+        "local_edges_after_drop_mean",
+        "knn_edges_after_drop_mean",
+        "structure_mode_forced_sample_pct",
+        "structure_gate_penalty_lambda",
+        "raw_gate_mean_local",
+        "raw_gate_mean_knn",
+        "raw_gate_mean_structure",
+        "effective_gate_mean_local",
+        "effective_gate_mean_knn",
+        "effective_gate_mean_structure",
         "train_epoch_time_sec",
         "train_first_batch_wait_time_sec",
         "train_avg_batch_time_ms",
@@ -574,6 +743,8 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
             device,
             loss_fn,
             drop_edge_p=drop_edge_p,
+            graph_regularization_cfg=graph_regularization_cfg,
+            gate_penalty_lambda=gate_penalty_lambda,
             progress_interval=int(train_cfg.get("progress_interval_batches", 500) or 500),
             epoch=epoch,
         )
@@ -612,7 +783,28 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
             "knn_edge_count_mean": val_row["knn_edge_count_mean"],
             "structure_edge_count_mean": val_row["structure_edge_count_mean"],
             "edge_count_mean": val_row["edge_count_mean"],
+            "structure_edges_before_purification_mean": val_row.get("structure_edges_before_purification_mean"),
+            "structure_edges_after_purification_mean": val_row.get("structure_edges_after_purification_mean"),
+            "purification_keep_ratio_observed": val_row.get("purification_keep_ratio_observed"),
+            "compatibility_mean_kept": val_row.get("compatibility_mean_kept"),
+            "compatibility_mean_dropped": val_row.get("compatibility_mean_dropped"),
             "drop_edge_p": drop_edge_p,
+            "drop_structure_edge_p": float(((train_cfg.get("graph_regularization") or {}).get("drop_structure_edge_p", 0.0)) or 0.0),
+            "drop_knn_edge_p": float(((train_cfg.get("graph_regularization") or {}).get("drop_knn_edge_p", 0.0)) or 0.0),
+            "drop_local_edge_p": float(((train_cfg.get("graph_regularization") or {}).get("drop_local_edge_p", 0.0)) or 0.0),
+            "structure_edges_before_drop_mean": train_stats.get("structure_edges_before_drop_mean"),
+            "structure_edges_after_drop_mean": train_stats.get("structure_edges_after_drop_mean"),
+            "structure_drop_fraction_observed": train_stats.get("structure_drop_fraction_observed"),
+            "local_edges_after_drop_mean": train_stats.get("local_edges_after_drop_mean"),
+            "knn_edges_after_drop_mean": train_stats.get("knn_edges_after_drop_mean"),
+            "structure_mode_forced_sample_pct": train_stats.get("structure_mode_forced_sample_pct"),
+            "structure_gate_penalty_lambda": gate_penalty_lambda,
+            "raw_gate_mean_local": train_stats.get("raw_gate_mean_local"),
+            "raw_gate_mean_knn": train_stats.get("raw_gate_mean_knn"),
+            "raw_gate_mean_structure": train_stats.get("raw_gate_mean_structure"),
+            "effective_gate_mean_local": train_stats.get("effective_gate_mean_local"),
+            "effective_gate_mean_knn": train_stats.get("effective_gate_mean_knn"),
+            "effective_gate_mean_structure": train_stats.get("effective_gate_mean_structure"),
             "train_epoch_time_sec": train_stats["train_epoch_time_sec"],
             "train_first_batch_wait_time_sec": train_stats["train_first_batch_wait_time_sec"],
             "train_avg_batch_time_ms": train_stats["train_avg_batch_time_ms"],

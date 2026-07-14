@@ -18,6 +18,7 @@ class EdgeContextGNNLayer(torch.nn.Module):
         layer_norm: bool = True,
         aggregation: str = "mean",
         scalar_edge_gate: bool = False,
+        structure_gate_cap: float | None = None,
     ) -> None:
         super().__init__()
         self.hidden_dim = int(hidden_dim)
@@ -27,6 +28,10 @@ class EdgeContextGNNLayer(torch.nn.Module):
             raise ValueError(f"Unsupported D18 aggregation={aggregation!r}")
         self.residual = bool(residual)
         self.scalar_edge_gate_enabled = bool(scalar_edge_gate)
+        self.structure_gate_cap = structure_gate_cap if structure_gate_cap is None else float(structure_gate_cap)
+        self.last_raw_structure_gate_mean: torch.Tensor | None = None
+        self.last_effective_structure_gate_mean: torch.Tensor | None = None
+        self.last_gate_stats: Dict[str, torch.Tensor] = {}
         self.edge_mlp = torch.nn.Sequential(
             torch.nn.Linear(self.edge_attr_dim, int(edge_hidden_dim)),
             torch.nn.LayerNorm(int(edge_hidden_dim)),
@@ -57,13 +62,37 @@ class EdgeContextGNNLayer(torch.nn.Module):
         edge_index: torch.Tensor,
         edge_attr: torch.Tensor,
         dst_degree: torch.Tensor | None = None,
+        edge_type: torch.Tensor | None = None,
     ) -> torch.Tensor:
         src, dst = edge_index[0].long(), edge_index[1].long()
         edge_emb = self.edge_mlp(edge_attr.to(device=h.device, dtype=h.dtype))
         gate = torch.sigmoid(self.gate(edge_emb))
         msg = self.message(torch.cat([h[src], edge_emb], dim=1)) * gate
         if self.scalar_gate is not None:
-            msg = msg * torch.sigmoid(self.scalar_gate(edge_emb))
+            raw_scalar_gate = torch.sigmoid(self.scalar_gate(edge_emb))
+            effective_scalar_gate = raw_scalar_gate
+            if self.structure_gate_cap is not None and edge_type is not None:
+                structure_mask = (edge_type.to(device=h.device).long() == 2).view(-1, 1)
+                capped = raw_scalar_gate * float(self.structure_gate_cap)
+                effective_scalar_gate = torch.where(structure_mask, capped, raw_scalar_gate)
+                if bool(structure_mask.any()):
+                    self.last_raw_structure_gate_mean = raw_scalar_gate[structure_mask].mean()
+                    self.last_effective_structure_gate_mean = effective_scalar_gate[structure_mask].mean()
+                else:
+                    self.last_raw_structure_gate_mean = raw_scalar_gate.new_tensor(0.0)
+                    self.last_effective_structure_gate_mean = raw_scalar_gate.new_tensor(0.0)
+            else:
+                self.last_raw_structure_gate_mean = None
+                self.last_effective_structure_gate_mean = None
+            self.last_gate_stats = {}
+            if edge_type is not None:
+                et = edge_type.to(device=h.device).long().view(-1, 1)
+                for name, value in (("local", 0), ("knn", 1), ("structure", 2)):
+                    mask = et == int(value)
+                    if bool(mask.any()):
+                        self.last_gate_stats[f"raw_gate_mean_{name}"] = raw_scalar_gate[mask].mean()
+                        self.last_gate_stats[f"effective_gate_mean_{name}"] = effective_scalar_gate[mask].mean()
+            msg = msg * effective_scalar_gate
         agg = msg.new_zeros(h.shape)
         agg.index_add_(0, dst, msg)
         if self.aggregation == "mean":
@@ -87,6 +116,7 @@ class EdgeContextGNNEncoder(torch.nn.Module):
         layer_norm: bool = True,
         aggregation: str = "mean",
         scalar_edge_gate: bool = False,
+        structure_gate_cap: float | None = None,
     ) -> None:
         super().__init__()
         self.layers = torch.nn.ModuleList(
@@ -100,6 +130,7 @@ class EdgeContextGNNEncoder(torch.nn.Module):
                     layer_norm=layer_norm,
                     aggregation=aggregation,
                     scalar_edge_gate=scalar_edge_gate,
+                    structure_gate_cap=structure_gate_cap,
                 )
                 for _ in range(int(num_layers))
             ]
@@ -119,9 +150,10 @@ class EdgeContextGNNEncoder(torch.nn.Module):
             layer_norm=bool(cfg.get("layer_norm", True)),
             aggregation=str(cfg.get("aggregation", "mean")),
             scalar_edge_gate=bool((cfg.get("scalar_edge_gate") or {}).get("enabled", cfg.get("scalar_edge_gate_enabled", False))),
+            structure_gate_cap=(cfg.get("edge_gate") or cfg.get("scalar_edge_gate") or {}).get("structure_gate_cap"),
         )
 
-    def forward(self, h: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor) -> torch.Tensor:
+    def forward(self, h: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor, edge_type: torch.Tensor | None = None) -> torch.Tensor:
         if edge_attr is None:
             raise ValueError("D18 EdgeContextGNN requires edge_attr")
         dst_degree = None
@@ -130,6 +162,19 @@ class EdgeContextGNNEncoder(torch.nn.Module):
             dst_degree = h.new_zeros((h.size(0), 1))
             dst_degree.index_add_(0, dst, torch.ones((dst.numel(), 1), device=h.device, dtype=h.dtype))
         for layer in self.layers:
-            h = layer(h, edge_index, edge_attr, dst_degree=dst_degree)
+            h = layer(h, edge_index, edge_attr, dst_degree=dst_degree, edge_type=edge_type)
         return h
+
+    def structure_gate_penalty(self) -> torch.Tensor | None:
+        values = [layer.last_raw_structure_gate_mean for layer in self.layers if layer.last_raw_structure_gate_mean is not None]
+        if not values:
+            return None
+        return torch.stack(values).mean()
+
+    def gate_stats(self) -> Dict[str, torch.Tensor]:
+        grouped: Dict[str, List[torch.Tensor]] = {}
+        for layer in self.layers:
+            for key, value in layer.last_gate_stats.items():
+                grouped.setdefault(key, []).append(value)
+        return {key: torch.stack(values).mean() for key, values in grouped.items() if values}
 

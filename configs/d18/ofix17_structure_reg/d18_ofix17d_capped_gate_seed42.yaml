@@ -1,0 +1,122 @@
+seed: 42
+data:
+  prior_dir: outputs/d16_mediapipe_pixel_priors_best_retry_rescue
+  batch_size: 16
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+graph:
+  node_support_mode: stratified_detail_knn
+  target_node_count: 1800
+  bins: 6
+  edge_schema: structure9
+  knn_edges:
+    k: 6
+    metric: standardized_euclidean
+    feature_names:
+    - intensity
+    - gx
+    - gy
+    - grad_mag
+    - local_mean_3x3
+    - local_std_3x3
+    - laplacian_abs
+    - center_surround
+  structure_edges:
+    enabled: true
+    max_nodes_per_group: 32
+    targets_per_source: 4
+    min_score: 0.05
+    bidirectional: true
+    relations:
+    - - brow
+      - eye
+    - - eye
+      - mouth
+    - - nose_cheek
+      - mouth
+    - - mouth
+      - nose_cheek
+    - - eye
+      - nose_cheek
+    - - brow
+      - mouth
+    purification:
+      enabled: false
+      keep_ratio: 1.0
+      mode: per_relation_or_per_source
+  cache:
+    enabled: false
+    dir: null
+    strict: true
+model:
+  name: d18_structure_guided_pixel_gnn
+  hidden_dim: 96
+  num_classes: 7
+  dropout: 0.2
+  edge_context_gnn:
+    num_layers: 3
+    edge_attr_dim: 9
+    edge_hidden_dim: 32
+    dropout: 0.25
+    residual: true
+    layer_norm: true
+    aggregation: mean
+    scalar_edge_gate:
+      enabled: true
+      structure_gate_cap: 0.5
+      structure_gate_penalty_lambda: 0.005
+training:
+  seed: 42
+  max_epochs: 90
+  batch_size: 16
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+  lr: 0.0003
+  weight_decay: 0.001
+  checkpoint_monitor: val_macro_f1
+  checkpoint_monitor_mode: max
+  final_test_checkpoint: best
+  progress_interval_batches: 500
+  amp: false
+  allow_tf32: true
+  drop_edge_p: 0.0
+  early_stopping:
+    enabled: true
+    min_epochs_before_stop: 30
+    patience: 15
+    metric: val_loss
+    mode: min
+  scheduler:
+    type: plateau
+    monitor: val_loss
+    mode: min
+    factor: 0.5
+    patience: 5
+    min_lr: 3.0e-05
+  graph_regularization:
+    drop_local_edge_p: 0.0
+    drop_knn_edge_p: 0.0
+    drop_structure_edge_p: 0.5
+    structure_gate_penalty_lambda: 0.005
+  structure_mode_mix:
+    enabled: false
+    p_forced_structure: 0.0
+    p_zero_structure: 0.0
+logging:
+  wandb:
+    enabled: true
+    project: lapgnn-d18-ofix17
+    group: ofix17_structure_reg
+    mode: online
+    resume: allow
+    tags:
+    - d18
+    - ofix17
+    - structure_reg
+    - d18_ofix17d_capped_gate_seed42
+run_name: d18_ofix17d_capped_gate_seed42
+output_dir: outputs/d18_runs/ofix17_structure_reg/d18_ofix17d_capped_gate_seed42

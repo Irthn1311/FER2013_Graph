@@ -23,10 +23,16 @@ class D18Batch:
     detected: torch.Tensor
     landmark_missing_flag: torch.Tensor
     image_48: torch.Tensor
+    edge_type_cat: torch.Tensor
+    structure_relation_id_cat: torch.Tensor
     local_edge_count: torch.Tensor
     knn_edge_count: torch.Tensor
     structure_edge_count: torch.Tensor
     total_edge_count: torch.Tensor
+    structure_edge_count_before_purification: torch.Tensor
+    structure_edge_count_after_purification: torch.Tensor
+    purification_compatibility_kept_mean: torch.Tensor
+    purification_compatibility_dropped_mean: torch.Tensor
     node_feature_names: List[str]
     edge_feature_names: List[str]
 
@@ -47,10 +53,16 @@ class D18Batch:
             detected=self.detected.to(device),
             landmark_missing_flag=self.landmark_missing_flag.to(device),
             image_48=self.image_48.to(device),
+            edge_type_cat=self.edge_type_cat.to(device),
+            structure_relation_id_cat=self.structure_relation_id_cat.to(device),
             local_edge_count=self.local_edge_count.to(device),
             knn_edge_count=self.knn_edge_count.to(device),
             structure_edge_count=self.structure_edge_count.to(device),
             total_edge_count=self.total_edge_count.to(device),
+            structure_edge_count_before_purification=self.structure_edge_count_before_purification.to(device),
+            structure_edge_count_after_purification=self.structure_edge_count_after_purification.to(device),
+            purification_compatibility_kept_mean=self.purification_compatibility_kept_mean.to(device),
+            purification_compatibility_dropped_mean=self.purification_compatibility_dropped_mean.to(device),
             node_feature_names=self.node_feature_names,
             edge_feature_names=self.edge_feature_names,
         )
@@ -59,16 +71,19 @@ class D18Batch:
 def collate_d18_graphs(graphs: List[D18GraphData]) -> D18Batch:
     if not graphs:
         raise ValueError("collate_d18_graphs received an empty graph list")
-    xs, edge_indices, edge_attrs, batch_index, pos = [], [], [], [], []
+    xs, edge_indices, edge_attrs, edge_types, relation_ids, batch_index, pos = [], [], [], [], [], [], []
     ptr = [0]
     ys, sample_indices, detected, missing, images = [], [], [], [], []
     local_counts, knn_counts, structure_counts, total_counts = [], [], [], []
+    purify_before_counts, purify_after_counts, purify_kept_means, purify_dropped_means = [], [], [], []
     offset = 0
     for batch_id, graph in enumerate(graphs):
         n = int(graph.x.size(0))
         xs.append(graph.x)
         edge_indices.append(graph.edge_index + offset)
         edge_attrs.append(graph.edge_attr)
+        edge_types.append(graph.edge_type.long())
+        relation_ids.append(graph.structure_relation_id.long())
         batch_index.append(torch.full((n,), batch_id, dtype=torch.long))
         pos.append(graph.pos)
         ys.append(graph.y)
@@ -80,6 +95,10 @@ def collate_d18_graphs(graphs: List[D18GraphData]) -> D18Batch:
         knn_counts.append(torch.tensor(graph.knn_edge_count, dtype=torch.long))
         structure_counts.append(torch.tensor(graph.structure_edge_count, dtype=torch.long))
         total_counts.append(torch.tensor(graph.total_edge_count, dtype=torch.long))
+        purify_before_counts.append(torch.tensor(graph.structure_edge_count_before_purification, dtype=torch.long))
+        purify_after_counts.append(torch.tensor(graph.structure_edge_count_after_purification, dtype=torch.long))
+        purify_kept_means.append(torch.tensor(graph.purification_compatibility_kept_mean, dtype=torch.float32))
+        purify_dropped_means.append(torch.tensor(graph.purification_compatibility_dropped_mean, dtype=torch.float32))
         offset += n
         ptr.append(offset)
     return D18Batch(
@@ -94,10 +113,16 @@ def collate_d18_graphs(graphs: List[D18GraphData]) -> D18Batch:
         detected=torch.stack(detected).bool(),
         landmark_missing_flag=torch.stack(missing).long(),
         image_48=torch.stack(images).float(),
+        edge_type_cat=torch.cat(edge_types, dim=0).long(),
+        structure_relation_id_cat=torch.cat(relation_ids, dim=0).long(),
         local_edge_count=torch.stack(local_counts).long(),
         knn_edge_count=torch.stack(knn_counts).long(),
         structure_edge_count=torch.stack(structure_counts).long(),
         total_edge_count=torch.stack(total_counts).long(),
+        structure_edge_count_before_purification=torch.stack(purify_before_counts).long(),
+        structure_edge_count_after_purification=torch.stack(purify_after_counts).long(),
+        purification_compatibility_kept_mean=torch.stack(purify_kept_means).float(),
+        purification_compatibility_dropped_mean=torch.stack(purify_dropped_means).float(),
         node_feature_names=list(graphs[0].node_feature_names),
         edge_feature_names=list(graphs[0].edge_feature_names),
     )

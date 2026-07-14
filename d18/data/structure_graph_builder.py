@@ -68,6 +68,20 @@ DEFAULT_RELATIONS = [
     ("brow", "mouth"),
 ]
 
+EDGE_TYPE_LOCAL = 0
+EDGE_TYPE_KNN = 1
+EDGE_TYPE_STRUCTURE = 2
+PIXEL_EVIDENCE_FEATURES = [
+    "intensity",
+    "gx",
+    "gy",
+    "grad_mag",
+    "local_mean_3x3",
+    "local_std_3x3",
+    "laplacian_abs",
+    "center_surround",
+]
+
 
 @dataclass
 class D18GraphData:
@@ -80,12 +94,18 @@ class D18GraphData:
     detected: torch.Tensor
     landmark_missing_flag: torch.Tensor
     image_48: torch.Tensor
+    edge_type: torch.Tensor
+    structure_relation_id: torch.Tensor
     node_feature_names: List[str]
     edge_feature_names: List[str]
     local_edge_count: int
     knn_edge_count: int
     structure_edge_count: int
     total_edge_count: int
+    structure_edge_count_before_purification: int
+    structure_edge_count_after_purification: int
+    purification_compatibility_kept_mean: float
+    purification_compatibility_dropped_mean: float
     node_support_mode: str
 
 
@@ -294,6 +314,80 @@ def _structure_edges(coords: np.ndarray, part_node: np.ndarray, cfg: Dict[str, A
     return _unique_directed_edges(np.asarray(edges, dtype=np.int64).T), meta
 
 
+def _purify_structure_edges(
+    x: np.ndarray,
+    structure: np.ndarray,
+    meta: Dict[Tuple[int, int], tuple[int, float]],
+    cfg: Dict[str, Any],
+) -> tuple[np.ndarray, Dict[Tuple[int, int], tuple[int, float]], Dict[str, float]]:
+    purification = dict((cfg.get("purification") or {}))
+    stats = {
+        "before": float(structure.shape[1]),
+        "after": float(structure.shape[1]),
+        "kept_compatibility_mean": float("nan"),
+        "dropped_compatibility_mean": float("nan"),
+    }
+    if not bool(purification.get("enabled", False)) or structure.size == 0:
+        return structure, meta, stats
+    keep_ratio = float(purification.get("keep_ratio", 0.6))
+    keep_ratio = float(np.clip(keep_ratio, 0.0, 1.0))
+    if keep_ratio >= 1.0:
+        return structure, meta, stats
+    idx = {name: i for i, name in enumerate(NODE_FEATURE_NAMES)}
+    feature_indices = [idx[name] for name in PIXEL_EVIDENCE_FEATURES if name in idx]
+    feat = np.asarray(x[:, feature_indices], dtype=np.float32)
+    feat = (feat - feat.mean(axis=0, keepdims=True)) / np.maximum(feat.std(axis=0, keepdims=True), 1e-6)
+    src = structure[0].astype(np.int64)
+    dst = structure[1].astype(np.int64)
+    dist = np.sqrt(np.sum((feat[src] - feat[dst]) ** 2, axis=1)).astype(np.float32)
+    compat = np.exp(-dist).astype(np.float32)
+    groups: Dict[tuple[int, int], List[int]] = {}
+    for edge_i, pair in enumerate(structure.T.tolist()):
+        rid = int(meta.get((int(pair[0]), int(pair[1])), (0, 0.0))[0])
+        if str(purification.get("mode", "per_relation_or_per_source")) == "per_relation_or_per_source":
+            key = (rid, int(pair[0]))
+        else:
+            key = (0, int(pair[0]))
+        groups.setdefault(key, []).append(edge_i)
+    keep_mask = np.zeros((structure.shape[1],), dtype=bool)
+    for indices in groups.values():
+        local_scores = compat[indices]
+        n_keep = max(1, int(np.ceil(len(indices) * keep_ratio)))
+        chosen = np.asarray(indices, dtype=np.int64)[np.argsort(-local_scores, kind="mergesort")[:n_keep]]
+        keep_mask[chosen] = True
+    kept = structure[:, keep_mask]
+    new_meta = {tuple(map(int, pair)): meta[tuple(map(int, pair))] for pair in kept.T.tolist() if tuple(map(int, pair)) in meta}
+    stats = {
+        "before": float(structure.shape[1]),
+        "after": float(kept.shape[1]),
+        "kept_compatibility_mean": float(np.mean(compat[keep_mask])) if bool(keep_mask.any()) else float("nan"),
+        "dropped_compatibility_mean": float(np.mean(compat[~keep_mask])) if bool((~keep_mask).any()) else float("nan"),
+    }
+    return kept.astype(np.int64), new_meta, stats
+
+
+def _edge_metadata(
+    total: np.ndarray,
+    local_pairs: set[tuple[int, int]],
+    local_knn_pairs: set[tuple[int, int]],
+    structure_meta: Dict[Tuple[int, int], tuple[int, float]],
+) -> tuple[np.ndarray, np.ndarray]:
+    edge_type = np.zeros((total.shape[1],), dtype=np.int64)
+    relation_id = np.zeros((total.shape[1],), dtype=np.int64)
+    for i, pair_raw in enumerate(total.T.tolist()):
+        pair = (int(pair_raw[0]), int(pair_raw[1]))
+        if pair in local_pairs:
+            edge_type[i] = EDGE_TYPE_LOCAL
+        elif pair in local_knn_pairs:
+            edge_type[i] = EDGE_TYPE_KNN
+        elif pair in structure_meta:
+            edge_type[i] = EDGE_TYPE_STRUCTURE
+            relation_id[i] = int(structure_meta[pair][0])
+        else:
+            edge_type[i] = EDGE_TYPE_KNN
+    return edge_type, relation_id
+
+
 def _edge_attr(x: np.ndarray, pos: np.ndarray, edges: np.ndarray, meta: Dict[Tuple[int, int], tuple[int, float]], edge_schema: str, relation_count: int) -> tuple[np.ndarray, List[str]]:
     src = edges[0].astype(np.int64)
     dst = edges[1].astype(np.int64)
@@ -359,7 +453,15 @@ def build_structure_graph(prior: Dict[str, np.ndarray], graph_cfg: Dict[str, Any
     knn_cfg.setdefault("feature_names", KNN_FEATURE_NAMES)
     knn = _unique_directed_edges(_knn_edges(x, NODE_FEATURE_NAMES, knn_cfg))
     structure_cfg = dict(cfg.get("structure_edges", {}) or {})
-    structure, structure_meta = _structure_edges(coords, part_node, structure_cfg)
+    if bool(structure_cfg.get("force_remove", False)):
+        structure = np.zeros((2, 0), dtype=np.int64)
+        structure_meta: Dict[Tuple[int, int], tuple[int, float]] = {}
+        purification_stats = {"before": 0.0, "after": 0.0, "kept_compatibility_mean": float("nan"), "dropped_compatibility_mean": float("nan")}
+    else:
+        structure, structure_meta = _structure_edges(coords, part_node, structure_cfg)
+        structure_before_purification = int(structure.shape[1])
+        structure, structure_meta, purification_stats = _purify_structure_edges(x, structure, structure_meta, structure_cfg)
+        purification_stats["before"] = float(structure_before_purification)
     local_pairs = {tuple(pair) for pair in local.T.tolist()}
     local_knn = _unique_directed_edges(np.concatenate([local, knn], axis=1))
     local_knn_pairs = {tuple(pair) for pair in local_knn.T.tolist()}
@@ -367,6 +469,7 @@ def build_structure_graph(prior: Dict[str, np.ndarray], graph_cfg: Dict[str, Any
     total_pairs = {tuple(pair) for pair in total.T.tolist()}
     knn_added_count = len(local_knn_pairs - local_pairs)
     structure_added_count = len(total_pairs - local_knn_pairs)
+    edge_type, structure_relation_id = _edge_metadata(total, local_pairs, local_knn_pairs, structure_meta)
     relation_count = len(structure_cfg.get("relations") or DEFAULT_RELATIONS)
     edge_attr, edge_names = _edge_attr(x, pos, total, structure_meta, str(cfg.get("edge_schema", "base6")), relation_count)
     return D18GraphData(
@@ -379,11 +482,17 @@ def build_structure_graph(prior: Dict[str, np.ndarray], graph_cfg: Dict[str, Any
         detected=torch.tensor(bool(np.asarray(prior.get("detected", True)).item()), dtype=torch.bool),
         landmark_missing_flag=torch.tensor(int(np.asarray(prior.get("landmark_missing_flag", 0)).item()), dtype=torch.long),
         image_48=torch.from_numpy(image_norm.astype(np.float32)),
+        edge_type=torch.from_numpy(edge_type).long(),
+        structure_relation_id=torch.from_numpy(structure_relation_id).long(),
         node_feature_names=list(NODE_FEATURE_NAMES),
         edge_feature_names=edge_names,
         local_edge_count=int(local.shape[1]),
         knn_edge_count=int(knn_added_count),
         structure_edge_count=int(structure_added_count),
         total_edge_count=int(total.shape[1]),
+        structure_edge_count_before_purification=int(purification_stats["before"]),
+        structure_edge_count_after_purification=int(purification_stats["after"]),
+        purification_compatibility_kept_mean=float(purification_stats["kept_compatibility_mean"]),
+        purification_compatibility_dropped_mean=float(purification_stats["dropped_compatibility_mean"]),
         node_support_mode=support_mode,
     )

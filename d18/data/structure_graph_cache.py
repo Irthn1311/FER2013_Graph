@@ -43,12 +43,18 @@ def save_d18_graph_cache(graph: D18GraphData, path: str | Path, compressed: bool
         "detected": np.asarray(bool(graph.detected), dtype=np.bool_),
         "landmark_missing_flag": np.asarray(int(graph.landmark_missing_flag), dtype=np.int8),
         "image_48": graph.image_48.detach().cpu().numpy().astype(np.float16),
+        "edge_type": graph.edge_type.detach().cpu().numpy().astype(np.int8),
+        "structure_relation_id": graph.structure_relation_id.detach().cpu().numpy().astype(np.int16),
         "local_edge_count": np.asarray(int(graph.local_edge_count), dtype=np.int32),
         "knn_edge_count": np.asarray(int(graph.knn_edge_count), dtype=np.int32),
         "structure_edge_count": np.asarray(int(graph.structure_edge_count), dtype=np.int32),
         "total_edge_count": np.asarray(int(graph.total_edge_count), dtype=np.int32),
         "node_support_mode": np.asarray(str(graph.node_support_mode)),
         "edge_feature_names": np.asarray(graph.edge_feature_names),
+        "structure_edge_count_before_purification": np.asarray(int(graph.structure_edge_count_before_purification), dtype=np.int32),
+        "structure_edge_count_after_purification": np.asarray(int(graph.structure_edge_count_after_purification), dtype=np.int32),
+        "purification_compatibility_kept_mean": np.asarray(float(graph.purification_compatibility_kept_mean), dtype=np.float32),
+        "purification_compatibility_dropped_mean": np.asarray(float(graph.purification_compatibility_dropped_mean), dtype=np.float32),
     }
     if compressed:
         np.savez_compressed(path, **payload)
@@ -65,6 +71,18 @@ def load_d18_graph_cache(path: str | Path) -> D18GraphData:
             edge_feature_names = [str(x) for x in data["edge_feature_names"].tolist()]
         else:
             edge_feature_names = _edge_names_for_dim(edge_attr.shape[1])
+        if "edge_type" in data.files:
+            edge_type = data["edge_type"].astype(np.int64, copy=False)
+        else:
+            edge_type = np.zeros((edge_index.shape[1],), dtype=np.int64)
+            if edge_attr.shape[1] >= 9:
+                edge_type[edge_attr[:, 6] > 0.0] = 2
+        if "structure_relation_id" in data.files:
+            relation_id = data["structure_relation_id"].astype(np.int64, copy=False)
+        else:
+            relation_id = np.zeros((edge_index.shape[1],), dtype=np.int64)
+            if edge_attr.shape[1] >= 9:
+                relation_id = np.rint(edge_attr[:, 6] * 6).astype(np.int64)
         return D18GraphData(
             x=torch.from_numpy(data["x"].astype(np.float32, copy=False)),
             edge_index=torch.from_numpy(edge_index).long(),
@@ -75,11 +93,17 @@ def load_d18_graph_cache(path: str | Path) -> D18GraphData:
             detected=torch.tensor(bool(data["detected"]), dtype=torch.bool),
             landmark_missing_flag=torch.tensor(int(data["landmark_missing_flag"]), dtype=torch.long),
             image_48=torch.from_numpy(data["image_48"].astype(np.float32, copy=False)),
+            edge_type=torch.from_numpy(edge_type).long(),
+            structure_relation_id=torch.from_numpy(relation_id).long(),
             node_feature_names=list(NODE_FEATURE_NAMES),
             edge_feature_names=edge_feature_names,
             local_edge_count=int(data["local_edge_count"]),
             knn_edge_count=int(data["knn_edge_count"]),
             structure_edge_count=int(data["structure_edge_count"]) if "structure_edge_count" in data.files else 0,
             total_edge_count=int(data["total_edge_count"]),
+            structure_edge_count_before_purification=int(data["structure_edge_count_before_purification"]) if "structure_edge_count_before_purification" in data.files else int(data["structure_edge_count"]) if "structure_edge_count" in data.files else 0,
+            structure_edge_count_after_purification=int(data["structure_edge_count_after_purification"]) if "structure_edge_count_after_purification" in data.files else int(data["structure_edge_count"]) if "structure_edge_count" in data.files else 0,
+            purification_compatibility_kept_mean=float(data["purification_compatibility_kept_mean"]) if "purification_compatibility_kept_mean" in data.files else float("nan"),
+            purification_compatibility_dropped_mean=float(data["purification_compatibility_dropped_mean"]) if "purification_compatibility_dropped_mean" in data.files else float("nan"),
             node_support_mode=str(data["node_support_mode"]) if "node_support_mode" in data.files else "cached",
         )
