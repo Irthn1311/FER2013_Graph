@@ -1,4 +1,4 @@
-﻿"""Build the OFIX17 D18 graph caches needed for Kaggle training.
+"""Build the OFIX17 D18 graph caches needed for Kaggle training.
 
 OFIX17 has three distinct graph-cache signatures:
 - base6_shared: used by OFIX17A and OFIX17B.

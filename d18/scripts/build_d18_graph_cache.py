@@ -21,7 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from d18.data.structure_dataset import StructurePixelDataset
-from d18.data.structure_graph_cache import graph_cache_path, save_d18_graph_cache
+from d18.data.structure_graph_cache import graph_cache_path, load_d18_graph_cache, save_d18_graph_cache
 
 
 def read_config(path: str | Path) -> Dict[str, Any]:
@@ -75,9 +75,25 @@ def build_split(
     for i, prior_file in enumerate(ds.files, start=1):
         cache_file = graph_cache_path(output_dir, split, prior_file)
         if cache_file.exists() and not overwrite:
-            skipped += 1
-            total_bytes += cache_file.stat().st_size
-            continue
+            try:
+                load_d18_graph_cache(cache_file)
+                skipped += 1
+                total_bytes += cache_file.stat().st_size
+                continue
+            except Exception as exc:
+                print(
+                    json.dumps(
+                        {
+                            "event": "d18_graph_cache_rebuild_corrupt",
+                            "split": split,
+                            "index": i,
+                            "cache_file": str(cache_file),
+                            "error_type": type(exc).__name__,
+                            "error": str(exc),
+                        }
+                    ),
+                    flush=True,
+                )
         graph = ds[i - 1]
         save_d18_graph_cache(graph, cache_file, compressed=compressed)
         size_bytes = cache_file.stat().st_size

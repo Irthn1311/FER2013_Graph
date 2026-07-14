@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict
+import warnings
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -35,8 +36,10 @@ class StructurePixelDataset(Dataset):
         self.cache_enabled = bool(cache_cfg.get("enabled", False))
         self.cache_dir = Path(cache_cfg.get("dir")) if cache_cfg.get("dir") else None
         self.cache_strict = bool(cache_cfg.get("strict", True))
+        self.cache_fallback_on_error = bool(cache_cfg.get("fallback_on_error", True))
         self.cache_hits = 0
         self.cache_misses = 0
+        self.cache_errors = 0
         if self.cache_enabled:
             if self.cache_dir is None:
                 raise ValueError("graph.cache.enabled=true but graph.cache.dir is empty")
@@ -57,7 +60,19 @@ class StructurePixelDataset(Dataset):
             cache_file = graph_cache_path(self.cache_dir, self.split, prior_file)
             if cache_file.exists():
                 self.cache_hits += 1
-                return load_d18_graph_cache(cache_file)
+                try:
+                    return load_d18_graph_cache(cache_file)
+                except Exception as exc:
+                    self.cache_errors += 1
+                    if not self.cache_fallback_on_error:
+                        raise
+                    warnings.warn(
+                        f"Failed to load D18 graph cache {cache_file}; rebuilding graph online for this sample. "
+                        f"error={type(exc).__name__}: {exc}",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+                    return build_structure_graph(self._load_prior(index), self.graph_cfg)
             self.cache_misses += 1
             if self.cache_strict:
                 raise FileNotFoundError(f"Missing D18 graph cache file: {cache_file}")
