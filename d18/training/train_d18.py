@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import random
@@ -27,6 +28,23 @@ from d18.models.structure_gnn import StructureGNN
 
 
 CLASS_NAMES = ["angry", "disgust", "fear", "happy", "sad", "surprise", "neutral"]
+
+
+def scientific_resume_signature(cfg: Dict[str, Any]) -> str:
+    """Hash scientific state while excluding machine-specific paths/metadata."""
+    graph_cfg = json.loads(json.dumps(cfg.get("graph", {}) or {}))
+    graph_cfg.pop("cache", None)
+    training_cfg = json.loads(json.dumps(cfg.get("training", {}) or {}))
+    training_cfg.pop("resume_from", None)
+    payload = {
+        "signature_version": "d18_scientific_resume_v1",
+        "seed": int(training_cfg.get("seed", cfg.get("seed", 42)) or 42),
+        "graph": graph_cfg,
+        "model": cfg.get("model", {}) or {},
+        "training": training_cfg,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def read_config(path: str | Path) -> Dict[str, Any]:
@@ -209,6 +227,8 @@ def apply_graph_regularization(batch: D18Batch, train_cfg: Dict[str, Any]) -> tu
             graph_for_edge = torch.bucketize(src, batch.ptr[1:].to(src.device), right=True)
             forced_edge = sample_force[graph_for_edge]
             keep = keep & ~((edge_type == 2) & forced_edge)
+    if not bool(mix_cfg.get("enabled", False)) and forced_samples != 0:
+        raise RuntimeError("structure mode mix is disabled but forced samples were generated")
     probs = {
         0: float(reg_cfg.get("drop_local_edge_p", 0.0) or 0.0),
         1: float(reg_cfg.get("drop_knn_edge_p", 0.0) or 0.0),
@@ -230,6 +250,8 @@ def apply_graph_regularization(batch: D18Batch, train_cfg: Dict[str, Any]) -> tu
         "knn_edges_after_drop": int((after_type == 1).sum().item()),
         "structure_drop_fraction_observed": float(1.0 - (int((after_type == 2).sum().item()) / max(before_structure, 1))),
         "structure_mode_forced_sample_count": forced_samples,
+        "structure_mode_official_sample_count": int(batch.num_graphs - forced_samples),
+        "structure_mode_total_sample_count": int(batch.num_graphs),
         "structure_mode_forced_sample_pct": float(forced_samples / max(batch.num_graphs, 1)),
         "structure_edges_train_mean": float(before_structure / max(batch.num_graphs, 1)),
     }
@@ -283,6 +305,9 @@ def train_one_epoch(
     knn_after_drop: List[float] = []
     structure_drop_fraction: List[float] = []
     structure_mode_forced_pct: List[float] = []
+    structure_mode_forced_count = 0
+    structure_mode_official_count = 0
+    structure_mode_total_count = 0
     gate_metric_values: Dict[str, List[float]] = {}
     iterator = iter(loader)
     total_batches = len(loader)
@@ -318,6 +343,9 @@ def train_one_epoch(
         knn_after_drop.append(float(reg_stats.get("knn_edges_after_drop", 0)) / max(train_batch.num_graphs, 1))
         structure_drop_fraction.append(float(reg_stats.get("structure_drop_fraction_observed", 0.0)))
         structure_mode_forced_pct.append(float(reg_stats.get("structure_mode_forced_sample_pct", 0.0)))
+        structure_mode_forced_count += int(reg_stats.get("structure_mode_forced_sample_count", 0))
+        structure_mode_official_count += int(reg_stats.get("structure_mode_official_sample_count", train_batch.num_graphs))
+        structure_mode_total_count += int(reg_stats.get("structure_mode_total_sample_count", train_batch.num_graphs))
         wait_times.append(wait_time)
         batch_times.append(batch_done - fetch_done)
         last_end = batch_done
@@ -335,6 +363,9 @@ def train_one_epoch(
                         "last_batch_wait_sec": wait_times[-1],
                         "avg_loss_so_far": loss_sum / max(count, 1),
                         "structure_drop_fraction_observed_so_far": float(np.mean(structure_drop_fraction)) if structure_drop_fraction else 0.0,
+                        "structure_mode_official_samples_so_far": structure_mode_official_count,
+                        "structure_mode_forced_samples_so_far": structure_mode_forced_count,
+                        "structure_mode_forced_ratio_so_far": float(structure_mode_forced_count / max(structure_mode_total_count, 1)),
                     }
                 ),
                 flush=True,
@@ -357,7 +388,10 @@ def train_one_epoch(
         "structure_drop_fraction_observed": float(np.mean(structure_drop_fraction)) if structure_drop_fraction else 0.0,
         "local_edges_after_drop_mean": float(np.mean(local_after_drop)) if local_after_drop else 0.0,
         "knn_edges_after_drop_mean": float(np.mean(knn_after_drop)) if knn_after_drop else 0.0,
-        "structure_mode_forced_sample_pct": float(np.mean(structure_mode_forced_pct)) if structure_mode_forced_pct else 0.0,
+        "structure_mode_official_sample_count": structure_mode_official_count,
+        "structure_mode_forced_sample_count": structure_mode_forced_count,
+        "structure_mode_total_sample_count": structure_mode_total_count,
+        "structure_mode_forced_sample_pct": float(structure_mode_forced_count / max(structure_mode_total_count, 1)),
         **{key: float(np.mean(values)) for key, values in gate_metric_values.items() if values},
     }
 
@@ -475,6 +509,7 @@ def save_checkpoint(
             "epochs_without_improvement": int(epochs_without_improvement),
             "global_step": int(global_step),
             "config": cfg,
+            "resume_signature": scientific_resume_signature(cfg),
             "python_random_state": random.getstate(),
             "numpy_random_state": np.random.get_state(),
             "torch_rng_state": torch.get_rng_state(),
@@ -491,11 +526,24 @@ def load_checkpoint(
     scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau | None = None,
     device: torch.device | str = "cpu",
     restore_random_state: bool = False,
+    expected_resume_signature: str | None = None,
+    strict_signature: bool = False,
 ) -> Dict[str, Any]:
     try:
         payload = torch.load(path, map_location=device, weights_only=False)
     except TypeError:
         payload = torch.load(path, map_location=device)
+    checkpoint_signature = payload.get("resume_signature")
+    if checkpoint_signature is None and isinstance(payload.get("config"), dict):
+        checkpoint_signature = scientific_resume_signature(payload["config"])
+    if expected_resume_signature is not None and checkpoint_signature != expected_resume_signature:
+        message = (
+            f"Resume signature mismatch for {path}: checkpoint={checkpoint_signature!r}, "
+            f"current={expected_resume_signature!r}. Refusing cross-config resume."
+        )
+        if strict_signature:
+            raise RuntimeError(message)
+        print(f"[D18 resume warning] {message}", flush=True)
     model.load_state_dict(payload["model_state_dict"])
     if optimizer is not None and payload.get("optimizer_state_dict") is not None:
         optimizer.load_state_dict(payload["optimizer_state_dict"])
@@ -625,6 +673,37 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
 
     first_batch = next(iter(DataLoader(train_ds, batch_size=2, shuffle=False, collate_fn=collate_d18_graphs)))
     model = StructureGNN.from_config(cfg, input_dim=int(first_batch.x_cat.size(1)), edge_attr_dim=int(first_batch.edge_attr_cat.size(1))).to(device)
+    resume_signature = scientific_resume_signature(cfg)
+    graph_reg_cfg = train_cfg.get("graph_regularization", {}) or {}
+    mode_mix_cfg = train_cfg.get("structure_mode_mix", {}) or {}
+    effective_config = {
+        "event": "d18_effective_training_config",
+        "run_id": cfg.get("run_name", output_dir.name),
+        "seed": seed,
+        "node_dim": int(first_batch.x_cat.size(1)),
+        "edge_dim": int(first_batch.edge_attr_cat.size(1)),
+        "node_feature_names": list(first_batch.node_feature_names),
+        "edge_feature_names": list(first_batch.edge_feature_names),
+        "node_count_mean": float((first_batch.ptr[1:] - first_batch.ptr[:-1]).float().mean().item()),
+        "local_edge_count_mean": float(first_batch.local_edge_count.float().mean().item()),
+        "knn_edge_count_mean": float(first_batch.knn_edge_count.float().mean().item()),
+        "structure_edge_count_mean": float(first_batch.structure_edge_count.float().mean().item()),
+        "drop_edge_p": float(train_cfg.get("drop_edge_p", 0.0) or 0.0),
+        "drop_local_edge_p": float(graph_reg_cfg.get("drop_local_edge_p", 0.0) or 0.0),
+        "drop_knn_edge_p": float(graph_reg_cfg.get("drop_knn_edge_p", 0.0) or 0.0),
+        "drop_structure_edge_p": float(graph_reg_cfg.get("drop_structure_edge_p", 0.0) or 0.0),
+        "structure_mode_mix_enabled": bool(mode_mix_cfg.get("enabled", False)),
+        "structure_mode_probabilities": {
+            "p_forced_structure": float(mode_mix_cfg.get("p_forced_structure", 0.0) or 0.0),
+            "p_zero_structure": float(mode_mix_cfg.get("p_zero_structure", 0.0) or 0.0),
+        },
+        "checkpoint_monitor": train_cfg.get("checkpoint_monitor", "val_macro_f1"),
+        "checkpoint_monitor_mode": train_cfg.get("checkpoint_monitor_mode", "max"),
+        "output_dir": str(output_dir),
+        "resume_signature": resume_signature,
+    }
+    write_json(output_dir / "effective_training_config.json", effective_config)
+    print(json.dumps(effective_config), flush=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=float(train_cfg.get("lr", 3e-4)), weight_decay=float(train_cfg.get("weight_decay", 1e-3)))
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
@@ -655,7 +734,16 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
                 raise FileNotFoundError(f"Missing resume checkpoint: {resume_path}")
             print(f"[D18 resume] checkpoint not found, starting fresh: {resume_path}", flush=True)
         else:
-            payload = load_checkpoint(resume_path, model, optimizer=optimizer, scheduler=scheduler, device=device, restore_random_state=True)
+            payload = load_checkpoint(
+                resume_path,
+                model,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                device=device,
+                restore_random_state=True,
+                expected_resume_signature=resume_signature,
+                strict_signature=bool(args.resume_strict),
+            )
             start_epoch = int(payload.get("epoch", 0)) + 1
             best_score = float(payload.get("best_score", best_score))
             best_epoch = int(payload.get("best_epoch", payload.get("epoch", 0)))
@@ -711,6 +799,9 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "local_edges_after_drop_mean",
         "knn_edges_after_drop_mean",
         "structure_mode_forced_sample_pct",
+        "structure_mode_official_sample_count",
+        "structure_mode_forced_sample_count",
+        "structure_mode_total_sample_count",
         "structure_gate_penalty_lambda",
         "raw_gate_mean_local",
         "raw_gate_mean_knn",
@@ -798,6 +889,9 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
             "local_edges_after_drop_mean": train_stats.get("local_edges_after_drop_mean"),
             "knn_edges_after_drop_mean": train_stats.get("knn_edges_after_drop_mean"),
             "structure_mode_forced_sample_pct": train_stats.get("structure_mode_forced_sample_pct"),
+            "structure_mode_official_sample_count": train_stats.get("structure_mode_official_sample_count"),
+            "structure_mode_forced_sample_count": train_stats.get("structure_mode_forced_sample_count"),
+            "structure_mode_total_sample_count": train_stats.get("structure_mode_total_sample_count"),
             "structure_gate_penalty_lambda": gate_penalty_lambda,
             "raw_gate_mean_local": train_stats.get("raw_gate_mean_local"),
             "raw_gate_mean_knn": train_stats.get("raw_gate_mean_knn"),

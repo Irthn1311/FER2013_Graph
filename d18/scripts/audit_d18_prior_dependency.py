@@ -1,4 +1,4 @@
-"""Counterfactual prior audit for D18.
+﻿"""Counterfactual prior audit for D18.
 
 D18 graph construction uses priors only for structure-edge topology. The audit mutates prior tensors while keeping image/label/sample id unchanged.
 """
@@ -90,6 +90,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--run_dir", required=True)
     parser.add_argument("--prior_dir", default=None)
+    parser.add_argument("--graph_cache_dir", default=None)
     parser.add_argument("--checkpoint", default="best")
     parser.add_argument("--split", default="test")
     parser.add_argument("--variants", default=",".join(VARIANTS))
@@ -101,6 +102,9 @@ def main() -> None:
     run_dir = Path(args.run_dir)
     cfg = read_config(run_dir / "resolved_config.yaml")
     prior_dir = Path(args.prior_dir or (cfg.get("data", {}) or {}).get("prior_dir"))
+    cfg.setdefault("data", {})["prior_dir"] = str(prior_dir)
+    if args.graph_cache_dir:
+        cfg.setdefault("graph", {}).setdefault("cache", {})["dir"] = str(Path(args.graph_cache_dir))
     device = resolve_device(args.device)
     first_ds = build_dataset(cfg, args.split, max_samples=2)
     first_batch = next(iter(DataLoader(first_ds, batch_size=2, collate_fn=collate_d18_graphs)))
@@ -173,4 +177,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
 
