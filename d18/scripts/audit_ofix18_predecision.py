@@ -1053,8 +1053,10 @@ def probe_checkpoint(
             else:
                 h = layer(h, edge_index, edge_attr, dst_degree=degree, edge_type=edge_type)
             change = (h - h_before).norm(dim=1).mean().item()
+            node_norm = h.norm(dim=1).mean().item()
             for edge_name in aggregate_norms:
                 accum[(layer_index, edge_name)]["layer_representation_change_norm"].append(float(change))
+                accum[(layer_index, edge_name)]["node_representation_norm"].append(float(node_norm))
         z = model.readout(h, batch.batch_index, batch.num_graphs)
         z_norm = float(z.norm(dim=1).mean().item())
         for layer_index, edge_name in list(accum.keys()):

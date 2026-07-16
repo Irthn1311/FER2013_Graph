@@ -47,6 +47,18 @@ def scientific_resume_signature(cfg: Dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def run_resume_signature(cfg: Dict[str, Any]) -> str:
+    """Bind a resumable checkpoint to both scientific state and run identity."""
+    payload = {
+        "signature_version": "d18_run_resume_v2",
+        "scientific_signature": scientific_resume_signature(cfg),
+        "run_name": str(cfg.get("run_name", "")),
+        "output_dir": str(cfg.get("output_dir", "")),
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def read_config(path: str | Path) -> Dict[str, Any]:
     with Path(path).open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
@@ -510,6 +522,7 @@ def save_checkpoint(
             "global_step": int(global_step),
             "config": cfg,
             "resume_signature": scientific_resume_signature(cfg),
+            "run_resume_signature": run_resume_signature(cfg),
             "python_random_state": random.getstate(),
             "numpy_random_state": np.random.get_state(),
             "torch_rng_state": torch.get_rng_state(),
@@ -527,6 +540,7 @@ def load_checkpoint(
     device: torch.device | str = "cpu",
     restore_random_state: bool = False,
     expected_resume_signature: str | None = None,
+    expected_run_resume_signature: str | None = None,
     strict_signature: bool = False,
 ) -> Dict[str, Any]:
     try:
@@ -540,6 +554,18 @@ def load_checkpoint(
         message = (
             f"Resume signature mismatch for {path}: checkpoint={checkpoint_signature!r}, "
             f"current={expected_resume_signature!r}. Refusing cross-config resume."
+        )
+        if strict_signature:
+            raise RuntimeError(message)
+        print(f"[D18 resume warning] {message}", flush=True)
+    checkpoint_run_signature = payload.get("run_resume_signature")
+    if (
+        expected_run_resume_signature is not None
+        and checkpoint_run_signature != expected_run_resume_signature
+    ):
+        message = (
+            f"Run resume signature mismatch for {path}: checkpoint={checkpoint_run_signature!r}, "
+            f"current={expected_run_resume_signature!r}. Refusing cross-run resume."
         )
         if strict_signature:
             raise RuntimeError(message)
@@ -674,12 +700,14 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
     first_batch = next(iter(DataLoader(train_ds, batch_size=2, shuffle=False, collate_fn=collate_d18_graphs)))
     model = StructureGNN.from_config(cfg, input_dim=int(first_batch.x_cat.size(1)), edge_attr_dim=int(first_batch.edge_attr_cat.size(1))).to(device)
     resume_signature = scientific_resume_signature(cfg)
+    strict_run_signature = run_resume_signature(cfg)
     graph_reg_cfg = train_cfg.get("graph_regularization", {}) or {}
     mode_mix_cfg = train_cfg.get("structure_mode_mix", {}) or {}
     effective_config = {
         "event": "d18_effective_training_config",
         "run_id": cfg.get("run_name", output_dir.name),
         "seed": seed,
+        "cell": "C2" if bool(mode_mix_cfg.get("enabled", False)) else "C0",
         "node_dim": int(first_batch.x_cat.size(1)),
         "edge_dim": int(first_batch.edge_attr_cat.size(1)),
         "node_feature_names": list(first_batch.node_feature_names),
@@ -701,6 +729,20 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "checkpoint_monitor_mode": train_cfg.get("checkpoint_monitor_mode", "max"),
         "output_dir": str(output_dir),
         "resume_signature": resume_signature,
+        "run_resume_signature": strict_run_signature,
+        "seed_policy": {
+            "configured_seed": seed,
+            "python_random_seed": seed,
+            "numpy_seed": seed,
+            "torch_cpu_seed": seed,
+            "torch_cuda_seed": seed if torch.cuda.is_available() else None,
+            "dataloader_generator": "global_torch_rng_seeded_before_loader_construction",
+            "worker_seed_policy": "pytorch_default_worker_seed_from_dataloader_base_seed",
+            "mode_mix_rng": "global_torch_rng",
+            "deterministic_algorithms": bool(torch.are_deterministic_algorithms_enabled()),
+            "cudnn_deterministic": bool(torch.backends.cudnn.deterministic),
+            "cudnn_benchmark": bool(torch.backends.cudnn.benchmark),
+        },
     }
     write_json(output_dir / "effective_training_config.json", effective_config)
     print(json.dumps(effective_config), flush=True)
@@ -742,6 +784,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
                 device=device,
                 restore_random_state=True,
                 expected_resume_signature=resume_signature,
+                expected_run_resume_signature=strict_run_signature,
                 strict_signature=bool(args.resume_strict),
             )
             start_epoch = int(payload.get("epoch", 0)) + 1

@@ -28,9 +28,11 @@ from d18.data.structure_graph_cache import load_d18_graph_cache
 from d18.scripts.audit_ofix18_predecision import (
     CLASS_NAMES,
     ablate_graph,
+    cosine_rows,
     ece_score,
     entropy_np,
     infer_graphs,
+    js_divergence_rows,
     load_model,
     load_prior,
     mode_prior,
@@ -138,7 +140,12 @@ def counterfactual_graphs(
     if mode == "official":
         return official
     if mode == "remove_structure":
-        return [ablate_graph(graph, "no_structure", seed + int(graph.sample_index)) for graph in official]
+        result = []
+        for index, graph in enumerate(official):
+            base = load_prior(files[index])
+            zeroed = mode_prior(base, "zero_prior", None)
+            result.append(rebuild_structure_from_cache(graph, zeroed, graph_cfg))
+        return result
     if mode == "shuffle_structure":
         result = []
         for index, graph in enumerate(official):
@@ -168,7 +175,25 @@ def main() -> None:
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max_samples", type=int, default=None)
+    parser.add_argument(
+        "--counterfactual_modes",
+        default=",".join(COUNTERFACTUALS),
+        help="Comma-separated modes to persist. Official is computed internally as the reference.",
+    )
+    parser.add_argument("--skip_edge_ablations", action="store_true")
+    parser.add_argument(
+        "--sample_manifest",
+        default=None,
+        help="Locked sample_manifest.csv. When supplied, image IDs and order are mandatory.",
+    )
     args = parser.parse_args()
+    requested_modes = tuple(
+        value.strip() for value in str(args.counterfactual_modes).split(",") if value.strip()
+    )
+    unknown_modes = set(requested_modes) - set(COUNTERFACTUALS)
+    if unknown_modes or not requested_modes:
+        raise ValueError(f"Invalid counterfactual modes: {sorted(unknown_modes)}")
+    execution_modes = tuple(dict.fromkeys(("official", *requested_modes)))
 
     run_dir = Path(args.run_dir)
     output = Path(args.output_dir)
@@ -183,14 +208,46 @@ def main() -> None:
     if not checkpoint.exists():
         raise FileNotFoundError(checkpoint)
 
-    files = sorted((Path(args.prior_dir) / "test").glob("*.npz"))
-    if args.max_samples is not None:
-        files = files[: int(args.max_samples)]
+    sample_manifest = None
+    if args.sample_manifest:
+        sample_manifest = pd.read_csv(args.sample_manifest)
+        required_manifest = {
+            "image_id", "sample_index", "true_class", "detected_state",
+            "landmark_missing_flag",
+        }
+        missing_manifest = required_manifest - set(sample_manifest.columns)
+        if missing_manifest:
+            raise RuntimeError(f"sample manifest missing columns: {sorted(missing_manifest)}")
+        if sample_manifest["image_id"].astype(str).duplicated().any():
+            raise RuntimeError("sample manifest contains duplicated image_id values")
+        files = [
+            Path(args.prior_dir) / "test" / f"{str(value).zfill(6)}.npz"
+            for value in sample_manifest["image_id"]
+        ]
+        missing_files = [str(path) for path in files if not path.exists()]
+        if missing_files:
+            raise FileNotFoundError(f"locked prior files missing: {missing_files[:5]}")
+    else:
+        files = sorted((Path(args.prior_dir) / "test").glob("*.npz"))
+        if args.max_samples is not None:
+            files = files[: int(args.max_samples)]
     if not files:
         raise FileNotFoundError("no test prior files")
     official_graphs = load_official_graphs(files, Path(args.graph_cache_dir))
     y = np.asarray([int(graph.y) for graph in official_graphs], dtype=np.int64)
     sample_index = np.asarray([int(graph.sample_index) for graph in official_graphs], dtype=np.int64)
+    detected = np.asarray([bool(graph.detected) for graph in official_graphs], dtype=bool)
+    image_ids = np.asarray([path.stem for path in files], dtype=object)
+    if sample_manifest is not None:
+        if not np.array_equal(sample_index, sample_manifest["sample_index"].to_numpy(dtype=np.int64)):
+            raise RuntimeError("locked sample_index ordering mismatch")
+        if not np.array_equal(y, sample_manifest["true_class"].to_numpy(dtype=np.int64)):
+            raise RuntimeError("locked labels mismatch")
+        expected_detected = (
+            sample_manifest["detected_state"].astype(str).str.lower().isin(["true", "1"]).to_numpy()
+        )
+        if not np.array_equal(detected, expected_detected):
+            raise RuntimeError("locked detected_state mismatch")
     donors = donor_permutation(len(files), int(args.seed))
     device = torch.device(args.device if args.device.startswith("cuda") and torch.cuda.is_available() else "cpu")
     spec = {
@@ -199,15 +256,21 @@ def main() -> None:
         "checkpoint_path": checkpoint,
     }
     model = load_model(spec, device)
+    checkpoint_payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    checkpoint_epoch = int(checkpoint_payload.get("epoch", -1))
+    del checkpoint_payload
 
     logits_by_mode: dict[str, np.ndarray] = {}
+    embeddings_by_mode: dict[str, np.ndarray] = {}
     graphs_by_mode: dict[str, list[Any]] = {}
-    for mode in COUNTERFACTUALS:
+    for mode in execution_modes:
         graphs = counterfactual_graphs(
             mode, official_graphs, files, donors, cfg.get("graph", {}) or {}, int(args.seed)
         )
         graphs_by_mode[mode] = graphs
-        logits_by_mode[mode], _ = infer_graphs(model, graphs, device, int(args.batch_size))
+        logits_by_mode[mode], embeddings_by_mode[mode] = infer_graphs(
+            model, graphs, device, int(args.batch_size)
+        )
         print(json.dumps({"event": "ofix18_eval_mode_done", "mode": mode, "count": len(graphs)}), flush=True)
 
     official_probs = softmax_np(logits_by_mode["official"])
@@ -216,45 +279,101 @@ def main() -> None:
         y, official_pred, labels=np.arange(len(CLASS_NAMES)), zero_division=0
     )
     official_macro = float(official_f1.mean())
+    repeat_count = min(16, len(official_graphs))
+    repeat_logits, _ = infer_graphs(model, official_graphs[:repeat_count], device, int(args.batch_size))
+    deterministic_max_abs_diff = float(
+        np.max(np.abs(repeat_logits - logits_by_mode["official"][:repeat_count]))
+    )
     rows, prediction_rows = [], []
-    for mode in COUNTERFACTUALS:
+    for mode in requested_modes:
         row, pred, probs = summarize(mode, y, logits_by_mode[mode], official_pred, official_macro)
-        row.update({"run_name": run_dir.name, "checkpoint": args.checkpoint})
+        row.update({
+            "run_name": run_dir.name,
+            "checkpoint": args.checkpoint,
+            "checkpoint_epoch": checkpoint_epoch,
+        })
         rows.append(row)
         matrix = np.asarray(json.loads(row["confusion_matrix_json"]), dtype=np.int64)
         write_confusion(output / f"confusion_matrix_{mode}.csv", matrix)
         for i in range(len(y)):
             prediction_rows.append(
                 {
+                    "run_name": run_dir.name,
+                    "checkpoint_type": args.checkpoint,
+                    "checkpoint_epoch": checkpoint_epoch,
+                    "image_id": str(image_ids[i]),
                     "sample_index": int(sample_index[i]),
                     "true_class": int(y[i]),
+                    "detected_state": bool(detected[i]),
                     "mode": mode,
                     "predicted_class": int(pred[i]),
-                    "confidence": float(probs[i].max()),
-                    "official_predicted_class": int(official_pred[i]),
+                    "entropy": float(entropy_np(probs[i:i + 1])[0]),
+                    "max_probability": float(probs[i].max()),
+                    "margin": float(
+                        np.partition(probs[i], -2)[-1] - np.partition(probs[i], -2)[-2]
+                    ),
+                    "correct": int(pred[i] == y[i]),
                 }
             )
+            for class_id in range(len(CLASS_NAMES)):
+                prediction_rows[-1][f"logit_{class_id}"] = float(
+                    logits_by_mode[mode][i, class_id]
+                )
+                prediction_rows[-1][f"prob_{class_id}"] = float(probs[i, class_id])
     pd.DataFrame(rows).to_csv(output / "counterfactual_metrics.csv", index=False)
     pd.DataFrame(prediction_rows).to_csv(output / "counterfactual_predictions.csv", index=False)
+    np.savez_compressed(
+        output / "counterfactual_embeddings.npz",
+        **{mode: values.astype(np.float32) for mode, values in embeddings_by_mode.items()},
+    )
 
     ablation_rows = []
-    logits_cache: dict[str, np.ndarray] = {
-        "full": logits_by_mode["official"],
-        "no_structure": logits_by_mode["remove_structure"],
-        "permute_structure": logits_by_mode["permute_structure_destinations"],
-        "degree_swap_structure": logits_by_mode["degree_matched_random_structure"],
-    }
-    for name, operation in EDGE_ABLATIONS.items():
-        if operation not in logits_cache:
-            graphs = [
-                ablate_graph(graph, operation, int(args.seed) + int(graph.sample_index) * 31)
-                for graph in official_graphs
-            ]
-            logits_cache[operation], _ = infer_graphs(model, graphs, device, int(args.batch_size))
-        row, _, _ = summarize(name, y, logits_cache[operation], official_pred, official_macro)
-        row.update({"run_name": run_dir.name, "checkpoint": args.checkpoint, "operation": operation})
-        ablation_rows.append(row)
-    pd.DataFrame(ablation_rows).to_csv(output / "edge_family_ablation_metrics.csv", index=False)
+    logits_cache: dict[str, np.ndarray] = {"full": logits_by_mode["official"]}
+    if not args.skip_edge_ablations:
+        if "permute_structure_destinations" in logits_by_mode:
+            logits_cache["permute_structure"] = logits_by_mode["permute_structure_destinations"]
+        if "degree_matched_random_structure" in logits_by_mode:
+            logits_cache["degree_swap_structure"] = logits_by_mode["degree_matched_random_structure"]
+        for name, operation in EDGE_ABLATIONS.items():
+            if operation not in logits_cache:
+                graphs = [
+                    ablate_graph(graph, operation, int(args.seed) + int(graph.sample_index) * 31)
+                    for graph in official_graphs
+                ]
+                logits_cache[operation], _ = infer_graphs(model, graphs, device, int(args.batch_size))
+            row, _, _ = summarize(name, y, logits_cache[operation], official_pred, official_macro)
+            row.update({"run_name": run_dir.name, "checkpoint": args.checkpoint, "operation": operation})
+            ablation_rows.append(row)
+        pd.DataFrame(ablation_rows).to_csv(output / "edge_family_ablation_metrics.csv", index=False)
+        np.savez_compressed(
+            output / "edge_family_ablation_logits.npz",
+            **{name: values.astype(np.float32) for name, values in logits_cache.items()},
+        )
+
+    regression_count = min(20, len(official_graphs)) if "remove_structure" in graphs_by_mode else 0
+    zero_forced_equal = True
+    zero_matches_remove = True
+    for index in range(regression_count):
+        base = load_prior(files[index])
+        zero_graph = rebuild_structure_from_cache(
+            official_graphs[index],
+            mode_prior(base, "zero_prior", None),
+            cfg.get("graph", {}) or {},
+        )
+        forced_graph = rebuild_structure_from_cache(
+            official_graphs[index],
+            mode_prior(base, "forced_fallback", None),
+            cfg.get("graph", {}) or {},
+        )
+        removed_graph = graphs_by_mode["remove_structure"][index]
+        zero_forced_equal &= bool(
+            torch.equal(zero_graph.edge_index, forced_graph.edge_index)
+            and torch.equal(zero_graph.edge_attr, forced_graph.edge_attr)
+        )
+        zero_matches_remove &= bool(
+            torch.equal(zero_graph.edge_index, removed_graph.edge_index)
+            and torch.equal(zero_graph.edge_attr, removed_graph.edge_attr)
+        )
 
     payload = {
         "status": "COMPLETE",
@@ -265,10 +384,18 @@ def main() -> None:
         "prior_dir": str(args.prior_dir),
         "graph_cache_dir": str(args.graph_cache_dir),
         "sample_count": len(files),
+        "sample_manifest": str(args.sample_manifest) if args.sample_manifest else None,
+        "sample_index_sha256": __import__("hashlib").sha256(sample_index.tobytes()).hexdigest(),
+        "checkpoint_epoch": checkpoint_epoch,
         "device": str(device),
         "seed": int(args.seed),
-        "counterfactual_modes": list(COUNTERFACTUALS),
-        "edge_ablations": EDGE_ABLATIONS,
+        "counterfactual_modes": list(requested_modes),
+        "edge_ablations": {} if args.skip_edge_ablations else EDGE_ABLATIONS,
+        "deterministic_repeat_count": repeat_count,
+        "deterministic_max_abs_logit_diff": deterministic_max_abs_diff,
+        "zero_forced_regression_count": regression_count,
+        "zero_forced_graph_equal": bool(zero_forced_equal) if regression_count else None,
+        "zero_matches_remove_graph": bool(zero_matches_remove) if regression_count else None,
         "environment": {
             "python": sys.version,
             "platform": platform.platform(),
