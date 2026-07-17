@@ -11,6 +11,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 EVALUATOR = ROOT / "d18/scripts/evaluate_ofix18_factorial.py"
+TOPOLOGY_EVALUATOR = ROOT / "d18/scripts/evaluate_ofix18_topology_replicates.py"
 TRAINING_SEEDS = (7, 21, 42, 84, 123)
 TOPOLOGY_SEEDS = (11, 23, 37, 53, 71)
 LOCKED_SAMPLE_SHA256 = "17275b36fd175e4f8429db037de45e0cbfaac96bc550f0c46c1da0efa1a75b3d"
@@ -38,6 +39,7 @@ def command(
     modes: str,
     topology_seed: int,
     manifest: Path | None,
+    skip_edge_ablations: bool,
 ) -> list[str]:
     result = [
         sys.executable,
@@ -61,8 +63,9 @@ def command(
         str(topology_seed),
         "--counterfactual_modes",
         modes,
-        "--skip_edge_ablations",
     ]
+    if skip_edge_ablations:
+        result.append("--skip_edge_ablations")
     if manifest is not None:
         result += ["--sample_manifest", str(manifest)]
     return result
@@ -89,6 +92,40 @@ def run_logged(cmd: list[str], log_path: Path) -> None:
         raise RuntimeError(f"Evaluation failed with exit code {code}: {log_path}")
 
 
+def topology_command(
+    run: Path,
+    checkpoint: str,
+    output_root: Path,
+    prior: Path,
+    cache: Path,
+    manifest: Path,
+    device: str,
+) -> list[str]:
+    return [
+        sys.executable,
+        "-B",
+        str(TOPOLOGY_EVALUATOR),
+        "--run_dir",
+        str(run),
+        "--prior_dir",
+        str(prior),
+        "--graph_cache_dir",
+        str(cache),
+        "--checkpoint",
+        checkpoint,
+        "--sample_manifest",
+        str(manifest),
+        "--output_root",
+        str(output_root),
+        "--topology_seeds",
+        ",".join(str(seed) for seed in TOPOLOGY_SEEDS),
+        "--device",
+        device,
+        "--batch_size",
+        "16",
+    ]
+
+
 def verify_locked(output: Path) -> None:
     payload = json.loads((output / "evaluation_manifest.json").read_text(encoding="utf-8"))
     if int(payload["sample_count"]) != 715:
@@ -99,7 +136,7 @@ def verify_locked(output: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--new_run_root", default="outputs/d18_runs/ofix18_multiseed")
+    parser.add_argument("--new_run_root", default="outputs/d18_runs/ofix18seed")
     parser.add_argument(
         "--prior_dir",
         default="outputs/d16_mediapipe_pixel_priors_best_retry_rescue",
@@ -114,7 +151,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--output_dir",
-        default="outputs/d18_analysis/ofix18_c0_c2_multiseed_evaluation",
+        default="outputs/d18_analysis/ofix18_c0_c2_multiseed_posttraining/evaluations",
     )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--execute", action="store_true")
@@ -129,8 +166,9 @@ def main() -> None:
     jobs: list[dict[str, Any]] = []
     missing_runs: list[str] = []
 
-    if not EVALUATOR.exists():
-        raise FileNotFoundError(EVALUATOR)
+    for evaluator in (EVALUATOR, TOPOLOGY_EVALUATOR):
+        if not evaluator.exists():
+            raise FileNotFoundError(evaluator)
     if args.execute:
         for required in (prior, cache, manifest):
             if not required.exists():
@@ -158,24 +196,17 @@ def main() -> None:
                         None,
                         "official",
                         42,
+                        True,
                     ),
                     (
                         "locked_core",
                         manifest,
                         "official,remove_structure,shuffle_structure",
                         42,
+                        checkpoint != "best",
                     ),
                 ]
-                specs.extend(
-                    (
-                        f"locked_topology_seed{topology_seed}",
-                        manifest,
-                        "permute_structure_destinations,degree_matched_random_structure",
-                        topology_seed,
-                    )
-                    for topology_seed in TOPOLOGY_SEEDS
-                )
-                for label, sample_manifest, modes, topology_seed in specs:
+                for label, sample_manifest, modes, topology_seed, skip_edge_ablations in specs:
                     destination = base / label
                     cmd = command(
                         source,
@@ -187,6 +218,7 @@ def main() -> None:
                         modes,
                         topology_seed,
                         sample_manifest,
+                        skip_edge_ablations,
                     )
                     jobs.append(
                         {
@@ -200,6 +232,27 @@ def main() -> None:
                             "command": cmd,
                         }
                     )
+                topology_destination = base / "locked_topology_bundle"
+                jobs.append(
+                    {
+                        "cell": cell,
+                        "training_seed": seed,
+                        "checkpoint": checkpoint,
+                        "evaluation": "locked_topology_bundle",
+                        "topology_seed": None,
+                        "run_dir": str(source),
+                        "output_dir": str(topology_destination),
+                        "command": topology_command(
+                            source,
+                            checkpoint,
+                            base,
+                            prior,
+                            cache,
+                            manifest,
+                            args.device,
+                        ),
+                    }
+                )
 
     output_root.mkdir(parents=True, exist_ok=True)
     plan = {
@@ -234,15 +287,21 @@ def main() -> None:
         complete = destination / "AUDIT_COMPLETE.json"
         if complete.exists() and not args.overwrite:
             print(f"[{index}/{len(jobs)}] skip complete: {destination}")
-            if job["evaluation"].startswith("locked_"):
+            if job["evaluation"] == "locked_core":
                 verify_locked(destination)
+            elif job["evaluation"] == "locked_topology_bundle":
+                for topology_seed in TOPOLOGY_SEEDS:
+                    verify_locked(destination.parent / f"locked_topology_seed{topology_seed}")
             continue
         if destination.exists() and any(destination.iterdir()) and not args.overwrite:
-            raise RuntimeError(f"Partial evaluation output exists: {destination}")
+            print(f"[{index}/{len(jobs)}] replace incomplete evaluation artifacts: {destination}")
         print(f"[{index}/{len(jobs)}] {job['cell']} seed{job['training_seed']} {job['checkpoint']} {job['evaluation']}")
         run_logged(job["command"], destination / "evaluation_console.log")
-        if job["evaluation"].startswith("locked_"):
+        if job["evaluation"] == "locked_core":
             verify_locked(destination)
+        elif job["evaluation"] == "locked_topology_bundle":
+            for topology_seed in TOPOLOGY_SEEDS:
+                verify_locked(destination.parent / f"locked_topology_seed{topology_seed}")
 
     completion = {
         "status": "COMPLETE",

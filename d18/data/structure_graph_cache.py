@@ -6,6 +6,8 @@ node support, local edges, kNN edges, and structure relation edges every epoch.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,68 @@ from d18.data.structure_graph_builder import (
 
 def graph_cache_path(cache_dir: str | Path, split: str, prior_file: str | Path) -> Path:
     return Path(cache_dir) / str(split) / Path(prior_file).name
+
+
+EVIDENCE_CACHE_SCHEMA = "d19_a0_evidence_only_v1"
+
+
+def evidence_cache_signature_payload(graph_cfg: dict[str, Any]) -> dict[str, Any]:
+    """Return only image/evidence graph fields that define an A0 cache entry."""
+    cfg = dict(graph_cfg or {})
+    if str(cfg.get("graph_mode")) != "evidence_only":
+        raise ValueError("Evidence cache signature requires graph_mode=evidence_only")
+    return {
+        "cache_schema": EVIDENCE_CACHE_SCHEMA,
+        "graph_builder": "d18.structure_graph_builder.evidence_only.v1",
+        "image_preprocessing": "fer48_float32_clip01_v1",
+        "node_selection": {
+            "node_support_mode": cfg.get("node_support_mode", "stratified_detail_knn"),
+            "target_node_count": int(cfg.get("target_node_count", 1800)),
+            "bins": int(cfg.get("bins", 6)),
+        },
+        "node_feature_schema": list(NODE_FEATURE_NAMES),
+        "local_edges": cfg.get("local_edges", {}) or {},
+        "knn_edges": cfg.get("knn_edges", {}) or {},
+        "edge_attribute_schema": {
+            "name": str(cfg.get("edge_schema", "base6")),
+            "features": list(BASE_EDGE_FEATURE_NAMES),
+        },
+        "merge": {
+            "precedence": ["local", "knn"],
+            "deduplicate_directed_endpoints": True,
+            "self_loops_added": False,
+            "version": "local_gt_knn_v1",
+        },
+    }
+
+
+def evidence_cache_signature(graph_cfg: dict[str, Any]) -> str:
+    encoded = json.dumps(
+        evidence_cache_signature_payload(graph_cfg),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def evidence_image_hash(image_48: np.ndarray, label: int) -> str:
+    image = np.asarray(image_48, dtype=np.float32)
+    payload = image.tobytes(order="C") + int(label).to_bytes(2, "little", signed=True)
+    return hashlib.sha256(payload).hexdigest()
+
+
+def evidence_graph_cache_path(
+    cache_dir: str | Path,
+    split: str,
+    sample_index: int,
+    image_48: np.ndarray,
+    label: int,
+    graph_cfg: dict[str, Any],
+) -> Path:
+    namespace = evidence_cache_signature(graph_cfg)[:16]
+    content_hash = evidence_image_hash(image_48, label)[:16]
+    return Path(cache_dir) / namespace / str(split) / f"{int(sample_index):06d}_{content_hash}.npz"
 
 
 def _edge_names_for_dim(edge_dim: int) -> list[str]:

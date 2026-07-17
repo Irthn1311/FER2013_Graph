@@ -426,6 +426,10 @@ def _edge_attr(x: np.ndarray, pos: np.ndarray, edges: np.ndarray, meta: Dict[Tup
 
 def build_structure_graph(prior: Dict[str, np.ndarray], graph_cfg: Dict[str, Any] | None = None) -> D18GraphData:
     cfg = dict(graph_cfg or {})
+    graph_mode = str(cfg.get("graph_mode", "structure_guided"))
+    evidence_only = graph_mode == "evidence_only"
+    if graph_mode not in {"structure_guided", "evidence_only"}:
+        raise ValueError(f"Unsupported D18 graph_mode={graph_mode!r}")
     image = np.asarray(prior["image_48"], dtype=np.float32)
     image_norm = image / 255.0 if float(np.nanmax(image)) > 1.0 else image
     image_norm = np.clip(np.nan_to_num(image_norm, nan=0.0, posinf=1.0, neginf=0.0), 0.0, 1.0).astype(np.float32)
@@ -442,18 +446,21 @@ def build_structure_graph(prior: Dict[str, np.ndarray], graph_cfg: Dict[str, Any
         maps["laplacian_abs"][yy, xx], maps["center_surround"][yy, xx],
     ], axis=1).astype(np.float32)
     pos = np.stack([x_norm, y_norm], axis=1).astype(np.float32)
-    part_masks = np.asarray(prior.get("part_soft_masks"), dtype=np.float32)
-    if part_masks.ndim != 3:
+    if evidence_only:
         part_node = np.zeros((coords.shape[0], 0), dtype=np.float32)
     else:
-        part_node = np.transpose(part_masks[:, yy, xx], (1, 0)).astype(np.float32)
+        part_masks = np.asarray(prior.get("part_soft_masks"), dtype=np.float32)
+        if part_masks.ndim != 3:
+            part_node = np.zeros((coords.shape[0], 0), dtype=np.float32)
+        else:
+            part_node = np.transpose(part_masks[:, yy, xx], (1, 0)).astype(np.float32)
     local = _unique_directed_edges(_local_edges(coords))
     knn_cfg = dict(cfg.get("knn_edges", {}) or {})
     knn_cfg.setdefault("k", cfg.get("knn_k", 6))
     knn_cfg.setdefault("feature_names", KNN_FEATURE_NAMES)
     knn = _unique_directed_edges(_knn_edges(x, NODE_FEATURE_NAMES, knn_cfg))
     structure_cfg = dict(cfg.get("structure_edges", {}) or {})
-    if bool(structure_cfg.get("force_remove", False)):
+    if evidence_only or bool(structure_cfg.get("force_remove", False)):
         structure = np.zeros((2, 0), dtype=np.int64)
         structure_meta: Dict[Tuple[int, int], tuple[int, float]] = {}
         purification_stats = {"before": 0.0, "after": 0.0, "kept_compatibility_mean": float("nan"), "dropped_compatibility_mean": float("nan")}
@@ -470,6 +477,8 @@ def build_structure_graph(prior: Dict[str, np.ndarray], graph_cfg: Dict[str, Any
     knn_added_count = len(local_knn_pairs - local_pairs)
     structure_added_count = len(total_pairs - local_knn_pairs)
     edge_type, structure_relation_id = _edge_metadata(total, local_pairs, local_knn_pairs, structure_meta)
+    if evidence_only and (structure_added_count != 0 or bool(np.any(edge_type == EDGE_TYPE_STRUCTURE))):
+        raise RuntimeError("evidence_only graph unexpectedly contains structure edges")
     relation_count = len(structure_cfg.get("relations") or DEFAULT_RELATIONS)
     edge_attr, edge_names = _edge_attr(x, pos, total, structure_meta, str(cfg.get("edge_schema", "base6")), relation_count)
     return D18GraphData(
@@ -479,8 +488,8 @@ def build_structure_graph(prior: Dict[str, np.ndarray], graph_cfg: Dict[str, Any
         pos=torch.from_numpy(pos),
         y=torch.tensor(int(np.asarray(prior["label"]).item()), dtype=torch.long),
         sample_index=torch.tensor(int(np.asarray(prior["sample_index"]).item()), dtype=torch.long),
-        detected=torch.tensor(bool(np.asarray(prior.get("detected", True)).item()), dtype=torch.bool),
-        landmark_missing_flag=torch.tensor(int(np.asarray(prior.get("landmark_missing_flag", 0)).item()), dtype=torch.long),
+        detected=torch.tensor(True if evidence_only else bool(np.asarray(prior.get("detected", True)).item()), dtype=torch.bool),
+        landmark_missing_flag=torch.tensor(0 if evidence_only else int(np.asarray(prior.get("landmark_missing_flag", 0)).item()), dtype=torch.long),
         image_48=torch.from_numpy(image_norm.astype(np.float32)),
         edge_type=torch.from_numpy(edge_type).long(),
         structure_relation_id=torch.from_numpy(structure_relation_id).long(),

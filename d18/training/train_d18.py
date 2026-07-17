@@ -7,7 +7,9 @@ import csv
 import hashlib
 import json
 import math
+import platform
 import random
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -24,6 +26,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from d18.data.collate import D18Batch, collate_d18_graphs
 from d18.data.structure_dataset import StructurePixelDataset
+from d18.data.structure_graph_cache import (
+    EVIDENCE_CACHE_SCHEMA,
+    evidence_cache_signature,
+    evidence_cache_signature_payload,
+)
 from d18.models.structure_gnn import StructureGNN
 
 
@@ -33,7 +40,9 @@ CLASS_NAMES = ["angry", "disgust", "fear", "happy", "sad", "surprise", "neutral"
 def scientific_resume_signature(cfg: Dict[str, Any]) -> str:
     """Hash scientific state while excluding machine-specific paths/metadata."""
     graph_cfg = json.loads(json.dumps(cfg.get("graph", {}) or {}))
-    graph_cfg.pop("cache", None)
+    cache_cfg = graph_cfg.pop("cache", None) or {}
+    if str(graph_cfg.get("graph_mode")) == "evidence_only":
+        graph_cfg["evidence_cache_schema"] = str(cache_cfg.get("schema", EVIDENCE_CACHE_SCHEMA))
     training_cfg = json.loads(json.dumps(cfg.get("training", {}) or {}))
     training_cfg.pop("resume_from", None)
     payload = {
@@ -115,11 +124,14 @@ def resolve_device(text: str | None) -> torch.device:
 
 def build_dataset(cfg: Dict[str, Any], split: str, max_samples: int | None = None) -> StructurePixelDataset:
     data_cfg = cfg.get("data", {}) or {}
+    graph_cfg = cfg.get("graph", {}) or {}
+    evidence_only = str(graph_cfg.get("graph_mode", "structure_guided")) == "evidence_only"
     return StructurePixelDataset(
-        prior_dir=data_cfg.get("prior_dir", "outputs/d16_mediapipe_pixel_priors_best_retry_rescue"),
+        prior_dir=data_cfg.get("prior_dir") if evidence_only else data_cfg.get("prior_dir", "outputs/d16_mediapipe_pixel_priors_best_retry_rescue"),
         split=split,
-        graph=cfg.get("graph", {}) or {},
+        graph=graph_cfg,
         max_samples=max_samples,
+        evidence_dir=data_cfg.get("evidence_dir"),
     )
 
 
@@ -548,6 +560,8 @@ def load_checkpoint(
     except TypeError:
         payload = torch.load(path, map_location=device)
     checkpoint_signature = payload.get("resume_signature")
+    checkpoint_config = payload.get("config") if isinstance(payload.get("config"), dict) else {}
+    checkpoint_evidence_only = str(((checkpoint_config.get("graph") or {}).get("graph_mode", ""))) == "evidence_only"
     if checkpoint_signature is None and isinstance(payload.get("config"), dict):
         checkpoint_signature = scientific_resume_signature(payload["config"])
     if expected_resume_signature is not None and checkpoint_signature != expected_resume_signature:
@@ -555,7 +569,7 @@ def load_checkpoint(
             f"Resume signature mismatch for {path}: checkpoint={checkpoint_signature!r}, "
             f"current={expected_resume_signature!r}. Refusing cross-config resume."
         )
-        if strict_signature:
+        if strict_signature or checkpoint_evidence_only:
             raise RuntimeError(message)
         print(f"[D18 resume warning] {message}", flush=True)
     checkpoint_run_signature = payload.get("run_resume_signature")
@@ -567,7 +581,7 @@ def load_checkpoint(
             f"Run resume signature mismatch for {path}: checkpoint={checkpoint_run_signature!r}, "
             f"current={expected_run_resume_signature!r}. Refusing cross-run resume."
         )
-        if strict_signature:
+        if strict_signature or checkpoint_evidence_only:
             raise RuntimeError(message)
         print(f"[D18 resume warning] {message}", flush=True)
     model.load_state_dict(payload["model_state_dict"])
@@ -629,6 +643,9 @@ def write_graph_schema(output_dir: Path, cfg: Dict[str, Any], eval_row: Dict[str
     gnn_cfg = ((cfg.get("model", {}) or {}).get("edge_context_gnn", {}) or {})
     scalar_cfg = gnn_cfg.get("scalar_edge_gate", {}) or {}
     payload = {
+        "graph_mode": graph_cfg.get("graph_mode", "structure_guided"),
+        "evidence_only": str(graph_cfg.get("graph_mode", "structure_guided")) == "evidence_only",
+        "landmark_assets_required": str(graph_cfg.get("graph_mode", "structure_guided")) != "evidence_only",
         "node_support_mode": graph_cfg.get("node_support_mode", "stratified_detail_knn"),
         "target_node_count": int(graph_cfg.get("target_node_count", 1800)),
         "actual_node_count_mean": eval_row.get("node_count_mean"),
@@ -685,9 +702,39 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
     set_seed(seed)
     device = resolve_device(args.device or train_cfg.get("device"))
     output_dir = Path(args.output_dir or cfg.get("output_dir") or Path("outputs/d18_runs/ofix16") / str(cfg.get("run_name", Path(args.config).stem)))
+    graph_cfg = cfg.get("graph", {}) or {}
+    evidence_only = str(graph_cfg.get("graph_mode", "structure_guided")) == "evidence_only"
+    resume_from = args.resume_from or train_cfg.get("resume_from")
+    if evidence_only and output_dir.exists() and any(output_dir.iterdir()) and not resume_from:
+        raise RuntimeError(
+            f"Refusing to overwrite non-empty evidence-only output directory without --resume_from: {output_dir}"
+        )
     output_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(Path(args.config), output_dir / "source_config.yaml")
     write_json(output_dir / "resolved_config.json", cfg)
     (output_dir / "resolved_config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+    write_json(
+        output_dir / "environment.json",
+        {
+            "python": sys.version,
+            "platform": platform.platform(),
+            "torch": torch.__version__,
+            "cuda_available": torch.cuda.is_available(),
+            "cuda_version": torch.version.cuda,
+            "device_requested": str(device),
+        },
+    )
+    if evidence_only:
+        write_json(
+            output_dir / "cache_signature.json",
+            {
+                "schema": EVIDENCE_CACHE_SCHEMA,
+                "namespace_sha256": evidence_cache_signature(graph_cfg),
+                "signature_payload": evidence_cache_signature_payload(graph_cfg),
+                "landmark_fields_included": [],
+                "structure_fields_included": [],
+            },
+        )
 
     max_samples = args.max_samples
     train_ds = build_dataset(cfg, "train", max_samples=max_samples)
@@ -698,16 +745,27 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
     test_loader = DataLoader(test_ds, **loader_kwargs(cfg, shuffle=False))
 
     first_batch = next(iter(DataLoader(train_ds, batch_size=2, shuffle=False, collate_fn=collate_d18_graphs)))
+    if evidence_only and (bool((first_batch.edge_type_cat == 2).any()) or bool((first_batch.structure_edge_count != 0).any())):
+        raise RuntimeError("A0 startup guard failed: evidence-only batch contains structure edges")
     model = StructureGNN.from_config(cfg, input_dim=int(first_batch.x_cat.size(1)), edge_attr_dim=int(first_batch.edge_attr_cat.size(1))).to(device)
     resume_signature = scientific_resume_signature(cfg)
     strict_run_signature = run_resume_signature(cfg)
     graph_reg_cfg = train_cfg.get("graph_regularization", {}) or {}
     mode_mix_cfg = train_cfg.get("structure_mode_mix", {}) or {}
+    k = int(((graph_cfg.get("knn_edges") or {}).get("k", 6)) or 6)
+    node_counts = (first_batch.ptr[1:] - first_batch.ptr[:-1]).long()
+    raw_knn_counts = node_counts * k
+    overlap_counts = raw_knn_counts - first_batch.knn_edge_count.long()
+    parameter_count = int(sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad))
     effective_config = {
         "event": "d18_effective_training_config",
         "run_id": cfg.get("run_name", output_dir.name),
         "seed": seed,
-        "cell": "C2" if bool(mode_mix_cfg.get("enabled", False)) else "C0",
+        "cell": "A0" if evidence_only else ("C2" if bool(mode_mix_cfg.get("enabled", False)) else "C0"),
+        "graph_mode": graph_cfg.get("graph_mode", "structure_guided"),
+        "evidence_only": evidence_only,
+        "landmark_assets_required": not evidence_only,
+        "cache_namespace_signature": evidence_cache_signature(graph_cfg) if evidence_only else None,
         "node_dim": int(first_batch.x_cat.size(1)),
         "edge_dim": int(first_batch.edge_attr_cat.size(1)),
         "node_feature_names": list(first_batch.node_feature_names),
@@ -715,7 +773,10 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "node_count_mean": float((first_batch.ptr[1:] - first_batch.ptr[:-1]).float().mean().item()),
         "local_edge_count_mean": float(first_batch.local_edge_count.float().mean().item()),
         "knn_edge_count_mean": float(first_batch.knn_edge_count.float().mean().item()),
+        "local_knn_overlap_mean": float(overlap_counts.float().mean().item()),
+        "merged_edge_count_mean": float(first_batch.total_edge_count.float().mean().item()),
         "structure_edge_count_mean": float(first_batch.structure_edge_count.float().mean().item()),
+        "edge_type_ids_present": sorted(int(value) for value in first_batch.edge_type_cat.unique().tolist()),
         "drop_edge_p": float(train_cfg.get("drop_edge_p", 0.0) or 0.0),
         "drop_local_edge_p": float(graph_reg_cfg.get("drop_local_edge_p", 0.0) or 0.0),
         "drop_knn_edge_p": float(graph_reg_cfg.get("drop_knn_edge_p", 0.0) or 0.0),
@@ -727,7 +788,9 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         },
         "checkpoint_monitor": train_cfg.get("checkpoint_monitor", "val_macro_f1"),
         "checkpoint_monitor_mode": train_cfg.get("checkpoint_monitor_mode", "max"),
+        "parameter_count_trainable": parameter_count,
         "output_dir": str(output_dir),
+        "resolved_config_path": str(output_dir / "resolved_config.yaml"),
         "resume_signature": resume_signature,
         "run_resume_signature": strict_run_signature,
         "seed_policy": {
@@ -768,7 +831,6 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
     gate_penalty_lambda = structure_gate_penalty_lambda(cfg)
     global_step = 0
     start_epoch = 1
-    resume_from = args.resume_from or train_cfg.get("resume_from")
     if resume_from:
         resume_path = Path(resume_from)
         if not resume_path.exists():
@@ -785,7 +847,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
                 restore_random_state=True,
                 expected_resume_signature=resume_signature,
                 expected_run_resume_signature=strict_run_signature,
-                strict_signature=bool(args.resume_strict),
+                strict_signature=bool(args.resume_strict or evidence_only),
             )
             start_epoch = int(payload.get("epoch", 0)) + 1
             best_score = float(payload.get("best_score", best_score))
@@ -891,6 +953,18 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
             best_epoch = epoch
             epochs_wo = 0
             save_checkpoint(output_dir / "checkpoints" / "best.pt", model, optimizer, scheduler, epoch, best_score, best_epoch, best_val_loss, best_val_loss_epoch, epochs_wo, global_step, cfg)
+            write_json(
+                output_dir / "best_validation_metrics.json",
+                {
+                    "epoch": epoch,
+                    "split": "validation",
+                    "loss": float(val_row["loss"]),
+                    "accuracy": float(val_row["accuracy"]),
+                    "macro_f1": float(val_row["macro_f1"]),
+                    "checkpoint": "checkpoints/best.pt",
+                    "test_not_used_for_selection": True,
+                },
+            )
         else:
             epochs_wo += 1
         if float(val_row["loss"]) < best_val_loss:
@@ -993,8 +1067,32 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "val_samples": len(val_ds),
         "test_samples": len(test_ds),
         "graph_cache": graph_cache,
+        "graph_mode": graph_cfg.get("graph_mode", "structure_guided"),
+        "landmark_assets_required": not evidence_only,
+        "parameter_count_trainable": parameter_count,
     }
     write_json(output_dir / "d18_train_summary.json", summary)
+    write_json(
+        output_dir / "best_checkpoint_metadata.json",
+        {
+            "checkpoint": str(best_ckpt),
+            "selection_split": "validation",
+            "monitor": train_cfg.get("checkpoint_monitor", "val_macro_f1"),
+            "mode": train_cfg.get("checkpoint_monitor_mode", "max"),
+            "best_epoch": best_epoch,
+            "best_score": best_score,
+            "test_not_used_for_selection": True,
+        },
+    )
+    write_json(
+        output_dir / "TRAINING_COMPLETE.json",
+        {
+            "status": "COMPLETE",
+            "run_name": cfg.get("run_name", output_dir.name),
+            "best_checkpoint": str(best_ckpt),
+            "last_checkpoint": str(output_dir / "checkpoints" / "last.pt"),
+        },
+    )
     print(json.dumps(summary, indent=2), flush=True)
     return summary
 
