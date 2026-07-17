@@ -63,6 +63,7 @@ def build_split(
             int(evidence["label"]),
             graph_cfg,
         )
+        cache_valid = False
         if cache_file.exists() and not overwrite:
             try:
                 graph = load_d18_graph_cache(cache_file)
@@ -71,17 +72,17 @@ def build_split(
                 if graph.structure_edge_count != 0 or bool((graph.edge_type == 2).any()):
                     raise RuntimeError("cached A0 graph contains structure edges")
                 skipped += 1
-                total_bytes += cache_file.stat().st_size
-                continue
+                cache_valid = True
             except Exception:
                 rebuilt += 1
-        graph = dataset[index]
-        if graph.structure_edge_count != 0 or bool((graph.edge_type == 2).any()):
-            raise RuntimeError(f"A0 cache build produced structure edges for {split}/{index}")
-        save_d18_graph_cache(graph, cache_file, compressed=False)
+        if not cache_valid:
+            graph = dataset[index]
+            if graph.structure_edge_count != 0 or bool((graph.edge_type == 2).any()):
+                raise RuntimeError(f"A0 cache build produced structure edges for {split}/{index}")
+            save_d18_graph_cache(graph, cache_file, compressed=False)
+            built += 1
         size = cache_file.stat().st_size
         total_bytes += size
-        built += 1
         rows.append({
             "split": split,
             "sample_index": index,
@@ -110,11 +111,11 @@ def build_split(
                 "cache_gb_so_far": total_bytes / (1024**3),
             }), flush=True)
     if rows:
-        mode = "a" if manifest_path.exists() and not overwrite else "w"
-        with manifest_path.open(mode, newline="", encoding="utf-8") as handle:
+        # Rewrite the complete manifest on every invocation. This keeps a
+        # resumed build self-contained even when most graph files were skipped.
+        with manifest_path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-            if mode == "w":
-                writer.writeheader()
+            writer.writeheader()
             writer.writerows(rows)
     elapsed = time.perf_counter() - started
     return {

@@ -12,6 +12,7 @@ import random
 import shutil
 import sys
 import time
+import uuid
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -94,6 +95,121 @@ def append_csv(path: Path, row: Dict[str, Any], fieldnames: Iterable[str]) -> No
         writer.writerow({key: row.get(key) for key in fieldnames})
 
 
+def wandb_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    value = ((cfg.get("logging") or {}).get("wandb", {}) or {})
+    return dict(value) if isinstance(value, dict) else {"enabled": bool(value)}
+
+
+def init_wandb(cfg: Dict[str, Any], output_dir: Path, resume_from: str | Path | None = None) -> Any:
+    settings = wandb_config(cfg)
+    if not bool(settings.get("enabled", False)):
+        return None
+    try:
+        import wandb  # type: ignore
+    except Exception as exc:
+        print(f"[D18 wandb] disabled because import failed: {exc}", flush=True)
+        return None
+    run_id_file = output_dir / "wandb_run_id.txt"
+    run_id = run_id_file.read_text(encoding="utf-8").strip() if run_id_file.exists() else ""
+    if not run_id:
+        try:
+            run_id = str(wandb.util.generate_id())
+        except Exception:
+            run_id = uuid.uuid4().hex[:8]
+        run_id_file.write_text(run_id + "\n", encoding="utf-8")
+    run_name = str(cfg.get("run_name") or output_dir.name)
+    kwargs: Dict[str, Any] = {
+        "project": str(settings.get("project") or "lapgnn-d18"),
+        "name": str(settings.get("name") or run_name),
+        "id": run_id,
+        "resume": str(settings.get("resume") or "allow"),
+        "config": cfg,
+        "dir": str(output_dir),
+    }
+    for key in ("entity", "group", "mode", "job_type", "notes"):
+        if settings.get(key) not in (None, "", "null"):
+            kwargs[key] = settings[key]
+    if settings.get("tags"):
+        kwargs["tags"] = list(settings["tags"])
+    try:
+        run = wandb.init(**kwargs)
+        run.summary.update({
+            "output_dir": str(output_dir),
+            "run_name": run_name,
+            "resume_from": None if resume_from is None else str(resume_from),
+        })
+        print(f"[D18 wandb] enabled project={kwargs['project']} run={run_name} id={run_id}", flush=True)
+        return run
+    except Exception as exc:
+        print(f"[D18 wandb] disabled because init failed: {exc}", flush=True)
+        return None
+
+
+def wandb_log_epoch(run: Any, row: Dict[str, Any]) -> None:
+    if run is None:
+        return
+    names = {
+        "epoch": "epoch",
+        "train/loss": "train_loss",
+        "train/accuracy": "train_accuracy",
+        "train/macro_f1": "train_macro_f1",
+        "val/loss": "val_loss",
+        "val/accuracy": "val_accuracy",
+        "val/macro_f1": "val_macro_f1",
+        "val/best_macro_f1": "best_val_macro_f1",
+        "optimization/lr": "lr",
+        "runtime/epoch_time_sec": "epoch_time_sec",
+        "runtime/train_epoch_time_sec": "train_epoch_time_sec",
+        "runtime/val_epoch_time_sec": "val_epoch_time_sec",
+        "runtime/memory_reserved_mb": "memory_reserved_mb",
+        "graph/node_count_mean": "node_count_mean",
+        "graph/edge_count_mean": "edge_count_mean",
+        "graph/structure_edge_count_mean": "structure_edge_count_mean",
+        "graph/structure_drop_fraction": "structure_drop_fraction_observed",
+    }
+    metrics: Dict[str, float | int] = {}
+    for output_name, source_name in names.items():
+        value = row.get(source_name)
+        if isinstance(value, (int, float)) and (not isinstance(value, float) or math.isfinite(value)):
+            metrics[output_name] = value
+    try:
+        run.log(metrics, step=int(row["global_step"]))
+    except Exception as exc:
+        print(f"[D18 wandb] epoch log failed: {exc}", flush=True)
+
+
+def finish_wandb(run: Any, output_dir: Path, summary: Dict[str, Any]) -> None:
+    if run is None:
+        return
+    try:
+        run.summary.update(summary)
+        for name in (
+            "d18_train_summary.json",
+            "train_log.csv",
+            "best_validation_metrics.json",
+            "confusion_matrix.csv",
+            "confusion_matrix.png",
+            "last_confusion_matrix.csv",
+            "last_confusion_matrix.png",
+            "graph_schema.json",
+            "feature_schema.json",
+            "TRAINING_COMPLETE.json",
+        ):
+            path = output_dir / name
+            if path.exists():
+                try:
+                    run.save(str(path), base_path=str(output_dir))
+                except Exception as exc:
+                    print(f"[D18 wandb] artifact save failed for {path}: {exc}", flush=True)
+    except Exception as exc:
+        print(f"[D18 wandb] summary update failed: {exc}", flush=True)
+    finally:
+        try:
+            run.finish()
+        except Exception as exc:
+            print(f"[D18 wandb] finish failed: {exc}", flush=True)
+
+
 def set_seed(seed: int) -> None:
     random.seed(int(seed))
     np.random.seed(int(seed))
@@ -103,16 +219,21 @@ def set_seed(seed: int) -> None:
 
 
 def restore_rng(payload: Dict[str, Any]) -> None:
+    def cpu_byte_state(value: Any) -> torch.Tensor:
+        if torch.is_tensor(value):
+            return value.detach().to(device="cpu", dtype=torch.uint8)
+        return torch.as_tensor(value, dtype=torch.uint8, device="cpu")
+
     if payload.get("python_random_state") is not None:
         random.setstate(payload["python_random_state"])
     if payload.get("numpy_random_state") is not None:
         np.random.set_state(payload["numpy_random_state"])
     if payload.get("torch_rng_state") is not None:
-        torch.set_rng_state(payload["torch_rng_state"])
+        torch.set_rng_state(cpu_byte_state(payload["torch_rng_state"]))
     elif payload.get("rng_state") is not None:
-        torch.set_rng_state(payload["rng_state"])
+        torch.set_rng_state(cpu_byte_state(payload["rng_state"]))
     if torch.cuda.is_available() and payload.get("cuda_rng_state_all") is not None:
-        torch.cuda.set_rng_state_all(payload["cuda_rng_state_all"])
+        torch.cuda.set_rng_state_all([cpu_byte_state(state) for state in payload["cuda_rng_state_all"]])
 
 
 def resolve_device(text: str | None) -> torch.device:
@@ -179,6 +300,12 @@ def metrics_from_predictions(y_true: List[int], y_pred: List[int], loss_sum: flo
         "confusion_matrix": cm,
         "per_class_f1": f1s,
     }
+
+
+def finite_mean_or_nan(values: List[float]) -> float:
+    array = np.asarray(values, dtype=np.float64)
+    finite = array[np.isfinite(array)]
+    return float(finite.mean()) if finite.size else math.nan
 
 
 def detected_fallback_metrics(y_true: List[int], y_pred: List[int], detected: List[bool]) -> List[Dict[str, Any]]:
@@ -267,12 +394,15 @@ def apply_graph_regularization(batch: D18Batch, train_cfg: Dict[str, Any]) -> tu
     if not bool(keep.any()):
         keep[int(torch.randint(0, keep.numel(), (1,), device=keep.device).item())] = True
     after_type = edge_type[keep]
+    after_structure = int((after_type == 2).sum().item())
     stats = {
         "structure_edges_before_drop": before_structure,
-        "structure_edges_after_drop": int((after_type == 2).sum().item()),
+        "structure_edges_after_drop": after_structure,
         "local_edges_after_drop": int((after_type == 0).sum().item()),
         "knn_edges_after_drop": int((after_type == 1).sum().item()),
-        "structure_drop_fraction_observed": float(1.0 - (int((after_type == 2).sum().item()) / max(before_structure, 1))),
+        "structure_drop_fraction_observed": (
+            float(1.0 - (after_structure / before_structure)) if before_structure > 0 else 0.0
+        ),
         "structure_mode_forced_sample_count": forced_samples,
         "structure_mode_official_sample_count": int(batch.num_graphs - forced_samples),
         "structure_mode_total_sample_count": int(batch.num_graphs),
@@ -492,8 +622,8 @@ def evaluate(model: StructureGNN, loader: DataLoader, device: torch.device, loss
             "structure_edges_before_purification_mean": float(np.mean(purify_before_counts)) if purify_before_counts else math.nan,
             "structure_edges_after_purification_mean": float(np.mean(purify_after_counts)) if purify_after_counts else math.nan,
             "purification_keep_ratio_observed": float(np.mean(purify_after_counts) / max(np.mean(purify_before_counts), 1.0)) if purify_before_counts and purify_after_counts else math.nan,
-            "compatibility_mean_kept": float(np.nanmean(purify_kept_means)) if purify_kept_means else math.nan,
-            "compatibility_mean_dropped": float(np.nanmean(purify_dropped_means)) if purify_dropped_means else math.nan,
+            "compatibility_mean_kept": finite_mean_or_nan(purify_kept_means),
+            "compatibility_mean_dropped": finite_mean_or_nan(purify_dropped_means),
             "eval_epoch_time_sec": time.perf_counter() - start,
             "eval_first_batch_wait_time_sec": wait_times[0] if wait_times else math.nan,
             "eval_avg_batch_time_ms": float(np.mean(batch_times) * 1000.0) if batch_times else math.nan,
@@ -735,6 +865,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
                 "structure_fields_included": [],
             },
         )
+    wandb_run = init_wandb(cfg, output_dir, resume_from)
 
     max_samples = args.max_samples
     train_ds = build_dataset(cfg, "train", max_samples=max_samples)
@@ -1032,6 +1163,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
             "cache_dir": graph_cache.get("dir"),
         }
         append_csv(output_dir / "train_log.csv", log_row, fields)
+        wandb_log_epoch(wandb_run, log_row)
         print(json.dumps({"event": "d18_epoch", **log_row}), flush=True)
         if epoch >= min_epochs and epochs_wo >= patience:
             stop_info = {"early_stopped": True, "epoch": epoch, "best_epoch": best_epoch, "epochs_without_improvement": epochs_wo, "patience": patience}
@@ -1070,6 +1202,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "graph_mode": graph_cfg.get("graph_mode", "structure_guided"),
         "landmark_assets_required": not evidence_only,
         "parameter_count_trainable": parameter_count,
+        "wandb_enabled": wandb_run is not None,
     }
     write_json(output_dir / "d18_train_summary.json", summary)
     write_json(
@@ -1093,6 +1226,7 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
             "last_checkpoint": str(output_dir / "checkpoints" / "last.pt"),
         },
     )
+    finish_wandb(wandb_run, output_dir, summary)
     print(json.dumps(summary, indent=2), flush=True)
     return summary
 

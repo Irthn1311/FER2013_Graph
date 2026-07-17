@@ -51,6 +51,8 @@ MODES = (
     "prior_metadata_changed",
 )
 ALLOWED_READ_KEYS = {"image_48", "label", "sample_index"}
+CACHE_ROUNDTRIP_ATOL = 1e-3
+CACHE_ROUNDTRIP_RTOL = 1e-3
 
 
 class TrackingDict(dict[str, Any]):
@@ -113,6 +115,60 @@ def graph_hashes(graph: D18GraphData) -> dict[str, str]:
         "edge_attr_hash": sha_bytes(graph.edge_attr),
         "complete_semantic_graph_hash": semantic,
     }
+
+
+def cache_roundtrip_equivalent(
+    reference: D18GraphData,
+    cached: D18GraphData,
+) -> tuple[bool, dict[str, float]]:
+    """Compare an online graph with the intentional float16 cache round-trip."""
+    float_fields = ("x", "pos", "edge_attr", "image_48")
+    max_abs_diffs: dict[str, float] = {}
+    floats_match = True
+    for field in float_fields:
+        left = getattr(reference, field)
+        right = getattr(cached, field)
+        same_shape = tuple(left.shape) == tuple(right.shape)
+        max_abs_diffs[field] = (
+            float((left.float() - right.float()).abs().max().item())
+            if same_shape and left.numel()
+            else float("inf")
+        )
+        floats_match &= same_shape and bool(
+            torch.allclose(
+                left.float(),
+                right.float(),
+                atol=CACHE_ROUNDTRIP_ATOL,
+                rtol=CACHE_ROUNDTRIP_RTOL,
+            )
+        )
+    exact_tensors_match = all(
+        torch.equal(getattr(reference, field), getattr(cached, field))
+        for field in (
+            "edge_index",
+            "edge_type",
+            "structure_relation_id",
+            "y",
+            "sample_index",
+            "detected",
+            "landmark_missing_flag",
+        )
+    )
+    metadata_match = all(
+        getattr(reference, field) == getattr(cached, field)
+        for field in (
+            "node_feature_names",
+            "edge_feature_names",
+            "local_edge_count",
+            "knn_edge_count",
+            "structure_edge_count",
+            "total_edge_count",
+            "structure_edge_count_before_purification",
+            "structure_edge_count_after_purification",
+            "node_support_mode",
+        )
+    )
+    return bool(floats_match and exact_tensors_match and metadata_match), max_abs_diffs
 
 
 def load_prior(path: Path) -> dict[str, np.ndarray]:
@@ -642,7 +698,9 @@ def main() -> None:
         evidence_dir=(a0.get("data") or {}).get("evidence_dir"),
     )
     dataset_graph = a0_ds[int(selected[0].stem)]
-    dataset_bypass = graph_hashes(dataset_graph) == graph_hashes(graphs_by_mode["official"][0])
+    dataset_bypass, dataset_cache_max_abs_diffs = cache_roundtrip_equivalent(
+        graphs_by_mode["official"][0], dataset_graph
+    )
     prior_guard = False
     try:
         a0_ds._load_prior(0)
@@ -884,6 +942,9 @@ tar -czf /kaggle/working/d19_a0_evidence_only_matched_seed42.tar.gz \"$RUN_DIR\"
             "equality_rate": graph_equality_rate,
             "accessed_keys": sorted(all_accessed),
             "dataset_csv_path_pass": dataset_bypass,
+            "dataset_cache_float_atol": CACHE_ROUNDTRIP_ATOL,
+            "dataset_cache_float_rtol": CACHE_ROUNDTRIP_RTOL,
+            "dataset_cache_max_abs_diffs": dataset_cache_max_abs_diffs,
             "prior_loader_guard_pass": prior_guard,
             "sample_selection_source": sample_selection_source,
         },
