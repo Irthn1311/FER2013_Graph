@@ -534,8 +534,20 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     config_path = Path(args.config)
     a0 = read_yaml(config_path)
+    if not C2_CONFIG.exists():
+        raise FileNotFoundError(f"Missing version-controlled C2 source config: {C2_CONFIG}")
     c2 = read_yaml(C2_CONFIG)
-    c2_resolved = read_yaml(C2_RESOLVED)
+    c2_resolved_available = C2_RESOLVED.exists()
+    if c2_resolved_available:
+        c2_resolved = read_yaml(C2_RESOLVED)
+        c2_reference_path = C2_RESOLVED
+        c2_reference_provenance = "resolved_run_artifact"
+    else:
+        # Kaggle clones do not include local output artifacts. The source config
+        # is the portable scientific reference and differs only in runtime paths.
+        c2_resolved = copy.deepcopy(c2)
+        c2_reference_path = C2_CONFIG
+        c2_reference_provenance = "source_config_fallback"
     diff_rows, config_ok = semantic_config_diff(c2, a0)
     c2_resolved_ok, c2_resolved_differences = c2_source_resolved_consistent(c2, c2_resolved)
     config_ok = bool(config_ok and c2_resolved_ok)
@@ -769,7 +781,7 @@ def main() -> None:
     }
     graph_equality_rate = sum(bool(row["semantic_equal"]) for row in graph_rows) / len(graph_rows)
     validation = {
-        "c2_source_identified": C2_CONFIG.exists() and C2_RESOLVED.exists(),
+        "c2_source_identified": C2_CONFIG.exists() and c2_reference_path.exists(),
         "config_semantic_diff_pass": config_ok,
         "landmark_access_bypassed": all_accessed <= ALLOWED_READ_KEYS and dataset_bypass and prior_guard,
         "part_soft_access_bypassed": "part_soft_masks" not in all_accessed,
@@ -787,7 +799,15 @@ def main() -> None:
         "reports_complete": True,
         "full_training_launched": False,
         "blocking_issues": [],
-        "warnings": ["Single-seed training remains pending on Kaggle.", "Smoke timing is CPU-only and bounded."],
+        "warnings": [
+            "Single-seed training remains pending on Kaggle.",
+            "Smoke timing is CPU-only and bounded.",
+            *(
+                ["C2 resolved run artifact is unavailable; validation used the version-controlled C2 source config."]
+                if not c2_resolved_available
+                else []
+            ),
+        ],
     }
     if args.strict and not all(value is True for key, value in validation.items() if key not in {"full_training_launched", "reports_complete"} and isinstance(value, bool)):
         failures = [key for key, value in validation.items() if isinstance(value, bool) and key != "full_training_launched" and not value]
@@ -832,7 +852,9 @@ tar -czf /kaggle/working/d19_a0_evidence_only_matched_seed42.tar.gz \"$RUN_DIR\"
         "source_c2": {
             "run_path": str(C2_RUN.relative_to(ROOT)).replace("\\", "/"),
             "source_config": str(C2_CONFIG.relative_to(ROOT)).replace("\\", "/"),
-            "resolved_config": str(C2_RESOLVED.relative_to(ROOT)).replace("\\", "/"),
+            "resolved_config": str(c2_reference_path.relative_to(ROOT)).replace("\\", "/"),
+            "reference_config_provenance": c2_reference_provenance,
+            "resolved_run_artifact_available": c2_resolved_available,
             "seed": 42,
             "parameter_count": c2_trainable,
             "source_resolved_scientific_match": c2_resolved_ok,
