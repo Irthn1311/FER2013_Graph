@@ -43,6 +43,7 @@ A0_42_CONFIG = ROOT / "configs/d19/d19_a0_evidence_only_matched_seed42.yaml"
 A0_7_CONFIG = ROOT / "configs/d19/d19_a0_evidence_only_matched_seed7.yaml"
 A0_42_RUN = ROOT / "outputs/d19_runs/d19_a0_evidence_only_matched_seed42"
 C2_7_RUN = ROOT / "outputs/d18_runs/ofix18seed/d18_ofix18_c2_structure_mode_mix_only_seed7"
+C2_7_CONFIG = ROOT / "configs/d18/overfit_fix_18/multiseed/d18_ofix18_c2_structure_mode_mix_only_seed7.yaml"
 LOCAL_CACHE = ROOT / "outputs/d19_graph_cache/a0_evidence_only"
 OUTPUT = ROOT / "outputs/d19_analysis/d19_a0_seed7_confirmation_design"
 LOCKED_SHA256 = "17275b36fd175e4f8429db037de45e0cbfaac96bc550f0c46c1da0efa1a75b3d"
@@ -195,7 +196,7 @@ cp d18/data/structure_graph_builder.py d18/data/structure_dataset.py d18/data/st
 cp d18/training/train_d18.py d19/scripts/prepare_d19_a0_seed7_confirmation.py d19/scripts/evaluate_d19_a0.py d19/scripts/analyze_d19_a0_seed7_confirmation.py "$PROVENANCE/"
 python -VV > "$PROVENANCE/python_version.txt"
 python -m pip freeze > "$PROVENANCE/pip_freeze.txt"
-python -B d19/scripts/prepare_d19_a0_seed7_confirmation.py --config "$RUNTIME_CONFIG" --smoke-images 8 --output-dir "$PREFLIGHT" --strict
+python -B d19/scripts/prepare_d19_a0_seed7_confirmation.py --config "$RUNTIME_CONFIG" --smoke-images 8 --output-dir "$PREFLIGHT" --runtime-only --strict
 if [ -e "$RUN_DIR/TRAINING_COMPLETE.json" ] || [ -e "$RUN_DIR/checkpoints/last.pt" ]; then
   echo "Refusing to overwrite completed/started seed7 output. This command is fresh-only; resume is prohibited." >&2
   exit 2
@@ -221,6 +222,11 @@ def main() -> None:
     parser.add_argument("--config", default=str(A0_7_CONFIG.relative_to(ROOT)))
     parser.add_argument("--smoke-images", type=int, default=8)
     parser.add_argument("--output-dir", default=str(OUTPUT.relative_to(ROOT)))
+    parser.add_argument(
+        "--runtime-only",
+        action="store_true",
+        help="Validate a Kaggle runtime without requiring local completed A0/C2 run artifacts.",
+    )
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args()
 
@@ -235,7 +241,14 @@ def main() -> None:
     seed42 = read_yaml(A0_42_CONFIG)
     seed7_source = read_yaml(A0_7_CONFIG)
     runtime = read_config(config_path)
-    c2_seed7 = read_yaml(C2_7_RUN / "resolved_config.yaml")
+    c2_resolved = C2_7_RUN / "resolved_config.yaml"
+    c2_config_path = C2_7_CONFIG if args.runtime_only else c2_resolved
+    if not c2_config_path.exists():
+        raise FileNotFoundError(
+            f"Missing C2 seed7 configuration for {'runtime' if args.runtime_only else 'local design'} validation: "
+            f"{c2_config_path}"
+        )
+    c2_seed7 = read_yaml(c2_config_path)
     freeze_rows, freeze_pass = source_freeze_diff(seed42, seed7_source)
     runtime_rows, runtime_pass = runtime_diff(seed7_source, runtime)
     c2_rows, c2_pass = c2_diff(seed7_source, c2_seed7)
@@ -409,8 +422,10 @@ def main() -> None:
 
     no_model_files_modified = True
     validation = {
-        "a0_seed42_source_found": A0_42_CONFIG.exists() and A0_42_RUN.exists(),
-        "c2_seed7_reference_found": C2_7_RUN.exists() and (C2_7_RUN / "checkpoints/best.pt").exists(),
+        "a0_seed42_source_found": A0_42_CONFIG.exists() and (args.runtime_only or A0_42_RUN.exists()),
+        "c2_seed7_reference_found": C2_7_CONFIG.exists() and (
+            args.runtime_only or (C2_7_RUN / "checkpoints/best.pt").exists()
+        ),
         "seed7_config_created": A0_7_CONFIG.exists(),
         "semantic_config_freeze_pass": freeze_pass and runtime_pass and c2_pass,
         "no_model_files_modified": no_model_files_modified,
@@ -438,7 +453,13 @@ def main() -> None:
     manifest = {
         "source_a0_seed42": {"config": str(A0_42_CONFIG.relative_to(ROOT)), "run": str(A0_42_RUN.relative_to(ROOT)), "config_sha256": stable_sha(seed42)},
         "new_a0_seed7": {"config": str(A0_7_CONFIG.relative_to(ROOT)), "run_name": seed7_source["run_name"], "output_dir": seed7_source["output_dir"], "config_sha256": stable_sha(seed7_source), "seed_policy": seed_policy},
-        "matched_c2_seed7": {"run": str(C2_7_RUN.relative_to(ROOT)), "best_checkpoint": str((C2_7_RUN / "checkpoints/best.pt").relative_to(ROOT)), "last_checkpoint": str((C2_7_RUN / "checkpoints/last.pt").relative_to(ROOT))},
+        "matched_c2_seed7": {
+            "run": str(C2_7_RUN.relative_to(ROOT)),
+            "config": str(c2_config_path.relative_to(ROOT)),
+            "reference_scope": "config_only" if args.runtime_only else "completed_local_run",
+            "best_checkpoint": str((C2_7_RUN / "checkpoints/best.pt").relative_to(ROOT)),
+            "last_checkpoint": str((C2_7_RUN / "checkpoints/last.pt").relative_to(ROOT)),
+        },
         "allowed_config_differences": [row["field"] for row in freeze_rows],
         "frozen_fields": {"data": seed7_source["data"], "graph": seed7_source["graph"], "model": seed7_source["model"], "training_except_seed": {key: value for key, value in seed7_source["training"].items() if key != "seed"}},
         "cache_equivalence": {"status": "PASS" if cache_pass else "FAIL", "seed42_signature": signature42, "seed7_signature": signature7, "cache_manifest": str(cache_manifest_path), "cache_manifest_signature": local_cache_manifest.get("namespace_sha256"), "seed_enters_cache_key": False, "payload": evidence_cache_signature_payload(graph7)},
