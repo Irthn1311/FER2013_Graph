@@ -103,7 +103,14 @@ def source_freeze_diff(seed42: dict[str, Any], seed7: dict[str, Any]) -> tuple[l
 
 
 def runtime_diff(source: dict[str, Any], runtime: dict[str, Any]) -> tuple[list[dict[str, Any]], bool]:
-    allowed = {"data.evidence_dir", "graph.cache.enabled", "graph.cache.dir"}
+    allowed = {
+        "data.evidence_dir",
+        "graph.cache.enabled",
+        "graph.cache.dir",
+        # Kaggle must fail closed when an uploaded cache item is missing or corrupt.
+        # This changes error handling only; it does not alter graph construction.
+        "graph.cache.fallback_on_error",
+    }
     left, right = flatten(source), flatten(runtime)
     rows: list[dict[str, Any]] = []
     passed = True
@@ -488,7 +495,15 @@ def main() -> None:
     (output / "12_run_commands.md").write_text(f"# Run Commands\n\n## Local bounded validation\n\n```powershell\nconda run -n fer-graph python -B d19/scripts/prepare_d19_a0_seed7_confirmation.py --config configs/d19/d19_a0_evidence_only_matched_seed7.yaml --smoke-images 8 --output-dir outputs/d19_analysis/d19_a0_seed7_confirmation_design --strict\n```\n\n## Kaggle\n\nSee `07_kaggle_training_command.md`.\n\n## Post-training\n\n```powershell\n{post_command}\n```\n", encoding="utf-8")
 
     if args.strict and failures:
-        raise RuntimeError(f"Strict D19-A0 seed7 preparation failed: {failures}")
+        failed_config_rows = [
+            row for row in [*freeze_rows, *runtime_rows, *c2_rows]
+            if row.get("status") == "FAIL"
+        ]
+        details = {"failures": failures, "failed_config_rows": failed_config_rows}
+        raise RuntimeError(
+            "Strict D19-A0 seed7 preparation failed:\n"
+            + json.dumps(details, indent=2, default=str)
+        )
     print(json.dumps({"status": "PASS" if not failures else "FAIL", "output_dir": str(output), "validation": validation}, indent=2))
 
 
