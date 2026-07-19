@@ -48,7 +48,13 @@ def md_table(frame: pd.DataFrame, digits: int = 5) -> str:
         if pd.api.types.is_float_dtype(current[column]):
             current[column] = current[column].map(lambda value: "" if pd.isna(value) else f"{value:.{digits}f}")
     def cell(value: Any) -> str:
-        return "" if pd.isna(value) else str(value).replace("|", "\\|").replace("\n", "<br>")
+        if isinstance(value, (dict, list, tuple, np.ndarray)):
+            rendered = json.dumps(value.tolist() if isinstance(value, np.ndarray) else value, ensure_ascii=True)
+            return rendered.replace("|", "\\|").replace("\n", "<br>")
+        missing = pd.isna(value)
+        if isinstance(missing, (bool, np.bool_)) and bool(missing):
+            return ""
+        return str(value).replace("|", "\\|").replace("\n", "<br>")
     headers = [cell(column) for column in current.columns]
     lines = ["| " + " | ".join(headers) + " |", "| " + " | ".join(["---"] * len(headers)) + " |"]
     lines.extend("| " + " | ".join(cell(value) for value in row) + " |" for row in current.itertuples(index=False, name=None))

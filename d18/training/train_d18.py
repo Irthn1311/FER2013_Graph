@@ -27,6 +27,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from d18.data.collate import D18Batch, collate_d18_graphs
 from d18.data.structure_dataset import StructurePixelDataset
+from d18.data.structure_graph_builder import EDGE_TYPE_KNN, EDGE_TYPE_LOCAL, EDGE_TYPE_STRUCTURE
 from d18.data.structure_graph_cache import (
     EVIDENCE_CACHE_SCHEMA,
     evidence_cache_signature,
@@ -77,6 +78,77 @@ def read_config(path: str | Path) -> Dict[str, Any]:
 def write_json(path: Path, payload: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def tensor_sha256(tensor: torch.Tensor) -> str:
+    value = tensor.detach().contiguous().cpu()
+    return hashlib.sha256(value.view(torch.uint8).numpy().tobytes()).hexdigest()
+
+
+def canonical_state_manifest(model: torch.nn.Module) -> Dict[str, Any]:
+    """Hash state tensors without depending on torch serialization metadata."""
+    digest = hashlib.sha256()
+    tensors: List[Dict[str, Any]] = []
+    for name, tensor in sorted(model.state_dict().items()):
+        value = tensor.detach().contiguous().cpu()
+        shape = [int(dim) for dim in value.shape]
+        tensor_hash = tensor_sha256(value)
+        for item in (name, str(value.dtype), json.dumps(shape, separators=(",", ":")), tensor_hash):
+            digest.update(item.encode("utf-8"))
+            digest.update(b"\0")
+        tensors.append({"name": name, "dtype": str(value.dtype), "shape": shape, "sha256": tensor_hash})
+    return {
+        "canonical_hash_algorithm": "sha256(name,dtype,shape,contiguous_cpu_tensor_bytes)",
+        "canonical_state_sha256": digest.hexdigest(),
+        "tensor_count": len(tensors),
+        "tensors": tensors,
+    }
+
+
+def batch_manifest(batch: D18Batch) -> Dict[str, Any]:
+    tensor_names = (
+        "sample_index", "y", "ptr", "batch_index", "image_48", "x_cat",
+        "edge_index_cat", "edge_attr_cat", "edge_type_cat", "local_edge_count",
+        "knn_edge_count", "structure_edge_count", "total_edge_count",
+    )
+    tensors = {
+        name: {
+            "shape": [int(dim) for dim in getattr(batch, name).shape],
+            "dtype": str(getattr(batch, name).dtype),
+            "sha256": tensor_sha256(getattr(batch, name)),
+        }
+        for name in tensor_names
+    }
+    digest = hashlib.sha256()
+    for name in tensor_names:
+        digest.update(name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(tensors[name]["sha256"].encode("ascii"))
+        digest.update(b"\0")
+    return {
+        "manifest_sha256": digest.hexdigest(),
+        "num_graphs": batch.num_graphs,
+        "sample_indices": [int(value) for value in batch.sample_index.tolist()],
+        "labels": [int(value) for value in batch.y.tolist()],
+        "tensors": tensors,
+    }
+
+
+def model_schema_manifest(model: StructureGNN, cfg: Dict[str, Any]) -> Dict[str, Any]:
+    conditioning = model.conditioning_schema()
+    payload = {
+        "base_model": str((cfg.get("model") or {}).get("name", type(model).__name__)),
+        "hidden_dim": int((cfg.get("model") or {}).get("hidden_dim", 96)),
+        "num_gnn_layers": len(model.gnn.layers),
+        "conditioning": conditioning,
+        "state_dict_schema": [
+            {"name": name, "shape": [int(dim) for dim in tensor.shape], "dtype": str(tensor.dtype)}
+            for name, tensor in sorted(model.state_dict().items())
+        ],
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    payload["model_signature_sha256"] = hashlib.sha256(encoded).hexdigest()
+    return payload
 
 
 def append_jsonl(path: Path, payload: Dict[str, Any]) -> None:
@@ -888,11 +960,74 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
     raw_knn_counts = node_counts * k
     overlap_counts = raw_knn_counts - first_batch.knn_edge_count.long()
     parameter_count = int(sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad))
+    conditioning_schema = model.conditioning_schema()
+    conditioning_enabled = bool(conditioning_schema["enabled"])
+    initial_state = canonical_state_manifest(model)
+    initial_batch_manifest = batch_manifest(first_batch)
+    model_schema = model_schema_manifest(model, cfg)
+    dst = first_batch.edge_index_cat[1].long()
+    total_degree = torch.zeros((first_batch.x_cat.size(0),), dtype=torch.long)
+    total_degree.index_add_(0, dst, torch.ones_like(dst))
+    relation_mapping = {
+        "local": int(EDGE_TYPE_LOCAL),
+        "knn": int(EDGE_TYPE_KNN),
+        "structure": int(EDGE_TYPE_STRUCTURE),
+    }
+    if conditioning_enabled:
+        present_ids = set(int(value) for value in first_batch.edge_type_cat.unique().tolist())
+        expected_ids = {int(EDGE_TYPE_LOCAL), int(EDGE_TYPE_KNN)}
+        if not evidence_only:
+            raise RuntimeError("D19-A1-ID requires graph_mode=evidence_only")
+        if present_ids != expected_ids:
+            raise RuntimeError(f"D19-A1-ID expected relation IDs {sorted(expected_ids)}, got {sorted(present_ids)}")
+        if first_batch.edge_type_cat.dtype != torch.long:
+            raise RuntimeError(f"D19-A1-ID requires edge_type_cat torch.long, got {first_batch.edge_type_cat.dtype}")
+        if first_batch.edge_type_cat.numel() != first_batch.edge_index_cat.size(1):
+            raise RuntimeError("D19-A1-ID edge_type count does not match edge count")
+        if int(first_batch.edge_attr_cat.size(1)) != 6 or int(conditioning_schema["conditioned_edge_attr_dim"]) != 14:
+            raise RuntimeError(f"D19-A1-ID edge dimensions are invalid: {conditioning_schema}")
+        if model.edge_type_embedding is None or model.edge_type_embedding.weight.shape != (2, 8):
+            raise RuntimeError("D19-A1-ID requires one shared 2x8 edge-type embedding table")
+        if any(layer.edge_mlp[0].in_features != 14 for layer in model.gnn.layers):
+            raise RuntimeError("D19-A1-ID requires every existing edge projection to consume 14 features")
+        scalar_gate_cfg = ((((cfg.get("model") or {}).get("edge_context_gnn") or {}).get("scalar_edge_gate") or {}))
+        if bool(scalar_gate_cfg.get("enabled", False)):
+            raise RuntimeError("D19-A1-ID forbids the relation-aware scalar edge gate")
+        if bool(mode_mix_cfg.get("enabled", False)):
+            raise RuntimeError("D19-A1-ID forbids structure mode mixing")
+        drop_probabilities = (
+            float(train_cfg.get("drop_edge_p", 0.0) or 0.0),
+            float(graph_reg_cfg.get("drop_local_edge_p", 0.0) or 0.0),
+            float(graph_reg_cfg.get("drop_knn_edge_p", 0.0) or 0.0),
+            float(graph_reg_cfg.get("drop_structure_edge_p", 0.0) or 0.0),
+        )
+        if any(value != 0.0 for value in drop_probabilities):
+            raise RuntimeError(f"D19-A1-ID forbids all DropEdge probabilities, got {drop_probabilities}")
+        mode = str(conditioning_schema["mode"])
+        write_json(output_dir / "conditioning_schema.json", conditioning_schema)
+        write_json(output_dir / "model_schema.json", model_schema)
+        write_json(output_dir / "initial_state_manifest.json", initial_state)
+        write_json(output_dir / f"initial_state_manifest_{mode}.json", initial_state)
+        write_json(output_dir / "first_batch_manifest.json", initial_batch_manifest)
+        write_json(output_dir / f"first_batch_manifest_{mode}.json", initial_batch_manifest)
+        write_json(
+            output_dir / "relation_count_summary.json",
+            {
+                "mapping": relation_mapping,
+                "true_relation_ids_present": sorted(present_ids),
+                "local_edge_count": int((first_batch.edge_type_cat == EDGE_TYPE_LOCAL).sum().item()),
+                "knn_edge_count": int((first_batch.edge_type_cat == EDGE_TYPE_KNN).sum().item()),
+                "structure_edge_count": int((first_batch.edge_type_cat == EDGE_TYPE_STRUCTURE).sum().item()),
+                "total_degree_min": int(total_degree.min().item()),
+                "total_degree_mean": float(total_degree.float().mean().item()),
+                "total_degree_max": int(total_degree.max().item()),
+            },
+        )
     effective_config = {
         "event": "d18_effective_training_config",
         "run_id": cfg.get("run_name", output_dir.name),
         "seed": seed,
-        "cell": "A0" if evidence_only else ("C2" if bool(mode_mix_cfg.get("enabled", False)) else "C0"),
+        "cell": "A1-ID" if conditioning_enabled else ("A0" if evidence_only else ("C2" if bool(mode_mix_cfg.get("enabled", False)) else "C0")),
         "graph_mode": graph_cfg.get("graph_mode", "structure_guided"),
         "evidence_only": evidence_only,
         "landmark_assets_required": not evidence_only,
@@ -908,6 +1043,15 @@ def run_train(args: argparse.Namespace) -> Dict[str, Any]:
         "merged_edge_count_mean": float(first_batch.total_edge_count.float().mean().item()),
         "structure_edge_count_mean": float(first_batch.structure_edge_count.float().mean().item()),
         "edge_type_ids_present": sorted(int(value) for value in first_batch.edge_type_cat.unique().tolist()),
+        "edge_type_mapping": relation_mapping,
+        "edge_type_conditioning": conditioning_schema,
+        "conditioned_edge_dim": int(conditioning_schema["conditioned_edge_attr_dim"]),
+        "canonical_initial_state_sha256": initial_state["canonical_state_sha256"],
+        "first_batch_manifest_sha256": initial_batch_manifest["manifest_sha256"],
+        "model_signature_sha256": model_schema["model_signature_sha256"],
+        "total_degree_min": int(total_degree.min().item()),
+        "total_degree_mean": float(total_degree.float().mean().item()),
+        "total_degree_max": int(total_degree.max().item()),
         "drop_edge_p": float(train_cfg.get("drop_edge_p", 0.0) or 0.0),
         "drop_local_edge_p": float(graph_reg_cfg.get("drop_local_edge_p", 0.0) or 0.0),
         "drop_knn_edge_p": float(graph_reg_cfg.get("drop_knn_edge_p", 0.0) or 0.0),

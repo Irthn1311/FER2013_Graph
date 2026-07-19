@@ -243,14 +243,19 @@ def historical_ablation_diff(
     evaluation_root: Path,
     cell: str,
     checkpoint_type: str,
+    seed: int,
 ) -> dict[str, Any]:
     path = evaluation_root / cell / checkpoint_type / "edge_family_ablation_logits.npz"
     if not path.exists():
         token = f"_{cell.lower()}_"
+        seed_token = f"_seed{int(seed)}"
         candidates = [
             candidate
             for candidate in evaluation_root.rglob("edge_family_ablation_logits.npz")
-            if token in candidate.as_posix().lower()
+            if any(
+                token in part.lower() and seed_token in part.lower()
+                for part in candidate.parts
+            )
             and checkpoint_type.lower() in {part.lower() for part in candidate.parts}
         ]
         if len(candidates) == 1:
@@ -315,6 +320,14 @@ def main() -> None:
     device = torch.device(args.device if args.device.startswith("cuda") and torch.cuda.is_available() else "cpu")
     runs = {"A0": Path(args.a0_run), "C2": Path(args.c2_run), "C0": Path(args.c0_run)}
     historical = pd.read_csv(args.historical_predictions)
+    c2_seed = int(read_config(runs["C2"]).get("seed", -1))
+    if "seed" in historical.columns:
+        historical = historical[historical["seed"].eq(c2_seed)].copy()
+        if historical.empty:
+            raise RuntimeError(
+                f"Historical prediction table has no rows for matched C2 seed={c2_seed}: "
+                f"{args.historical_predictions}"
+            )
     a0_paths = a0_cache_paths(manifest, Path(args.a0_cache))
 
     cache_parent = output / "_locked_d18_cache"
@@ -379,7 +392,7 @@ def main() -> None:
             if mode == "remove_structure":
                 replay_rows.append(
                     historical_ablation_diff(
-                        predictions, Path(args.historical_evaluation_root), model_id, checkpoint_type
+                        predictions, Path(args.historical_evaluation_root), model_id, checkpoint_type, c2_seed
                     )
                 )
             else:

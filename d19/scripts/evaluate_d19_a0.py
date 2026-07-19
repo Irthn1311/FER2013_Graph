@@ -1,4 +1,4 @@
-"""Evaluate a trained D19-A0 checkpoint without landmark/prior inputs."""
+"""Evaluate a trained D19 evidence-only checkpoint without landmark/prior inputs."""
 
 from __future__ import annotations
 
@@ -60,6 +60,7 @@ def main() -> None:
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--sample-manifest", default=None)
+    parser.add_argument("--conditioning-mode", choices=("null", "correct", "swapped"), default=None)
     args = parser.parse_args()
     run_dir = Path(args.run_dir)
     output = Path(args.output_dir)
@@ -86,6 +87,9 @@ def main() -> None:
         raise RuntimeError("A0 evaluation batch contains structure edges")
     device = torch.device(args.device if args.device.startswith("cuda") and torch.cuda.is_available() else "cpu")
     model = StructureGNN.from_config(cfg, input_dim=first.x_cat.size(1), edge_attr_dim=first.edge_attr_cat.size(1)).to(device)
+    conditioning_enabled = bool(model.conditioning_schema()["enabled"])
+    if args.conditioning_mode is not None and not conditioning_enabled:
+        raise RuntimeError("--conditioning-mode is valid only for an edge-type-conditioned D19 model")
     checkpoint = run_dir / "checkpoints" / f"{args.checkpoint}.pt"
     payload = load_checkpoint(
         checkpoint,
@@ -101,7 +105,7 @@ def main() -> None:
             if bool((batch.edge_type_cat == 2).any()) or bool((batch.structure_edge_count != 0).any()):
                 raise RuntimeError("A0 evaluation encountered structure edges")
             batch = batch.to(device)
-            out = model(batch)
+            out = model(batch, conditioning_mode=args.conditioning_mode)
             ys.append(batch.y.cpu().numpy())
             logits_rows.append(out["logits"].cpu().numpy())
             embedding_rows.append(out["z_image"].cpu().numpy())
@@ -132,27 +136,40 @@ def main() -> None:
         "mean_margin": float((sorted_probs[:, -1] - sorted_probs[:, -2]).mean()),
         "sample_index_sha256": hashlib.sha256(sample_index.astype(np.int64).tobytes()).hexdigest(),
         "locked_protocol_sha256": locked_hash,
-        "equivalent_modes": list(EQUIVALENT_MODES),
+        "edge_type_conditioning_enabled": conditioning_enabled,
+        "configured_conditioning_mode": model.conditioning_schema()["mode"],
+        "evaluated_conditioning_mode": args.conditioning_mode or model.conditioning_schema()["mode"],
+        "equivalent_modes": [] if conditioning_enabled else list(EQUIVALENT_MODES),
         "graph_equivalence_rate": 1.0,
-        "prediction_equivalence_rate": 1.0,
-        "max_embedding_difference": 0.0,
-        "max_logit_difference": 0.0,
-        "note": "Counterfactual A0 modes are exact no-ops by construction and are not independent robustness scores.",
+        "note": (
+            "A1-ID model-side relation treatment; graph endpoints and base edge attributes are unchanged."
+            if conditioning_enabled
+            else "Counterfactual A0 modes are exact no-ops by construction and are not independent robustness scores."
+        ),
     }
     pd.DataFrame([summary]).to_csv(output / "official_metrics.csv", index=False)
-    pd.DataFrame([
-        {
-            "mode": mode,
+    if not conditioning_enabled:
+        pd.DataFrame([
+            {
+                "mode": mode,
+                "graph_equivalence_rate": 1.0,
+                "prediction_equivalence_rate": 1.0,
+                "max_embedding_difference": 0.0,
+                "max_logit_difference": 0.0,
+                "accuracy": summary["accuracy"],
+                "macro_f1": summary["macro_f1"],
+                "not_an_independent_robustness_score": True,
+            }
+            for mode in EQUIVALENT_MODES
+        ]).to_csv(output / "counterfactual_equivalence_metrics.csv", index=False)
+    else:
+        pd.DataFrame([{
+            "mode": summary["evaluated_conditioning_mode"],
             "graph_equivalence_rate": 1.0,
-            "prediction_equivalence_rate": 1.0,
-            "max_embedding_difference": 0.0,
-            "max_logit_difference": 0.0,
             "accuracy": summary["accuracy"],
             "macro_f1": summary["macro_f1"],
-            "not_an_independent_robustness_score": True,
-        }
-        for mode in EQUIVALENT_MODES
-    ]).to_csv(output / "counterfactual_equivalence_metrics.csv", index=False)
+            "inference_diagnostic_only": args.conditioning_mode is not None,
+        }]).to_csv(output / "conditioning_treatment_metrics.csv", index=False)
     pd.DataFrame({
         "class_id": np.arange(7), "class_name": CLASS_NAMES, "precision": precision,
         "recall": recall, "f1": f1, "support": support,
