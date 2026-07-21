@@ -13,6 +13,7 @@ import json
 import math
 import os
 import random
+import shutil
 import sys
 import time
 import uuid
@@ -344,6 +345,63 @@ def _atomic_torch_save(payload: Dict[str, Any], path: Path) -> None:
             last_exc = exc
             time.sleep(0.1 * (attempt + 1))
     raise last_exc or OSError(f"Failed to atomically replace checkpoint: {path}")
+
+
+def _dual_validation_checkpoint_cfg(training_cfg: Dict[str, Any] | None) -> Dict[str, Any]:
+    """Return opt-in checkpoint instrumentation without changing old configs."""
+
+    cfg = dict((training_cfg or {}).get("dual_validation_checkpoints", {}) or {})
+    cfg["enabled"] = bool(cfg.get("enabled", False))
+    cfg["preserve_best_macro_alias"] = bool(cfg.get("preserve_best_macro_alias", True))
+    cfg["save_validation_predictions"] = bool(cfg.get("save_validation_predictions", True))
+    return cfg
+
+
+def _atomic_copy_checkpoint(source: Path, destination: Path) -> None:
+    """Copy a completed checkpoint atomically; this does not touch RNG state."""
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = destination.with_name(destination.name + ".tmp")
+    shutil.copyfile(source, tmp_path)
+    os.replace(tmp_path, destination)
+
+
+def canonical_model_state_hash(checkpoint_or_state: Dict[str, Any]) -> str:
+    """Hash sorted tensor keys, dtype, shape and raw bytes."""
+
+    import hashlib
+
+    state = checkpoint_or_state.get("model_state_dict", checkpoint_or_state)
+    digest = hashlib.sha256()
+    for key in sorted(state):
+        tensor = state[key].detach().cpu().contiguous()
+        digest.update(str(key).encode("utf-8"))
+        digest.update(str(tensor.dtype).encode("ascii"))
+        digest.update(json.dumps(list(tensor.shape), separators=(",", ":")).encode("ascii"))
+        digest.update(tensor.numpy().tobytes(order="C"))
+    return digest.hexdigest()
+
+
+def _write_validation_checkpoint_snapshot(
+    output_dir: Path,
+    name: str,
+    row: Dict[str, Any] | None,
+    per_class: List[Dict[str, Any]],
+    confusion: List[Dict[str, Any]],
+    predictions: List[Dict[str, Any]],
+    enabled: bool,
+) -> None:
+    if not enabled or row is None:
+        return
+    snapshot_dir = output_dir / "validation_snapshots"
+    _write_json(snapshot_dir / f"{name}_metrics.json", dict(row))
+    for suffix, rows in (
+        ("per_class", per_class),
+        ("confusion_matrix", confusion),
+        ("predictions", predictions),
+    ):
+        if rows:
+            _write_csv_rows(snapshot_dir / f"{name}_{suffix}.csv", rows, list(rows[0].keys()))
 
 
 def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Dict[str, Any]:
@@ -3330,6 +3388,10 @@ def main() -> None:
     best_early_score = -math.inf if early_mode == "max" else math.inf
     best_guard_loss = math.inf
     save_best_val_loss_diagnostic = bool(training_cfg.get("save_best_val_loss_diagnostic", False))
+    dual_checkpoint_cfg = _dual_validation_checkpoint_cfg(training_cfg)
+    dual_checkpoints_enabled = bool(dual_checkpoint_cfg.get("enabled", False))
+    best_val_accuracy_score = -math.inf
+    best_val_accuracy_epoch = 0
     best_val_loss_score = math.inf
     best_val_loss_epoch = 0
     best_epoch = 0
@@ -3534,6 +3596,8 @@ def main() -> None:
         val_per_class: List[Dict[str, Any]] = []
         val_pred_count: List[Dict[str, Any]] = []
         val_fallback: List[Dict[str, Any]] = []
+        val_confusion: List[Dict[str, Any]] = []
+        val_predictions: List[Dict[str, Any]] = []
         if should_eval:
             if eval_train_metrics:
                 train_eval_row, _, _, _, _, _, _ = evaluate(
@@ -3546,12 +3610,16 @@ def main() -> None:
                     amp_enabled=amp_enabled,
                     loss_cfg=loss_cfg,
                 )
-            val_row, val_per_class, val_pred_count, val_fallback, _, _, _ = evaluate(
+            val_row, val_per_class, val_pred_count, val_fallback, val_confusion, val_predictions, _ = evaluate(
                 model,
                 val_loader,
                 device,
                 "val",
                 epoch,
+                collect_predictions=bool(
+                    dual_checkpoints_enabled
+                    and dual_checkpoint_cfg.get("save_validation_predictions", True)
+                ),
                 limit_batches=args.limit_val_batches,
                 amp_enabled=amp_enabled,
                 loss_cfg=loss_cfg,
@@ -3736,6 +3804,65 @@ def main() -> None:
                 best_early_mode=early_mode,
                 best_early_score=best_early_score,
             )
+            if (
+                dual_checkpoints_enabled
+                and bool(dual_checkpoint_cfg.get("preserve_best_macro_alias", True))
+                and monitor_metric == "val_macro_f1"
+            ):
+                _atomic_copy_checkpoint(
+                    output_dir / "checkpoints" / "best.pt",
+                    output_dir / "checkpoints" / "best_val_macro_f1.pt",
+                )
+                _write_validation_checkpoint_snapshot(
+                    output_dir,
+                    "best_val_macro_f1",
+                    val_row,
+                    val_per_class,
+                    val_confusion,
+                    val_predictions,
+                    enabled=True,
+                )
+        current_val_accuracy = None if val_row is None else float(val_row["accuracy"])
+        accuracy_improved = (
+            dual_checkpoints_enabled
+            and current_val_accuracy is not None
+            and math.isfinite(current_val_accuracy)
+            and current_val_accuracy > best_val_accuracy_score
+        )
+        if accuracy_improved:
+            best_val_accuracy_score = float(current_val_accuracy)
+            best_val_accuracy_epoch = int(epoch)
+            save_checkpoint(
+                output_dir / "checkpoints" / "best_val_accuracy.pt",
+                model,
+                optimizer,
+                epoch,
+                float(val_row["macro_f1"]),
+                cfg,
+                global_step=global_step,
+                input_dim=input_dim,
+                best_epoch=best_val_accuracy_epoch,
+                epochs_without_improvement=epochs_without_improvement,
+                resume_source=resume_source,
+                best_monitor_metric="val_accuracy",
+                best_monitor_mode="max",
+                best_monitor_score=best_val_accuracy_score,
+                scaler=scaler,
+                scheduler=scheduler,
+                scheduler_type=scheduler_type,
+                best_early_metric=early_metric,
+                best_early_mode=early_mode,
+                best_early_score=best_early_score,
+            )
+            _write_validation_checkpoint_snapshot(
+                output_dir,
+                "best_val_accuracy",
+                val_row,
+                val_per_class,
+                val_confusion,
+                val_predictions,
+                enabled=bool(dual_checkpoint_cfg.get("save_validation_predictions", True)),
+            )
         _step_scheduler_epoch(scheduler, scheduler_type, val_row, scheduler_cfg)
         log_row["lr"] = _current_lr(optimizer)
         save_checkpoint(
@@ -3760,6 +3887,16 @@ def main() -> None:
             best_early_mode=early_mode,
             best_early_score=best_early_score,
         )
+        if dual_checkpoints_enabled:
+            _write_validation_checkpoint_snapshot(
+                output_dir,
+                "last",
+                val_row,
+                val_per_class,
+                val_confusion,
+                val_predictions,
+                enabled=bool(dual_checkpoint_cfg.get("save_validation_predictions", True)),
+            )
         log_row["best_monitor_score"] = best_monitor_score
         log_row["best_early_score"] = best_early_score
         log_row["early_score"] = current_early_score

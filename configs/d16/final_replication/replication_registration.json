@@ -1,0 +1,244 @@
+{
+  "registration_version": "ofix7-mid-final-replication-v1",
+  "locked_candidate_id": "d16r_a5b_ofix7_prior_drop_mid_seed42",
+  "candidate_lock_path": "outputs/d19_analysis/d19_historical_near65_candidate_forensics/17_primary_replication_candidate_lock.json",
+  "candidate_lock_sha256": "eda51107e839b2e40837380e7c51d9a78314b7e620c30012278003559344bfec",
+  "historical_run_path": "outputs/d16_runs/r/a5b_overfit_fix_7/d16r_a5b_ofix7_prior_drop_mid_seed42",
+  "historical_config_path": "outputs/d16_runs/r/a5b_overfit_fix_7/d16r_a5b_ofix7_prior_drop_mid_seed42/resolved_config.yaml",
+  "historical_best_checkpoint_path": "outputs/d16_runs/r/a5b_overfit_fix_7/d16r_a5b_ofix7_prior_drop_mid_seed42/checkpoints/best.pt",
+  "historical_best_checkpoint_sha256": "32a19d89bf3fdbb4307050dfc4c78fac68583580cd938678d33e6d507384c92d",
+  "historical_last_checkpoint_path": "outputs/d16_runs/r/a5b_overfit_fix_7/d16r_a5b_ofix7_prior_drop_mid_seed42/checkpoints/last.pt",
+  "historical_seed": 42,
+  "registered_seeds": [
+    42,
+    1009,
+    1337,
+    777,
+    3407
+  ],
+  "seed_reporting_order": [
+    42,
+    1009,
+    1337,
+    777,
+    3407
+  ],
+  "prior_corruption_seed_rule": "run_seed + 7699; reproduces historical seed42 -> 7741",
+  "replication_config_paths": [
+    "configs/d16/final_replication/ofix7_mid_seed42.yaml",
+    "configs/d16/final_replication/ofix7_mid_seed1009.yaml",
+    "configs/d16/final_replication/ofix7_mid_seed1337.yaml",
+    "configs/d16/final_replication/ofix7_mid_seed777.yaml",
+    "configs/d16/final_replication/ofix7_mid_seed3407.yaml"
+  ],
+  "config_file_sha256": {
+    "ofix7_mid_seed42.yaml": "50b2e8fa32c5d995fc39d7b9e4db11675e69ed0976a1977a2db19bca99798a3f",
+    "ofix7_mid_seed1009.yaml": "5b5d3986aa6e33efc146f1dba72863ac2e219921084349c580f881f633f2c054",
+    "ofix7_mid_seed1337.yaml": "f2eacd93d45da284e6ca3e9cc75d7faccfd3703c3138fb4a6fdd7d976f1fd2da",
+    "ofix7_mid_seed777.yaml": "2bcb03aa575602cc7b5cc36e89901705777eee0a905e1f800339311daa5b8b33",
+    "ofix7_mid_seed3407.yaml": "1600818218e7c5224ce5f299f8e84852248019b59518ec3efc787363c8bb4489"
+  },
+  "normalized_config_sha256": {
+    "ofix7_mid_seed42.yaml": "41bd52ff50f93f90d7df0bb9cb10565dce067ebf10c35a6d90d53ece6dcb9af1",
+    "ofix7_mid_seed1009.yaml": "41bd52ff50f93f90d7df0bb9cb10565dce067ebf10c35a6d90d53ece6dcb9af1",
+    "ofix7_mid_seed1337.yaml": "41bd52ff50f93f90d7df0bb9cb10565dce067ebf10c35a6d90d53ece6dcb9af1",
+    "ofix7_mid_seed777.yaml": "41bd52ff50f93f90d7df0bb9cb10565dce067ebf10c35a6d90d53ece6dcb9af1",
+    "ofix7_mid_seed3407.yaml": "41bd52ff50f93f90d7df0bb9cb10565dce067ebf10c35a6d90d53ece6dcb9af1"
+  },
+  "allowed_difference_policy": {
+    "seed_fields": [
+      "seed",
+      "training.seed",
+      "graph.prior_corruption.seed"
+    ],
+    "non_scientific": [
+      "run_name",
+      "description",
+      "logging metadata"
+    ],
+    "path_only": [
+      "runtime CLI dataset/cache/output paths after signature verification"
+    ],
+    "checkpoint_instrumentation": [
+      "training.dual_validation_checkpoints"
+    ]
+  },
+  "model_signature": "50433ebc12de59a11a4e4168bb31c2c40b519566622e233c18aaeb215915cf3e",
+  "graph_signature": "363a9916bc4b5c76eda3dc95b6ae7df20bcc37a01a19c7b018468d181fb83561",
+  "selector_signature": "c97cca66c9b2256d255d15ecc6890dd0a1bd7398f11b085c821fffbc299a7643",
+  "feature_order": [
+    "intensity",
+    "gx",
+    "gy",
+    "x_norm",
+    "y_norm",
+    "face_mask",
+    "part_soft_0",
+    "part_soft_1",
+    "part_soft_2",
+    "part_soft_3",
+    "part_soft_4",
+    "part_soft_5",
+    "part_soft_6",
+    "part_soft_7",
+    "part_soft_8",
+    "part_soft_9",
+    "part_soft_10",
+    "part_soft_11",
+    "part_soft_12",
+    "distance_map_0",
+    "distance_map_1",
+    "distance_map_2",
+    "distance_map_3",
+    "distance_map_4",
+    "distance_map_5",
+    "distance_map_6",
+    "distance_map_7",
+    "distance_map_8",
+    "distance_map_9",
+    "distance_map_10",
+    "distance_map_11",
+    "landmark_missing_flag",
+    "grad_mag",
+    "local_mean_3x3",
+    "local_std_3x3",
+    "laplacian_abs",
+    "center_surround"
+  ],
+  "feature_signature": "b97a6c8fe605022395bbe578e1d7a961fe8598ef519493798df83d8c79dfe043",
+  "node_type_semantics": {
+    "pixel_nodes": "selected real FER pixels passing face mask plus context dilation",
+    "context_pixel_nodes": "real pixels added by 2-step binary dilation",
+    "semantic_anchor_nodes": [
+      "mouth",
+      "eye",
+      "brow",
+      "nose_cheek",
+      "global"
+    ],
+    "semantic_anchor_count": 5,
+    "anchors_are_message_passing_nodes": true,
+    "cls_token": true,
+    "cls_token_scope": "micro_motif_support readout only; not inserted into graph edge_index",
+    "motif_tokens_scope": "readout-only tokens derived after graph message passing",
+    "graph_node_type_ids": {
+      "pixel": 0,
+      "semantic_anchor": 1
+    },
+    "readout_token_type_ids": "internal to MicroMotifSupportReadout; not graph node_type IDs"
+  },
+  "node_type_signature": "0b203fc51f1db94b528493de08246339bcbb58ea06f31b13734223e474f01db7",
+  "graph_schema": {
+    "graph_mode": "face_plus_context",
+    "face_threshold": 0.15,
+    "context_pixels": 2,
+    "pixel_edges": "directed 8-neighbor adjacency among selected pixel coordinates",
+    "anchor_edges": {
+      "bidirectional": true,
+      "anchor_to_anchor": true,
+      "connect_global_to_pixels": false,
+      "threshold": 0.25,
+      "max_pixels_per_anchor": 256
+    },
+    "edge_feature_order": [
+      "dx",
+      "dy",
+      "spatial_dist",
+      "abs_intensity_diff",
+      "abs_grad_mag_diff",
+      "abs_laplacian_diff",
+      "part_similarity",
+      "same_dominant_part"
+    ],
+    "edge_attr_dim": 8,
+    "edge_type_ids": "not stored as a separate tensor; topology distinguishes pixel and anchor edges"
+  },
+  "prior_schema_path": "outputs/d16_mediapipe_pixel_priors_best_retry_rescue/prior_schema.json",
+  "prior_schema_sha256": "8356d1e9c53fa91950da45e19a5170a458e1baff43fca938882770bcbc7c276c",
+  "dataset_signature": "695746df2e352c65370b4bb684abc2a99117e8dc4c297a0a145fe423ad6400a6",
+  "split_signature": "SPLIT_EXACT",
+  "expected_split_counts": {
+    "train": 28709,
+    "val": 3589,
+    "test": 3589
+  },
+  "class_order": [
+    "angry",
+    "disgust",
+    "fear",
+    "happy",
+    "sad",
+    "surprise",
+    "neutral"
+  ],
+  "parameter_count": 1061192,
+  "optimizer_signature": {
+    "type": "AdamW",
+    "lr": 0.0003,
+    "weight_decay": 0.001,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "amsgrad": false
+  },
+  "scheduler_signature": {
+    "type": "plateau",
+    "monitor": "val_loss",
+    "mode": "min",
+    "factor": 0.5,
+    "patience": 5,
+    "threshold": 0.0001,
+    "min_lr": 3e-05,
+    "step_location": "after checkpoint comparison, before last.pt save"
+  },
+  "early_stopping_signature": {
+    "enabled": true,
+    "min_epochs_before_stop": 30,
+    "patience": 15,
+    "metric": "val_loss",
+    "mode": "min"
+  },
+  "historical_checkpoint_policy": {
+    "monitor": "val_macro_f1",
+    "mode": "max",
+    "tie_break": "earliest epoch because save occurs only on strict improvement",
+    "test_selected": false
+  },
+  "dual_checkpoint_policy": {
+    "best.pt": "historical val_macro_f1 primary",
+    "best_val_macro_f1.pt": "atomic byte copy of best.pt after historical save",
+    "best_val_accuracy.pt": "strictly improving validation accuracy, earliest exact tie",
+    "last.pt": "historical last checkpoint after scheduler step"
+  },
+  "checkpoint_policy_comparison_rules": {
+    "mean_validation_accuracy_gain_pp_min": 0.5,
+    "mean_validation_macro_f1_loss_pp_min": -0.5,
+    "accuracy_seed_wins_min": 3,
+    "mean_class_f1_loss_pp_max": 3.0,
+    "macro_gap_increase_pp_max": 2.0,
+    "accuracy_sd_increase_pp_max": 0.5,
+    "default_when_any_gate_fails": "VAL_MACRO_F1"
+  },
+  "test_embargo_policy": "validation-lock refuses filenames/columns containing full-test artifacts; test reveal requires immutable policy lock",
+  "future_limit_audit": {
+    "status": "DEFERRED_UNTIL_FIVE_BASELINES_AND_POLICY_LOCK",
+    "development_seeds": [
+      42,
+      1009,
+      1337
+    ],
+    "heldout_confirmation_seeds": [
+      777,
+      3407
+    ],
+    "maximum_alternatives": {
+      "S1": "AdamW + CosineAnnealingLR",
+      "O1": "RAdam + historical plateau"
+    },
+    "interaction_cell": "PROHIBITED"
+  },
+  "repository_commit": "b2fc0b6a9963efc257ce7b13d62982087ed30436",
+  "created_at_utc": "2026-07-21T11:13:46.902558+00:00"
+}
