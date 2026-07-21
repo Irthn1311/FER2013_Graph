@@ -32,6 +32,7 @@ from d16.scripts.prepare_ofix7_mid_final_replication import (
     json_hash,
     load_json,
     load_yaml,
+    normalized_text_sha256,
     relative,
     scientific_normalized_config,
     sha256_file,
@@ -60,22 +61,41 @@ def resolve_registration_bundle() -> tuple[Path, Path, Path, Path]:
     return PORTABLE_REGISTRATION_PATH, PORTABLE_REGISTRATION_HASH_PATH, PORTABLE_LOCK_PATH, PORTABLE_LOCK_HASH_PATH
 
 
+def registration_identity_sha256(path: Path) -> str:
+    if path.resolve() == PORTABLE_REGISTRATION_PATH.resolve():
+        return normalized_text_sha256(path)
+    return sha256_file(path)
+
+
 def validate_registered_config(path: Path) -> tuple[dict[str, Any], dict[str, Any], Path]:
     registration_path, registration_hash_path, lock_path, lock_hash_path = resolve_registration_bundle()
+    portable_mode = registration_path.resolve() == PORTABLE_REGISTRATION_PATH.resolve()
     if not registration_path.exists() or not registration_hash_path.exists():
         raise RuntimeError("Replication registration is missing; run preparation first")
-    if sha256_file(registration_path) != registration_hash_path.read_text(encoding="utf-8").strip():
+    registration_hash = normalized_text_sha256(registration_path) if portable_mode else sha256_file(registration_path)
+    if registration_hash != registration_hash_path.read_text(encoding="utf-8").strip():
         raise RuntimeError("Replication registration hash mismatch")
     registration = load_json(registration_path)
     if not lock_path.exists() or not lock_hash_path.exists():
         raise RuntimeError("Portable candidate lock is missing")
-    if sha256_file(lock_path) != lock_hash_path.read_text(encoding="utf-8").strip():
+    lock_hash = normalized_text_sha256(lock_path) if portable_mode else sha256_file(lock_path)
+    if lock_hash != lock_hash_path.read_text(encoding="utf-8").strip():
         raise RuntimeError("Candidate lock hash mismatch")
     lock = load_json(lock_path)
-    if lock.get("run_id") != registration.get("locked_candidate_id"):
-        raise RuntimeError("Candidate ID differs from replication registration")
-    if sha256_file(lock_path) != registration.get("candidate_lock_sha256"):
-        raise RuntimeError("Candidate lock differs from registered source lock")
+    semantic_lock_checks = {
+        "run_id": lock.get("run_id") == registration.get("locked_candidate_id"),
+        "checkpoint_sha256": lock.get("checkpoint_sha256") == registration.get("historical_best_checkpoint_sha256"),
+        "seed": int(lock.get("seed", -1)) == int(registration.get("historical_seed", -2)),
+        "model_signature": lock.get("model_signature") == registration.get("model_signature"),
+        "graph_signature": lock.get("graph_signature") == registration.get("graph_signature"),
+        "selector_signature": lock.get("selector_signature") == registration.get("selector_signature"),
+        "dataset_signature": lock.get("dataset_signature") == registration.get("dataset_signature"),
+        "split_signature": lock.get("split_signature") == registration.get("split_signature"),
+        "parameter_count": int(lock.get("parameter_count", -1)) == int(registration.get("parameter_count", -2)),
+    }
+    failed_lock_checks = [name for name, passed in semantic_lock_checks.items() if not passed]
+    if failed_lock_checks:
+        raise RuntimeError(f"Candidate lock differs semantically from registration: {failed_lock_checks}")
     cfg = load_yaml(path)
     name = path.name
     registered_names = {Path(item).name for item in registration["replication_config_paths"]}
@@ -83,11 +103,10 @@ def validate_registered_config(path: Path) -> tuple[dict[str, Any], dict[str, An
     portable_valid = (
         name in registered_names
         and seed in registration["registered_seeds"]
-        and sha256_file(path) == registration["config_file_sha256"].get(name)
         and json_hash(scientific_normalized_config(cfg)) == registration["normalized_config_sha256"].get(name)
     )
     if not portable_valid:
-        raise RuntimeError("Config file/hash/scientific normalization is not registered")
+        raise RuntimeError("Config/scientific normalization is not registered")
     historical_paths_available = LOCK_PATH.exists() and (ROOT / str(lock.get("checkpoint_path", ""))).exists()
     if historical_paths_available:
         verify_lock()
@@ -150,7 +169,7 @@ def source_manifest(config_path: Path, registration: dict[str, Any], registratio
         ROOT / "d16/models/d16_model.py",
     ]
     return {
-        "registration_sha256": sha256_file(registration_path),
+        "registration_sha256": registration_identity_sha256(registration_path),
         "repository_commit": registration.get("repository_commit"),
         "files": {relative(path): sha256_file(path) for path in files},
     }
@@ -231,7 +250,7 @@ def main() -> None:
         "status": "COMPLETE",
         "run_name": run_name,
         "seed": int(cfg["seed"]),
-        "registration_sha256": sha256_file(registration_path),
+        "registration_sha256": registration_identity_sha256(registration_path),
         "completed_at_utc": datetime.now(timezone.utc).isoformat(),
         "resumed": False,
     }

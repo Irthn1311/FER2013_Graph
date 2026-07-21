@@ -51,6 +51,11 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def normalized_text_sha256(path: Path) -> str:
+    text = path.read_text(encoding="utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    return sha256_bytes(text.encode("utf-8"))
+
+
 def json_hash(value: Any) -> str:
     return sha256_bytes(json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8"))
 
@@ -424,9 +429,9 @@ def write_portable_registration_bundle() -> None:
 
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     PORTABLE_LOCK_PATH.write_bytes(LOCK_PATH.read_bytes())
-    PORTABLE_LOCK_HASH_PATH.write_text(sha256_file(PORTABLE_LOCK_PATH) + "\n", encoding="utf-8")
+    PORTABLE_LOCK_HASH_PATH.write_text(normalized_text_sha256(PORTABLE_LOCK_PATH) + "\n", encoding="utf-8")
     PORTABLE_REGISTRATION_PATH.write_bytes(REGISTRATION_PATH.read_bytes())
-    PORTABLE_REGISTRATION_HASH_PATH.write_text(sha256_file(PORTABLE_REGISTRATION_PATH) + "\n", encoding="utf-8")
+    PORTABLE_REGISTRATION_HASH_PATH.write_text(normalized_text_sha256(PORTABLE_REGISTRATION_PATH) + "\n", encoding="utf-8")
 
 
 def command_reports(configs: list[Path]) -> None:
