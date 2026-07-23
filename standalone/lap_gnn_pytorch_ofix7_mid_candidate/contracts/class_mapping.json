@@ -1,0 +1,32 @@
+{
+  "classes": [
+    {
+      "id": 0,
+      "name": "angry"
+    },
+    {
+      "id": 1,
+      "name": "disgust"
+    },
+    {
+      "id": 2,
+      "name": "fear"
+    },
+    {
+      "id": 3,
+      "name": "happy"
+    },
+    {
+      "id": 4,
+      "name": "sad"
+    },
+    {
+      "id": 5,
+      "name": "surprise"
+    },
+    {
+      "id": 6,
+      "name": "neutral"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lap-gnn-pytorch-ofix7-mid-candidate"
+version = "0.1.0"
+description = "Portable extraction of the locked OFIX7-mid LAP-GNN PyTorch baseline candidate"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "PyYAML>=6",
+  "scikit-learn>=1.4",
+  "torch>=2.2",
+]
+
+[project.optional-dependencies]
+reporting = ["matplotlib>=3.8", "pandas>=2.0"]
+dev = ["pytest>=8"]
+mediapipe = ["mediapipe>=0.10", "opencv-python-headless>=4.8"]
+
+[project.scripts]
+lap-gnn-validate = "lap_gnn.cli.validate:main"
+lap-gnn-train = "lap_gnn.cli.train:main"
+lap-gnn-evaluate = "lap_gnn.cli.evaluate:main"
+lap-gnn-inspect-data = "lap_gnn.cli.inspect_data:main"
+lap-gnn-export-golden = "lap_gnn.cli.export_golden:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

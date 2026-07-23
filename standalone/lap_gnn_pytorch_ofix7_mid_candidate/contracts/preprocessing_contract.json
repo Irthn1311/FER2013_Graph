@@ -1,0 +1,29 @@
+{
+  "image_shape": [
+    48,
+    48
+  ],
+  "channels": 1,
+  "grayscale": true,
+  "input_pixel_text": "2304 whitespace-separated integer values in FER CSV",
+  "runtime_value_range": [
+    0.0,
+    1.0
+  ],
+  "normalization": "divide by 255 only when stored maximum exceeds 1",
+  "class_order": [
+    "angry",
+    "disgust",
+    "fear",
+    "happy",
+    "sad",
+    "surprise",
+    "neutral"
+  ],
+  "split_counts": {
+    "train": 28709,
+    "val": 3589,
+    "test": 3589
+  },
+  "prior_schema_id": "d16_mediapipe_pixel_priors_v1"
+}

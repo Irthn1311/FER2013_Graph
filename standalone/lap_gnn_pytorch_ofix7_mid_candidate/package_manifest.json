@@ -1,0 +1,351 @@
+{
+  "package_name": "lap_gnn_pytorch_ofix7_mid_candidate",
+  "package_version": "0.1.0",
+  "status": "baseline_candidate",
+  "parent_repository_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+  "baseline_lock_sha256": "d54c9162de7e4f6bda2ee37dbe735939f7542195d9d2fe6dbd5e61cd85351dc3",
+  "checkpoint_policy_lock_sha256": "dfce606a69343b1a8de821ec3fc547d5700b94ff6c9a15f6b26d32e02601fc5f",
+  "source_to_destination_mapping": [
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/training/train_d16.py",
+      "original_sha256": "a968049569998d0e89db9ea2a08ae1d6063f1c35ac14203c2890ef6a6cb044e4",
+      "original_lines": 3995,
+      "destination": "src/lap_gnn/training/engine.py",
+      "destination_sha256": "51c3caea5b1c48ba3023c8480679124e1d828c9c6db270f6d1928106b4115367",
+      "destination_lines": 4013,
+      "copied_exactly": false,
+      "mechanical_changes": [
+        "namespace: from d16.data. -> from lap_gnn.data.",
+        "namespace: from d16.losses. -> from lap_gnn.losses.",
+        "namespace: from d16.models. -> from lap_gnn.model.",
+        "removed parent repository sys.path bootstrap",
+        "standalone policy guard rejects resume",
+        "checkpoint payload adds portable provenance signatures"
+      ]
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/data/detail_node_features.py",
+      "original_sha256": "e05f7ae35ae48ac04a04f1ec980636748b58cdb4b973728aedc0fb87db6a210e",
+      "original_lines": 94,
+      "destination": "src/lap_gnn/data/detail_node_features.py",
+      "destination_sha256": "e05f7ae35ae48ac04a04f1ec980636748b58cdb4b973728aedc0fb87db6a210e",
+      "destination_lines": 94,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/data/graph_builder.py",
+      "original_sha256": "24103ebbca967a7e650167e82d7508d2c7c90658f1f4f67b55ea8e64f35689f8",
+      "original_lines": 715,
+      "destination": "src/lap_gnn/data/graph_builder.py",
+      "destination_sha256": "ac4e8f653a3a8e739845b5b7adc8c82c304169e78e5651ca5499a05c9724f75a",
+      "destination_lines": 715,
+      "copied_exactly": false,
+      "mechanical_changes": [
+        "namespace: from d16.data. -> from lap_gnn.data."
+      ]
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/data/graph_cache_dataset.py",
+      "original_sha256": "b76fd606a9fc1c26cf12e025595736352b1cc989fb7e9715486881bb6653fbf1",
+      "original_lines": 170,
+      "destination": "src/lap_gnn/data/graph_cache_dataset.py",
+      "destination_sha256": "191002e8941034696b43e41454a8183fa01e1b96920f512127407178bba0a1e5",
+      "destination_lines": 170,
+      "copied_exactly": false,
+      "mechanical_changes": [
+        "namespace: from d16.data. -> from lap_gnn.data."
+      ]
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/data/mediapipe_priors.py",
+      "original_sha256": "979da230cb01387dc4fa4c6cf4b2652815ba35166e788c295a2cd17994792064",
+      "original_lines": 410,
+      "destination": "src/lap_gnn/data/mediapipe_priors.py",
+      "destination_sha256": "979da230cb01387dc4fa4c6cf4b2652815ba35166e788c295a2cd17994792064",
+      "destination_lines": 410,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/data/patch_tokenizer.py",
+      "original_sha256": "1d760c842804df69be70b75a6b2a613cc8cf023aaf6efd4ce65e2afe9d0e4d38",
+      "original_lines": 70,
+      "destination": "src/lap_gnn/data/patch_tokenizer.py",
+      "destination_sha256": "1d760c842804df69be70b75a6b2a613cc8cf023aaf6efd4ce65e2afe9d0e4d38",
+      "destination_lines": 70,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/data/pixel_prior_dataset.py",
+      "original_sha256": "740452e7dcf6393108aa8db48c597651995b952cec2f2b27108cc72e368f9a63",
+      "original_lines": 250,
+      "destination": "src/lap_gnn/data/pixel_prior_dataset.py",
+      "destination_sha256": "b6b244dee66fcf4fe28a2412ba2e4c6e60c1e978276c87b8732b02dd33e49eaf",
+      "destination_lines": 250,
+      "copied_exactly": false,
+      "mechanical_changes": [
+        "namespace: from d16.data. -> from lap_gnn.data."
+      ]
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/losses/hard_proto_separation.py",
+      "original_sha256": "523d3e7942df3f118f055f68a52da9c29bb56d88ec2ad44de46ef4aeba618074",
+      "original_lines": 122,
+      "destination": "src/lap_gnn/losses/hard_proto_separation.py",
+      "destination_sha256": "523d3e7942df3f118f055f68a52da9c29bb56d88ec2ad44de46ef4aeba618074",
+      "destination_lines": 122,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/losses/main_logit_pair_margin.py",
+      "original_sha256": "0ab93c9f1f47f37d1b6d8ca07f8e4b199dc9cbf636ee1e474fb5b35387a783b0",
+      "original_lines": 107,
+      "destination": "src/lap_gnn/losses/main_logit_pair_margin.py",
+      "destination_sha256": "0ab93c9f1f47f37d1b6d8ca07f8e4b199dc9cbf636ee1e474fb5b35387a783b0",
+      "destination_lines": 107,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/losses/pairwise_hard_relation.py",
+      "original_sha256": "3a3b8d41f6c2a200ddc7b1a9dc2bf4afca5cc42d298de733ce1b26e8a253ad39",
+      "original_lines": 110,
+      "destination": "src/lap_gnn/losses/pairwise_hard_relation.py",
+      "destination_sha256": "3a3b8d41f6c2a200ddc7b1a9dc2bf4afca5cc42d298de733ce1b26e8a253ad39",
+      "destination_lines": 110,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/losses/part_supcon.py",
+      "original_sha256": "dc7b748f12949f89a64dac5880790e744f73c9e14466b8eb66b2b1c249fdd176",
+      "original_lines": 77,
+      "destination": "src/lap_gnn/losses/part_supcon.py",
+      "destination_sha256": "dc7b748f12949f89a64dac5880790e744f73c9e14466b8eb66b2b1c249fdd176",
+      "destination_lines": 77,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/classifier.py",
+      "original_sha256": "0e635613306c4089621d478c323f1933f504cf183420c54e12e293a0d3312b34",
+      "original_lines": 20,
+      "destination": "src/lap_gnn/model/classifier.py",
+      "destination_sha256": "0e635613306c4089621d478c323f1933f504cf183420c54e12e293a0d3312b34",
+      "destination_lines": 20,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/d16_model.py",
+      "original_sha256": "025a3d6143db42ff991f0aaef3971d95fb1c6ab52cb2e66aa42178a151a7e287",
+      "original_lines": 409,
+      "destination": "src/lap_gnn/model/d16_model.py",
+      "destination_sha256": "292906b8f81decbd448fad1dd339cd5dbce14a2739be81f1f41852b3383a5d34",
+      "destination_lines": 409,
+      "copied_exactly": false,
+      "mechanical_changes": [
+        "namespace: from d16.data. -> from lap_gnn.data.",
+        "namespace: from d16.models. -> from lap_gnn.model."
+      ]
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/edge_context_gnn.py",
+      "original_sha256": "9c0a52d4ab520b59df8c7fa51d73f26e79fe7c0822866c83636bcddd52d1e6e3",
+      "original_lines": 469,
+      "destination": "src/lap_gnn/model/edge_context_gnn.py",
+      "destination_sha256": "9c0a52d4ab520b59df8c7fa51d73f26e79fe7c0822866c83636bcddd52d1e6e3",
+      "destination_lines": 469,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/evidence_heads.py",
+      "original_sha256": "c81d754c7be89194816793a223a81f8bdff5c76a6b9758cfc1befa428dbe6d0b",
+      "original_lines": 92,
+      "destination": "src/lap_gnn/model/evidence_heads.py",
+      "destination_sha256": "c81d754c7be89194816793a223a81f8bdff5c76a6b9758cfc1befa428dbe6d0b",
+      "destination_lines": 92,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/fallback_patch_encoder.py",
+      "original_sha256": "ec884d6b39bf9726f27ddcc7d223840ce51bf8ddbf288a2e8fea728fc1f6fe2b",
+      "original_lines": 111,
+      "destination": "src/lap_gnn/model/fallback_patch_encoder.py",
+      "destination_sha256": "7a1596ed086ec8bfde52761a425295db88dc4072d21c3f3b970f599c8dff3b86",
+      "destination_lines": 111,
+      "copied_exactly": false,
+      "mechanical_changes": [
+        "namespace: from d16.data. -> from lap_gnn.data.",
+        "namespace: from d16.models. -> from lap_gnn.model."
+      ]
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/micro_motif_support_readout.py",
+      "original_sha256": "3a3dd61f6f85086c24a09732eb82cbb66ec80e25ff2acb36e7c27c15be1365bc",
+      "original_lines": 542,
+      "destination": "src/lap_gnn/model/micro_motif_support_readout.py",
+      "destination_sha256": "df79713d01052185c1cbfcc27329907b18b96fd3a845d154248ce57d50cc008d",
+      "destination_lines": 542,
+      "copied_exactly": false,
+      "mechanical_changes": [
+        "namespace: from d16.models. -> from lap_gnn.model."
+      ]
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/part_attention_readout.py",
+      "original_sha256": "9ee3d98e671f07cdb09ca10f44a76e384f323882046a9ad434cd68b5cf249fd1",
+      "original_lines": 143,
+      "destination": "src/lap_gnn/model/part_attention_readout.py",
+      "destination_sha256": "9ee3d98e671f07cdb09ca10f44a76e384f323882046a9ad434cd68b5cf249fd1",
+      "destination_lines": 143,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/part_aware_gnn.py",
+      "original_sha256": "3f31bd0a1164609d4092262bcefc21f285ad84e2974cbf6c8b0ae2899d265930",
+      "original_lines": 32,
+      "destination": "src/lap_gnn/model/part_aware_gnn.py",
+      "destination_sha256": "3f31bd0a1164609d4092262bcefc21f285ad84e2974cbf6c8b0ae2899d265930",
+      "destination_lines": 32,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/part_motif_query_readout.py",
+      "original_sha256": "7d23ebfa54b11c4992d104bf18a47f1fc8aa70a699c7d5cdb270598917a26efa",
+      "original_lines": 263,
+      "destination": "src/lap_gnn/model/part_motif_query_readout.py",
+      "destination_sha256": "7d23ebfa54b11c4992d104bf18a47f1fc8aa70a699c7d5cdb270598917a26efa",
+      "destination_lines": 263,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/part_token_transformer_readout.py",
+      "original_sha256": "f0fcb9f52f0e6ad59b840efcd7f414fcf4f6143d055f033526d12793e95647d0",
+      "original_lines": 172,
+      "destination": "src/lap_gnn/model/part_token_transformer_readout.py",
+      "destination_sha256": "f0fcb9f52f0e6ad59b840efcd7f414fcf4f6143d055f033526d12793e95647d0",
+      "destination_lines": 172,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    },
+    {
+      "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+      "original_file": "d16/models/pixel_encoder.py",
+      "original_sha256": "edd9f246646c0b45b8f0f5693567f6c88eebd4142a846cc7d1a46b7a7d441575",
+      "original_lines": 22,
+      "destination": "src/lap_gnn/model/pixel_encoder.py",
+      "destination_sha256": "edd9f246646c0b45b8f0f5693567f6c88eebd4142a846cc7d1a46b7a7d441575",
+      "destination_lines": 22,
+      "copied_exactly": true,
+      "mechanical_changes": []
+    }
+  ],
+  "config_hashes": {
+    "fer2013_ofix7_mid_baseline.yaml": "948910739bca9eba98cfdeaf81a58e288b8854bce1f53b115c50ed1ae4657f35",
+    "fer2013_ofix7_mid_seed1009.yaml": "bd4314e5f8315ad2590218521ea58ca8abf30b86788f9e580da0ca1a526a6c57",
+    "fer2013_ofix7_mid_seed1337.yaml": "723ae08353584d1965698c0866daa7840fa4d157842a099a1b5df8fba9aedd66",
+    "fer2013_ofix7_mid_seed3407.yaml": "84eb0e67baa42d2675df668dd41b04cfedc834f999fe7058a1fe3b2fc0245f12",
+    "fer2013_ofix7_mid_seed42.yaml": "80335dc5dcad0dd464a0c273bad9c2928bf473d4e4a205f6382f4f8f3626a35c",
+    "fer2013_ofix7_mid_seed777.yaml": "f16798340201f7f6e7a0bb2626d3723a2cd194beac064a0c998189a292148890"
+  },
+  "contract_hashes": {
+    "architecture_contract.md": "f5e3da3411c432f960e3bbcead94233b3a3536a2709045e1c3dae03bf6567fad",
+    "checkpoint_policy.json": "2672fd427541e8543a651e99e10bb6fa7fb528c1dd909a3ccdbcac7f92612679",
+    "class_mapping.json": "2443b0a9efd4cc93aa650fa16efc30aff8c3690fdcde260b9bb0825ebc5a6985",
+    "edge_schema.json": "e8eee163001c7ed4397fcca8601f1c6206fad84625f199d5649990d84fb503b6",
+    "feature_schema.json": "752538062fa2e40d9615c650c529e9f4117f33a030b74d281b5b21fa573731fc",
+    "graph_batch_schema.json": "1c7597b170fd8604056ab7787fd2880d6e84f3025962fc4b6c8fb3e3faf8e1e8",
+    "node_schema.json": "93690a4d7f9b4fa673a49dec35adb6b0b9846da7a72e9e3b03d0a48a09c114e3",
+    "preprocessing_contract.json": "ea888bab9c003af9b279719025da7c39f90537179411326c2c3119fc8c3f0824"
+  },
+  "golden_fixture_hashes": {
+    "graph_batch.npz": "bf68b79a3d11d949e2d1d125200c7eedc51bb192287c495e5712d34a2053817b",
+    "initial_state_manifest.json": "450182a9de5e807a4ed91b07298db76fd0a3b88f4decedf0767945a8e4be7ca7",
+    "labels.npy": "a770d343e1b78f114dd2419b6a3c82bc6ba9eae1c066064d9b33b7bfd98d1bfe",
+    "layer_outputs.npz": "8570e539cbbe8a430eefc8789013086aed04d269e442ec3a654442528d3d00f2",
+    "logits.npy": "976ad3445c07ae62805afc571c148c8f5377046096b907a95b6ee965a97c51df",
+    "losses.json": "1b63680209fcdaea40d335e208cab97bb07cbb6d06ebd14c790d2eabd3081ba7",
+    "model_state.npz": "72cd901e0b48dee5781f256a22b47444280149157e64e02ff99ba6a0b4040e04",
+    "pooled_embeddings.npy": "1dbd81248cca54444fab8b05bb464f06b09c5d6bd2671d325b6ace8baa3a8ec2",
+    "probabilities.npy": "b1abe04d49f64907aea4f656eb5e7e714ae70179cb1198dc50acb643d176aa9f"
+  },
+  "parameter_count": 1061192,
+  "feature_schema_hash": "752538062fa2e40d9615c650c529e9f4117f33a030b74d281b5b21fa573731fc",
+  "graph_schema_hash": "1c7597b170fd8604056ab7787fd2880d6e84f3025962fc4b6c8fb3e3faf8e1e8",
+  "tested_environment": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.15",
+    "torch": "2.11.0+cu126",
+    "cuda_available": true,
+    "cuda": "12.6",
+    "numpy": "2.4.3",
+    "scikit_learn": "1.8.0",
+    "pyyaml": "6.0.3"
+  },
+  "historical_environment": {
+    "python": "3.12.12",
+    "torch": "2.10.0+cu128",
+    "cuda": "12.8",
+    "cudnn": 91002
+  },
+  "excluded_branches": [
+    "D17",
+    "D18",
+    "D19",
+    "S1/O1",
+    "TensorFlow",
+    "CNN",
+    "Semantic ROI",
+    "MGR-CNN",
+    "notebooks",
+    "historical outputs/checkpoints"
+  ],
+  "parity_results": {
+    "graph_parity_pass": true,
+    "forward_parity_pass": true,
+    "training_step_parity_pass": true,
+    "metric_parity_pass": true,
+    "checkpoint_roundtrip_pass": true,
+    "sample_count": 32,
+    "optimizer_steps": 2,
+    "logit_max_abs": 0.0,
+    "prediction_agreement": 1.0
+  },
+  "isolated_copy_test_pass": true,
+  "known_limitations": [
+    "Candidate label remains until S1/O1 policy is locked.",
+    "FER2013 and precomputed priors are external.",
+    "MediaPipe prior generation is optional and not used by normal training.",
+    "Full standalone seed42 training was not launched in extraction."
+  ]
+}

@@ -1,0 +1,430 @@
+{
+  "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+  "sample_count": 32,
+  "fixture_sample_count": 8,
+  "selected_samples": [
+    {
+      "sample_index": 0,
+      "label": 0,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 299,
+      "label": 1,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 2,
+      "label": 2,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 7,
+      "label": 3,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 6,
+      "label": 4,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 15,
+      "label": 5,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 4,
+      "label": 6,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 3,
+      "label": 4,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 23,
+      "label": 0,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 473,
+      "label": 1,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 17,
+      "label": 2,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 32,
+      "label": 3,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 3,
+      "label": 4,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 128,
+      "label": 5,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 12,
+      "label": 6,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 1,
+      "label": 0,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 388,
+      "label": 1,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 5,
+      "label": 2,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 8,
+      "label": 3,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 19,
+      "label": 4,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 26,
+      "label": 5,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 11,
+      "label": 6,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 9,
+      "label": 2,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 10,
+      "label": 0,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 13,
+      "label": 6,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 14,
+      "label": 3,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 16,
+      "label": 3,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 18,
+      "label": 6,
+      "detected": false,
+      "fallback_type": "center_face"
+    },
+    {
+      "sample_index": 20,
+      "label": 4,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 21,
+      "label": 2,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 22,
+      "label": 0,
+      "detected": true,
+      "fallback_type": "detected"
+    },
+    {
+      "sample_index": 24,
+      "label": 3,
+      "detected": true,
+      "fallback_type": "detected"
+    }
+  ],
+  "graph_parity_pass": true,
+  "graph_max_node_abs": 0.0,
+  "graph_max_edge_abs": 0.0,
+  "forward_parity_pass": true,
+  "logit_max_abs": 0.0,
+  "probability_max_abs": 0.0,
+  "prediction_agreement": 1.0,
+  "layer_metrics": {
+    "input_projection": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "gnn_layer_1": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "gnn_layer_2": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "gnn_layer_3": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "classifier_input": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "pre_readout_node_representation": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "pooled_graph_embedding": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "micro_major_motif_tokens": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "micro_major_motif_transformed_tokens": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "micro_motif_tokens": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "micro_motif_transformed_tokens": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    },
+    "micro_support_gate": {
+      "shape_match": true,
+      "exact": true,
+      "max_abs": 0.0,
+      "mean_abs": 0.0,
+      "relative_l2": 0.0
+    }
+  },
+  "state_key_match": true,
+  "state_shape_match": true,
+  "training_steps": [
+    {
+      "step": 1,
+      "logit_max_abs": 0.0,
+      "loss_abs": 0.0,
+      "gradient_max_abs": 0.0,
+      "parameter_max_abs": 0.0,
+      "optimizer_state_max_abs": 0.0,
+      "rng_equal": true
+    },
+    {
+      "step": 2,
+      "logit_max_abs": 0.0,
+      "loss_abs": 0.0,
+      "gradient_max_abs": 0.0,
+      "parameter_max_abs": 0.0,
+      "optimizer_state_max_abs": 0.0,
+      "rng_equal": true
+    }
+  ],
+  "training_step_parity_pass": true,
+  "scheduler_state_match": true,
+  "metric_differences": {
+    "accuracy": 0.0,
+    "macro_f1": 0.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0
+  },
+  "metric_parity_pass": true,
+  "extended_metric_values": {
+    "accuracy": 0.6666666666666666,
+    "balanced_accuracy": 0.7380952380952381,
+    "macro_f1": 0.7380952380952381,
+    "weighted_f1": 0.6666666666666666,
+    "per_class_precision": [
+      0.5,
+      1.0,
+      0.5,
+      1.0,
+      0.5,
+      1.0,
+      0.6666666666666666
+    ],
+    "per_class_recall": [
+      0.5,
+      1.0,
+      0.5,
+      1.0,
+      0.5,
+      1.0,
+      0.6666666666666666
+    ],
+    "per_class_f1": [
+      0.5,
+      1.0,
+      0.5,
+      1.0,
+      0.5,
+      1.0,
+      0.6666666666666666
+    ],
+    "confusion_matrix": [
+      [
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2
+      ]
+    ],
+    "nll": 2.075316194364462,
+    "brier": 0.876052608121686,
+    "ece": 0.41569871008853554
+  },
+  "checkpoint_roundtrip_pass": true,
+  "parameter_count": 1061192,
+  "full_training_launched": false,
+  "completed_epoch": false,
+  "optimizer_steps": 2
+}

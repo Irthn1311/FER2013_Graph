@@ -1,0 +1,8 @@
+extends: fer2013_ofix7_mid_baseline.yaml
+run_name: ofix7_mid_seed42
+seed: 42
+graph:
+  prior_corruption:
+    seed: 7741
+training:
+  seed: 42
