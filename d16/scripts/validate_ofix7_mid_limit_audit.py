@@ -199,7 +199,7 @@ def validate(prior_dir:Path,device:torch.device,portable:bool=False) -> dict[str
         "runner_rejects_combined_variant":True,"runner_rejects_unknown_seed":True,
         "heldout_requires_selection_lock":True,
         "registration_created":prep.REGISTRATION_PATH.exists(),
-        "registration_hash_created":prep.REGISTRATION_HASH_PATH.exists() and prep.sha256_file(prep.REGISTRATION_PATH)==reg_sha,
+        "registration_hash_created":prep.REGISTRATION_HASH_PATH.exists() and prep.normalized_text_sha256(prep.REGISTRATION_PATH)==reg_sha,
         "bounded_smoke_pass":smoke["bounded_smoke_pass"],
         "full_training_launched":False,"baseline_modified":False,"model_modified":False,
         "dataset_modified":False,"graph_modified":False,"checkpoint_modified":False,
@@ -223,4 +223,3 @@ def main()->None:
 
 
 if __name__=="__main__": main()
-

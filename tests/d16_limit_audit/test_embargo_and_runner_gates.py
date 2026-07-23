@@ -31,6 +31,6 @@ def test_heldout_rejects_wrong_variant():
     path=SCRATCH/"wrong/development_variant_selection_lock.json";path.parent.mkdir(parents=True,exist_ok=True)
     payload={"registration_sha256":sha,"decision":"SELECT_S1_FOR_HELDOUT","selected_variant":"S1",
              "heldout_config_sha256":{"777":registration["config_file_sha256"][prep.relative(prep.config_path("S1",777))]}}
-    prep.write_json(path,payload);path.with_suffix(".sha256").write_text(prep.sha256_file(path)+"\n",encoding="utf-8")
+    prep.write_json(path,payload);path.with_suffix(".sha256").write_text(prep.normalized_text_sha256(path)+"\n",encoding="utf-8")
     with pytest.raises(RuntimeError): verify_selection_lock(path,sha,"O1",777,registration)
 

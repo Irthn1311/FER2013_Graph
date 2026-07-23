@@ -19,20 +19,20 @@ def load_csv(path:Path)->list[dict[str,str]]:
 
 
 def write_lock(path:Path,payload:dict[str,Any])->str:
-    prep.write_json(path,payload); sha=prep.sha256_file(path); path.with_suffix(".sha256").write_text(sha+"\n",encoding="utf-8")
+    prep.write_json(path,payload); sha=prep.normalized_text_sha256(path); path.with_suffix(".sha256").write_text(sha+"\n",encoding="utf-8")
     return sha
 
 
 def verify_lock(path:Path)->tuple[dict[str,Any],str]:
     side=path.with_suffix(".sha256")
     if not path.exists() or not side.exists(): raise RuntimeError(f"Missing lock/sidecar: {path}")
-    sha=prep.sha256_file(path)
+    sha=prep.normalized_text_sha256(path)
     if sha!=side.read_text(encoding="utf-8-sig").strip(): raise RuntimeError(f"Lock SHA mismatch: {path}")
     return prep.load_json(path),sha
 
 
 def load_registration(path:Path)->tuple[dict[str,Any],str]:
-    sha=prep.sha256_file(path); side=path.with_suffix(".sha256")
+    sha=prep.normalized_text_sha256(path); side=path.with_suffix(".sha256")
     if side.exists() and sha!=side.read_text(encoding="utf-8-sig").strip(): raise RuntimeError("Registration SHA mismatch")
     return prep.load_json(path),sha
 

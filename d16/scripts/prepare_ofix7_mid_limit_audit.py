@@ -298,7 +298,7 @@ def prepare() -> dict[str, Any]:
             path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
             paths.append(path); rows = semantic_diff(base, cfg, variant, seed); diffs.extend(rows)
             manifest.append({"variant":variant, "seed":seed, "stage":"development" if seed in DEVELOPMENT_SEEDS else "heldout",
-                             "config_path":relative(path), "run_name":cfg["run_name"], "file_sha256":sha256_file(path),
+                             "config_path":relative(path), "run_name":cfg["run_name"], "file_sha256":normalized_text_sha256(path),
                              "unauthorized_scientific_diffs":sum(r["authorization_status"]=="UNAUTHORIZED" for r in rows)})
     unauthorized = [row for row in diffs if row["authorization_status"] == "UNAUTHORIZED"]
     if len(paths) != 10 or len(list(CONFIG_DIR.glob("*.yaml"))) != 10 or unauthorized:
@@ -306,8 +306,14 @@ def prepare() -> dict[str, Any]:
     s1, o1 = definitions(); machine = load_json(BASE / "26_machine_readable_summary.json")
     registration = {
         "registration_version":"ofix7-mid-bounded-limit-audit-v1", "created_at_utc":datetime.now(timezone.utc).isoformat(),
-        "baseline_checkpoint_policy_lock":{"path":relative(POLICY_LOCK),"sha256":checks["checkpoint_policy_lock_sha"]},
-        "baseline_replication_lock":{"path":relative(BASELINE_LOCK),"sha256":checks["baseline_replication_lock_sha"]},
+        "baseline_checkpoint_policy_lock":{
+            "path":relative(POLICY_LOCK),"sha256":checks["checkpoint_policy_lock_sha"],
+            "canonical_json_sha256":json_hash(load_json(POLICY_LOCK)),
+        },
+        "baseline_replication_lock":{
+            "path":relative(BASELINE_LOCK),"sha256":checks["baseline_replication_lock_sha"],
+            "canonical_json_sha256":json_hash(load_json(BASELINE_LOCK)),
+        },
         "baseline_commit":checks["baseline_commit"], "baseline_status":"STRONG_REPLICATION",
         "selected_checkpoint_policy":"VAL_MACRO_F1", "selected_checkpoint":"best_val_macro_f1.pt",
         "best_alias_policy":"best.pt canonical model state equals best_val_macro_f1.pt",
@@ -319,7 +325,9 @@ def prepare() -> dict[str, Any]:
         "radam_runtime":{"torch_version":torch.__version__, "signature":str(inspect.signature(torch.optim.RAdam)),
                          "decoupled_weight_decay_supported":"decoupled_weight_decay" in inspect.signature(torch.optim.RAdam).parameters},
         "all_registered_seeds":ALL_SEEDS, "development_seeds":DEVELOPMENT_SEEDS, "heldout_seeds":HELDOUT_SEEDS,
-        "config_paths":[relative(p) for p in paths], "config_file_sha256":{relative(p):sha256_file(p) for p in paths},
+        "text_hash_normalization":"UTF-8 without BOM; CRLF and CR normalized to LF",
+        "config_paths":[relative(p) for p in paths],
+        "config_file_sha256":{relative(p):normalized_text_sha256(p) for p in paths},
         "normalized_config_sha256":{relative(p):json_hash(load_yaml(p)) for p in paths},
         "semantic_diff_sha256":json_hash(diffs),
         "allowed_difference_policy":{"S1":["training.scheduler.*"],"O1":["training.optimizer.*"],
@@ -328,10 +336,10 @@ def prepare() -> dict[str, Any]:
         "development_gate_source":"prompt_preregistered_rule; prior machine summary action="+str(machine.get("optimizer_scheduler_next_action"))+" has no numeric gate",
         "development_winner_tie_breaking":TIE_BREAKING, "heldout_confirmation_gate":HELDOUT_GATE,
         "implementation_source_sha256":{
-            relative(ROOT/"d16/training/train_d16.py"):sha256_file(ROOT/"d16/training/train_d16.py"),
-            relative(ROOT/"d16/scripts/prepare_ofix7_mid_limit_audit.py"):sha256_file(ROOT/"d16/scripts/prepare_ofix7_mid_limit_audit.py"),
-            relative(ROOT/"d16/scripts/run_ofix7_mid_limit_variant.py"):sha256_file(ROOT/"d16/scripts/run_ofix7_mid_limit_variant.py"),
-            relative(ROOT/"d16/scripts/analyze_ofix7_mid_limit_audit.py"):sha256_file(ROOT/"d16/scripts/analyze_ofix7_mid_limit_audit.py"),
+            relative(ROOT/"d16/training/train_d16.py"):normalized_text_sha256(ROOT/"d16/training/train_d16.py"),
+            relative(ROOT/"d16/scripts/prepare_ofix7_mid_limit_audit.py"):normalized_text_sha256(ROOT/"d16/scripts/prepare_ofix7_mid_limit_audit.py"),
+            relative(ROOT/"d16/scripts/run_ofix7_mid_limit_variant.py"):normalized_text_sha256(ROOT/"d16/scripts/run_ofix7_mid_limit_variant.py"),
+            relative(ROOT/"d16/scripts/analyze_ofix7_mid_limit_audit.py"):normalized_text_sha256(ROOT/"d16/scripts/analyze_ofix7_mid_limit_audit.py"),
         },
         "test_embargo_policy":{"flag":"training.defer_test_evaluation=true","selection_uses_test_metrics":False,
             "development_and_heldout":"no test dataset read or result artifact",
@@ -341,7 +349,7 @@ def prepare() -> dict[str, Any]:
             "practical_limit_not_supported":"winner passes development and heldout",
             "practical_limit_inconclusive":"integrity or missing evidence blocks conclusion"},
     }
-    write_json(REGISTRATION_PATH, registration); reg_sha = sha256_file(REGISTRATION_PATH)
+    write_json(REGISTRATION_PATH, registration); reg_sha = normalized_text_sha256(REGISTRATION_PATH)
     REGISTRATION_HASH_PATH.write_text(reg_sha+"\n", encoding="utf-8")
     PORTABLE_REGISTRATION_PATH.write_bytes(REGISTRATION_PATH.read_bytes())
     PORTABLE_REGISTRATION_HASH_PATH.write_text(reg_sha+"\n", encoding="utf-8")
@@ -372,15 +380,22 @@ def verify_portable_bundle() -> dict[str, Any]:
     required=[PORTABLE_REGISTRATION_PATH,PORTABLE_REGISTRATION_HASH_PATH,PORTABLE_POLICY_LOCK,PORTABLE_BASELINE_LOCK]
     missing=[str(path) for path in required if not path.exists()]
     if missing: raise FileNotFoundError(missing)
-    registration_sha=sha256_file(PORTABLE_REGISTRATION_PATH)
+    registration_sha=normalized_text_sha256(PORTABLE_REGISTRATION_PATH)
     if registration_sha!=PORTABLE_REGISTRATION_HASH_PATH.read_text(encoding="utf-8-sig").strip():
         raise RuntimeError("Portable registration hash mismatch")
-    if sha256_file(PORTABLE_POLICY_LOCK)!=POLICY_SHA or sha256_file(PORTABLE_BASELINE_LOCK)!=BASELINE_SHA:
-        raise RuntimeError("Portable baseline lock hash mismatch")
     registration=load_json(PORTABLE_REGISTRATION_PATH)
+    if registration["baseline_checkpoint_policy_lock"]["sha256"]!=POLICY_SHA:
+        raise RuntimeError("Historical checkpoint-policy lock SHA drift")
+    if registration["baseline_replication_lock"]["sha256"]!=BASELINE_SHA:
+        raise RuntimeError("Historical baseline-replication lock SHA drift")
+    if json_hash(load_json(PORTABLE_POLICY_LOCK))!=registration["baseline_checkpoint_policy_lock"]["canonical_json_sha256"]:
+        raise RuntimeError("Portable checkpoint-policy lock content mismatch")
+    if json_hash(load_json(PORTABLE_BASELINE_LOCK))!=registration["baseline_replication_lock"]["canonical_json_sha256"]:
+        raise RuntimeError("Portable baseline-replication lock content mismatch")
     for relpath,expected in registration["config_file_sha256"].items():
         path=ROOT/relpath
-        if not path.exists() or sha256_file(path)!=expected: raise RuntimeError(f"Portable config hash mismatch: {relpath}")
+        if not path.exists() or normalized_text_sha256(path)!=expected:
+            raise RuntimeError(f"Portable config hash mismatch: {relpath}")
     return {"portable_bundle_valid":True,"registration_sha256":registration_sha,"config_count":len(registration["config_paths"])}
 
 
@@ -393,4 +408,3 @@ def main() -> None:
 
 
 if __name__ == "__main__": main()
-

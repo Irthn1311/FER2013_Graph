@@ -14,7 +14,7 @@ from d16.scripts.prepare_ofix7_mid_limit_audit import (
     ALL_SEEDS, BASELINE_LOCK, BASELINE_SHA, CONFIG_DIR, DEVELOPMENT_SEEDS,
     HELDOUT_SEEDS, POLICY_LOCK, POLICY_SHA, PREFLIGHT_DIR, REGISTRATION_HASH_PATH,
     REGISTRATION_PATH, RUN_ROOT, config_path, json_hash, load_json, load_yaml,
-    make_variant_config, relative, run_name, semantic_diff, sha256_file,
+    make_variant_config, normalized_text_sha256, relative, run_name, semantic_diff, sha256_file,
 )
 
 # The conditional import syntax above is intentionally avoided at runtime by
@@ -45,14 +45,20 @@ def verify_registration() -> tuple[dict[str, Any], str]:
     registration_path, hash_path, policy_path, baseline_path = registration_bundle()
     for path in (registration_path, hash_path, policy_path, baseline_path):
         if not path.exists(): raise FileNotFoundError(path)
-    actual = sha256_file(registration_path); expected = hash_path.read_text(encoding="utf-8-sig").strip()
+    actual = normalized_text_sha256(registration_path); expected = hash_path.read_text(encoding="utf-8-sig").strip()
     if actual != expected: raise RuntimeError("Limit-audit registration hash mismatch")
-    if sha256_file(policy_path) != prep.POLICY_SHA: raise RuntimeError("Checkpoint-policy portable lock hash mismatch")
-    if sha256_file(baseline_path) != prep.BASELINE_SHA: raise RuntimeError("Baseline portable lock hash mismatch")
     registration = load_json(registration_path)
+    if registration["baseline_checkpoint_policy_lock"]["sha256"] != prep.POLICY_SHA:
+        raise RuntimeError("Historical checkpoint-policy lock SHA drift")
+    if registration["baseline_replication_lock"]["sha256"] != prep.BASELINE_SHA:
+        raise RuntimeError("Historical baseline-replication lock SHA drift")
+    if json_hash(load_json(policy_path)) != registration["baseline_checkpoint_policy_lock"]["canonical_json_sha256"]:
+        raise RuntimeError("Checkpoint-policy portable lock content mismatch")
+    if json_hash(load_json(baseline_path)) != registration["baseline_replication_lock"]["canonical_json_sha256"]:
+        raise RuntimeError("Baseline portable lock content mismatch")
     for source, expected_source_sha in (registration.get("implementation_source_sha256") or {}).items():
         source_path = ROOT / source
-        if not source_path.exists() or sha256_file(source_path) != expected_source_sha:
+        if not source_path.exists() or normalized_text_sha256(source_path) != expected_source_sha:
             raise RuntimeError(f"Registered implementation source drift: {source}")
     if registration.get("selected_checkpoint_policy") != "VAL_MACRO_F1":
         raise RuntimeError("Registered checkpoint policy is not VAL_MACRO_F1")
@@ -87,7 +93,8 @@ def registered_config(variant: str, seed: int, registration: dict[str, Any]) -> 
     if not path.exists(): raise FileNotFoundError(path)
     key = relative(path)
     if key not in registration["config_paths"]: raise RuntimeError("Config path is not registered")
-    if sha256_file(path) != registration["config_file_sha256"][key]: raise RuntimeError("Registered config file hash mismatch")
+    if normalized_text_sha256(path) != registration["config_file_sha256"][key]:
+        raise RuntimeError("Registered config file hash mismatch")
     cfg = load_yaml(path)
     if json_hash(cfg) != registration["normalized_config_sha256"][key]: raise RuntimeError("Registered normalized config hash mismatch")
     if cfg.get("run_name") != run_name(variant, seed): raise RuntimeError("Run name mismatch")
@@ -127,7 +134,7 @@ def test_artifacts(path: Path) -> list[str]:
 def verify_selection_lock(path: Path, registration_sha: str, variant: str, seed: int, registration: dict[str, Any]) -> dict[str, Any]:
     sidecar = path.with_suffix(".sha256")
     if not path.exists() or not sidecar.exists(): raise RuntimeError("Held-out seed requires development selection lock and SHA")
-    if sha256_file(path) != sidecar.read_text(encoding="utf-8-sig").strip():
+    if normalized_text_sha256(path) != sidecar.read_text(encoding="utf-8-sig").strip():
         raise RuntimeError("Development selection lock SHA mismatch")
     lock = load_json(path)
     if lock.get("registration_sha256") != registration_sha: raise RuntimeError("Selection lock registration mismatch")
@@ -214,7 +221,7 @@ def main() -> None:
     (provenance/"environment.json").write_text(json.dumps(environment(), indent=2)+"\n", encoding="utf-8")
     (provenance/"request.json").write_text(json.dumps({
         "variant":args.variant, "seed":args.seed, "registration_sha256":context["registration_sha"],
-        "config_sha256":sha256_file(context["config_path"]), "no_resume":True,
+        "config_sha256":normalized_text_sha256(context["config_path"]), "no_resume":True,
         "official_test_split_touched":False,
     }, indent=2)+"\n", encoding="utf-8")
     result = subprocess.run(context["command"], cwd=ROOT, env=os.environ.copy())
@@ -231,7 +238,7 @@ def main() -> None:
         raise RuntimeError("best.pt does not alias validation macro-F1 checkpoint")
     marker = {
         "status":"COMPLETE_VALIDATION_ONLY","variant":args.variant,"seed":args.seed,
-        "registration_sha256":context["registration_sha"],"config_sha256":sha256_file(context["config_path"]),
+        "registration_sha256":context["registration_sha"],"config_sha256":normalized_text_sha256(context["config_path"]),
         "test_evaluation_deferred":True,"resumed":False,"completed_at_utc":datetime.now(timezone.utc).isoformat(),
     }
     (output/"LIMIT_AUDIT_COMPLETE.json").write_text(json.dumps(marker,indent=2)+"\n",encoding="utf-8")
@@ -239,4 +246,3 @@ def main() -> None:
 
 
 if __name__ == "__main__": main()
-

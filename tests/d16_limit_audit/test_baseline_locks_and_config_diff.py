@@ -23,3 +23,11 @@ def test_seed_registration_exact():
     assert prep.HELDOUT_SEEDS==[777,3407]
     assert prep.ALL_SEEDS==[42,1009,1337,777,3407]
 
+def test_portable_text_hash_is_line_ending_invariant(tmp_path):
+    crlf=tmp_path/"crlf.json"
+    lf=tmp_path/"lf.json"
+    crlf.write_bytes(b'{\r\n  "value": 1\r\n}\r\n')
+    lf.write_bytes(b'{\n  "value": 1\n}\n')
+    assert prep.sha256_file(crlf)!=prep.sha256_file(lf)
+    assert prep.normalized_text_sha256(crlf)==prep.normalized_text_sha256(lf)
+

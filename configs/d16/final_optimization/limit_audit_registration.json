@@ -1,13 +1,15 @@
 {
   "registration_version": "ofix7-mid-bounded-limit-audit-v1",
-  "created_at_utc": "2026-07-22T15:39:09.321734+00:00",
+  "created_at_utc": "2026-07-23T18:11:59.968995+00:00",
   "baseline_checkpoint_policy_lock": {
     "path": "outputs/d16_analysis/ofix7_mid_5seed_posttraining_analysis/10_checkpoint_policy_lock.json",
-    "sha256": "dfce606a69343b1a8de821ec3fc547d5700b94ff6c9a15f6b26d32e02601fc5f"
+    "sha256": "dfce606a69343b1a8de821ec3fc547d5700b94ff6c9a15f6b26d32e02601fc5f",
+    "canonical_json_sha256": "5f52e6e4ba57be60913dfd1daa6537e697b194092b1ab981af49da4fd2475f53"
   },
   "baseline_replication_lock": {
     "path": "outputs/d16_analysis/ofix7_mid_5seed_posttraining_analysis/23_baseline_replication_lock.json",
-    "sha256": "d54c9162de7e4f6bda2ee37dbe735939f7542195d9d2fe6dbd5e61cd85351dc3"
+    "sha256": "d54c9162de7e4f6bda2ee37dbe735939f7542195d9d2fe6dbd5e61cd85351dc3",
+    "canonical_json_sha256": "e40cdae969553b9e33bf1991730050f98c08c9e5fa1cadb5c91bd1960a1cd1c3"
   },
   "baseline_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
   "baseline_status": "STRONG_REPLICATION",
@@ -90,6 +92,7 @@
     777,
     3407
   ],
+  "text_hash_normalization": "UTF-8 without BOM; CRLF and CR normalized to LF",
   "config_paths": [
     "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed42.yaml",
     "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1009.yaml",
@@ -103,16 +106,16 @@
     "configs/d16/final_optimization/ofix7_mid_o1_radam_seed3407.yaml"
   ],
   "config_file_sha256": {
-    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed42.yaml": "1edd70992e32aaded371422dc271b91d16c4d51a97e2dc636ed907d142325458",
-    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1009.yaml": "1df3629c0e0f8fc3c4c95da0b2e43ddf042b821e67d04af195df30806a3e500e",
-    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1337.yaml": "0591b87749641a1593ca7bf02d87d471117183817196ee417e23dc0a64944443",
-    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed777.yaml": "a128d197179ba334ba4c28c07cf7f53d3f9a8c7bd713b07eeb6009eb88a290bc",
-    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed3407.yaml": "90b7ea524193832b2ee4e2fe25cf0af932c05d128563e690a2cfa761d3144adc",
-    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed42.yaml": "0d4b31cc561d8f9a5b1f1ac24b00b4bb7de232481e42ec0a63e44947624a1844",
-    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1009.yaml": "a7251a2b14d75f726f0739da85202b733e98a105b7d9962f869da594fce540e4",
-    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1337.yaml": "5ddca1c1d51776f826d0c6021e81afc2dc6d8f418b7a43685367789bc28dbd9f",
-    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed777.yaml": "a7f5ad8fd6a609ff4e970dc9b3e9496a51759ea0eb761425b480e3bfe12c9163",
-    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed3407.yaml": "85156deb7448bff0acfa025b69036939029c55b0dc657ca1599f855bb648a673"
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed42.yaml": "625846db7dc8f29079b69b49e01a6a6c9affc9ba3b5bd0ed737a27cac861c304",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1009.yaml": "d78f5123256b44bdcfc1515bdbbc1a14d5b84537ddbebb5ac56c49d45fd3d589",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1337.yaml": "c73ff57645d160896cb47bf7c6df3d849731f9e23a80cde99c1edb0d0cb0267a",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed777.yaml": "0e5fcecab045415e1d06a04cdb61c7b008ff07ee1f239fac486bd4a1ed4d2d96",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed3407.yaml": "333b121ea0fd0becc06d6cf2eb13465d5d32af55650856b2018ab66510ee1cfd",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed42.yaml": "f9d9287dc6a1cb775710fbcbd17e4018b993d2dfcb1569db94f732c312b6e5d2",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1009.yaml": "739f39d8a0bf0323cf73d18bc0c275e235033f12327ed06c91e46dd759aefbe7",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1337.yaml": "740697f9cb5352564952ed824041c6e912f6ed6a28f1745c7987494a2efd0370",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed777.yaml": "b72a0caf991d39a76061d0777aed0b28f4dfb0bac2a3ed69deb3941936a48536",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed3407.yaml": "d0977de57a0de521da4e15c720a86f0115903872fc24b80d22c1978a59da64b9"
   },
   "normalized_config_sha256": {
     "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed42.yaml": "d0ee9dae6c73b17c637a3356495dcbf7cbddbc0e23168d8796e13abfd9c56be6",
@@ -166,9 +169,9 @@
   },
   "implementation_source_sha256": {
     "d16/training/train_d16.py": "24199c7ecccc1c3881c774305785a5d145c2e0d6dd810acf53181c72ce79e072",
-    "d16/scripts/prepare_ofix7_mid_limit_audit.py": "569913673cacff78fe18abba4c446b2271e8c9a55c790ca5b71c874f5a944e29",
-    "d16/scripts/run_ofix7_mid_limit_variant.py": "a5be94d2b587ea715908ef8c5c915ba1b25cf1a63c329bb8d2fd362aca255394",
-    "d16/scripts/analyze_ofix7_mid_limit_audit.py": "65fdc9fd63ccce392a8a06ab40c74bef66c69c876b394b6226e63fc461f5eac0"
+    "d16/scripts/prepare_ofix7_mid_limit_audit.py": "963f8819736dfcb17e6a02e5afbee8869693b9f9379ebab2439993fe5514a20f",
+    "d16/scripts/run_ofix7_mid_limit_variant.py": "cd04aa4f90a4afa0b1de391b377e6df78784389e80afb88f3408ae5d9e1a6d5a",
+    "d16/scripts/analyze_ofix7_mid_limit_audit.py": "55eb412016593e0296abc5a27925500c5227cd17ba2127279610b40651a9115d"
   },
   "test_embargo_policy": {
     "flag": "training.defer_test_evaluation=true",
