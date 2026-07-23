@@ -1,0 +1,188 @@
+{
+  "registration_version": "ofix7-mid-bounded-limit-audit-v1",
+  "created_at_utc": "2026-07-22T15:39:09.321734+00:00",
+  "baseline_checkpoint_policy_lock": {
+    "path": "outputs/d16_analysis/ofix7_mid_5seed_posttraining_analysis/10_checkpoint_policy_lock.json",
+    "sha256": "dfce606a69343b1a8de821ec3fc547d5700b94ff6c9a15f6b26d32e02601fc5f"
+  },
+  "baseline_replication_lock": {
+    "path": "outputs/d16_analysis/ofix7_mid_5seed_posttraining_analysis/23_baseline_replication_lock.json",
+    "sha256": "d54c9162de7e4f6bda2ee37dbe735939f7542195d9d2fe6dbd5e61cd85351dc3"
+  },
+  "baseline_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+  "baseline_status": "STRONG_REPLICATION",
+  "selected_checkpoint_policy": "VAL_MACRO_F1",
+  "selected_checkpoint": "best_val_macro_f1.pt",
+  "best_alias_policy": "best.pt canonical model state equals best_val_macro_f1.pt",
+  "architecture_signature": "b277ea4bcf1070bfa064c6c496f377b7a0408082aaba13d744adeb9e26554f73",
+  "model_signature": "50433ebc12de59a11a4e4168bb31c2c40b519566622e233c18aaeb215915cf3e",
+  "feature_signature": "b97a6c8fe605022395bbe578e1d7a961fe8598ef519493798df83d8c79dfe043",
+  "graph_signature": "363a9916bc4b5c76eda3dc95b6ae7df20bcc37a01a19c7b018468d181fb83561",
+  "dataset_signature": "695746df2e352c65370b4bb684abc2a99117e8dc4c297a0a145fe423ad6400a6",
+  "split_signature": "SPLIT_EXACT",
+  "parameter_count": 1061192,
+  "s1_definition": {
+    "variant": "S1",
+    "optimizer": {
+      "class": "AdamW",
+      "lr": 0.0003,
+      "weight_decay": 0.001,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "eps": 1e-08,
+      "amsgrad": false
+    },
+    "scheduler": {
+      "class": "CosineAnnealingLR",
+      "T_max": 90,
+      "eta_min": 3e-05,
+      "last_epoch": -1,
+      "step_once_per_completed_epoch": true,
+      "step_argument": null,
+      "step_position": "after validation/checkpoint comparison, before last.pt save"
+    }
+  },
+  "o1_definition": {
+    "variant": "O1",
+    "optimizer": {
+      "class": "RAdam",
+      "lr": 0.0003,
+      "weight_decay": 0.001,
+      "betas": [
+        0.9,
+        0.999
+      ],
+      "eps": 1e-08,
+      "decoupled_weight_decay": true
+    },
+    "scheduler": {
+      "class": "ReduceLROnPlateau",
+      "monitor": "val_loss",
+      "mode": "min",
+      "factor": 0.5,
+      "patience": 5,
+      "threshold": 0.0001,
+      "min_lr": 3e-05,
+      "cooldown": 0,
+      "step_position": "after validation/checkpoint comparison, before last.pt save"
+    }
+  },
+  "radam_runtime": {
+    "torch_version": "2.11.0+cu126",
+    "signature": "(params: collections.abc.Iterable[torch.Tensor] | collections.abc.Iterable[dict[str, typing.Any]] | collections.abc.Iterable[tuple[str, torch.Tensor]], lr: float | torch.Tensor = 0.001, betas: tuple[float, float] = (0.9, 0.999), eps: float = 1e-08, weight_decay: float = 0, decoupled_weight_decay: bool = False, *, foreach: bool | None = None, maximize: bool = False, capturable: bool = False, differentiable: bool = False) -> None",
+    "decoupled_weight_decay_supported": true
+  },
+  "all_registered_seeds": [
+    42,
+    1009,
+    1337,
+    777,
+    3407
+  ],
+  "development_seeds": [
+    42,
+    1009,
+    1337
+  ],
+  "heldout_seeds": [
+    777,
+    3407
+  ],
+  "config_paths": [
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed42.yaml",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1009.yaml",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1337.yaml",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed777.yaml",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed3407.yaml",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed42.yaml",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1009.yaml",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1337.yaml",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed777.yaml",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed3407.yaml"
+  ],
+  "config_file_sha256": {
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed42.yaml": "1edd70992e32aaded371422dc271b91d16c4d51a97e2dc636ed907d142325458",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1009.yaml": "1df3629c0e0f8fc3c4c95da0b2e43ddf042b821e67d04af195df30806a3e500e",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1337.yaml": "0591b87749641a1593ca7bf02d87d471117183817196ee417e23dc0a64944443",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed777.yaml": "a128d197179ba334ba4c28c07cf7f53d3f9a8c7bd713b07eeb6009eb88a290bc",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed3407.yaml": "90b7ea524193832b2ee4e2fe25cf0af932c05d128563e690a2cfa761d3144adc",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed42.yaml": "0d4b31cc561d8f9a5b1f1ac24b00b4bb7de232481e42ec0a63e44947624a1844",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1009.yaml": "a7251a2b14d75f726f0739da85202b733e98a105b7d9962f869da594fce540e4",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1337.yaml": "5ddca1c1d51776f826d0c6021e81afc2dc6d8f418b7a43685367789bc28dbd9f",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed777.yaml": "a7f5ad8fd6a609ff4e970dc9b3e9496a51759ea0eb761425b480e3bfe12c9163",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed3407.yaml": "85156deb7448bff0acfa025b69036939029c55b0dc657ca1599f855bb648a673"
+  },
+  "normalized_config_sha256": {
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed42.yaml": "d0ee9dae6c73b17c637a3356495dcbf7cbddbc0e23168d8796e13abfd9c56be6",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1009.yaml": "5b6167b5fffdcd981f385af34840de8f59686773341c086b36edd7d183e65fb7",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed1337.yaml": "b7b933c34fb1039eff048ddd2435dc5c4537de03e5f75509a3965597a8dc5590",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed777.yaml": "7b87096ee550d4b808b06ed22454e987f17decc058d88588e23fc8657cc95e7a",
+    "configs/d16/final_optimization/ofix7_mid_s1_cosine_seed3407.yaml": "d1ba5797d359cd4254c20ab46e8d508a48dde844a219d861b6622f94d193bc5d",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed42.yaml": "05741a571486c461107b9996b000338f56f93e1d38f55adbadd2d8c8f844ebef",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1009.yaml": "921c9fb9d29568815f7568ef9cae4311ca9a65279ff86daa76562f5817bbb5b7",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed1337.yaml": "b3716d0a5618bf940b1caeb3909426a86f85521df65e181d50178ceafe98819c",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed777.yaml": "176b817a86305bde8d6096f569472007a25b01429736934fe3794c91ad3a5551",
+    "configs/d16/final_optimization/ofix7_mid_o1_radam_seed3407.yaml": "ae69619707f7585de7d92edaf2db4d3f57024661d34e55d83ab6207d51f4ca48"
+  },
+  "semantic_diff_sha256": "a9dc47572193ebedf970adaa622151642d31509ed799ab44a5be84b91da2caff",
+  "allowed_difference_policy": {
+    "S1": [
+      "training.scheduler.*"
+    ],
+    "O1": [
+      "training.optimizer.*"
+    ],
+    "non_scientific": [
+      "run_name",
+      "description",
+      "limit_audit_provenance.*",
+      "training.defer_test_evaluation"
+    ]
+  },
+  "development_gate": {
+    "mean_validation_accuracy_gain_pp_min": 1.0,
+    "mean_validation_macro_f1_gain_pp_min": 0.5,
+    "mean_train_validation_macro_f1_gap_increase_pp_max": 2.0,
+    "max_per_seed_validation_accuracy_loss_pp": 1.0,
+    "max_mean_per_class_validation_f1_loss_pp": 3.0,
+    "positive_validation_accuracy_direction_seed_count_min": 2
+  },
+  "development_gate_source": "prompt_preregistered_rule; prior machine summary action=PREPARE_BOTH_BOUNDED_CELLS has no numeric gate",
+  "development_winner_tie_breaking": [
+    "larger_mean_validation_accuracy_gain",
+    "larger_mean_validation_macro_f1_gain",
+    "smaller_train_validation_macro_f1_gap",
+    "smaller_validation_accuracy_sample_sd",
+    "S1_before_O1"
+  ],
+  "heldout_confirmation_gate": {
+    "mean_validation_accuracy_gain_pp_min": 0.75,
+    "mean_validation_macro_f1_gain_pp_min": 0.25,
+    "heldout_direction_rule": "both_positive_or_combined_positive_with_each_loss_le_0.50pp",
+    "mean_train_validation_macro_f1_gap_increase_pp_max": 2.0,
+    "validation_accuracy_sample_sd_increase_pp_max": 0.5
+  },
+  "implementation_source_sha256": {
+    "d16/training/train_d16.py": "24199c7ecccc1c3881c774305785a5d145c2e0d6dd810acf53181c72ce79e072",
+    "d16/scripts/prepare_ofix7_mid_limit_audit.py": "569913673cacff78fe18abba4c446b2271e8c9a55c790ca5b71c874f5a944e29",
+    "d16/scripts/run_ofix7_mid_limit_variant.py": "a5be94d2b587ea715908ef8c5c915ba1b25cf1a63c329bb8d2fd362aca255394",
+    "d16/scripts/analyze_ofix7_mid_limit_audit.py": "65fdc9fd63ccce392a8a06ab40c74bef66c69c876b394b6226e63fc461f5eac0"
+  },
+  "test_embargo_policy": {
+    "flag": "training.defer_test_evaluation=true",
+    "selection_uses_test_metrics": false,
+    "development_and_heldout": "no test dataset read or result artifact",
+    "reveal_requires": [
+      "development selection lock",
+      "final promotion lock"
+    ]
+  },
+  "final_decision_rules": {
+    "test_may_change_selection": false,
+    "practical_limit_supported": "no development pass or winner fails heldout with integrity intact",
+    "practical_limit_not_supported": "winner passes development and heldout",
+    "practical_limit_inconclusive": "integrity or missing evidence blocks conclusion"
+  }
+}

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import csv
 import copy
+import inspect
 import json
 import math
 import os
@@ -444,7 +445,7 @@ def _model_signature(config: Dict[str, Any], input_dim: int | None = None) -> Di
         "micro_use_log_prior_bias": micro.get("use_log_prior_bias"),
         "context_prior_gate": context.get("prior_gate", {}) or {},
         "loss_mode": loss.get("mode", "ce"),
-        "optimizer_type": "AdamW",
+        "optimizer_type": _optimizer_name_from_config(config),
         "scheduler_type": _scheduler_type_from_config(config),
     }
 
@@ -505,8 +506,94 @@ def _scheduler_cfg(training_cfg: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _optimizer_cfg(training_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = training_cfg.get("optimizer", {}) or {}
+    if isinstance(cfg, str):
+        cfg = {"type": cfg}
+    if not isinstance(cfg, dict):
+        raise ValueError("training.optimizer must be a mapping or optimizer name")
+    out = dict(cfg)
+    out["type"] = str(out.get("type", "adamw") or "adamw").lower()
+    return out
+
+
+def _optimizer_type_from_config(config: Dict[str, Any]) -> str:
+    return _optimizer_cfg((config.get("training", {}) or {})).get("type", "adamw")
+
+
+def _optimizer_name_from_config(config: Dict[str, Any]) -> str:
+    optimizer_type = _optimizer_type_from_config(config)
+    return {"adamw": "AdamW", "radam": "RAdam"}.get(optimizer_type, optimizer_type)
+
+
+def _resolved_optimizer_signature(training_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = _optimizer_cfg(training_cfg)
+    optimizer_type = str(cfg["type"]).lower()
+    signature: Dict[str, Any] = {
+        "type": optimizer_type,
+        "lr": float(cfg.get("lr", training_cfg.get("lr", 3e-4))),
+        "weight_decay": float(cfg.get("weight_decay", training_cfg.get("weight_decay", 1e-4))),
+        "betas": [float(value) for value in cfg.get("betas", (0.9, 0.999))],
+        "eps": float(cfg.get("eps", 1e-8)),
+    }
+    if optimizer_type == "adamw":
+        signature["amsgrad"] = bool(cfg.get("amsgrad", False))
+    elif optimizer_type == "radam":
+        signature["decoupled_weight_decay"] = bool(cfg.get("decoupled_weight_decay", False))
+    return signature
+
+
+def _build_optimizer(parameters: Any, training_cfg: Dict[str, Any]) -> torch.optim.Optimizer:
+    signature = _resolved_optimizer_signature(training_cfg)
+    optimizer_type = str(signature["type"])
+    common = {
+        "lr": float(signature["lr"]),
+        "weight_decay": float(signature["weight_decay"]),
+        "betas": tuple(float(value) for value in signature["betas"]),
+        "eps": float(signature["eps"]),
+    }
+    if optimizer_type == "adamw":
+        return torch.optim.AdamW(parameters, **common, amsgrad=bool(signature["amsgrad"]))
+    if optimizer_type == "radam":
+        if "decoupled_weight_decay" not in inspect.signature(torch.optim.RAdam).parameters:
+            raise RuntimeError("BLOCKED_RADAM_WEIGHT_DECAY_SEMANTICS")
+        if not bool(signature.get("decoupled_weight_decay", False)):
+            raise RuntimeError("RAdam requires decoupled_weight_decay=true for the registered D16 audit")
+        return torch.optim.RAdam(parameters, **common, decoupled_weight_decay=True)
+    raise ValueError(f"Unsupported D16 training.optimizer.type={optimizer_type!r}")
+
+
 def _scheduler_type_from_config(config: Dict[str, Any]) -> str:
     return _scheduler_cfg((config.get("training", {}) or {})).get("type", "none")
+
+
+def _resolved_scheduler_signature(training_cfg: Dict[str, Any], max_epochs: int | None = None) -> Dict[str, Any]:
+    cfg = _scheduler_cfg(training_cfg)
+    scheduler_type = str(cfg["type"])
+    signature: Dict[str, Any] = {"type": scheduler_type}
+    if scheduler_type == "plateau":
+        signature.update({
+            "class": "ReduceLROnPlateau",
+            "monitor": str(cfg.get("monitor", "val_loss")),
+            "mode": str(cfg.get("mode", "min")),
+            "factor": float(cfg.get("factor", 0.5)),
+            "patience": int(cfg.get("patience", 3)),
+            "threshold": float(cfg.get("threshold", 1e-4)),
+            "cooldown": int(cfg.get("cooldown", 0)),
+            "min_lr": float(cfg.get("min_lr", 0.0)),
+            "step_location": "after validation/checkpoint comparison, before last.pt save",
+            "step_argument": "validation metric",
+        })
+    elif scheduler_type == "cosine":
+        signature.update({
+            "class": "CosineAnnealingLR",
+            "t_max": int(cfg.get("t_max", max_epochs if max_epochs is not None else 0)),
+            "eta_min": float(cfg.get("eta_min", 0.0)),
+            "last_epoch": -1,
+            "step_location": "after validation/checkpoint comparison, before last.pt save",
+            "step_argument": None,
+        })
+    return signature
 
 
 def _build_scheduler(
@@ -548,6 +635,7 @@ def _build_scheduler(
             factor=float(scheduler_cfg.get("factor", 0.5)),
             patience=int(scheduler_cfg.get("patience", 3)),
             threshold=float(scheduler_cfg.get("threshold", 1e-4)),
+            cooldown=int(scheduler_cfg.get("cooldown", 0)),
             min_lr=float(scheduler_cfg.get("min_lr", 0.0)),
         )
         return scheduler, scheduler_type, scheduler_cfg
@@ -958,6 +1046,17 @@ def build_dataset(cfg: Dict[str, Any], prior_dir: str | Path, split: str):
         graph_cache_dir=graph_cache_dir,
         chunk_cache_size=chunk_cache_size,
     )
+
+
+def _build_training_datasets(
+    cfg: Dict[str, Any],
+    prior_dir: str | Path,
+    defer_test_evaluation: bool,
+):
+    train_ds = build_dataset(cfg, prior_dir, "train")
+    val_ds = build_dataset(cfg, prior_dir, "val")
+    test_ds = None if bool(defer_test_evaluation) else build_dataset(cfg, prior_dir, "test")
+    return train_ds, val_ds, test_ds
 
 
 def _macro_f1(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 7) -> float:
@@ -3330,12 +3429,10 @@ def main() -> None:
         print(json.dumps(existing_summary, indent=2), flush=True)
         return
 
-    train_ds = build_dataset(cfg, prior_dir, "train")
-    val_ds = build_dataset(cfg, prior_dir, "val")
-    test_ds = build_dataset(cfg, prior_dir, "test")
+    defer_test_evaluation = bool(training_cfg.get("defer_test_evaluation", False))
+    train_ds, val_ds, test_ds = _build_training_datasets(cfg, prior_dir, defer_test_evaluation)
     train_loader = DataLoader(train_ds, **_loader_kwargs(data_cfg, training_cfg, shuffle=True))
     val_loader = DataLoader(val_ds, **_loader_kwargs(data_cfg, training_cfg, shuffle=False))
-    test_loader = DataLoader(test_ds, **_loader_kwargs(data_cfg, training_cfg, shuffle=False))
 
     first_batch = next(iter(DataLoader(train_ds, batch_size=1, shuffle=False, collate_fn=collate_d16_graphs)))
     input_dim = int(first_batch.x_cat.size(1))
@@ -3371,11 +3468,8 @@ def main() -> None:
     main_logit_pair_margin_loss_fn = build_main_logit_pair_margin_loss(loss_cfg)
     if main_logit_pair_margin_loss_fn is not None:
         main_logit_pair_margin_loss_fn.to(device)
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=float(training_cfg.get("lr", 3e-4)),
-        weight_decay=float(training_cfg.get("weight_decay", 1e-4)),
-    )
+    optimizer = _build_optimizer(model.parameters(), training_cfg)
+    optimizer_signature = _resolved_optimizer_signature(training_cfg)
     train_steps_per_epoch = len(train_loader) if args.limit_train_batches is None else min(len(train_loader), int(args.limit_train_batches))
     scheduler, scheduler_type, scheduler_cfg = _build_scheduler(optimizer, training_cfg, max_epochs, train_steps_per_epoch)
     scaler = _make_grad_scaler(bool(amp_enabled))
@@ -3949,14 +4043,22 @@ def main() -> None:
                 )
                 break
 
-    eval_summary = evaluate_checkpoints(cfg, prior_dir, output_dir, device, also_eval_last=True, also_eval_best_val_loss=save_best_val_loss_diagnostic)
+    eval_summary: Dict[str, Any] = {}
+    if not defer_test_evaluation:
+        eval_summary = evaluate_checkpoints(
+            cfg,
+            prior_dir,
+            output_dir,
+            device,
+            also_eval_last=True,
+            also_eval_best_val_loss=save_best_val_loss_diagnostic,
+        )
 
     summary = {
         "output_dir": str(output_dir),
         "prior_dir": str(prior_dir),
         "device": str(device),
         "max_epochs": max_epochs,
-        "final_test_checkpoint": eval_summary["final_test_checkpoint"],
         "best_val_macro_f1": best_val_macro_f1,
         "best_monitor_metric": monitor_metric,
         "best_monitor_mode": monitor_mode,
@@ -3966,24 +4068,42 @@ def main() -> None:
         "early_stopping_mode": early_mode,
         "best_early_score": best_early_score,
         "checkpoint_policy": checkpoint_policy_type,
+        "optimizer_signature": optimizer_signature,
         "scheduler_type": scheduler_type,
+        "scheduler_signature": _resolved_scheduler_signature(training_cfg, max_epochs),
         "global_step": int(global_step),
         "amp": bool(amp_enabled),
-        "test_accuracy": eval_summary["test_accuracy"],
-        "test_macro_f1": eval_summary["test_macro_f1"],
-        "last_test_accuracy": eval_summary["last_test_accuracy"],
-        "last_test_macro_f1": eval_summary["last_test_macro_f1"],
         "best_val_loss_score": None if not math.isfinite(best_val_loss_score) else float(best_val_loss_score),
         "best_val_loss_epoch": int(best_val_loss_epoch),
-        "best_val_loss_test_accuracy": eval_summary.get("best_val_loss_test_accuracy"),
-        "best_val_loss_test_macro_f1": eval_summary.get("best_val_loss_test_macro_f1"),
         "train_samples": len(train_ds),
         "val_samples": len(val_ds),
-        "test_samples": len(test_ds),
         "wandb_enabled": bool(wandb_run is not None),
+        "test_evaluation_deferred": bool(defer_test_evaluation),
+        "official_test_data_accessed": False if defer_test_evaluation else True,
     }
+    if defer_test_evaluation:
+        summary["test_samples"] = None
+    else:
+        summary.update({
+            "final_test_checkpoint": eval_summary["final_test_checkpoint"],
+            "test_accuracy": eval_summary["test_accuracy"],
+            "test_macro_f1": eval_summary["test_macro_f1"],
+            "last_test_accuracy": eval_summary["last_test_accuracy"],
+            "last_test_macro_f1": eval_summary["last_test_macro_f1"],
+            "best_val_loss_test_accuracy": eval_summary.get("best_val_loss_test_accuracy"),
+            "best_val_loss_test_macro_f1": eval_summary.get("best_val_loss_test_macro_f1"),
+            "test_samples": len(test_ds) if test_ds is not None else None,
+        })
     _write_json(output_dir / "d16_train_summary.json", summary)
-    _write_report(output_dir, best_val_macro_f1, best_epoch)
+    if defer_test_evaluation:
+        (output_dir / "d16_training_only_report.md").write_text(
+            "# D16 Training-Only Report\n\n"
+            "Official holdout evaluation was deferred by preregistration. "
+            "This run contains training and validation artifacts only.\n",
+            encoding="utf-8",
+        )
+    else:
+        _write_report(output_dir, best_val_macro_f1, best_epoch)
     if wandb_run is not None:
         wandb_run.summary.update(summary)
     _wandb_log_final_outputs(wandb_run, output_dir)
