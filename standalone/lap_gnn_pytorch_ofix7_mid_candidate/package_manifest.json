@@ -271,37 +271,37 @@
     }
   ],
   "config_hashes": {
-    "fer2013_ofix7_mid_baseline.yaml": "948910739bca9eba98cfdeaf81a58e288b8854bce1f53b115c50ed1ae4657f35",
-    "fer2013_ofix7_mid_seed1009.yaml": "bd4314e5f8315ad2590218521ea58ca8abf30b86788f9e580da0ca1a526a6c57",
-    "fer2013_ofix7_mid_seed1337.yaml": "723ae08353584d1965698c0866daa7840fa4d157842a099a1b5df8fba9aedd66",
-    "fer2013_ofix7_mid_seed3407.yaml": "84eb0e67baa42d2675df668dd41b04cfedc834f999fe7058a1fe3b2fc0245f12",
-    "fer2013_ofix7_mid_seed42.yaml": "80335dc5dcad0dd464a0c273bad9c2928bf473d4e4a205f6382f4f8f3626a35c",
-    "fer2013_ofix7_mid_seed777.yaml": "f16798340201f7f6e7a0bb2626d3723a2cd194beac064a0c998189a292148890"
+    "fer2013_ofix7_mid_baseline.yaml": "07f6372d14a9486aefd4e31ed3c7c45758967b7167ecd16050e33ea57f5d7f02",
+    "fer2013_ofix7_mid_seed1009.yaml": "be5a05a04fa62fc5188a4f291a38a1e1aecd139b8260f7504514c986edf4386b",
+    "fer2013_ofix7_mid_seed1337.yaml": "b5d9f27a90aea64a040a78000bb3954469c05c766653fb5a629837cd1ff544e8",
+    "fer2013_ofix7_mid_seed3407.yaml": "a5e74fd599db53ddf158d9e9ced98e34eb0306a269672dc679587530cabf26d1",
+    "fer2013_ofix7_mid_seed42.yaml": "e2feaa60303075f813512af35e2635be598299750b9448f23c135ec8a9270b79",
+    "fer2013_ofix7_mid_seed777.yaml": "4082f4e88b27d0fd2766759c91d4d9bff3aa4f6bc0e9cba99428cfbbdd43aa74"
   },
   "contract_hashes": {
-    "architecture_contract.md": "f5e3da3411c432f960e3bbcead94233b3a3536a2709045e1c3dae03bf6567fad",
-    "checkpoint_policy.json": "2672fd427541e8543a651e99e10bb6fa7fb528c1dd909a3ccdbcac7f92612679",
-    "class_mapping.json": "2443b0a9efd4cc93aa650fa16efc30aff8c3690fdcde260b9bb0825ebc5a6985",
-    "edge_schema.json": "e8eee163001c7ed4397fcca8601f1c6206fad84625f199d5649990d84fb503b6",
-    "feature_schema.json": "752538062fa2e40d9615c650c529e9f4117f33a030b74d281b5b21fa573731fc",
-    "graph_batch_schema.json": "1c7597b170fd8604056ab7787fd2880d6e84f3025962fc4b6c8fb3e3faf8e1e8",
-    "node_schema.json": "93690a4d7f9b4fa673a49dec35adb6b0b9846da7a72e9e3b03d0a48a09c114e3",
-    "preprocessing_contract.json": "ea888bab9c003af9b279719025da7c39f90537179411326c2c3119fc8c3f0824"
+    "architecture_contract.md": "83fed2da3b5a447a8ecc945c4f61ce5fa0d8765c5b58d4b0880f58b3efe6c55e",
+    "checkpoint_policy.json": "cb137ba8926a4984e1014820c0bc1d1acf753b6b4b8cdec878a146637b3db7e3",
+    "class_mapping.json": "75304ccbd7a25f598f7477550df2c0ba58edf05db2b0c4706dbbf65795f5afa4",
+    "edge_schema.json": "eca70a23035a3417f1e6009636d9eb1a05c3ce9306649450bc432998f4138843",
+    "feature_schema.json": "32f1ff366db92a6eb01edaef39e805190f2f953d1052f3628b472b46c4c62421",
+    "graph_batch_schema.json": "d73ddd8e9f461b13bcf7b8e412a74f700e6bf25aad95609952251e7280533de8",
+    "node_schema.json": "decb12a57b82b5e6694fe13fad2a0f73a16d28509d0326c3d4f72b74b9fc4504",
+    "preprocessing_contract.json": "5d34ba7f5051e81d1b41ac73cf1e5624933dc016859529654184a6a454381431"
   },
   "golden_fixture_hashes": {
     "graph_batch.npz": "bf68b79a3d11d949e2d1d125200c7eedc51bb192287c495e5712d34a2053817b",
-    "initial_state_manifest.json": "450182a9de5e807a4ed91b07298db76fd0a3b88f4decedf0767945a8e4be7ca7",
+    "initial_state_manifest.json": "e173eed4587efae972a7dff98fe9ee6bfaa6d87adcdbc2b155983668ff0bad05",
     "labels.npy": "a770d343e1b78f114dd2419b6a3c82bc6ba9eae1c066064d9b33b7bfd98d1bfe",
     "layer_outputs.npz": "8570e539cbbe8a430eefc8789013086aed04d269e442ec3a654442528d3d00f2",
     "logits.npy": "976ad3445c07ae62805afc571c148c8f5377046096b907a95b6ee965a97c51df",
-    "losses.json": "1b63680209fcdaea40d335e208cab97bb07cbb6d06ebd14c790d2eabd3081ba7",
+    "losses.json": "a4106f79e5e1ef52cfc36c158e57538eb095be15f2a59793fcc4834f0d898015",
     "model_state.npz": "72cd901e0b48dee5781f256a22b47444280149157e64e02ff99ba6a0b4040e04",
     "pooled_embeddings.npy": "1dbd81248cca54444fab8b05bb464f06b09c5d6bd2671d325b6ace8baa3a8ec2",
     "probabilities.npy": "b1abe04d49f64907aea4f656eb5e7e714ae70179cb1198dc50acb643d176aa9f"
   },
   "parameter_count": 1061192,
-  "feature_schema_hash": "752538062fa2e40d9615c650c529e9f4117f33a030b74d281b5b21fa573731fc",
-  "graph_schema_hash": "1c7597b170fd8604056ab7787fd2880d6e84f3025962fc4b6c8fb3e3faf8e1e8",
+  "feature_schema_hash": "32f1ff366db92a6eb01edaef39e805190f2f953d1052f3628b472b46c4c62421",
+  "graph_schema_hash": "d73ddd8e9f461b13bcf7b8e412a74f700e6bf25aad95609952251e7280533de8",
   "tested_environment": {
     "platform": "Windows-10-10.0.26200-SP0",
     "python": "3.11.15",

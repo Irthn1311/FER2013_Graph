@@ -14,8 +14,31 @@ import torch
 import yaml
 
 
+TEXT_SUFFIXES = {
+    ".csv",
+    ".json",
+    ".md",
+    ".ps1",
+    ".py",
+    ".sha256",
+    ".sh",
+    ".toml",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
+
+
+def canonical_bytes(path: Path) -> bytes:
+    data = path.read_bytes()
+    if path.suffix.lower() not in TEXT_SUFFIXES:
+        return data
+    text = data.decode("utf-8")
+    return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+
+
 def sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(canonical_bytes(path)).hexdigest()
 
 
 def main() -> None:
