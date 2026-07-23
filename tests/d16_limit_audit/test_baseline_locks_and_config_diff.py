@@ -31,3 +31,9 @@ def test_portable_text_hash_is_line_ending_invariant(tmp_path):
     assert prep.sha256_file(crlf)!=prep.sha256_file(lf)
     assert prep.normalized_text_sha256(crlf)==prep.normalized_text_sha256(lf)
 
+def test_portable_validator_uses_portable_registration_artifacts():
+    from d16.scripts.validate_ofix7_mid_limit_audit import registration_artifact_status
+    reg_sha=prep.PORTABLE_REGISTRATION_HASH_PATH.read_text(encoding="utf-8-sig").strip()
+    status=registration_artifact_status(True,reg_sha)
+    assert status=={"registration_created":True,"registration_hash_created":True}
+

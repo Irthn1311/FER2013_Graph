@@ -135,6 +135,20 @@ def graph_and_model_smoke(prior_dir:Path,device:torch.device) -> dict[str,Any]:
     }
 
 
+def registration_artifact_status(portable:bool,reg_sha:str) -> dict[str,bool]:
+    registration_path = prep.PORTABLE_REGISTRATION_PATH if portable else prep.REGISTRATION_PATH
+    hash_path = prep.PORTABLE_REGISTRATION_HASH_PATH if portable else prep.REGISTRATION_HASH_PATH
+    return {
+        "registration_created": registration_path.exists(),
+        "registration_hash_created": (
+            registration_path.exists()
+            and hash_path.exists()
+            and prep.normalized_text_sha256(registration_path) == reg_sha
+            and hash_path.read_text(encoding="utf-8-sig").strip() == reg_sha
+        ),
+    }
+
+
 def validate(prior_dir:Path,device:torch.device,portable:bool=False) -> dict[str,Any]:
     registration,reg_sha=verify_registration()
     if portable:
@@ -168,6 +182,7 @@ def validate(prior_dir:Path,device:torch.device,portable:bool=False) -> dict[str
            and factories["s1_T_max"]==90 and factories["s1_eta_min"]==3e-5 and factories["s1_step_calls"]==[[]])
     o1_ok=(factories["o1_optimizer_class"]=="RAdam" and factories["o1_decoupled_weight_decay"]
            and factories["o1_scheduler_class"]=="ReduceLROnPlateau" and factories["o1_step_calls"]==[[1.2]])
+    registration_status=registration_artifact_status(portable,reg_sha)
     summary={
         "checkpoint_policy_lock_found":baseline["checkpoint_policy_lock_found"],
         "checkpoint_policy_lock_sha_match":baseline["checkpoint_policy_lock_sha_match"],
@@ -198,8 +213,7 @@ def validate(prior_dir:Path,device:torch.device,portable:bool=False) -> dict[str
         "test_deferral_rng_neutral":trajectory["all_rng_neutral"],
         "runner_rejects_combined_variant":True,"runner_rejects_unknown_seed":True,
         "heldout_requires_selection_lock":True,
-        "registration_created":prep.REGISTRATION_PATH.exists(),
-        "registration_hash_created":prep.REGISTRATION_HASH_PATH.exists() and prep.normalized_text_sha256(prep.REGISTRATION_PATH)==reg_sha,
+        **registration_status,
         "bounded_smoke_pass":smoke["bounded_smoke_pass"],
         "full_training_launched":False,"baseline_modified":False,"model_modified":False,
         "dataset_modified":False,"graph_modified":False,"checkpoint_modified":False,
