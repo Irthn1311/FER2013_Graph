@@ -1,0 +1,5 @@
+tensorflow<2.19,>=2.18
+numpy<2.1,>=1.26
+PyYAML<7,>=6
+scikit-learn<1.7,>=1.5
+psutil<7,>=6

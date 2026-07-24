@@ -1,0 +1,18 @@
+{
+  "mode": "eval_float32_cpu_ce",
+  "loss": 0.8934714794158936,
+  "gradient_tensors": 127,
+  "updated_tensors": 127,
+  "optimizer": {
+    "type": "AdamW",
+    "lr": 0.0003,
+    "weight_decay": 0.001,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "step": 1
+  },
+  "bounded_optimizer_steps": 1
+}

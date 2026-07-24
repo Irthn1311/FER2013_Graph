@@ -1,0 +1,1317 @@
+[
+  {
+    "pytorch_key": "encoder.net.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/encoder/net/0/weight",
+    "keras_variable_path": "linear1/kernel",
+    "tensorflow_shape": [
+      37,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "encoder.net.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/encoder/net/0/bias",
+    "keras_variable_path": "linear1/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "encoder.net.1.weight",
+    "tensorflow_variable": "lap_gnn_tf/encoder/net/1/weight",
+    "keras_variable_path": "norm1/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "encoder.net.1.bias",
+    "tensorflow_variable": "lap_gnn_tf/encoder/net/1/bias",
+    "keras_variable_path": "norm1/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "encoder.net.4.weight",
+    "tensorflow_variable": "lap_gnn_tf/encoder/net/4/weight",
+    "keras_variable_path": "linear2/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "encoder.net.4.bias",
+    "tensorflow_variable": "lap_gnn_tf/encoder/net/4/bias",
+    "keras_variable_path": "linear2/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "encoder.net.5.weight",
+    "tensorflow_variable": "lap_gnn_tf/encoder/net/5/weight",
+    "keras_variable_path": "norm2/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "encoder.net.5.bias",
+    "tensorflow_variable": "lap_gnn_tf/encoder/net/5/bias",
+    "keras_variable_path": "norm2/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.edge_mlp.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/edge_mlp/0/weight",
+    "keras_variable_path": "edge_linear/kernel",
+    "tensorflow_shape": [
+      8,
+      32
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.edge_mlp.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/edge_mlp/0/bias",
+    "keras_variable_path": "edge_linear/bias",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.edge_mlp.1.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/edge_mlp/1/weight",
+    "keras_variable_path": "edge_norm/gamma",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.edge_mlp.1.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/edge_mlp/1/bias",
+    "keras_variable_path": "edge_norm/beta",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.gate.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/gate/weight",
+    "keras_variable_path": "gate/kernel",
+    "tensorflow_shape": [
+      32,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.gate.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/gate/bias",
+    "keras_variable_path": "gate/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.message.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/message/0/weight",
+    "keras_variable_path": "message_in/kernel",
+    "tensorflow_shape": [
+      128,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.message.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/message/0/bias",
+    "keras_variable_path": "message_in/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.message.3.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/message/3/weight",
+    "keras_variable_path": "message_out/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.message.3.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/message/3/bias",
+    "keras_variable_path": "message_out/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.norm_msg.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/norm_msg/weight",
+    "keras_variable_path": "norm_msg/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.norm_msg.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/norm_msg/bias",
+    "keras_variable_path": "norm_msg/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.ffn.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/ffn/0/weight",
+    "keras_variable_path": "ffn_in/kernel",
+    "tensorflow_shape": [
+      96,
+      192
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.ffn.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/ffn/0/bias",
+    "keras_variable_path": "ffn_in/bias",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.ffn.3.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/ffn/3/weight",
+    "keras_variable_path": "ffn_out/kernel",
+    "tensorflow_shape": [
+      192,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.ffn.3.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/ffn/3/bias",
+    "keras_variable_path": "ffn_out/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.norm_ffn.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/norm_ffn/weight",
+    "keras_variable_path": "norm_ffn/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.0.norm_ffn.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/0/norm_ffn/bias",
+    "keras_variable_path": "norm_ffn/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.edge_mlp.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/edge_mlp/0/weight",
+    "keras_variable_path": "edge_linear/kernel",
+    "tensorflow_shape": [
+      8,
+      32
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.edge_mlp.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/edge_mlp/0/bias",
+    "keras_variable_path": "edge_linear/bias",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.edge_mlp.1.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/edge_mlp/1/weight",
+    "keras_variable_path": "edge_norm/gamma",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.edge_mlp.1.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/edge_mlp/1/bias",
+    "keras_variable_path": "edge_norm/beta",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.gate.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/gate/weight",
+    "keras_variable_path": "gate/kernel",
+    "tensorflow_shape": [
+      32,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.gate.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/gate/bias",
+    "keras_variable_path": "gate/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.message.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/message/0/weight",
+    "keras_variable_path": "message_in/kernel",
+    "tensorflow_shape": [
+      128,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.message.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/message/0/bias",
+    "keras_variable_path": "message_in/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.message.3.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/message/3/weight",
+    "keras_variable_path": "message_out/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.message.3.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/message/3/bias",
+    "keras_variable_path": "message_out/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.norm_msg.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/norm_msg/weight",
+    "keras_variable_path": "norm_msg/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.norm_msg.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/norm_msg/bias",
+    "keras_variable_path": "norm_msg/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.ffn.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/ffn/0/weight",
+    "keras_variable_path": "ffn_in/kernel",
+    "tensorflow_shape": [
+      96,
+      192
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.ffn.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/ffn/0/bias",
+    "keras_variable_path": "ffn_in/bias",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.ffn.3.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/ffn/3/weight",
+    "keras_variable_path": "ffn_out/kernel",
+    "tensorflow_shape": [
+      192,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.ffn.3.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/ffn/3/bias",
+    "keras_variable_path": "ffn_out/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.norm_ffn.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/norm_ffn/weight",
+    "keras_variable_path": "norm_ffn/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.1.norm_ffn.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/1/norm_ffn/bias",
+    "keras_variable_path": "norm_ffn/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.edge_mlp.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/edge_mlp/0/weight",
+    "keras_variable_path": "edge_linear/kernel",
+    "tensorflow_shape": [
+      8,
+      32
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.edge_mlp.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/edge_mlp/0/bias",
+    "keras_variable_path": "edge_linear/bias",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.edge_mlp.1.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/edge_mlp/1/weight",
+    "keras_variable_path": "edge_norm/gamma",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.edge_mlp.1.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/edge_mlp/1/bias",
+    "keras_variable_path": "edge_norm/beta",
+    "tensorflow_shape": [
+      32
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.gate.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/gate/weight",
+    "keras_variable_path": "gate/kernel",
+    "tensorflow_shape": [
+      32,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.gate.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/gate/bias",
+    "keras_variable_path": "gate/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.message.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/message/0/weight",
+    "keras_variable_path": "message_in/kernel",
+    "tensorflow_shape": [
+      128,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.message.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/message/0/bias",
+    "keras_variable_path": "message_in/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.message.3.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/message/3/weight",
+    "keras_variable_path": "message_out/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.message.3.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/message/3/bias",
+    "keras_variable_path": "message_out/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.norm_msg.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/norm_msg/weight",
+    "keras_variable_path": "norm_msg/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.norm_msg.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/norm_msg/bias",
+    "keras_variable_path": "norm_msg/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.ffn.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/ffn/0/weight",
+    "keras_variable_path": "ffn_in/kernel",
+    "tensorflow_shape": [
+      96,
+      192
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.ffn.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/ffn/0/bias",
+    "keras_variable_path": "ffn_in/bias",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.ffn.3.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/ffn/3/weight",
+    "keras_variable_path": "ffn_out/kernel",
+    "tensorflow_shape": [
+      192,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.ffn.3.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/ffn/3/bias",
+    "keras_variable_path": "ffn_out/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.norm_ffn.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/norm_ffn/weight",
+    "keras_variable_path": "norm_ffn/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.layers.2.norm_ffn.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/layers/2/norm_ffn/bias",
+    "keras_variable_path": "norm_ffn/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_scale",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_scale",
+    "keras_variable_path": "part_global_context/context_scale",
+    "tensorflow_shape": [],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.self_attn.in_proj_weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/self_attn/in_proj_weight",
+    "keras_variable_path": "self_attn/in_proj_kernel",
+    "tensorflow_shape": [
+      96,
+      288
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.self_attn.in_proj_bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/self_attn/in_proj_bias",
+    "keras_variable_path": "self_attn/in_proj_bias",
+    "tensorflow_shape": [
+      288
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.self_attn.out_proj.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/self_attn/out_proj/weight",
+    "keras_variable_path": "self_attn/out_kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.self_attn.out_proj.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/self_attn/out_proj/bias",
+    "keras_variable_path": "self_attn/out_bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.linear1.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/linear1/weight",
+    "keras_variable_path": "linear1/kernel",
+    "tensorflow_shape": [
+      96,
+      192
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.linear1.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/linear1/bias",
+    "keras_variable_path": "linear1/bias",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.linear2.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/linear2/weight",
+    "keras_variable_path": "linear2/kernel",
+    "tensorflow_shape": [
+      192,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.linear2.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/linear2/bias",
+    "keras_variable_path": "linear2/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.norm1.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/norm1/weight",
+    "keras_variable_path": "norm1/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.norm1.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/norm1/bias",
+    "keras_variable_path": "norm1/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.norm2.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/norm2/weight",
+    "keras_variable_path": "norm2/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_mixer.layers.0.norm2.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_mixer/layers/0/norm2/bias",
+    "keras_variable_path": "norm2/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_update.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_update/0/weight",
+    "keras_variable_path": "update_in/kernel",
+    "tensorflow_shape": [
+      192,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_update.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_update/0/bias",
+    "keras_variable_path": "update_in/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_update.3.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_update/3/weight",
+    "keras_variable_path": "update_out/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.context_update.3.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/context_update/3/bias",
+    "keras_variable_path": "update_out/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.norm.weight",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/norm/weight",
+    "keras_variable_path": "context_norm/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "gnn.context_block.norm.bias",
+    "tensorflow_variable": "lap_gnn_tf/gnn/context_block/norm/bias",
+    "keras_variable_path": "context_norm/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.major_queries",
+    "tensorflow_variable": "lap_gnn_tf/readout/major_queries",
+    "keras_variable_path": "micro_motif_support/major_queries",
+    "tensorflow_shape": [
+      12,
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_queries",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_queries",
+    "keras_variable_path": "micro_motif_support/micro_queries",
+    "tensorflow_shape": [
+      8,
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.cls_token",
+    "tensorflow_variable": "lap_gnn_tf/readout/cls_token",
+    "keras_variable_path": "micro_motif_support/cls_token",
+    "tensorflow_shape": [
+      1,
+      1,
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.token_type_embedding",
+    "tensorflow_variable": "lap_gnn_tf/readout/token_type_embedding",
+    "keras_variable_path": "micro_motif_support/token_type_embedding",
+    "tensorflow_shape": [
+      1,
+      20,
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.major_key_proj.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/major_key_proj/weight",
+    "keras_variable_path": "major_key/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.major_key_proj.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/major_key_proj/bias",
+    "keras_variable_path": "major_key/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.major_value_proj.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/major_value_proj/weight",
+    "keras_variable_path": "major_value/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.major_value_proj.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/major_value_proj/bias",
+    "keras_variable_path": "major_value/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_key_proj.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_key_proj/weight",
+    "keras_variable_path": "micro_key/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_key_proj.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_key_proj/bias",
+    "keras_variable_path": "micro_key/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_value_proj.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_value_proj/weight",
+    "keras_variable_path": "micro_value/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_value_proj.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_value_proj/bias",
+    "keras_variable_path": "micro_value/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.self_attn.in_proj_weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/self_attn/in_proj_weight",
+    "keras_variable_path": "self_attn/in_proj_kernel",
+    "tensorflow_shape": [
+      96,
+      288
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.self_attn.in_proj_bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/self_attn/in_proj_bias",
+    "keras_variable_path": "self_attn/in_proj_bias",
+    "tensorflow_shape": [
+      288
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.self_attn.out_proj.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/self_attn/out_proj/weight",
+    "keras_variable_path": "self_attn/out_kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.self_attn.out_proj.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/self_attn/out_proj/bias",
+    "keras_variable_path": "self_attn/out_bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.linear1.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/linear1/weight",
+    "keras_variable_path": "linear1/kernel",
+    "tensorflow_shape": [
+      96,
+      192
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.linear1.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/linear1/bias",
+    "keras_variable_path": "linear1/bias",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.linear2.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/linear2/weight",
+    "keras_variable_path": "linear2/kernel",
+    "tensorflow_shape": [
+      192,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.linear2.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/linear2/bias",
+    "keras_variable_path": "linear2/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.norm1.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/norm1/weight",
+    "keras_variable_path": "norm1/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.norm1.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/norm1/bias",
+    "keras_variable_path": "norm1/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.norm2.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/norm2/weight",
+    "keras_variable_path": "norm2/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.encoder.layers.0.norm2.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/encoder/layers/0/norm2/bias",
+    "keras_variable_path": "norm2/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_project.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_project/0/weight",
+    "keras_variable_path": "micro_norm/gamma",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_project.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_project/0/bias",
+    "keras_variable_path": "micro_norm/beta",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_project.1.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_project/1/weight",
+    "keras_variable_path": "micro_project/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.micro_project.1.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/micro_project/1/bias",
+    "keras_variable_path": "micro_project/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.gate.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/gate/0/weight",
+    "keras_variable_path": "gate_norm/gamma",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.gate.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/gate/0/bias",
+    "keras_variable_path": "gate_norm/beta",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.gate.1.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/gate/1/weight",
+    "keras_variable_path": "gate_in/kernel",
+    "tensorflow_shape": [
+      192,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.gate.1.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/gate/1/bias",
+    "keras_variable_path": "gate_in/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.gate.3.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/gate/3/weight",
+    "keras_variable_path": "gate_out/kernel",
+    "tensorflow_shape": [
+      96,
+      96
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.gate.3.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/gate/3/bias",
+    "keras_variable_path": "gate_out/bias",
+    "tensorflow_shape": [
+      96
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.projection.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/projection/0/weight",
+    "keras_variable_path": "projection_norm/gamma",
+    "tensorflow_shape": [
+      576
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.projection.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/projection/0/bias",
+    "keras_variable_path": "projection_norm/beta",
+    "tensorflow_shape": [
+      576
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.projection.1.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/projection/1/weight",
+    "keras_variable_path": "projection_in/kernel",
+    "tensorflow_shape": [
+      576,
+      480
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.projection.1.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/projection/1/bias",
+    "keras_variable_path": "projection_in/bias",
+    "tensorflow_shape": [
+      480
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.projection.4.weight",
+    "tensorflow_variable": "lap_gnn_tf/readout/projection/4/weight",
+    "keras_variable_path": "projection_out/kernel",
+    "tensorflow_shape": [
+      480,
+      480
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "readout.projection.4.bias",
+    "tensorflow_variable": "lap_gnn_tf/readout/projection/4/bias",
+    "keras_variable_path": "projection_out/bias",
+    "tensorflow_shape": [
+      480
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "classifier.net.0.weight",
+    "tensorflow_variable": "lap_gnn_tf/classifier/net/0/weight",
+    "keras_variable_path": "linear1/kernel",
+    "tensorflow_shape": [
+      480,
+      192
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "classifier.net.0.bias",
+    "tensorflow_variable": "lap_gnn_tf/classifier/net/0/bias",
+    "keras_variable_path": "linear1/bias",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "classifier.net.1.weight",
+    "tensorflow_variable": "lap_gnn_tf/classifier/net/1/weight",
+    "keras_variable_path": "norm/gamma",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "classifier.net.1.bias",
+    "tensorflow_variable": "lap_gnn_tf/classifier/net/1/bias",
+    "keras_variable_path": "norm/beta",
+    "tensorflow_shape": [
+      192
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "classifier.net.4.weight",
+    "tensorflow_variable": "lap_gnn_tf/classifier/net/4/weight",
+    "keras_variable_path": "linear2/kernel",
+    "tensorflow_shape": [
+      192,
+      7
+    ],
+    "transformation": "transpose",
+    "dtype": "float32"
+  },
+  {
+    "pytorch_key": "classifier.net.4.bias",
+    "tensorflow_variable": "lap_gnn_tf/classifier/net/4/bias",
+    "keras_variable_path": "linear2/bias",
+    "tensorflow_shape": [
+      7
+    ],
+    "transformation": "identity",
+    "dtype": "float32"
+  }
+]

@@ -1,0 +1,155 @@
+{
+  "schema_id": "ofix7_mid_node_features_v1",
+  "dimension": 37,
+  "dtype": "float32",
+  "ordered_features": [
+    {
+      "index": 0,
+      "name": "intensity"
+    },
+    {
+      "index": 1,
+      "name": "gx"
+    },
+    {
+      "index": 2,
+      "name": "gy"
+    },
+    {
+      "index": 3,
+      "name": "x_norm"
+    },
+    {
+      "index": 4,
+      "name": "y_norm"
+    },
+    {
+      "index": 5,
+      "name": "face_mask"
+    },
+    {
+      "index": 6,
+      "name": "part_soft_0"
+    },
+    {
+      "index": 7,
+      "name": "part_soft_1"
+    },
+    {
+      "index": 8,
+      "name": "part_soft_2"
+    },
+    {
+      "index": 9,
+      "name": "part_soft_3"
+    },
+    {
+      "index": 10,
+      "name": "part_soft_4"
+    },
+    {
+      "index": 11,
+      "name": "part_soft_5"
+    },
+    {
+      "index": 12,
+      "name": "part_soft_6"
+    },
+    {
+      "index": 13,
+      "name": "part_soft_7"
+    },
+    {
+      "index": 14,
+      "name": "part_soft_8"
+    },
+    {
+      "index": 15,
+      "name": "part_soft_9"
+    },
+    {
+      "index": 16,
+      "name": "part_soft_10"
+    },
+    {
+      "index": 17,
+      "name": "part_soft_11"
+    },
+    {
+      "index": 18,
+      "name": "part_soft_12"
+    },
+    {
+      "index": 19,
+      "name": "distance_map_0"
+    },
+    {
+      "index": 20,
+      "name": "distance_map_1"
+    },
+    {
+      "index": 21,
+      "name": "distance_map_2"
+    },
+    {
+      "index": 22,
+      "name": "distance_map_3"
+    },
+    {
+      "index": 23,
+      "name": "distance_map_4"
+    },
+    {
+      "index": 24,
+      "name": "distance_map_5"
+    },
+    {
+      "index": 25,
+      "name": "distance_map_6"
+    },
+    {
+      "index": 26,
+      "name": "distance_map_7"
+    },
+    {
+      "index": 27,
+      "name": "distance_map_8"
+    },
+    {
+      "index": 28,
+      "name": "distance_map_9"
+    },
+    {
+      "index": 29,
+      "name": "distance_map_10"
+    },
+    {
+      "index": 30,
+      "name": "distance_map_11"
+    },
+    {
+      "index": 31,
+      "name": "landmark_missing_flag"
+    },
+    {
+      "index": 32,
+      "name": "grad_mag"
+    },
+    {
+      "index": 33,
+      "name": "local_mean_3x3"
+    },
+    {
+      "index": 34,
+      "name": "local_std_3x3"
+    },
+    {
+      "index": 35,
+      "name": "laplacian_abs"
+    },
+    {
+      "index": 36,
+      "name": "center_surround"
+    }
+  ]
+}

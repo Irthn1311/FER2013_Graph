@@ -1,0 +1,7 @@
+{
+  "checkpoint_sha256": "20084362d4a9529f7a833a1994ba407d958cb6264b42f60e4252efca3edad5ac",
+  "checkpoint_epoch": 34,
+  "state_key_count": 127,
+  "state_keys_sha256": "dc283b1ad6d53d27a1fbb1292e1b049f57022a7b57347fd96a6439644ca01708",
+  "parameter_count": 1061192
+}

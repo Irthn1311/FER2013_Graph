@@ -1,0 +1,7 @@
+# Install only when the Kaggle compatibility gate rejects the preinstalled TF.
+tensorflow==2.18.1
+keras==3.15.0
+numpy==2.0.2
+PyYAML==6.0.2
+scikit-learn==1.6.1
+psutil==6.1.1

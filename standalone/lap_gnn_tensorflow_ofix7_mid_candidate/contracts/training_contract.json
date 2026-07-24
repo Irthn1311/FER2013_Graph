@@ -1,0 +1,35 @@
+{
+  "seed": 42,
+  "optimizer": {
+    "scientific_type": "AdamW",
+    "implementation": "TorchCompatibleAdamW",
+    "learning_rate": 0.0003,
+    "weight_decay": 0.001,
+    "beta1": 0.9,
+    "beta2": 0.999,
+    "epsilon": 1e-08
+  },
+  "scheduler": {
+    "type": "ReduceLROnPlateau",
+    "monitor": "val_loss",
+    "mode": "min",
+    "factor": 0.5,
+    "patience": 5,
+    "threshold": 0.0001,
+    "threshold_mode": "rel",
+    "cooldown": 0,
+    "min_lr": 0.00003
+  },
+  "early_stopping": {
+    "monitor": "val_loss",
+    "mode": "min",
+    "min_epochs_before_stop": 30,
+    "patience": 15,
+    "strict_improvement": true
+  },
+  "checkpoint_primary": "val_macro_f1",
+  "checkpoint_secondary": "val_accuracy",
+  "resume_default": false,
+  "test_used_for_selection": false
+}
+

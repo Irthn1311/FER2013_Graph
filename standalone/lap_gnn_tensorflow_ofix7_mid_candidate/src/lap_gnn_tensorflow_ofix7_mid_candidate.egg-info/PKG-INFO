@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: lap-gnn-tensorflow-ofix7-mid-candidate
+Version: 0.1.0
+Summary: Self-contained TensorFlow/Keras port of the locked OFIX7-mid LAP-GNN candidate
+Requires-Python: <3.13,>=3.10
+License-File: LICENSE_NOTES.md
+Requires-Dist: tensorflow<2.19,>=2.18
+Requires-Dist: numpy<2.1,>=1.26
+Requires-Dist: PyYAML<7,>=6
+Requires-Dist: scikit-learn<1.7,>=1.5
+Requires-Dist: psutil<7,>=6
+Dynamic: license-file
