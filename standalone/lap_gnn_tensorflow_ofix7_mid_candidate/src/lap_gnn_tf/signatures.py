@@ -18,7 +18,10 @@ def sha256_tree(root: str | Path, exclude: set[str] | None = None) -> str:
     root = Path(root)
     excluded = exclude or {"CHECKSUMS.sha256"}
     digest = hashlib.sha256()
-    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+    files = [item for item in root.rglob("*") if item.is_file()]
+    for path in sorted(
+        files, key=lambda item: item.relative_to(root).as_posix()
+    ):
         relative = path.relative_to(root).as_posix()
         if relative in excluded or "__pycache__" in path.parts:
             continue
@@ -36,7 +39,9 @@ def scientific_payload_checksum(package_root: str | Path) -> str:
     for relative_root in roots:
         root = package_root / relative_root
         files.extend(path for path in root.rglob("*") if path.is_file())
-    for path in sorted(files):
+    for path in sorted(
+        files, key=lambda item: item.relative_to(package_root).as_posix()
+    ):
         if "__pycache__" in path.parts or path.suffix in {".pyc", ".pyo"}:
             continue
         relative = path.relative_to(package_root).as_posix()

@@ -51,7 +51,7 @@ PRIOR_ROOT = Path("/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-b
 OUTPUT_ROOT = Path("/kaggle/working/outputs/tensorflow_validation/lap_gnn_tensorflow_ofix7_mid_candidate/ofix7_mid_seed42")
 TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
 TF_PACKAGE_PATH = Path("/kaggle/working/FER2013_Graph") / TF_PACKAGE_RELATIVE
-EXPECTED_TENSORFLOW_PAYLOAD_SHA = "24043ed922aaff7fdb1075a83ac820473b868009b99ca939921ad8fbda72fc57"
+EXPECTED_TENSORFLOW_PAYLOAD_SHA = "0ebd551556ff261ddb4ee41370cd700df08a907ddab7edf93579ac59cba42b68"
 EXPECTED_EXECUTION_CONTRACT_SHA = "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
 SELECTED_EXECUTION_STRATEGY = "SELECT_G1_RESTRICTED_GRAPH_OPTIMIZER"
 SELECTED_EXECUTION_MODE = "restricted_tf_function"
@@ -664,5 +664,6 @@ payload = {
     "nbformat": 4,
     "nbformat_minor": 5,
 }
-NOTEBOOK.write_text(json.dumps(payload, indent=1, ensure_ascii=True) + "\n", encoding="utf-8")
+with NOTEBOOK.open("w", encoding="utf-8", newline="\n") as stream:
+    stream.write(json.dumps(payload, indent=1, ensure_ascii=True) + "\n")
 print(NOTEBOOK)

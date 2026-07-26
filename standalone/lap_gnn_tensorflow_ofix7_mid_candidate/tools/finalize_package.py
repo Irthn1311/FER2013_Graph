@@ -24,6 +24,11 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def write_text_lf(path: Path, content: str) -> None:
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
+        stream.write(content)
+
+
 def package_files(include_manifest: bool) -> list[Path]:
     excluded_names = {"CHECKSUMS.sha256"}
     if not include_manifest:
@@ -37,7 +42,7 @@ def package_files(include_manifest: bool) -> list[Path]:
         if path.suffix in {".pyc", ".pyo"} or path.name.startswith("parity_"):
             continue
         files.append(path)
-    return sorted(files)
+    return sorted(files, key=lambda item: item.relative_to(ROOT).as_posix())
 
 
 def scientific_checksum() -> str:
@@ -45,7 +50,9 @@ def scientific_checksum() -> str:
     files = []
     for relative_root in ["src/lap_gnn_tf", "contracts", "validation_assets"]:
         files.extend(path for path in (ROOT / relative_root).rglob("*") if path.is_file())
-    for path in sorted(files):
+    for path in sorted(
+        files, key=lambda item: item.relative_to(ROOT).as_posix()
+    ):
         if "__pycache__" in path.parts or path.suffix in {".pyc", ".pyo"}:
             continue
         relative = path.relative_to(ROOT).as_posix()
@@ -102,7 +109,7 @@ def main() -> None:
     baseline = ROOT / "configs" / "fer2013_ofix7_mid_tensorflow_baseline.yaml"
     config = yaml.safe_load(baseline.read_text(encoding="utf-8"))
     config["locked"]["package_checksum"] = payload_checksum
-    baseline.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    write_text_lf(baseline, yaml.safe_dump(config, sort_keys=False))
 
     files = package_files(include_manifest=False)
     manifest = {
@@ -133,13 +140,17 @@ def main() -> None:
         ],
     }
     manifest_path = ROOT / "package_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    write_text_lf(
+        manifest_path, json.dumps(manifest, indent=2, sort_keys=True)
+    )
 
     checksum_lines = [
         f"{sha256(path)}  {path.relative_to(ROOT).as_posix()}"
         for path in package_files(include_manifest=True)
     ]
-    (ROOT / "CHECKSUMS.sha256").write_text("\n".join(checksum_lines) + "\n", encoding="utf-8")
+    write_text_lf(
+        ROOT / "CHECKSUMS.sha256", "\n".join(checksum_lines) + "\n"
+    )
     print(json.dumps({
         "scientific_payload_sha256": payload_checksum,
         "execution_contract_sha256": EXECUTION_CONTRACT_SHA256,

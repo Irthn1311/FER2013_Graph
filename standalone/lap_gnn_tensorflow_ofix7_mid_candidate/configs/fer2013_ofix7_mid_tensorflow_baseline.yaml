@@ -262,4 +262,4 @@ locked:
   edge_signature: e8eee163001c7ed4397fcca8601f1c6206fad84625f199d5649990d84fb503b6
   prior_signature: ea888bab9c003af9b279719025da7c39f90537179411326c2c3119fc8c3f0824
   dataset_split_signature: fer2013_train28709_val3589_test3589
-  package_checksum: 24043ed922aaff7fdb1075a83ac820473b868009b99ca939921ad8fbda72fc57
+  package_checksum: 0ebd551556ff261ddb4ee41370cd700df08a907ddab7edf93579ac59cba42b68
