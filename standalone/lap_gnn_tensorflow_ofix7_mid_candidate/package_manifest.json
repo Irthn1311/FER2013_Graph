@@ -140,9 +140,9 @@
       "sha256": "ad4d888b284e3caa76a188605241f8ab0e2ded40c150eb1186cd3f478c22bcec"
     },
     {
-      "bytes": 229,
+      "bytes": 225,
       "path": "configs/fer2013_ofix7_mid_tensorflow_seed42.yaml",
-      "sha256": "bb03430c0e7d38c8c1a5cfe673d6f09d4de63dbf3d47a285b0dc8f61fe7899e7"
+      "sha256": "aa3bf2d3932bbad6c5f8cdcc347f4a9866e2c027d6135a60b5002a8f6a3b6908"
     },
     {
       "bytes": 1188,
