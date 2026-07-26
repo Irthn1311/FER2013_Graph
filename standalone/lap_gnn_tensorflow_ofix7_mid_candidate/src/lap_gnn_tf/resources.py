@@ -67,6 +67,30 @@ class RuntimeTelemetry:
             except (ValueError, RuntimeError):
                 continue
 
+    def snapshot(self) -> dict:
+        self.sample()
+        process = psutil.Process(os.getpid())
+        virtual_memory = psutil.virtual_memory()
+        gpu = []
+        for device in tf.config.list_logical_devices("GPU"):
+            try:
+                info = tf.config.experimental.get_memory_info(device.name)
+                gpu.append({
+                    "device": device.name,
+                    "current_bytes": int(info.get("current", 0)),
+                    "peak_bytes": int(info.get("peak", 0)),
+                })
+            except (ValueError, RuntimeError):
+                continue
+        return {
+            "host_rss_bytes": int(process.memory_info().rss),
+            "host_available_bytes": int(virtual_memory.available),
+            "host_percent": float(virtual_memory.percent),
+            "peak_host_rss_bytes": int(self.peak_host_rss_bytes),
+            "peak_gpu_memory_bytes": int(self.peak_gpu_memory_bytes),
+            "gpu": gpu,
+        }
+
     def to_dict(self) -> dict:
         data = asdict(self)
         total = self.graph_cache_hits + self.graph_cache_misses

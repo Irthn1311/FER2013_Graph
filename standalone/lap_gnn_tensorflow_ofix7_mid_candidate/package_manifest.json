@@ -157,7 +157,7 @@
     {
       "bytes": 6044,
       "path": "configs/fer2013_ofix7_mid_tensorflow_baseline.yaml",
-      "sha256": "1ccc0b598dffffa25ceeb6920f7e05f21a9afb20091accd72a29b310540df238"
+      "sha256": "72dc752e0e6a5fb6e9ced755a19071ed4e6a5384464442d2b6331cdd2953f79c"
     },
     {
       "bytes": 225,
@@ -465,9 +465,9 @@
       "sha256": "cd8518b1118ae67c56c0662c5992c35b0e2fe125216d65077c346fdc1fdd8bc9"
     },
     {
-      "bytes": 3874,
+      "bytes": 4858,
       "path": "src/lap_gnn_tf/resources.py",
-      "sha256": "b948fd2254faa4744f6eeddce1e463317de854215a1fae8af65374a898214dbe"
+      "sha256": "c679752c432ffbb18b433dfcbe4bba40e92c053885923350063b0b7d9ca074b8"
     },
     {
       "bytes": 498,
@@ -500,9 +500,9 @@
       "sha256": "2fa2ef404b2505525cc822db4d149d0261dfe41ccf1258c1790116212fc0036c"
     },
     {
-      "bytes": 5555,
+      "bytes": 5825,
       "path": "src/lap_gnn_tf/training/execution.py",
-      "sha256": "5b686f8c8894a46193298aee62bbf834019d32985009a94714b5719a11375f77"
+      "sha256": "f75eceba94a2967bafeeb81cc0dc81f323ca2dc67048f9c3ea1aae199bf0239a"
     },
     {
       "bytes": 286,
@@ -525,9 +525,9 @@
       "sha256": "78df6afe6cbe4e0b5f7c1a58660b7ab856dd22eeacf7fa066d75dc2126adab83"
     },
     {
-      "bytes": 10950,
+      "bytes": 13550,
       "path": "src/lap_gnn_tf/training/trainer.py",
-      "sha256": "3cac4f54f4cccd3918f70fb9697ae8cf10f17d2f14b2008172834d067a2f7b42"
+      "sha256": "6cadd424912ef59c66555ac7c4738be64d55022aca40396e6918358e994b7be2"
     },
     {
       "bytes": 1175,
@@ -892,7 +892,7 @@
     {
       "bytes": 277,
       "path": "tests/test_notebook_final_payload_hash.py",
-      "sha256": "62c891b8655aa4e48d401896d8a3c69c5f37191c4f02e031f7b25bd34676d1ea"
+      "sha256": "3d31b7d7e48625fcb364a1aa8b1ef5f4d1aad0183992f8c3acb9622d8f2c04e2"
     },
     {
       "bytes": 607,
@@ -985,9 +985,9 @@
       "sha256": "c5be83c6d7fc8d2cb7900710cb8a136b62acd154e26ddd3e2918131208ae4b7f"
     },
     {
-      "bytes": 959,
+      "bytes": 1870,
       "path": "tests/test_selected_mode_trainer_integration.py",
-      "sha256": "d57279b5e8b06218c3d2293653aabd1c6324a67058f3df478a20507dd0cfa322"
+      "sha256": "e0a9790a7ed522625d90eed8f2890b7753e5cdb1f2874c617ea49c9c51fed667"
     },
     {
       "bytes": 404,
@@ -1042,7 +1042,7 @@
     {
       "bytes": 31231,
       "path": "tools/build_kaggle_notebook.py",
-      "sha256": "0d682da0b8097cf018f79838d6aff30607f1bb3c2258896b7b42961426433222"
+      "sha256": "fb276e58595d8b1e9fd7fca3d7583465c226191dd9479ed70dfa60ad0ee55f25"
     },
     {
       "bytes": 25767,
@@ -1316,7 +1316,7 @@
   "package": "lap_gnn_tensorflow_ofix7_mid_candidate",
   "readiness_decision": "READY_FOR_TENSORFLOW_KAGGLE_SEED42",
   "readiness_reason": "G1-A restricted Grappler passes the 2e-8 two-step gate, 15 repetitions, mixed precision, and exact checkpoint continuation.",
-  "scientific_payload_sha256": "0ebd551556ff261ddb4ee41370cd700df08a907ddab7edf93579ac59cba42b68",
+  "scientific_payload_sha256": "4fc0531dab9db182f08669e945ba0abcb151b4444c922104e9f63a430824ddbb",
   "selected_execution_strategy": "SELECT_G1_RESTRICTED_GRAPH_OPTIMIZER",
   "trainable_parameters": 1061192,
   "version": "0.1.0"

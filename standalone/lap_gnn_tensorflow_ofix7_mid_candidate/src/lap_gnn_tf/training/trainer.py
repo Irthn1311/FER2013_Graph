@@ -21,6 +21,7 @@ from lap_gnn_tf.training.checkpointing import CheckpointPolicy
 from lap_gnn_tf.training.early_stopping import ValidationLossEarlyStopping
 from lap_gnn_tf.training.evaluator import evaluate_batches
 from lap_gnn_tf.training.execution import (
+    MAX_REGISTERED_TRAIN_STEP_TRACES,
     apply_gradients_eager_exact,
     build_compiled_gradient_function,
     build_restricted_graph_train_step,
@@ -28,6 +29,9 @@ from lap_gnn_tf.training.execution import (
 )
 from lap_gnn_tf.training.optimizer import build_optimizer
 from lap_gnn_tf.training.plateau import TorchCompatibleReduceLROnPlateau
+
+
+PROGRESS_INTERVAL_BATCHES = 100
 
 
 def _atomic_json(path: Path, payload: dict) -> None:
@@ -105,7 +109,9 @@ def run_training(
     optimizer_mode = execution_state["optimizer_execution_mode"]
     if optimizer_mode == "restricted_tf_function":
         execute_train_step = build_restricted_graph_train_step(
-            model, optimizer
+            model,
+            optimizer,
+            input_signature=GraphBatchGenerator.output_signature(),
         )
     else:
         if hasattr(optimizer, "inner_optimizer"):
@@ -151,6 +157,17 @@ def run_training(
         epoch_started = time.perf_counter()
         total_loss = 0.0
         batches = 0
+        total_train_batches = len(train_data)
+        if limit_train_batches is not None:
+            total_train_batches = min(
+                total_train_batches, int(limit_train_batches)
+            )
+        print(json.dumps({
+            "event": "tensorflow_epoch_start",
+            "epoch": epoch,
+            "max_epochs": max_epochs,
+            "total_batches": total_train_batches,
+        }), flush=True)
         for batch in train_data.as_dataset(
             epoch,
             limit_batches=limit_train_batches,
@@ -161,6 +178,54 @@ def run_training(
             total_loss += float(loss.numpy())
             batches += 1
             telemetry.train_step_sec.append(time.perf_counter() - step_started)
+            trace_count = (
+                int(execute_train_step.experimental_get_tracing_count())
+                if hasattr(
+                    execute_train_step, "experimental_get_tracing_count"
+                )
+                else 0
+            )
+            if (
+                optimizer_mode == "restricted_tf_function"
+                and trace_count > MAX_REGISTERED_TRAIN_STEP_TRACES
+            ):
+                raise RuntimeError(
+                    "Registered train step retraced unexpectedly: "
+                    f"{trace_count} concrete traces"
+                )
+            should_report = (
+                batches == 1
+                or batches % PROGRESS_INTERVAL_BATCHES == 0
+                or batches == total_train_batches
+            )
+            if should_report:
+                recent_steps = telemetry.train_step_sec[
+                    -PROGRESS_INTERVAL_BATCHES:
+                ]
+                recent_builds = telemetry.batch_construction_sec[
+                    -PROGRESS_INTERVAL_BATCHES:
+                ]
+                progress = {
+                    "event": "tensorflow_train_progress",
+                    "epoch": epoch,
+                    "batch": batches,
+                    "total_batches": total_train_batches,
+                    "elapsed_sec": time.perf_counter() - epoch_started,
+                    "average_loss": total_loss / batches,
+                    "recent_train_step_sec": (
+                        sum(recent_steps) / len(recent_steps)
+                    ),
+                    "recent_graph_build_sec": (
+                        sum(recent_builds) / len(recent_builds)
+                        if recent_builds else None
+                    ),
+                    "train_step_trace_count": trace_count,
+                    "resources": telemetry.snapshot(),
+                }
+                print(json.dumps(progress), flush=True)
+                _atomic_json(
+                    output_dir / "runtime_progress.json", progress
+                )
         validation_started = time.perf_counter()
         val_metrics = evaluate_batches(
             model,

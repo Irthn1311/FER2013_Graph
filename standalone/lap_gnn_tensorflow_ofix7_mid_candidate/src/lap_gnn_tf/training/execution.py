@@ -10,6 +10,7 @@ from lap_gnn_tf.training.losses import sparse_cross_entropy
 
 
 EXPECTED_TRAINABLE_VARIABLE_COUNT = 127
+MAX_REGISTERED_TRAIN_STEP_TRACES = 1
 EXECUTION_CONTRACT_SHA256 = (
     "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
 )
@@ -130,10 +131,21 @@ def build_compiled_gradient_function(model, training: bool):
     return compute_loss_and_gradients
 
 
-def build_restricted_graph_train_step(model, optimizer):
+def build_restricted_graph_train_step(
+    model,
+    optimizer,
+    input_signature: dict[str, tf.TensorSpec] | None = None,
+):
     """Build the selected G1-A full compute/update training function."""
 
-    @tf.function(autograph=False, jit_compile=False)
+    signature = None if input_signature is None else [input_signature]
+
+    @tf.function(
+        autograph=False,
+        jit_compile=False,
+        input_signature=signature,
+        reduce_retracing=True,
+    )
     def train_step(batch):
         with tf.GradientTape() as tape:
             output = model(batch, training=True)
