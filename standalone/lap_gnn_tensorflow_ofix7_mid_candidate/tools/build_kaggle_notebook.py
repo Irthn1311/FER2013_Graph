@@ -162,28 +162,32 @@ print("package_checksums_sha256:", hashlib.sha256(
     ),
     markdown("## 3. Environment Inspection\n"),
     code(
-        """import importlib.util
+        """import importlib.metadata
+import importlib.util
 import platform
-import psutil
 
 print("python:", sys.version)
 print("platform:", platform.platform(), platform.machine())
-print("cpu logical/physical:", psutil.cpu_count(True), psutil.cpu_count(False))
-print("ram GiB:", round(psutil.virtual_memory().total / 2**30, 2))
+print("cpu logical:", os.cpu_count())
 print("disk free GiB:", round(shutil.disk_usage("/kaggle/working").free / 2**30, 2))
 print("thread env:", {key: os.environ.get(key) for key in [
     "OMP_NUM_THREADS", "MKL_NUM_THREADS", "TF_NUM_INTRAOP_THREADS",
     "TF_NUM_INTEROP_THREADS", "TF_ENABLE_ONEDNN_OPTS",
 ]})
-tf_spec = importlib.util.find_spec("tensorflow")
-print("tensorflow installed:", bool(tf_spec))
-if tf_spec:
-    import tensorflow as tf
-    print("tensorflow:", tf.__version__)
-    print("keras:", tf.keras.__version__)
-    print("build:", json.dumps(tf.sysconfig.get_build_info(), default=str, indent=2))
-    print("CPU:", tf.config.list_physical_devices("CPU"))
-    print("GPU:", tf.config.list_physical_devices("GPU"))
+def distribution_version(name):
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+PREINSTALLED_TF = distribution_version("tensorflow")
+PREINSTALLED_KERAS = distribution_version("keras")
+print("preinstalled tensorflow metadata:", PREINSTALLED_TF)
+print("preinstalled keras metadata:", PREINSTALLED_KERAS)
+print("tensorflow imported before bootstrap:", "tensorflow" in sys.modules)
+print("keras imported before bootstrap:", "keras" in sys.modules)
+if "tensorflow" in sys.modules or "keras" in sys.modules:
+    raise RuntimeError("TensorFlow/Keras was imported before the Save Version bootstrap")
 if shutil.which("nvidia-smi"):
     run_checked(["nvidia-smi"])
 """
@@ -192,15 +196,24 @@ if shutil.which("nvidia-smi"):
     code(
         """TESTED_TF = "2.18.1"
 TESTED_KERAS = "3.15.0"
-compatible = bool(tf_spec) and tf.__version__ == TESTED_TF and tf.keras.__version__ == TESTED_KERAS
+compatible = PREINSTALLED_TF == TESTED_TF and PREINSTALLED_KERAS == TESTED_KERAS
 if not compatible:
+    print(
+        "Installing the registered TensorFlow/Keras environment before either "
+        "framework is imported. This is compatible with Kaggle Save Version."
+    )
     run_checked([
-        sys.executable, "-m", "pip", "install", "-q", "-r",
+        sys.executable, "-m", "pip", "install", "-q", "--no-warn-conflicts", "-r",
         TF_PACKAGE_PATH / "requirements-kaggle.txt",
     ])
+    importlib.invalidate_caches()
+
+resolved_tf = distribution_version("tensorflow")
+resolved_keras = distribution_version("keras")
+if resolved_tf != TESTED_TF or resolved_keras != TESTED_KERAS:
     raise RuntimeError(
-        "TensorFlow/Keras was replaced with the tested build. Restart the Kaggle session, "
-        "then Run All again before training."
+        f"Registered environment installation failed: tensorflow={resolved_tf}, "
+        f"keras={resolved_keras}"
     )
 
 missing = [
@@ -213,6 +226,18 @@ missing = [
 if missing:
     run_checked([sys.executable, "-m", "pip", "install", "-q", *missing])
 run_checked([sys.executable, "-m", "pip", "install", "-q", "-e", TF_PACKAGE_PATH, "--no-deps"])
+probe = run_checked([
+    sys.executable, "-B", "-c",
+    "import json, tensorflow as tf; "
+    "print(json.dumps({'tensorflow': tf.__version__, "
+    "'keras': tf.keras.__version__, "
+    "'gpus': [d.name for d in tf.config.list_physical_devices('GPU')], "
+    "'build': tf.sysconfig.get_build_info()}, default=str))",
+], cwd=TF_PACKAGE_PATH, capture=True).strip().splitlines()[-1]
+probe_payload = json.loads(probe)
+if probe_payload["tensorflow"] != TESTED_TF or probe_payload["keras"] != TESTED_KERAS:
+    raise RuntimeError(f"Fresh-process TensorFlow/Keras mismatch: {probe_payload}")
+print("fresh_process_environment:", json.dumps(probe_payload, indent=2))
 run_checked([sys.executable, "-B", "-m", "lap_gnn_tf.cli.inspect_environment",
              "--output", WORKING / "tensorflow_environment.json"], cwd=TF_PACKAGE_PATH)
 """

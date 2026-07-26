@@ -28,3 +28,8 @@ def test_kaggle_notebook_selected_mode():
     assert "tensorflow_execution_contract_v2.sha256" in source
     assert "--no-resume" in source
     assert "--no-xla" in source
+    assert "Kaggle Save Version" in source
+    assert "importlib.metadata.version" in source
+    assert "tensorflow imported before bootstrap" in source
+    assert "fresh_process_environment" in source
+    assert "Restart the Kaggle session" not in source
