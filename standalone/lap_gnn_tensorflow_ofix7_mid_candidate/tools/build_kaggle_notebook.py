@@ -51,15 +51,18 @@ PRIOR_ROOT = Path("/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-b
 OUTPUT_ROOT = Path("/kaggle/working/outputs/tensorflow_validation/lap_gnn_tensorflow_ofix7_mid_candidate/ofix7_mid_seed42")
 TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
 TF_PACKAGE_PATH = Path("/kaggle/working/FER2013_Graph") / TF_PACKAGE_RELATIVE
-EXPECTED_TENSORFLOW_PAYLOAD_SHA = "4fc0531dab9db182f08669e945ba0abcb151b4444c922104e9f63a430824ddbb"
+EXPECTED_TENSORFLOW_PAYLOAD_SHA = "ef9d53ae1af77f01faa79950740c9d3238080387883600d68365c624776906bc"
 EXPECTED_EXECUTION_CONTRACT_SHA = "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
+TRAIN_CONFIG = TF_PACKAGE_PATH / "configs/fer2013_ofix7_mid_tensorflow_optimized_seed42.yaml"
 SELECTED_EXECUTION_STRATEGY = "SELECT_G1_RESTRICTED_GRAPH_OPTIMIZER"
 SELECTED_EXECUTION_MODE = "restricted_tf_function"
 SELECTED_GRAPPLER_PROFILE = "G1-A"
 DEVICE_POLICY = "gpu"
 ALLOW_CPU_TRAINING = False
-GRAPH_WORKERS = 2
+GRAPH_WORKERS = 3
 BATCH_SIZE = 16
+EVAL_BATCH_SIZE = 32
+TF_DATA_PREFETCH = 4
 RUN_FULL_TRAINING = True
 RUN_TESTS = True
 ARCHIVE_OUTPUT = True
@@ -68,7 +71,7 @@ RESUME = False
 WANDB_ENABLED = False
 XLA_ENABLED = False
 
-assert SEED == 42 and BATCH_SIZE == 16
+assert SEED == 42 and BATCH_SIZE == 16 and EVAL_BATCH_SIZE >= BATCH_SIZE
 assert RESUME is False and WANDB_ENABLED is False and XLA_ENABLED is False
 """
     ),
@@ -403,13 +406,15 @@ print("READY_FOR_TENSORFLOW_KAGGLE_SEED42")
         raise RuntimeError("Resume is forbidden for the locked TensorFlow seed42 run")
     train_command = [
         sys.executable, "-B", "-m", "lap_gnn_tf.cli.train",
-        "--config", TF_PACKAGE_PATH / "configs/fer2013_ofix7_mid_tensorflow_seed42.yaml",
+        "--config", TRAIN_CONFIG,
         "--fer-csv", FER_CSV_PATH,
         "--prior-root", PRIOR_ROOT,
         "--output-root", OUTPUT_ROOT,
         "--device", DEVICE_POLICY,
         "--graph-workers", str(GRAPH_WORKERS),
+        "--tf-data-prefetch", str(TF_DATA_PREFETCH),
         "--batch-size", str(BATCH_SIZE),
+        "--eval-batch-size", str(EVAL_BATCH_SIZE),
         "--no-resume",
         "--mixed-precision",
         "--no-xla",

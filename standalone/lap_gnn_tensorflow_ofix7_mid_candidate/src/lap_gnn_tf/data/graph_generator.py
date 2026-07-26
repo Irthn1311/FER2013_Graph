@@ -86,22 +86,39 @@ class GraphBatchGenerator:
     def iter_epoch(self, epoch: int, limit_batches: int | None = None):
         self.dataset.set_epoch(epoch)
         order = self._order(epoch)
-        for start in range(0, len(order), self.batch_size):
-            batch_number = start // self.batch_size
-            if limit_batches is not None and batch_number >= int(limit_batches):
-                break
-            started = time.perf_counter()
-            indices = [int(index) for index in order[start : start + self.batch_size]]
-            if self.graph_workers == 1:
-                graphs = [self._graph(index, epoch) for index in indices]
-            else:
-                with ThreadPoolExecutor(max_workers=self.graph_workers) as executor:
-                    graphs = list(executor.map(lambda index: self._graph(index, epoch), indices))
-            batch = to_tensor_dict(collate_d16_graphs(graphs))
-            if self.telemetry is not None:
-                self.telemetry.batch_construction_sec.append(time.perf_counter() - started)
-                self.telemetry.sample()
-            yield batch
+        executor = (
+            ThreadPoolExecutor(max_workers=self.graph_workers)
+            if self.graph_workers > 1
+            else None
+        )
+        try:
+            for start in range(0, len(order), self.batch_size):
+                batch_number = start // self.batch_size
+                if limit_batches is not None and batch_number >= int(limit_batches):
+                    break
+                started = time.perf_counter()
+                indices = [
+                    int(index) for index in order[start : start + self.batch_size]
+                ]
+                if executor is None:
+                    graphs = [self._graph(index, epoch) for index in indices]
+                else:
+                    graphs = list(
+                        executor.map(
+                            lambda index: self._graph(index, epoch),
+                            indices,
+                        )
+                    )
+                batch = to_tensor_dict(collate_d16_graphs(graphs))
+                if self.telemetry is not None:
+                    self.telemetry.batch_construction_sec.append(
+                        time.perf_counter() - started
+                    )
+                    self.telemetry.sample()
+                yield batch
+        finally:
+            if executor is not None:
+                executor.shutdown(wait=True)
 
     @staticmethod
     def output_signature() -> dict[str, tf.TensorSpec]:

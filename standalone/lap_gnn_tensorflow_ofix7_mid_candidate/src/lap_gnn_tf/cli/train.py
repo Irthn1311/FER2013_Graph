@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--tf-data-parallel-calls", type=int, default=1)
     parser.add_argument("--graph-cache-size", type=int, default=64)
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--eval-batch-size", type=int, default=32)
     parser.add_argument("--mixed-precision", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--xla", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--memory-growth", action=argparse.BooleanOptionalAction, default=True)
@@ -42,6 +43,7 @@ def main():
         mixed_precision=args.mixed_precision,
         xla=args.xla,
         batch_size=args.batch_size,
+        eval_batch_size=args.eval_batch_size,
         device=args.device,
     )
     print(json.dumps(run_training(
@@ -52,4 +54,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

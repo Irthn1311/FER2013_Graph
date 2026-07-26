@@ -4,5 +4,5 @@ from _adamw_closure_evidence import REPO_ROOT, sha256
 def test_notebook_final_payload_hash():
     notebook = REPO_ROOT / "notebooks" / "kaggle-end-to-end.ipynb"
     assert sha256(notebook) == (
-        "42f3f34aba67d02e7b318525b9c85447ad0b182fd898e4813b8c3f875e3d8482"
+        "4b44c3c736e9aaa2a8244bf147707a89147630f888f50241ffb90583e8070d5f"
     )

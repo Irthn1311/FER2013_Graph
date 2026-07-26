@@ -23,6 +23,7 @@ class ResourceControls:
     mixed_precision: bool = True
     xla: bool = False
     batch_size: int = 16
+    eval_batch_size: int = 32
     device: str = "gpu"
 
     def apply(self) -> None:

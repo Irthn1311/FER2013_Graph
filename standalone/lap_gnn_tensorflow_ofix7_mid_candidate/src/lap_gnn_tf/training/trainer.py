@@ -19,7 +19,10 @@ from lap_gnn_tf.resources import ResourceControls, RuntimeTelemetry
 from lap_gnn_tf.seed import seed_everything
 from lap_gnn_tf.training.checkpointing import CheckpointPolicy
 from lap_gnn_tf.training.early_stopping import ValidationLossEarlyStopping
-from lap_gnn_tf.training.evaluator import evaluate_batches
+from lap_gnn_tf.training.evaluator import (
+    build_compiled_evaluation_step,
+    evaluate_batches,
+)
 from lap_gnn_tf.training.execution import (
     MAX_REGISTERED_TRAIN_STEP_TRACES,
     apply_gradients_eager_exact,
@@ -89,20 +92,22 @@ def run_training(
         controls.graph_cache_size, telemetry, graph_workers=controls.graph_workers,
     )
     val_data = GraphBatchGenerator(
-        prior_root, "val", config, controls.batch_size, seed, False,
+        prior_root, "val", config, controls.eval_batch_size, seed, False,
         controls.graph_cache_size, telemetry, graph_workers=controls.graph_workers,
     )
+    eval_step = None
     train_eval_data = None
     if bool(config["training"].get("eval_train_metrics", False)):
         eval_config = json.loads(json.dumps(config))
         eval_config["graph"]["prior_corruption"]["enabled"] = False
         train_eval_data = GraphBatchGenerator(
-            prior_root, "train", eval_config, controls.batch_size, seed, False,
+            prior_root, "train", eval_config, controls.eval_batch_size, seed, False,
             controls.graph_cache_size, telemetry, graph_workers=controls.graph_workers,
         )
     first_batch = next(iter(train_data.as_dataset(1, limit_batches=1)))
     model = LapGNN()
     model(first_batch, training=False)
+    eval_step = build_compiled_evaluation_step(model)
     optimizer = build_optimizer(config)
     optimizer.build(model.trainable_variables)
     model.compile(optimizer=optimizer, run_eagerly=False)
@@ -234,10 +239,18 @@ def run_training(
                 limit_batches=limit_val_batches,
                 prefetch=controls.tf_data_prefetch,
             ),
+            evaluate_step=eval_step,
         )
         telemetry.validation_sec.append(time.perf_counter() - validation_started)
         train_metrics = None
-        if train_eval_data is not None:
+        train_eval_every = max(
+            int(config["training"].get("eval_train_every_n_epochs", 1)), 1
+        )
+        should_eval_train = (
+            train_eval_data is not None
+            and (epoch == 1 or epoch % train_eval_every == 0)
+        )
+        if should_eval_train:
             train_metrics = evaluate_batches(
                 model,
                 train_eval_data.as_dataset(
@@ -245,6 +258,7 @@ def run_training(
                     limit_batches=config["training"].get("eval_train_limit_batches"),
                     prefetch=controls.tf_data_prefetch,
                 ),
+                evaluate_step=eval_step,
             )
         metadata = {
             "seed": seed,
@@ -300,12 +314,14 @@ def run_training(
     primary = output_dir / "checkpoints" / "best_val_macro_f1.keras"
     selected_model = tf.keras.models.load_model(primary, compile=False)
     test_data = GraphBatchGenerator(
-        prior_root, "test", config, controls.batch_size, seed, False,
+        prior_root, "test", config, controls.eval_batch_size, seed, False,
         controls.graph_cache_size, telemetry, graph_workers=controls.graph_workers,
     )
+    test_eval_step = build_compiled_evaluation_step(selected_model)
     test_metrics = evaluate_batches(
         selected_model,
         test_data.as_dataset(0, prefetch=controls.tf_data_prefetch),
+        evaluate_step=test_eval_step,
     )
     _atomic_json(output_dir / "test_metrics_best_val_macro_f1.json", test_metrics)
     _atomic_json(

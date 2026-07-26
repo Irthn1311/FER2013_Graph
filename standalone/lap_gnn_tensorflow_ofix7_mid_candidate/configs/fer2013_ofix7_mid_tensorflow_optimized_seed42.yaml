@@ -1,0 +1,8 @@
+extends: fer2013_ofix7_mid_tensorflow_seed42.yaml
+run_name: ofix7_mid_optimized_seed42
+training:
+  eval_train_every_n_epochs: 5
+resources:
+  eval_batch_size: 32
+  graph_workers: 3
+  tf_data_prefetch: 4
