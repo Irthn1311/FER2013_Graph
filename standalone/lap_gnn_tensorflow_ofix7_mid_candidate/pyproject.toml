@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lap-gnn-tensorflow-ofix7-mid-candidate"
+version = "0.1.0"
+description = "Self-contained TensorFlow/Keras port of the locked OFIX7-mid LAP-GNN candidate"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+  "tensorflow>=2.18,<2.19",
+  "numpy>=1.26,<2.1",
+  "PyYAML>=6,<7",
+  "scikit-learn>=1.5,<1.7",
+  "psutil>=6,<7",
+]
+
+[project.scripts]
+lap-gnn-tf-train = "lap_gnn_tf.cli.train:main"
+lap-gnn-tf-evaluate = "lap_gnn_tf.cli.evaluate:main"
+lap-gnn-tf-validate = "lap_gnn_tf.cli.validate:main"
+lap-gnn-tf-compare-golden = "lap_gnn_tf.cli.compare_golden:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+

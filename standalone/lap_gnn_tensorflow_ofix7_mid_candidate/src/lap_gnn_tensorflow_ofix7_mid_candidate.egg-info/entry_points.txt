@@ -1,0 +1,5 @@
+[console_scripts]
+lap-gnn-tf-compare-golden = lap_gnn_tf.cli.compare_golden:main
+lap-gnn-tf-evaluate = lap_gnn_tf.cli.evaluate:main
+lap-gnn-tf-train = lap_gnn_tf.cli.train:main
+lap-gnn-tf-validate = lap_gnn_tf.cli.validate:main

@@ -1,0 +1,86 @@
+{
+  "tensorflow": "2.18.1",
+  "mapping": {
+    "source_tensors": 127,
+    "destination_variables": 127,
+    "assigned": 127,
+    "missing_tensors": [],
+    "extra_tensors": [],
+    "shape_mismatches": [],
+    "dtype_mismatches": [],
+    "duplicate_destinations": [],
+    "complete": true
+  },
+  "trainable_parameters": 1061192,
+  "non_trainable_parameters": 0,
+  "parameter_count_match": true,
+  "layers": [
+    {
+      "name": "input_projection",
+      "max_abs": 1.9073486328125e-06,
+      "relative_l2": 2.2423419920869492e-07
+    },
+    {
+      "name": "gnn_layer_1",
+      "max_abs": 3.337860107421875e-06,
+      "relative_l2": 2.84426022290063e-07
+    },
+    {
+      "name": "gnn_layer_2",
+      "max_abs": 3.337860107421875e-06,
+      "relative_l2": 3.3634469787102717e-07
+    },
+    {
+      "name": "gnn_layer_3",
+      "max_abs": 4.0531158447265625e-06,
+      "relative_l2": 3.7327549762267154e-07
+    },
+    {
+      "name": "classifier_input",
+      "max_abs": 7.152557373046875e-06,
+      "relative_l2": 7.694841883676418e-07
+    },
+    {
+      "name": "pre_readout_node_representation",
+      "max_abs": 3.874301910400391e-06,
+      "relative_l2": 3.90232315794492e-07
+    },
+    {
+      "name": "pooled_graph_embedding",
+      "max_abs": 7.152557373046875e-06,
+      "relative_l2": 7.694841883676418e-07
+    },
+    {
+      "name": "micro_major_motif_tokens",
+      "max_abs": 6.794929504394531e-06,
+      "relative_l2": 5.320346758708183e-07
+    },
+    {
+      "name": "micro_major_motif_transformed_tokens",
+      "max_abs": 1.6689300537109375e-06,
+      "relative_l2": 1.937026326004343e-07
+    },
+    {
+      "name": "micro_motif_tokens",
+      "max_abs": 5.245208740234375e-06,
+      "relative_l2": 1.2491167353800847e-06
+    },
+    {
+      "name": "micro_motif_transformed_tokens",
+      "max_abs": 6.9141387939453125e-06,
+      "relative_l2": 3.2533179705751536e-07
+    },
+    {
+      "name": "micro_support_gate",
+      "max_abs": 2.980232238769531e-07,
+      "relative_l2": 8.546958696342699e-08
+    }
+  ],
+  "maximum_layer_max_abs": 7.152557373046875e-06,
+  "max_logit_difference": 1.0013580322265625e-05,
+  "max_probability_difference": 1.6689300537109375e-06,
+  "prediction_agreement": 1.0,
+  "loss_difference": 5.364418029785156e-07,
+  "forward_parity_class": "FORWARD_PARITY_FAILED",
+  "pass": false
+}

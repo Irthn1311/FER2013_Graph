@@ -1,0 +1,96 @@
+{
+  "checkpoint_continuation": {
+    "restored": {
+      "array_count": 383,
+      "exact_arrays": 383,
+      "max_abs": 0.0,
+      "pass": true
+    },
+    "continued": {
+      "array_count": 383,
+      "exact_arrays": 383,
+      "max_abs": 0.0,
+      "pass": true
+    },
+    "iterations": 3,
+    "pass": true,
+    "checkpoint": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\outputs\\d16_analysis\\lap_gnn_tensorflow_execution_mode_closure\\g1_step2.keras",
+    "fresh_process_returncode": 0
+  },
+  "mixed_precision": {
+    "policy": "mixed_float16",
+    "loss": 0.8935827612876892,
+    "loss_dtype": "<dtype: 'float32'>",
+    "loss_finite": true,
+    "scaled_gradients_finite": true,
+    "variables_finite": true,
+    "slots_finite": true,
+    "model_variable_dtypes": [
+      "float32"
+    ],
+    "m1_dtypes": [
+      "float32"
+    ],
+    "m2_dtypes": [
+      "float32"
+    ],
+    "loss_scale_before": 32768.0,
+    "loss_scale_after": 16384.0,
+    "loss_scale_recovery_attempts": [
+      {
+        "attempt": 1,
+        "loss_scale_before": 32768.0,
+        "loss_scale_after": 16384.0,
+        "scaled_gradients_finite": false,
+        "optimizer_iterations": 0
+      },
+      {
+        "attempt": 2,
+        "loss_scale_before": 16384.0,
+        "loss_scale_after": 16384.0,
+        "scaled_gradients_finite": true,
+        "optimizer_iterations": 1
+      }
+    ],
+    "inner_iterations": 1,
+    "outer_iterations": 1,
+    "exact_clip_norm": 15.419854164123535,
+    "graph_contains_check_finite": true,
+    "graph_contains_py_function": false,
+    "pass": true
+  },
+  "benchmarks": [
+    {
+      "mode": "G1-A",
+      "warmup_steps": 5,
+      "timed_steps": 20,
+      "graph_construction_sec": 26.479268499999307,
+      "forward_backward_mean_sec": 1.4963192199997137,
+      "optimizer_update_mean_sec": 0.0,
+      "total_step_mean_sec": 1.4963192199997137,
+      "total_step_median_sec": 1.497392499994021,
+      "python_overhead_mean_sec": 0.0,
+      "host_to_device_transfers_per_step": 0,
+      "gpu_synchronizations_observed": 0,
+      "peak_host_rss_bytes": 4169273344,
+      "peak_gpu_memory_bytes": null
+    },
+    {
+      "mode": "H1",
+      "warmup_steps": 5,
+      "timed_steps": 20,
+      "graph_construction_sec": 7.563500199990813,
+      "forward_backward_mean_sec": 1.315633785002865,
+      "optimizer_update_mean_sec": 2.843328874994768,
+      "total_step_mean_sec": 4.158962659997632,
+      "total_step_median_sec": 4.1824558500084095,
+      "python_overhead_mean_sec": 2.843328874994768,
+      "host_to_device_transfers_per_step": 0,
+      "gpu_synchronizations_observed": 0,
+      "peak_host_rss_bytes": 4094726144,
+      "peak_gpu_memory_bytes": null
+    }
+  ],
+  "h1_overhead_percent_relative_to_g1": 177.9462165832788,
+  "pass": true
+}

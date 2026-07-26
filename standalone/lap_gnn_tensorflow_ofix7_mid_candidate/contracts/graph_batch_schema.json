@@ -1,0 +1,38 @@
+{
+  "x_cat": [
+    "sum_nodes",
+    37
+  ],
+  "edge_index_cat": [
+    2,
+    "sum_edges"
+  ],
+  "edge_attr_cat": [
+    "sum_edges",
+    8
+  ],
+  "batch_index": [
+    "sum_nodes"
+  ],
+  "ptr": [
+    "batch_size + 1"
+  ],
+  "y": [
+    "batch_size"
+  ],
+  "sample_index": [
+    "batch_size"
+  ],
+  "pos_cat": [
+    "sum_nodes",
+    2
+  ],
+  "part_soft_cat": [
+    "sum_nodes",
+    13
+  ],
+  "face_mask_cat": [
+    "sum_nodes"
+  ],
+  "variable_node_count": true
+}

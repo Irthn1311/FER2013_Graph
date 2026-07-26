@@ -1,0 +1,36 @@
+{
+  "in_process_repeats": 10,
+  "fresh_processes": 5,
+  "total_two_step_repetitions": 15,
+  "raw_gradient_worst": {
+    "max_abs": 5.0067901611328125e-06,
+    "relative_l2": 1.6647603823765678e-06,
+    "minimum_cosine": 0.9999999999989649
+  },
+  "clipped_gradient_worst": {
+    "max_abs": 1.0356307029724121e-06,
+    "relative_l2": 1.4404665259729182e-06,
+    "minimum_cosine": 0.9999999999989622
+  },
+  "steps": [
+    {
+      "step": 1,
+      "parameter_max_abs": 2.4257227778434753e-05,
+      "m1_max_abs": 1.0337680578231812e-07,
+      "m2_max_abs": 1.5133991837501526e-09,
+      "pass": false
+    },
+    {
+      "step": 2,
+      "parameter_max_abs": 4.851445555686951e-05,
+      "m1_max_abs": 1.9744038581848145e-07,
+      "m2_max_abs": 3.259629011154175e-09,
+      "pass": false
+    }
+  ],
+  "optimizer_executed_eagerly": true,
+  "compiled_stage_updates_optimizer": false,
+  "h1_repeated_pass": false,
+  "h1_fresh_process_pass": false,
+  "h1_pass": false
+}

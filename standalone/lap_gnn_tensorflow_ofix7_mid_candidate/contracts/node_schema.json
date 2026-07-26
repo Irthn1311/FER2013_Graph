@@ -1,0 +1,28 @@
+{
+  "pixel_nodes": {
+    "message_passing": true,
+    "order": "np.argwhere selected mask, row-major",
+    "selection": "face_mask > 0.15, binary dilation radius 2"
+  },
+  "context_pixel_nodes": {
+    "message_passing": true,
+    "distinguished_by_type_tensor": false
+  },
+  "semantic_anchor_nodes": {
+    "message_passing": true,
+    "count": 5,
+    "order": [
+      "mouth",
+      "eye",
+      "brow",
+      "nose_cheek",
+      "global"
+    ],
+    "appended_after_pixels": true
+  },
+  "readout_cls_and_motif_tokens": {
+    "message_passing": false,
+    "scope": "micro_motif_support readout only"
+  },
+  "node_type_tensor": "not explicitly stored; pixel/context versus anchor is inferred from trailing five nodes"
+}

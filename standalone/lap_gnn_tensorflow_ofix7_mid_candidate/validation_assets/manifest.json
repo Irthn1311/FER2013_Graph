@@ -1,0 +1,43 @@
+{
+  "fixture_version": "ofix7_mid_golden_v1",
+  "source": "exact historical parent implementation",
+  "source_commit": "241a8872027cd284fe679533a0be95cb48e7d253",
+  "sample_ids": [
+    0,
+    299,
+    2,
+    7,
+    6,
+    15,
+    4,
+    3
+  ],
+  "labels": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    4
+  ],
+  "covers_all_seven_classes": true,
+  "contains_fallback": true,
+  "checkpoint_sha256": "20084362d4a9529f7a833a1994ba407d958cb6264b42f60e4252efca3edad5ac",
+  "tolerances": {
+    "cpu_float32_target": 1e-06,
+    "maximum_allowed": 1e-05
+  },
+  "files": {
+    "graph_batch.npz": "bf68b79a3d11d949e2d1d125200c7eedc51bb192287c495e5712d34a2053817b",
+    "initial_state_manifest.json": "450182a9de5e807a4ed91b07298db76fd0a3b88f4decedf0767945a8e4be7ca7",
+    "labels.npy": "a770d343e1b78f114dd2419b6a3c82bc6ba9eae1c066064d9b33b7bfd98d1bfe",
+    "layer_outputs.npz": "8570e539cbbe8a430eefc8789013086aed04d269e442ec3a654442528d3d00f2",
+    "logits.npy": "976ad3445c07ae62805afc571c148c8f5377046096b907a95b6ee965a97c51df",
+    "losses.json": "1b63680209fcdaea40d335e208cab97bb07cbb6d06ebd14c790d2eabd3081ba7",
+    "model_state.npz": "72cd901e0b48dee5781f256a22b47444280149157e64e02ff99ba6a0b4040e04",
+    "pooled_embeddings.npy": "1dbd81248cca54444fab8b05bb464f06b09c5d6bd2671d325b6ace8baa3a8ec2",
+    "probabilities.npy": "b1abe04d49f64907aea4f656eb5e7e714ae70179cb1198dc50acb643d176aa9f"
+  }
+}

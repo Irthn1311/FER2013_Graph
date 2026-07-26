@@ -1,0 +1,174 @@
+{
+  "contract": "tensorflow_execution_contract_v2",
+  "created_at": "2026-07-24T19:48:00+07:00",
+  "tensorflow_version": "2.18.1",
+  "optimizer": {
+    "class": "TorchCompatibleAdamW",
+    "source_sha256": "a17b6f0a37202c17e5f9a5819b14b6739e96d90e318a3f6e7073890436a7cb8c",
+    "global_clipnorm": 5.0,
+    "tolerance": 2e-08,
+    "tolerance_relaxed": false
+  },
+  "original_tf_function_failure": {
+    "reason": "Default Grappler rewrote the float32 software-FMA/update expression and changed rounding relative to the frozen PyTorch reference.",
+    "step2_parameter_max_abs": 2.9802322387695312e-08,
+    "step2_m1_max_abs": 1.4901161193847656e-08,
+    "strict_gate_pass": false
+  },
+  "g1": {
+    "decision": "G1_PASS",
+    "selected_configuration": "G1-A",
+    "selection_rule": "Choose the least restrictive passing configuration in G1-A, G1-B, G1-C order.",
+    "configurations": {
+      "G1-A": {
+        "grappler": {
+          "arithmetic_optimization": false,
+          "remapping": false
+        },
+        "repetitions": 15,
+        "step1": {
+          "parameter_max_abs": 0.0,
+          "m1_max_abs": 0.0,
+          "m2_max_abs": 0.0
+        },
+        "step2": {
+          "parameter_max_abs": 0.0,
+          "m1_max_abs": 2.3283064365386963e-10,
+          "m2_max_abs": 0.0
+        },
+        "iterations_exact": true,
+        "variables_accounted_for": 127,
+        "pass": true
+      },
+      "G1-B": {
+        "grappler": {
+          "arithmetic_optimization": false,
+          "remapping": false,
+          "function_optimization": false,
+          "dependency_optimization": false
+        },
+        "repetitions": 15,
+        "step1": {
+          "parameter_max_abs": 0.0,
+          "m1_max_abs": 0.0,
+          "m2_max_abs": 0.0
+        },
+        "step2": {
+          "parameter_max_abs": 0.0,
+          "m1_max_abs": 2.3283064365386963e-10,
+          "m2_max_abs": 0.0
+        },
+        "iterations_exact": true,
+        "variables_accounted_for": 127,
+        "pass": true
+      },
+      "G1-C": {
+        "grappler": {
+          "disable_meta_optimizer": true
+        },
+        "repetitions": 15,
+        "step1": {
+          "parameter_max_abs": 0.0,
+          "m1_max_abs": 0.0,
+          "m2_max_abs": 0.0
+        },
+        "step2": {
+          "parameter_max_abs": 0.0,
+          "m1_max_abs": 2.3283064365386963e-10,
+          "m2_max_abs": 0.0
+        },
+        "iterations_exact": true,
+        "variables_accounted_for": 127,
+        "pass": true
+      }
+    }
+  },
+  "h1": {
+    "design": "Compiled forward, float32 loss and backward return 127 ordered TensorFlow gradients; eager-only application validates and updates without NumPy or PyTorch runtime.",
+    "optimizer_executed_eagerly": true,
+    "compiled_stage_updates_optimizer": false,
+    "raw_gradient_max_abs": 5.0067901611328125e-06,
+    "raw_gradient_relative_l2": 1.6647603823765678e-06,
+    "raw_gradient_minimum_cosine": 0.9999999999989649,
+    "clipped_gradient_max_abs": 1.0356307029724121e-06,
+    "clipped_gradient_relative_l2": 1.4404665259729182e-06,
+    "clipped_gradient_minimum_cosine": 0.9999999999989622,
+    "step1": {
+      "parameter_max_abs": 2.4257227778434753e-05,
+      "m1_max_abs": 1.0337680578231812e-07,
+      "m2_max_abs": 1.5133991837501526e-09,
+      "pass": false
+    },
+    "step2": {
+      "parameter_max_abs": 4.851445555686951e-05,
+      "m1_max_abs": 1.9744038581848145e-07,
+      "m2_max_abs": 3.259629011154175e-09,
+      "pass": false
+    },
+    "repeated_pass": false,
+    "fresh_process_pass": false,
+    "pass": false
+  },
+  "selected_execution": {
+    "strategy": "SELECT_G1_RESTRICTED_GRAPH_OPTIMIZER",
+    "gradient_execution_mode": "tf_function",
+    "optimizer_execution_mode": "restricted_tf_function",
+    "grappler_profile": "G1-A",
+    "optimizer_runs_eagerly": false,
+    "xla": false,
+    "py_function": false,
+    "clipping_location": "Inside TorchCompatibleAdamW in the selected restricted tf.function after mixed-precision unscale.",
+    "mixed_precision_order": [
+      "eligible float16 forward operations",
+      "float32 sparse cross-entropy accumulation",
+      "loss scaling",
+      "gradient calculation",
+      "dynamic unscale and finite check",
+      "exact PyTorch-layout global norm and clipping",
+      "float32 master-variable AdamW update",
+      "float32 m1 and m2 slot update"
+    ]
+  },
+  "mixed_precision_validation": {
+    "policy": "mixed_float16",
+    "initial_loss_scale": 32768.0,
+    "recovered_loss_scale": 16384.0,
+    "recovery_attempts": 2,
+    "successful_update_iterations": 1,
+    "exact_clip_norm": 15.419854164123535,
+    "finite_loss_gradients_variables_slots": true,
+    "pass": true
+  },
+  "checkpoint_semantics": {
+    "format": "Keras .keras with optimizer",
+    "model_and_optimizer_array_count": 383,
+    "restored_arrays_exact": 383,
+    "continued_arrays_exact": 383,
+    "optimizer_iterations_after_continuation": 3,
+    "scheduler_state": "Stored in checkpoint metadata JSON.",
+    "early_stopping_state": "Stored in checkpoint metadata JSON.",
+    "mixed_precision_loss_scale": "Serialized by Keras LossScaleOptimizer when mixed precision is active.",
+    "execution_contract_sha256": "Required in checkpoint metadata.",
+    "pass": true
+  },
+  "runtime_limits": {
+    "benchmark_device": "CPU",
+    "benchmark_batch": "frozen golden batch",
+    "warmup_steps": 5,
+    "timed_steps": 20,
+    "g1_total_step_mean_sec": 1.4963192199997137,
+    "h1_total_step_mean_sec": 4.158962659997632,
+    "h1_overhead_percent_relative_to_g1": 177.9462165832788,
+    "gpu_memory_not_observed": true,
+    "no_full_epoch_completed": true,
+    "first_seed42_run_resume_enabled": false
+  },
+  "scientific_changes": {
+    "equations_changed": false,
+    "architecture_changed": false,
+    "hyperparameters_changed": false,
+    "data_changed": false,
+    "priors_changed": false,
+    "pytorch_artifacts_changed": false
+  }
+}

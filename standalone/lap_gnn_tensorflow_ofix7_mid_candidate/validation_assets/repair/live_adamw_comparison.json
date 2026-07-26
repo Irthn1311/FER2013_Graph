@@ -1,0 +1,43 @@
+{
+  "keys_match": true,
+  "tensor_count": 127,
+  "steps": [
+    {
+      "step": 1,
+      "parameter_max_abs": 0.0,
+      "parameter_relative_l2": 0.0,
+      "momentum_max_abs": 0.0,
+      "momentum_relative_l2": 0.0,
+      "velocity_max_abs": 0.0,
+      "velocity_relative_l2": 0.0,
+      "pytorch_step_counter": 1.0,
+      "tensorflow_step_counter": 1,
+      "step_counter_match": true,
+      "all_finite": true,
+      "global_norm_match": true,
+      "clip_coefficient_match": true,
+      "pass_2e_8": true
+    },
+    {
+      "step": 2,
+      "parameter_max_abs": 0.0,
+      "parameter_relative_l2": 0.0,
+      "momentum_max_abs": 2.3283064365386963e-10,
+      "momentum_relative_l2": 2.744405882907829e-10,
+      "velocity_max_abs": 0.0,
+      "velocity_relative_l2": 0.0,
+      "pytorch_step_counter": 2.0,
+      "tensorflow_step_counter": 2,
+      "step_counter_match": true,
+      "all_finite": true,
+      "global_norm_match": true,
+      "clip_coefficient_match": true,
+      "pass_2e_8": true
+    }
+  ],
+  "total_optimizer_updates": 4,
+  "step1_reference": "fresh_pytorch_live_step1",
+  "step2_reference": "fresh_pytorch_live_step2",
+  "capture_warning": null,
+  "pass": true
+}
