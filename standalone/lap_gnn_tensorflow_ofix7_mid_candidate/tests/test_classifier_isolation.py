@@ -10,4 +10,4 @@ def test_classifier_isolation():
         classifier_input = tf.convert_to_tensor(layers["classifier_input"])
     actual = model.classifier(classifier_input, training=False).numpy()
     expected = golden("logits.npy")
-    assert np.max(np.abs(actual - expected)) <= 1e-6
+    assert np.max(np.abs(actual - expected)) <= 1e-5

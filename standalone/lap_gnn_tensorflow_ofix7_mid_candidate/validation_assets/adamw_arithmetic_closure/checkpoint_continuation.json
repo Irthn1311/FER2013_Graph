@@ -1,0 +1,26 @@
+{
+  "fresh_process_restore": {
+    "max_abs": 0.0,
+    "exact_arrays": 383,
+    "array_count": 383,
+    "missing_arrays": 0,
+    "unexpected_arrays": 0,
+    "pass": true
+  },
+  "fresh_process_continuation": {
+    "max_abs": 0.0,
+    "exact_arrays": 383,
+    "array_count": 383,
+    "missing_arrays": 0,
+    "unexpected_arrays": 0,
+    "pass": true
+  },
+  "iterations_after_restore": 2,
+  "iterations_after_continuation": 3,
+  "pass": true,
+  "checkpoint_prefix": "..\\..\\outputs\\d16_analysis\\lap_gnn_tensorflow_adamw_arithmetic_closure\\adamw_step2.keras",
+  "full_model_trainable_variables": 127,
+  "optimizer_variables": 256,
+  "parent_iterations_after_continuation": 3,
+  "fresh_process_returncode": 0
+}

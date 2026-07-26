@@ -1,0 +1,11 @@
+{
+  "eager_repeats": 10,
+  "tf_function_repeats": 10,
+  "fresh_process_repeats": 5,
+  "eager_pass": true,
+  "tf_function_pass": false,
+  "fresh_process_pass": true,
+  "tensorflow_optimizer_updates": 50,
+  "additional_pytorch_optimizer_updates": 0,
+  "pass": false
+}

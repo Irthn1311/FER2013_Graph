@@ -1,0 +1,58 @@
+{
+  "tensorflow": "2.18.1",
+  "steps": [
+    {
+      "step": 1,
+      "parameter": {
+        "max_abs": 0.0,
+        "array_exact_tensors": 127,
+        "tensor_count": 127,
+        "pass_2e_8": true
+      },
+      "momentum": {
+        "max_abs": 0.0,
+        "array_exact_tensors": 127,
+        "tensor_count": 127,
+        "pass_2e_8": true
+      },
+      "velocity": {
+        "max_abs": 0.0,
+        "array_exact_tensors": 127,
+        "tensor_count": 127,
+        "pass_2e_8": true
+      },
+      "iterations": 1,
+      "global_norm": 15.556995391845703,
+      "clip_coefficient": 0.3213987946510315,
+      "pass": true
+    },
+    {
+      "step": 2,
+      "parameter": {
+        "max_abs": 0.0,
+        "array_exact_tensors": 127,
+        "tensor_count": 127,
+        "pass_2e_8": true
+      },
+      "momentum": {
+        "max_abs": 2.3283064365386963e-10,
+        "array_exact_tensors": 126,
+        "tensor_count": 127,
+        "pass_2e_8": true
+      },
+      "velocity": {
+        "max_abs": 0.0,
+        "array_exact_tensors": 127,
+        "tensor_count": 127,
+        "pass_2e_8": true
+      },
+      "iterations": 2,
+      "global_norm": 15.556995391845703,
+      "clip_coefficient": 0.3213987946510315,
+      "pass": true
+    }
+  ],
+  "offline_closure_pass": true,
+  "optimizer_updates_on_copied_fixture_arrays": 2,
+  "live_model_optimizer_updates": 0
+}

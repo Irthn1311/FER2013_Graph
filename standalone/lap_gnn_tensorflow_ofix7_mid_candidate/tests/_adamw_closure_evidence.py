@@ -9,10 +9,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = (
-    REPO_ROOT
-    / "outputs"
-    / "d16_analysis"
-    / "lap_gnn_tensorflow_adamw_arithmetic_closure"
+    PACKAGE_ROOT
+    / "validation_assets"
+    / "adamw_arithmetic_closure"
 )
 GATE = 2e-8
 
