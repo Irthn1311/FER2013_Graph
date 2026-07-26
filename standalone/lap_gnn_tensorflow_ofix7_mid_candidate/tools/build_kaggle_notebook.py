@@ -244,11 +244,20 @@ run_checked([sys.executable, "-B", "-m", "lap_gnn_tf.cli.inspect_environment",
     ),
     markdown("## 5. Import Isolation\n"),
     code(
-        """import lap_gnn_tf
+        """PACKAGE_SRC = TF_PACKAGE_PATH / "src"
+if not PACKAGE_SRC.is_dir():
+    raise FileNotFoundError(PACKAGE_SRC)
+if str(PACKAGE_SRC) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_SRC))
+importlib.invalidate_caches()
+
+import tensorflow as tf
+import lap_gnn_tf
 from lap_gnn_tf.training.execution import configure_restricted_grappler
 
 resolved_package = Path(lap_gnn_tf.__file__).resolve()
 print("lap_gnn_tf:", resolved_package)
+print("lap_gnn_tf_source_bootstrap:", PACKAGE_SRC)
 if TF_PACKAGE_PATH.resolve() not in resolved_package.parents:
     raise RuntimeError("lap_gnn_tf resolved outside the standalone TensorFlow package")
 run_checked([sys.executable, "-B", TF_PACKAGE_PATH / "tools/verify_no_torch_runtime.py"], cwd=TF_PACKAGE_PATH)

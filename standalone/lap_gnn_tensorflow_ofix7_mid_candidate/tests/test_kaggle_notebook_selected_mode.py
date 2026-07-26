@@ -32,4 +32,10 @@ def test_kaggle_notebook_selected_mode():
     assert "importlib.metadata.version" in source
     assert "tensorflow imported before bootstrap" in source
     assert "fresh_process_environment" in source
+    assert 'PACKAGE_SRC = TF_PACKAGE_PATH / "src"' in source
+    assert "sys.path.insert(0, str(PACKAGE_SRC))" in source
+    assert "import tensorflow as tf" in source
+    assert source.index("fresh_process_environment") < source.index(
+        "import tensorflow as tf"
+    )
     assert "Restart the Kaggle session" not in source

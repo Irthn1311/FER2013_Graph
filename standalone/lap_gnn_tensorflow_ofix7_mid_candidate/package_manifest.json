@@ -825,9 +825,9 @@
       "sha256": "7ec17c36882ed3d0717f286c58f0a8e4f3ecdf52606327cd6d15dcfa2380f297"
     },
     {
-      "bytes": 1422,
+      "bytes": 1699,
       "path": "tests/test_kaggle_notebook_selected_mode.py",
-      "sha256": "0f82a12de94dcaf0dd1d8ba9a8538b9790a5a414a07045b42a8e74bb46b11ec9"
+      "sha256": "d8f7aa13ae5e580a0fde2fb3fda4c2f9df1f22fdbc194dcf939ed8597a7c5d42"
     },
     {
       "bytes": 1126,
@@ -892,7 +892,7 @@
     {
       "bytes": 277,
       "path": "tests/test_notebook_final_payload_hash.py",
-      "sha256": "ccf590dfdb3337c754d41ade7add5902822864f291876e7fc3afe781c1532d0d"
+      "sha256": "bad55df496382c1639c7d14b19a039c213856b67f71fae59065d505bd17393c4"
     },
     {
       "bytes": 607,
@@ -1030,9 +1030,9 @@
       "sha256": "2287226dba9aa19333fb5b72018b6513a6fa5224eee1d8e1599c857ef9f28e31"
     },
     {
-      "bytes": 30893,
+      "bytes": 31185,
       "path": "tools/build_kaggle_notebook.py",
-      "sha256": "42cb3f8739186357b0e64791020b1ece540c816a24937ee79a04ff7a937d47d2"
+      "sha256": "6eebc88dc9bd301931efb5e0594ba8f6151299cbe55b7580f94227c075806428"
     },
     {
       "bytes": 25767,
