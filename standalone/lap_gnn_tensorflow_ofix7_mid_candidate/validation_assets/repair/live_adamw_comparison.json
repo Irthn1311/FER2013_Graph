@@ -4,36 +4,40 @@
   "steps": [
     {
       "step": 1,
-      "parameter_max_abs": 2.9802322387695312e-08,
-      "parameter_relative_l2": 4.235596394378188e-09,
-      "momentum_max_abs": 8.940696716308594e-08,
-      "momentum_relative_l2": 2.2482320849547718e-07,
-      "velocity_max_abs": 1.3504177331924438e-07,
-      "velocity_relative_l2": 1.2924845012267328e-05,
+      "parameter_max_abs": 0.0,
+      "parameter_relative_l2": 0.0,
+      "momentum_max_abs": 0.0,
+      "momentum_relative_l2": 0.0,
+      "velocity_max_abs": 0.0,
+      "velocity_relative_l2": 0.0,
       "pytorch_step_counter": 1.0,
       "tensorflow_step_counter": 1,
       "step_counter_match": true,
       "all_finite": true,
-      "pass_2e_8": false
+      "global_norm_match": true,
+      "clip_coefficient_match": true,
+      "pass_2e_8": true
     },
     {
       "step": 2,
-      "parameter_max_abs": 1.1920928955078125e-07,
-      "parameter_relative_l2": 2.604617447733421e-08,
-      "momentum_max_abs": 1.7881393432617188e-07,
-      "momentum_relative_l2": 2.142836073191858e-07,
-      "velocity_max_abs": 2.7194619178771973e-07,
-      "velocity_relative_l2": 1.2977163012355558e-05,
+      "parameter_max_abs": 0.0,
+      "parameter_relative_l2": 0.0,
+      "momentum_max_abs": 2.3283064365386963e-10,
+      "momentum_relative_l2": 2.744405882907829e-10,
+      "velocity_max_abs": 0.0,
+      "velocity_relative_l2": 0.0,
       "pytorch_step_counter": 2.0,
       "tensorflow_step_counter": 2,
       "step_counter_match": true,
       "all_finite": true,
-      "pass_2e_8": false
+      "global_norm_match": true,
+      "clip_coefficient_match": true,
+      "pass_2e_8": true
     }
   ],
   "total_optimizer_updates": 4,
-  "step1_reference": "locked_pytorch_live_step1_fixture",
+  "step1_reference": "fresh_pytorch_live_step1",
   "step2_reference": "fresh_pytorch_live_step2",
-  "capture_warning": "Fresh PyTorch step-1 NumPy views were overwritten by step 2; step 1 therefore uses the pre-existing locked live-step fixture.",
-  "pass": false
+  "capture_warning": null,
+  "pass": true
 }

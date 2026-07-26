@@ -1,0 +1,228 @@
+{
+  "configurations": [
+    {
+      "configuration": "G1-A",
+      "requested_optimizer_options": {
+        "arithmetic_optimization": false,
+        "remapping": false
+      },
+      "effective_optimizer_options": {
+        "remapping": false,
+        "arithmetic_optimization": false,
+        "disable_model_pruning": false,
+        "disable_meta_optimizer": false
+      },
+      "graph_audit": {
+        "operation_count": 21784,
+        "operation_type_counts": {
+          "AddV2": 3004,
+          "AssignAddVariableOp": 127,
+          "AssignVariableOp": 509,
+          "BiasAdd": 1,
+          "Cast": 2,
+          "ConcatV2": 256,
+          "Const": 8325,
+          "Cumsum": 128,
+          "FloorMod": 128,
+          "Identity": 255,
+          "IdentityN": 1,
+          "Minimum": 1,
+          "Mul": 1692,
+          "Neg": 137,
+          "NoOp": 1,
+          "Pack": 769,
+          "Placeholder": 443,
+          "ReadVariableOp": 766,
+          "RealDiv": 259,
+          "Reshape": 256,
+          "Sqrt": 256,
+          "Square": 256,
+          "Squeeze": 1,
+          "StatelessWhile": 2,
+          "StridedSlice": 2432,
+          "Sub": 1736,
+          "Transpose": 41
+        },
+        "contains_py_function": false,
+        "contains_xla": false
+      },
+      "in_process_traces": 10,
+      "fresh_processes": 5,
+      "total_two_step_repetitions": 15,
+      "pass": true
+    },
+    {
+      "configuration": "G1-B",
+      "requested_optimizer_options": {
+        "arithmetic_optimization": false,
+        "remapping": false,
+        "function_optimization": false,
+        "dependency_optimization": false
+      },
+      "effective_optimizer_options": {
+        "remapping": false,
+        "arithmetic_optimization": false,
+        "dependency_optimization": false,
+        "function_optimization": false,
+        "disable_model_pruning": false,
+        "disable_meta_optimizer": false
+      },
+      "graph_audit": {
+        "operation_count": 21784,
+        "operation_type_counts": {
+          "AddV2": 3004,
+          "AssignAddVariableOp": 127,
+          "AssignVariableOp": 509,
+          "BiasAdd": 1,
+          "Cast": 2,
+          "ConcatV2": 256,
+          "Const": 8325,
+          "Cumsum": 128,
+          "FloorMod": 128,
+          "Identity": 255,
+          "IdentityN": 1,
+          "Minimum": 1,
+          "Mul": 1692,
+          "Neg": 137,
+          "NoOp": 1,
+          "Pack": 769,
+          "Placeholder": 443,
+          "ReadVariableOp": 766,
+          "RealDiv": 259,
+          "Reshape": 256,
+          "Sqrt": 256,
+          "Square": 256,
+          "Squeeze": 1,
+          "StatelessWhile": 2,
+          "StridedSlice": 2432,
+          "Sub": 1736,
+          "Transpose": 41
+        },
+        "contains_py_function": false,
+        "contains_xla": false
+      },
+      "in_process_traces": 10,
+      "fresh_processes": 5,
+      "total_two_step_repetitions": 15,
+      "pass": true
+    },
+    {
+      "configuration": "G1-C",
+      "requested_optimizer_options": {
+        "disable_meta_optimizer": true
+      },
+      "effective_optimizer_options": {
+        "disable_model_pruning": false,
+        "disable_meta_optimizer": true
+      },
+      "graph_audit": {
+        "operation_count": 21784,
+        "operation_type_counts": {
+          "AddV2": 3004,
+          "AssignAddVariableOp": 127,
+          "AssignVariableOp": 509,
+          "BiasAdd": 1,
+          "Cast": 2,
+          "ConcatV2": 256,
+          "Const": 8325,
+          "Cumsum": 128,
+          "FloorMod": 128,
+          "Identity": 255,
+          "IdentityN": 1,
+          "Minimum": 1,
+          "Mul": 1692,
+          "Neg": 137,
+          "NoOp": 1,
+          "Pack": 769,
+          "Placeholder": 443,
+          "ReadVariableOp": 766,
+          "RealDiv": 259,
+          "Reshape": 256,
+          "Sqrt": 256,
+          "Square": 256,
+          "Squeeze": 1,
+          "StatelessWhile": 2,
+          "StridedSlice": 2432,
+          "Sub": 1736,
+          "Transpose": 41
+        },
+        "contains_py_function": false,
+        "contains_xla": false
+      },
+      "in_process_traces": 10,
+      "fresh_processes": 5,
+      "total_two_step_repetitions": 15,
+      "pass": true
+    }
+  ],
+  "rows": [
+    {
+      "configuration": "G1-A",
+      "step": 1,
+      "parameter_max_abs": 0.0,
+      "m1_max_abs": 0.0,
+      "m2_max_abs": 0.0,
+      "iterations_exact": true,
+      "variable_count_exact": true,
+      "repetitions": 15,
+      "pass": true
+    },
+    {
+      "configuration": "G1-A",
+      "step": 2,
+      "parameter_max_abs": 0.0,
+      "m1_max_abs": 2.3283064365386963e-10,
+      "m2_max_abs": 0.0,
+      "iterations_exact": true,
+      "variable_count_exact": true,
+      "repetitions": 15,
+      "pass": true
+    },
+    {
+      "configuration": "G1-B",
+      "step": 1,
+      "parameter_max_abs": 0.0,
+      "m1_max_abs": 0.0,
+      "m2_max_abs": 0.0,
+      "iterations_exact": true,
+      "variable_count_exact": true,
+      "repetitions": 15,
+      "pass": true
+    },
+    {
+      "configuration": "G1-B",
+      "step": 2,
+      "parameter_max_abs": 0.0,
+      "m1_max_abs": 2.3283064365386963e-10,
+      "m2_max_abs": 0.0,
+      "iterations_exact": true,
+      "variable_count_exact": true,
+      "repetitions": 15,
+      "pass": true
+    },
+    {
+      "configuration": "G1-C",
+      "step": 1,
+      "parameter_max_abs": 0.0,
+      "m1_max_abs": 0.0,
+      "m2_max_abs": 0.0,
+      "iterations_exact": true,
+      "variable_count_exact": true,
+      "repetitions": 15,
+      "pass": true
+    },
+    {
+      "configuration": "G1-C",
+      "step": 2,
+      "parameter_max_abs": 0.0,
+      "m1_max_abs": 2.3283064365386963e-10,
+      "m2_max_abs": 0.0,
+      "iterations_exact": true,
+      "variable_count_exact": true,
+      "repetitions": 15,
+      "pass": true
+    }
+  ],
+  "g1_pass": true,
+  "selected_configuration": "G1-A"
+}

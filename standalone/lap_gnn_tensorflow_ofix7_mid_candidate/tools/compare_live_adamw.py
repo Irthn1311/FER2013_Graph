@@ -17,7 +17,7 @@ def main() -> None:
     parser.add_argument("--tensorflow-json", type=Path, required=True)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--gradients", type=Path, required=True)
-    parser.add_argument("--pytorch-step1-fixture", type=Path, required=True)
+    parser.add_argument("--pytorch-step1-fixture", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -33,19 +33,15 @@ def main() -> None:
             pytorch_metadata["optimizer_updates_executed"]
             + tensorflow_metadata["optimizer_updates_executed"]
         ),
-        "step1_reference": "locked_pytorch_live_step1_fixture",
+        "step1_reference": "fresh_pytorch_live_step1",
         "step2_reference": "fresh_pytorch_live_step2",
-        "capture_warning": (
-            "Fresh PyTorch step-1 NumPy views were overwritten by step 2; "
-            "step 1 therefore uses the pre-existing locked live-step fixture."
-        ),
+        "capture_warning": None,
     }
     with (
         np.load(args.pytorch_npz, allow_pickle=False) as pytorch,
         np.load(args.tensorflow_npz, allow_pickle=False) as tensorflow,
         np.load(args.state, allow_pickle=False) as state,
-        np.load(args.gradients, allow_pickle=False) as gradients,
-        np.load(args.pytorch_step1_fixture, allow_pickle=False) as step1_fixture,
+        np.load(args.gradients, allow_pickle=False),
     ):
         if set(pytorch.files) != set(tensorflow.files):
             raise RuntimeError("Live optimizer state tensor set mismatch")
@@ -58,15 +54,7 @@ def main() -> None:
                 reference_square = 0.0
                 for index, name in enumerate(names):
                     key = pytorch_metadata["keys"][index]
-                    if step == 1 and kind == "parameter":
-                        left = np.asarray(step1_fixture[key], np.float32)
-                    elif step == 1 and kind == "momentum":
-                        left = np.float32(0.1) * np.asarray(gradients[key], np.float32)
-                    elif step == 1 and kind == "velocity":
-                        gradient = np.asarray(gradients[key], np.float32)
-                        left = np.float32(0.001) * np.square(gradient)
-                    else:
-                        left = np.asarray(pytorch[name], np.float32)
+                    left = np.asarray(pytorch[name], np.float32)
                     right = np.asarray(tensorflow[name], np.float32)
                     delta = left.astype(np.float64) - right.astype(np.float64)
                     maximum = max(maximum, float(np.max(np.abs(delta))))
@@ -92,12 +80,22 @@ def main() -> None:
                     tensorflow_step["all_parameters_finite"],
                     tensorflow_step["all_slots_finite"],
                 ]),
+                "global_norm_match": (
+                    pytorch_step["global_gradient_norm"]
+                    == tensorflow_step["global_gradient_norm"]
+                ),
+                "clip_coefficient_match": (
+                    pytorch_step["clip_coefficient"]
+                    == tensorflow_step["clip_coefficient"]
+                ),
             })
             row["pass_2e_8"] = (
                 row["parameter_max_abs"] <= 2e-8
                 and row["momentum_max_abs"] <= 2e-8
                 and row["velocity_max_abs"] <= 2e-8
                 and row["step_counter_match"]
+                and row["global_norm_match"]
+                and row["clip_coefficient_match"]
                 and row["all_finite"]
             )
             result["steps"].append(row)

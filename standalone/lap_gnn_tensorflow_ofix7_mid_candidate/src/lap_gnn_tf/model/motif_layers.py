@@ -28,9 +28,12 @@ def part_pool(h, part_soft, node_graph_index, valid_part_mask, num_graphs):
         def reduce_graph(graph_id):
             node_mask = tf.equal(node_graph_index, graph_id)
             h_graph = tf.boolean_mask(h, node_mask)
-            weights_graph = tf.boolean_mask(weights, node_mask)
+            weights_graph = tf.cast(
+                tf.boolean_mask(weights, node_mask), h.dtype,
+            )
+            weight_sum = tf.cast(tf.reduce_sum(weights_graph), h.dtype)
             denominator = tf.maximum(
-                tf.reduce_sum(weights_graph), tf.cast(1e-6, h.dtype),
+                weight_sum, tf.cast(1e-6, h.dtype),
             )
             input_valid = tf.reduce_sum(
                 tf.gather(valid_part_mask[graph_id], input_indices),

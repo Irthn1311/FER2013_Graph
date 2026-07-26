@@ -12,6 +12,11 @@ import yaml
 from lap_gnn_tf.constants import EXPECTED_PARAMETER_COUNT
 
 
+EXECUTION_CONTRACT_SHA256 = (
+    "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
+)
+
+
 def load_config(path: str | Path) -> dict[str, Any]:
     path = Path(path)
     cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -52,6 +57,14 @@ def validate_locked_config(config: dict[str, Any]) -> dict[str, Any]:
         "anchors": graph.get("anchor_nodes", {}).get("enabled") is True,
         "readout": model.get("readout_type") == "micro_motif_support",
         "optimizer": str(training.get("optimizer", {}).get("type", "")).lower() == "adamw",
+        "gradient_execution_mode": training.get("gradient_execution_mode") == "tf_function",
+        "optimizer_execution_mode": training.get("optimizer_execution_mode")
+        == "restricted_tf_function",
+        "grappler_profile": training.get("grappler_profile") == "G1-A",
+        "execution_contract": config.get("locked", {}).get(
+            "execution_contract_sha256"
+        )
+        == EXECUTION_CONTRACT_SHA256,
         "scheduler": training.get("scheduler", {}).get("type") == "plateau",
         "checkpoint": training.get("checkpoint_monitor") == "val_macro_f1",
         "parameter_count": config.get("locked", {}).get("parameter_count") == EXPECTED_PARAMETER_COUNT,

@@ -20,7 +20,12 @@ from lap_gnn_tf.seed import seed_everything
 from lap_gnn_tf.training.checkpointing import CheckpointPolicy
 from lap_gnn_tf.training.early_stopping import ValidationLossEarlyStopping
 from lap_gnn_tf.training.evaluator import evaluate_batches
-from lap_gnn_tf.training.losses import sparse_cross_entropy
+from lap_gnn_tf.training.execution import (
+    apply_gradients_eager_exact,
+    build_compiled_gradient_function,
+    build_restricted_graph_train_step,
+    validate_execution_config,
+)
 from lap_gnn_tf.training.optimizer import build_optimizer
 from lap_gnn_tf.training.plateau import TorchCompatibleReduceLROnPlateau
 
@@ -58,6 +63,7 @@ def run_training(
         raise ValueError("TensorFlow candidate resume is disabled by default and must not be enabled for seed42")
     config = load_config(config_path)
     validate_locked_config(config)
+    execution_state = validate_execution_config(config["training"])
     config["data"]["prior_dir"] = str(Path(prior_root).resolve())
     config["data"]["fer_csv"] = str(Path(fer_csv).resolve())
     config["training"]["batch_size"] = int(controls.batch_size)
@@ -95,7 +101,29 @@ def run_training(
     model(first_batch, training=False)
     optimizer = build_optimizer(config)
     optimizer.build(model.trainable_variables)
-    model.compile(optimizer=optimizer, run_eagerly=True)
+    model.compile(optimizer=optimizer, run_eagerly=False)
+    optimizer_mode = execution_state["optimizer_execution_mode"]
+    if optimizer_mode == "restricted_tf_function":
+        execute_train_step = build_restricted_graph_train_step(
+            model, optimizer
+        )
+    else:
+        if hasattr(optimizer, "inner_optimizer"):
+            raise RuntimeError(
+                "Mixed-precision eager_exact is not the registered seed42 mode"
+            )
+        compute_gradients = build_compiled_gradient_function(
+            model, training=True
+        )
+
+        def execute_train_step(batch):
+            loss, _logits, gradients, finite = compute_gradients(batch)
+            if not bool(finite.numpy()):
+                raise FloatingPointError("Non-finite H1 gradients")
+            apply_gradients_eager_exact(
+                optimizer, gradients, model.trainable_variables
+            )
+            return loss
     scheduler_cfg = config["training"]["scheduler"]
     scheduler = TorchCompatibleReduceLROnPlateau(
         optimizer, mode=scheduler_cfg["mode"], factor=scheduler_cfg["factor"],
@@ -129,16 +157,7 @@ def run_training(
             prefetch=controls.tf_data_prefetch,
         ):
             step_started = time.perf_counter()
-            with tf.GradientTape() as tape:
-                output = model(batch, training=True)
-                loss = sparse_cross_entropy(batch["labels"], output["logits"])
-                scaled_loss = (
-                    optimizer.scale_loss(loss)
-                    if hasattr(optimizer, "scale_loss")
-                    else loss
-                )
-            gradients = tape.gradient(scaled_loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+            loss = execute_train_step(batch)
             total_loss += float(loss.numpy())
             batches += 1
             telemetry.train_step_sec.append(time.perf_counter() - step_started)
@@ -180,6 +199,10 @@ def run_training(
             },
             "scheduler_state": scheduler.get_state(),
             "mixed_precision_policy": tf.keras.mixed_precision.global_policy().name,
+            "execution_mode": execution_state,
+            "execution_contract_sha256": config["locked"].get(
+                "execution_contract_sha256"
+            ),
             "resource_settings": controls.__dict__,
         }
         stop = early.update(epoch, val_metrics["loss"])

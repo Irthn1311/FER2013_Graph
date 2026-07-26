@@ -12,6 +12,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parents[1]
 PYTORCH = REPO / "standalone" / "lap_gnn_pytorch_ofix7_mid_candidate"
+EXECUTION_CONTRACT = (
+    ROOT / "contracts" / "tensorflow_execution_contract_v2.json"
+)
+EXECUTION_CONTRACT_SHA256 = (
+    "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
+)
 
 
 def sha256(path: Path) -> str:
@@ -86,6 +92,12 @@ def copied_records() -> list[dict]:
 
 
 def main() -> None:
+    actual_contract_sha = sha256(EXECUTION_CONTRACT)
+    if actual_contract_sha != EXECUTION_CONTRACT_SHA256:
+        raise RuntimeError(
+            "Execution contract drift: "
+            f"{actual_contract_sha} != {EXECUTION_CONTRACT_SHA256}"
+        )
     payload_checksum = scientific_checksum()
     baseline = ROOT / "configs" / "fer2013_ofix7_mid_tensorflow_baseline.yaml"
     config = yaml.safe_load(baseline.read_text(encoding="utf-8"))
@@ -98,8 +110,15 @@ def main() -> None:
         "version": "0.1.0",
         "framework": "tensorflow",
         "scientific_payload_sha256": payload_checksum,
-        "readiness_decision": "HOLD_TENSORFLOW_PORT_REPAIR",
-        "readiness_reason": "Local CPU float32 max logit delta 1.0013580322265625e-05 exceeds 1e-5.",
+        "execution_contract_sha256": EXECUTION_CONTRACT_SHA256,
+        "selected_execution_strategy": (
+            "SELECT_G1_RESTRICTED_GRAPH_OPTIMIZER"
+        ),
+        "readiness_decision": "READY_FOR_TENSORFLOW_KAGGLE_SEED42",
+        "readiness_reason": (
+            "G1-A restricted Grappler passes the 2e-8 two-step gate, "
+            "15 repetitions, mixed precision, and exact checkpoint continuation."
+        ),
         "trainable_parameters": 1_061_192,
         "non_trainable_parameters": 0,
         "full_training_launched": False,
@@ -123,6 +142,8 @@ def main() -> None:
     (ROOT / "CHECKSUMS.sha256").write_text("\n".join(checksum_lines) + "\n", encoding="utf-8")
     print(json.dumps({
         "scientific_payload_sha256": payload_checksum,
+        "execution_contract_sha256": EXECUTION_CONTRACT_SHA256,
+        "readiness_decision": manifest["readiness_decision"],
         "files": len(checksum_lines),
         "manifest": str(manifest_path),
     }, indent=2))

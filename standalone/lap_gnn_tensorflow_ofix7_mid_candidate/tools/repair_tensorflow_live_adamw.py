@@ -51,7 +51,7 @@ def main() -> None:
             beta_1=0.9,
             beta_2=0.999,
             epsilon=1e-8,
-            clipnorm=None,
+            global_clipnorm=5.0,
         )
         optimizer.build(model.trainable_variables)
 
@@ -91,6 +91,12 @@ def main() -> None:
         steps.append({
             "step": step_index,
             "optimizer_iterations": int(optimizer.iterations.numpy()),
+            "global_gradient_norm": float(
+                optimizer.last_global_gradient_norm.numpy()
+            ),
+            "clip_coefficient": float(
+                optimizer.last_clip_coefficient.numpy()
+            ),
             "all_parameters_finite": all_parameter_finite,
             "all_slots_finite": all_slot_finite,
         })
@@ -104,6 +110,7 @@ def main() -> None:
         "optimizer_updates_executed": 2,
         "model_variables": len(model.trainable_variables),
         "optimizer_variables": len(optimizer.variables),
+        "global_clip_norm": 5.0,
     }
     args.output_json.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     print(json.dumps(metadata, indent=2))

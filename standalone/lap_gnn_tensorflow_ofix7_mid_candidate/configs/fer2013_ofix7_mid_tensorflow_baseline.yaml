@@ -148,6 +148,11 @@ loss:
   label_smoothing: 0.0
 training:
   seed: 42
+  gradient_execution_mode: tf_function
+  optimizer_execution_mode: restricted_tf_function
+  grappler_profile: G1-A
+  grappler_arithmetic_optimization: false
+  grappler_remapping: false
   max_epochs: 90
   batch_size: 16
   num_workers: 2
@@ -250,10 +255,11 @@ resources:
   batch_size: 16
   device: gpu
 locked:
+  execution_contract_sha256: 14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22
   parameter_count: 1061192
   graph_signature: 1c7597b170fd8604056ab7787fd2880d6e84f3025962fc4b6c8fb3e3faf8e1e8
   feature_signature: 752538062fa2e40d9615c650c529e9f4117f33a030b74d281b5b21fa573731fc
   edge_signature: e8eee163001c7ed4397fcca8601f1c6206fad84625f199d5649990d84fb503b6
   prior_signature: ea888bab9c003af9b279719025da7c39f90537179411326c2c3119fc8c3f0824
   dataset_split_signature: fer2013_train28709_val3589_test3589
-  package_checksum: 6fca5f6966aa4773d02b57f617b97dedb975ae86e609b9dab4edfe0b323934bc
+  package_checksum: 2b34856cff8dff951b184a0eb8a3155e51e7d3f4065066a13591d09cd05e75e8
