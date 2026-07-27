@@ -9,6 +9,7 @@ from typing import Any, Dict
 import numpy as np
 
 from lap_gnn_tf.graph.builder import D16GraphData, build_pixel_graph
+from lap_gnn_tf.data.clean_graph_cache import CleanGraphCache, clean_graph_config_sha256
 from lap_gnn_tf.priors.mediapipe_priors import fallback_priors
 
 
@@ -27,6 +28,8 @@ class PixelPriorDataset:
         knn_edges: Dict[str, Any] | None = None,
         prior_usage: str | None = None,
         prior_corruption: Dict[str, Any] | None = None,
+        clean_graph_cache_dir: str | Path | None = None,
+        graph_config: Dict[str, Any] | None = None,
         max_samples: int | None = None,
     ) -> None:
         self.prior_dir = Path(prior_dir)
@@ -49,6 +52,23 @@ class PixelPriorDataset:
         self.knn_edges = dict(knn_edges or {})
         self.prior_usage = None if prior_usage is None else str(prior_usage)
         self.prior_corruption = dict(prior_corruption or {})
+        self.clean_graph_cache: CleanGraphCache | None = None
+        if clean_graph_cache_dir is not None:
+            expected = (
+                None if graph_config is None
+                else clean_graph_config_sha256(graph_config)
+            )
+            self.clean_graph_cache = CleanGraphCache(
+                clean_graph_cache_dir,
+                self.split,
+                expected_graph_config_sha256=expected,
+            )
+            if len(self.clean_graph_cache) < len(self.files):
+                raise ValueError(
+                    "Clean graph cache is incomplete for split "
+                    f"{self.split}: cached={len(self.clean_graph_cache)} "
+                    f"priors={len(self.files)}"
+                )
         self.epoch = 0
         self.part_names = self._read_json("part_names.json")
         self.micro_anchor_names = self._read_json("micro_anchor_names.json")
@@ -231,7 +251,20 @@ class PixelPriorDataset:
             return self._forced_fallback(prior), mode
         raise ValueError(f"Unsupported D16 prior_corruption mode={mode!r}")
 
+    def _clean_cache_eligible(self, index: int) -> bool:
+        if self.clean_graph_cache is None:
+            return False
+        edge_cfg = self._edge_prior_regularization_cfg()
+        if self._edge_prior_regularization_enabled(edge_cfg):
+            return False
+        if not self._corruption_enabled():
+            return True
+        rng = self._rng_for(int(index))
+        return float(rng.random()) >= self._current_probability()
+
     def __getitem__(self, index: int) -> D16GraphData:
+        if self._clean_cache_eligible(int(index)):
+            return self.clean_graph_cache[int(index)]  # type: ignore[index]
         prior = self._load_prior(int(index))
         prior, corruption_mode = self._maybe_corrupt_prior(prior, int(index))
         graph_mode = "full_with_mask" if corruption_mode == "forced_fallback" else self.graph_mode

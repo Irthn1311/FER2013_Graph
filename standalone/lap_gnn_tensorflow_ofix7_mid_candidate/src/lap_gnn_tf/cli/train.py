@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--tf-data-prefetch", type=int, default=2)
     parser.add_argument("--tf-data-parallel-calls", type=int, default=1)
     parser.add_argument("--graph-cache-size", type=int, default=64)
+    parser.add_argument("--clean-graph-cache-dir", default=None)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--eval-batch-size", type=int, default=32)
     parser.add_argument("--mixed-precision", action=argparse.BooleanOptionalAction, default=True)
@@ -39,6 +40,7 @@ def main():
         tf_data_prefetch=args.tf_data_prefetch,
         tf_data_parallel_calls=args.tf_data_parallel_calls,
         graph_cache_size=args.graph_cache_size,
+        clean_graph_cache_dir=args.clean_graph_cache_dir,
         memory_growth=args.memory_growth,
         mixed_precision=args.mixed_precision,
         xla=args.xla,

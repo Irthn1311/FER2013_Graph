@@ -3,4 +3,4 @@ numpy==2.0.2
 PyYAML==6.0.2
 scikit-learn==1.6.1
 psutil==6.1.1
-
+matplotlib==3.10.0

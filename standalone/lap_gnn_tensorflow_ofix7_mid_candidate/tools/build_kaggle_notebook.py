@@ -34,6 +34,7 @@ Required Kaggle Inputs:
 
 - FER2013 split CSVs: `/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split`
 - verified D16 MediaPipe priors: `/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-best-retry-rescue/outputs/d16_mediapipe_pixel_priors_best_retry_rescue`
+- clean graph cache: `/kaggle/input/datasets/irthn1311/ofix7-mid-tf-clean-graph-cache`
 
 The preserved PyTorch runner is `notebooks/kaggle-end-to-end-pytorch.ipynb`.
 """
@@ -48,10 +49,11 @@ EXPECTED_COMMIT = None
 FER_SPLIT_ROOT = Path("/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split")
 FER_CSV_PATH = FER_SPLIT_ROOT / "train.csv"
 PRIOR_ROOT = Path("/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-best-retry-rescue/outputs/d16_mediapipe_pixel_priors_best_retry_rescue")
+GRAPH_CACHE_ROOT = Path("/kaggle/input/datasets/irthn1311/ofix7-mid-tf-clean-graph-cache")
 OUTPUT_ROOT = Path("/kaggle/working/outputs/tensorflow_validation/lap_gnn_tensorflow_ofix7_mid_candidate/ofix7_mid_seed42")
 TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
 TF_PACKAGE_PATH = Path("/kaggle/working/FER2013_Graph") / TF_PACKAGE_RELATIVE
-EXPECTED_TENSORFLOW_PAYLOAD_SHA = "ef9d53ae1af77f01faa79950740c9d3238080387883600d68365c624776906bc"
+EXPECTED_TENSORFLOW_PAYLOAD_SHA = "3d42957151037f9389d789c1e88c4003e16cc0e4b95944931cfae89733bb7d11"
 EXPECTED_EXECUTION_CONTRACT_SHA = "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
 TRAIN_CONFIG = TF_PACKAGE_PATH / "configs/fer2013_ofix7_mid_tensorflow_optimized_seed42.yaml"
 SELECTED_EXECUTION_STRATEGY = "SELECT_G1_RESTRICTED_GRAPH_OPTIMIZER"
@@ -73,6 +75,8 @@ XLA_ENABLED = False
 
 assert SEED == 42 and BATCH_SIZE == 16 and EVAL_BATCH_SIZE >= BATCH_SIZE
 assert RESUME is False and WANDB_ENABLED is False and XLA_ENABLED is False
+if GRAPH_CACHE_ROOT is not None:
+    GRAPH_CACHE_ROOT = Path(GRAPH_CACHE_ROOT)
 """
     ),
     markdown("## 2. Clone and Source Validation\n"),
@@ -224,6 +228,7 @@ missing = [
         ("yaml", "PyYAML==6.0.2"),
         ("sklearn", "scikit-learn==1.6.1"),
         ("psutil", "psutil==6.1.1"),
+        ("matplotlib", "matplotlib==3.10.0"),
     ] if importlib.util.find_spec(module) is None
 ]
 if missing:
@@ -342,6 +347,17 @@ if training_config.get("grappler_remapping") is not False:
     raise RuntimeError("Resolved config remapping drift")
 if DEVICE_POLICY == "gpu" and not tf.config.list_physical_devices("GPU") and not ALLOW_CPU_TRAINING:
     raise RuntimeError("GPU required but TensorFlow sees no GPU")
+if GRAPH_CACHE_ROOT is not None:
+    cache_marker = GRAPH_CACHE_ROOT / "CACHE_COMPLETE.json"
+    if not cache_marker.is_file():
+        raise FileNotFoundError(f"Clean graph cache marker missing: {cache_marker}")
+    cache_payload = json.loads(cache_marker.read_text(encoding="utf-8"))
+    if cache_payload.get("schema_version") != "tf_clean_graph_cache_v2_records":
+        raise RuntimeError("Unsupported clean graph cache schema")
+    if cache_payload.get("node_dim") != 37 or cache_payload.get("edge_dim") != 8:
+        raise RuntimeError("Clean graph cache feature dimensions do not match 37/8")
+    print("clean_graph_cache_root:", GRAPH_CACHE_ROOT)
+    print("clean_graph_cache_graph_config_sha256:", cache_payload.get("graph_config_sha256"))
 """
     ),
     markdown("## 8. Golden Parity Preflight\n"),
@@ -420,6 +436,8 @@ print("READY_FOR_TENSORFLOW_KAGGLE_SEED42")
         "--no-xla",
         "--memory-growth",
     ]
+    if GRAPH_CACHE_ROOT is not None:
+        train_command.extend(["--clean-graph-cache-dir", GRAPH_CACHE_ROOT])
     if ALLOW_CPU_TRAINING:
         train_command.append("--allow-cpu-training")
     run_checked(train_command, cwd=TF_PACKAGE_PATH)
@@ -429,7 +447,8 @@ else:
     ),
     markdown("## 10. Post-run Validation\n"),
     code(
-        """import math
+        """import hashlib
+import math
 import yaml
 
 execution_summary = {
@@ -464,6 +483,14 @@ if RUN_FULL_TRAINING:
         OUTPUT_ROOT / "checkpoints/last.keras",
         OUTPUT_ROOT / "checkpoints/last.metadata.json",
         OUTPUT_ROOT / "train_log.csv",
+        OUTPUT_ROOT / "latest_epoch_summary.json",
+        OUTPUT_ROOT / "run_summary.json",
+        OUTPUT_ROOT / "artifact_manifest.json",
+        OUTPUT_ROOT / "training_curves.png",
+        OUTPUT_ROOT / "confusion_matrix.csv",
+        OUTPUT_ROOT / "confusion_matrix.png",
+        OUTPUT_ROOT / "per_class_metrics.csv",
+        OUTPUT_ROOT / "predictions.csv",
         OUTPUT_ROOT / "resolved_config.json",
     ]
     missing = [str(path) for path in required if not path.is_file()]
@@ -531,6 +558,32 @@ if RUN_FULL_TRAINING:
         train_log_rows = list(csv.DictReader(stream))
     if len(train_log_rows) != len(history):
         raise RuntimeError("train_log.csv and history.json length mismatch")
+    artifact_manifest = json.loads(
+        (OUTPUT_ROOT / "artifact_manifest.json").read_text()
+    )
+    artifact_names = {
+        item["path"] for item in artifact_manifest.get("artifacts", [])
+    }
+    expected_artifacts = {
+        "history.json", "train_log.csv", "training_curves.png",
+        "test_metrics_best_val_macro_f1.json", "per_class_metrics.csv",
+        "predictions.csv", "confusion_matrix.csv", "confusion_matrix.png",
+        "run_summary.json",
+    }
+    if not expected_artifacts.issubset(artifact_names):
+        raise RuntimeError(
+            f"Artifact manifest incomplete: {expected_artifacts - artifact_names}"
+        )
+    for item in artifact_manifest.get("artifacts", []):
+        artifact_path = OUTPUT_ROOT / item["path"]
+        if not artifact_path.is_file():
+            raise RuntimeError(f"Artifact manifest path missing: {artifact_path}")
+        actual_bytes = artifact_path.stat().st_size
+        actual_sha256 = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        if actual_bytes != int(item["bytes"]) or actual_sha256 != item["sha256"]:
+            raise RuntimeError(
+                f"Artifact manifest hash mismatch: {artifact_path}"
+            )
 
     metrics = json.loads((OUTPUT_ROOT / "test_metrics_best_val_macro_f1.json").read_text())
     for key in ["loss", "accuracy", "macro_f1", "weighted_f1", "balanced_accuracy", "nll", "brier", "ece"]:
@@ -622,6 +675,12 @@ if RUN_FULL_TRAINING:
             "precision recovery evidence is preserved above without changing trainer math."
         ),
         "test_evaluation_after_checkpoint_selection": True,
+        "artifact_manifest": artifact_manifest,
+        "training_curves": str(OUTPUT_ROOT / "training_curves.png"),
+        "confusion_matrix_png": str(OUTPUT_ROOT / "confusion_matrix.png"),
+        "confusion_matrix_csv": str(OUTPUT_ROOT / "confusion_matrix.csv"),
+        "per_class_metrics_csv": str(OUTPUT_ROOT / "per_class_metrics.csv"),
+        "predictions_csv": str(OUTPUT_ROOT / "predictions.csv"),
     })
 (WORKING / "tensorflow_notebook_execution_summary.json").write_text(
     json.dumps(execution_summary, indent=2, default=str), encoding="utf-8"

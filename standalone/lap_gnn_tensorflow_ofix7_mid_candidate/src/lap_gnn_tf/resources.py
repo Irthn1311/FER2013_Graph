@@ -19,6 +19,7 @@ class ResourceControls:
     tf_data_prefetch: int = 2
     tf_data_parallel_calls: int = 1
     graph_cache_size: int = 64
+    clean_graph_cache_dir: str | None = None
     memory_growth: bool = True
     mixed_precision: bool = True
     xla: bool = False

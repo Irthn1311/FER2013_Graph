@@ -28,6 +28,7 @@ class GraphBatchGenerator:
         graph_cache_size: int = 64,
         telemetry=None,
         graph_workers: int = 1,
+        clean_graph_cache_dir: str | Path | None = None,
     ):
         graph = config["graph"]
         self.dataset = PixelPriorDataset(
@@ -43,6 +44,8 @@ class GraphBatchGenerator:
             knn_edges=graph.get("knn_edges"),
             prior_usage=graph.get("prior_usage"),
             prior_corruption=graph.get("prior_corruption") if split == "train" else None,
+            clean_graph_cache_dir=clean_graph_cache_dir,
+            graph_config=graph,
         )
         self.split = split
         self.batch_size = int(batch_size)
