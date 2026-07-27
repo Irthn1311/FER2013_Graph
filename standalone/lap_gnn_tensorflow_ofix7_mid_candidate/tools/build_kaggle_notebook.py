@@ -34,7 +34,7 @@ Required Kaggle Inputs:
 
 - FER2013 split CSVs: `/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split`
 - verified D16 MediaPipe priors: `/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-best-retry-rescue/outputs/d16_mediapipe_pixel_priors_best_retry_rescue`
-- clean graph cache: `/kaggle/input/datasets/irthn1311/ofix7-mid-tf-clean-graph-cache`
+- clean graph cache: `/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-records`
 
 The preserved PyTorch runner is `notebooks/kaggle-end-to-end-pytorch.ipynb`.
 """
@@ -49,7 +49,7 @@ EXPECTED_COMMIT = None
 FER_SPLIT_ROOT = Path("/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split")
 FER_CSV_PATH = FER_SPLIT_ROOT / "train.csv"
 PRIOR_ROOT = Path("/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-best-retry-rescue/outputs/d16_mediapipe_pixel_priors_best_retry_rescue")
-GRAPH_CACHE_ROOT = Path("/kaggle/input/datasets/irthn1311/ofix7-mid-tf-clean-graph-cache")
+GRAPH_CACHE_ROOT = Path("/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-records")
 OUTPUT_ROOT = Path("/kaggle/working/outputs/tensorflow_validation/lap_gnn_tensorflow_ofix7_mid_candidate/ofix7_mid_seed42")
 TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
 TF_PACKAGE_PATH = Path("/kaggle/working/FER2013_Graph") / TF_PACKAGE_RELATIVE
