@@ -28,7 +28,9 @@ cells = [
     markdown(
         """# TensorFlow LAP-GNN OFIX7-mid Seed 42
 
-Runs exactly one fresh TensorFlow/Keras seed-42 experiment after strict bounded validation.
+Runs exactly one fresh TensorFlow/Keras seed-42 experiment after strict bounded
+validation. The reported test result uses the checkpoint selected by validation
+accuracy; validation macro-F1 and last checkpoints are retained as diagnostics.
 
 Required Kaggle Inputs:
 
@@ -53,9 +55,10 @@ GRAPH_CACHE_ROOT = Path("/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-recor
 OUTPUT_ROOT = Path("/kaggle/working/outputs/tensorflow_validation/lap_gnn_tensorflow_ofix7_mid_candidate/ofix7_mid_seed42")
 TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
 TF_PACKAGE_PATH = Path("/kaggle/working/FER2013_Graph") / TF_PACKAGE_RELATIVE
-EXPECTED_TENSORFLOW_PAYLOAD_SHA = "3d42957151037f9389d789c1e88c4003e16cc0e4b95944931cfae89733bb7d11"
+EXPECTED_TENSORFLOW_PAYLOAD_SHA = "727d56f1e595e7846e83c787e9c11782e2c30fae512517761fc21a0714750fe0"
 EXPECTED_EXECUTION_CONTRACT_SHA = "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
 TRAIN_CONFIG = TF_PACKAGE_PATH / "configs/fer2013_ofix7_mid_tensorflow_optimized_seed42.yaml"
+FINAL_TEST_CHECKPOINT = "best_val_accuracy"
 SELECTED_EXECUTION_STRATEGY = "SELECT_G1_RESTRICTED_GRAPH_OPTIMIZER"
 SELECTED_EXECUTION_MODE = "restricted_tf_function"
 SELECTED_GRAPPLER_PROFILE = "G1-A"
@@ -74,6 +77,7 @@ WANDB_ENABLED = False
 XLA_ENABLED = False
 
 assert SEED == 42 and BATCH_SIZE == 16 and EVAL_BATCH_SIZE >= BATCH_SIZE
+assert FINAL_TEST_CHECKPOINT in {"best_val_macro_f1", "best_val_accuracy"}
 assert RESUME is False and WANDB_ENABLED is False and XLA_ENABLED is False
 if GRAPH_CACHE_ROOT is not None:
     GRAPH_CACHE_ROOT = Path(GRAPH_CACHE_ROOT)
@@ -450,6 +454,7 @@ else:
         """import hashlib
 import math
 import yaml
+from lap_gnn_tf.model import LapGNN
 
 execution_summary = {
     "framework": "tensorflow",
@@ -468,13 +473,16 @@ execution_summary = {
     "bounded_checkpoint_roundtrip": selected_validation["checkpoint_continuation"],
 }
 if RUN_FULL_TRAINING:
+    selected_checkpoint_stem = FINAL_TEST_CHECKPOINT
+    selected_checkpoint_name = f"{selected_checkpoint_stem}.keras"
+    selected_metrics_name = f"test_metrics_{selected_checkpoint_stem}.json"
     required = [
         OUTPUT_ROOT / "TRAINING_COMPLETE.json",
         OUTPUT_ROOT / "resolved_config.yaml",
         OUTPUT_ROOT / "provenance.json",
         OUTPUT_ROOT / "history.json",
         OUTPUT_ROOT / "telemetry.json",
-        OUTPUT_ROOT / "test_metrics_best_val_macro_f1.json",
+        OUTPUT_ROOT / selected_metrics_name,
         OUTPUT_ROOT / "checkpoints/best.keras",
         OUTPUT_ROOT / "checkpoints/best_val_macro_f1.keras",
         OUTPUT_ROOT / "checkpoints/best_val_macro_f1.metadata.json",
@@ -501,7 +509,7 @@ if RUN_FULL_TRAINING:
         raise RuntimeError("Training completion marker is not complete")
     if completion.get("resume") or completion.get("test_used_for_selection"):
         raise RuntimeError("Run provenance violates fresh validation-only selection")
-    if completion.get("selected_checkpoint") != "best_val_macro_f1.keras":
+    if completion.get("selected_checkpoint") != selected_checkpoint_name:
         raise RuntimeError("Primary checkpoint selection drift")
 
     resolved_config = yaml.safe_load((OUTPUT_ROOT / "resolved_config.yaml").read_text())
@@ -509,6 +517,8 @@ if RUN_FULL_TRAINING:
     if resolved_config != resolved_json:
         raise RuntimeError("Resolved YAML/JSON configuration mismatch")
     resolved_training = resolved_config["training"]
+    if resolved_training.get("final_test_checkpoint") != FINAL_TEST_CHECKPOINT:
+        raise RuntimeError("Resolved final test checkpoint mismatch")
     if resolved_training.get("gradient_execution_mode") != "tf_function":
         raise RuntimeError("Resolved gradient execution mode mismatch")
     if resolved_training.get("optimizer_execution_mode") != "restricted_tf_function":
@@ -566,7 +576,7 @@ if RUN_FULL_TRAINING:
     }
     expected_artifacts = {
         "history.json", "train_log.csv", "training_curves.png",
-        "test_metrics_best_val_macro_f1.json", "per_class_metrics.csv",
+        selected_metrics_name, "per_class_metrics.csv",
         "predictions.csv", "confusion_matrix.csv", "confusion_matrix.png",
         "run_summary.json",
     }
@@ -585,7 +595,7 @@ if RUN_FULL_TRAINING:
                 f"Artifact manifest hash mismatch: {artifact_path}"
             )
 
-    metrics = json.loads((OUTPUT_ROOT / "test_metrics_best_val_macro_f1.json").read_text())
+    metrics = json.loads((OUTPUT_ROOT / selected_metrics_name).read_text())
     for key in ["loss", "accuracy", "macro_f1", "weighted_f1", "balanced_accuracy", "nll", "brier", "ece"]:
         if key not in metrics or not math.isfinite(float(metrics[key])):
             raise RuntimeError(f"Non-finite or missing metric: {key}")
@@ -616,7 +626,11 @@ if RUN_FULL_TRAINING:
         ]:
             if metadata.get(key) != expected:
                 raise RuntimeError(f"{stem} {key} mismatch")
-        loaded = tf.keras.models.load_model(checkpoint_path, compile=False)
+        loaded = tf.keras.models.load_model(
+            checkpoint_path,
+            custom_objects={"LapGNN": LapGNN, "lap_gnn_tf>LapGNN": LapGNN},
+            compile=False,
+        )
         parameters = sum(int(v.shape.num_elements()) for v in loaded.trainable_variables)
         if parameters != 1_061_192:
             raise RuntimeError(f"{stem} checkpoint architecture drift")
@@ -640,6 +654,7 @@ if RUN_FULL_TRAINING:
         raise RuntimeError("Training telemetry contains non-finite durations")
     best_macro = checkpoint_inventory["best_val_macro_f1"]
     best_accuracy = checkpoint_inventory["best_val_accuracy"]
+    selected_checkpoint = checkpoint_inventory[selected_checkpoint_stem]
     total_epochs = len(history)
     max_epochs = int(resolved_training["max_epochs"])
     stop_reason = "early_stopping" if total_epochs < max_epochs else "max_epochs"
@@ -647,11 +662,15 @@ if RUN_FULL_TRAINING:
         "config_hash": resolved_config_hash,
         "signatures": expected_signatures,
         "checkpoint_inventory": checkpoint_inventory,
-        "best_epoch": best_macro["epoch"],
+        "selected_checkpoint": selected_checkpoint_name,
+        "best_epoch": selected_checkpoint["epoch"],
         "best_accuracy_epoch": best_accuracy["epoch"],
         "total_epochs": total_epochs,
         "stop_reason": stop_reason,
         "validation_metrics_at_best_macro_f1": best_macro["validation_metrics"],
+        "validation_metrics_at_selected_checkpoint": selected_checkpoint[
+            "validation_metrics"
+        ],
         "test_metrics": metrics,
         "classwise_metrics": {
             "precision": metrics["per_class_precision"],

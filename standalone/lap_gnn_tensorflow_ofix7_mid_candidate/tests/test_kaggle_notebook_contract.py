@@ -11,6 +11,7 @@ def test_kaggle_notebook_contract():
     for token in [
         "RUN_FULL_TRAINING", "ALLOW_CPU_TRAINING", "lap_gnn_tf",
         "READY_FOR_TENSORFLOW_KAGGLE_SEED42", "ofix7_mid_seed42_tensorflow_outputs.zip",
+        'FINAL_TEST_CHECKPOINT = "best_val_accuracy"',
+        'selected_metrics_name = f"test_metrics_{selected_checkpoint_stem}.json"',
     ]:
         assert token in source
-

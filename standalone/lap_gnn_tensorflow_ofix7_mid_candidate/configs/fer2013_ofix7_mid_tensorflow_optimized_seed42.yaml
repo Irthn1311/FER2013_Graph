@@ -2,6 +2,7 @@ extends: fer2013_ofix7_mid_tensorflow_seed42.yaml
 run_name: ofix7_mid_optimized_seed42
 training:
   eval_train_every_n_epochs: 5
+  final_test_checkpoint: best_val_accuracy
 resources:
   eval_batch_size: 32
   graph_workers: 3

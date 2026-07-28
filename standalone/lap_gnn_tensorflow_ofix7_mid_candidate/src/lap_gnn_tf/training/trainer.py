@@ -75,6 +75,28 @@ def _percent(value: float | None) -> str:
     return "n/a" if value is None else f"{100.0 * float(value):.2f}%"
 
 
+def resolve_final_checkpoint(config: dict, policy: CheckpointPolicy) -> tuple[str, int]:
+    requested = str(config["training"].get("final_test_checkpoint", "best"))
+    aliases = {
+        "best": ("best_val_macro_f1.keras", policy.best_macro_epoch),
+        "best_val_macro_f1": (
+            "best_val_macro_f1.keras",
+            policy.best_macro_epoch,
+        ),
+        "best_val_accuracy": (
+            "best_val_accuracy.keras",
+            policy.best_accuracy_epoch,
+        ),
+    }
+    if requested not in aliases:
+        raise ValueError(
+            "training.final_test_checkpoint must be one of "
+            f"{sorted(aliases)}, got {requested!r}"
+        )
+    checkpoint, epoch = aliases[requested]
+    return checkpoint, int(epoch)
+
+
 def _print_epoch_summary(row: dict, policy: CheckpointPolicy) -> None:
     train_macro = row.get("train_macro_f1")
     gap = row.get("train_val_macro_gap_pp")
@@ -454,7 +476,9 @@ def run_training(
             )
             break
     _atomic_json(output_dir / "telemetry.json", telemetry.to_dict())
-    primary = output_dir / "checkpoints" / "best_val_macro_f1.keras"
+    selected_checkpoint, selected_epoch = resolve_final_checkpoint(config, policy)
+    selected_stem = Path(selected_checkpoint).stem
+    primary = output_dir / "checkpoints" / selected_checkpoint
     selected_model = tf.keras.models.load_model(primary, compile=False)
     test_data = GraphBatchGenerator(
         prior_root, "test", config, controls.eval_batch_size, seed, False,
@@ -464,7 +488,7 @@ def run_training(
     test_eval_step = build_compiled_evaluation_step(selected_model)
     print(
         f"[TEST] evaluating selected checkpoint "
-        f"best_val_macro_f1.keras from epoch {policy.best_macro_epoch}",
+        f"{selected_checkpoint} from epoch {selected_epoch}",
         flush=True,
     )
     test_metrics_with_details = evaluate_batches(
@@ -479,7 +503,8 @@ def run_training(
     )
     test_details = test_metrics_with_details.pop("details")
     test_metrics = test_metrics_with_details
-    _atomic_json(output_dir / "test_metrics_best_val_macro_f1.json", test_metrics)
+    test_metrics_path = output_dir / f"test_metrics_{selected_stem}.json"
+    _atomic_json(test_metrics_path, test_metrics)
     artifact_paths = [
         output_dir / "resolved_config.yaml",
         output_dir / "resolved_config.json",
@@ -489,7 +514,7 @@ def run_training(
         output_dir / "training_curves.png",
         output_dir / "latest_epoch_summary.json",
         output_dir / "telemetry.json",
-        output_dir / "test_metrics_best_val_macro_f1.json",
+        test_metrics_path,
         write_per_class_metrics(output_dir, test_metrics),
         write_predictions(output_dir, test_details),
     ]
@@ -501,8 +526,9 @@ def run_training(
     )
     artifact_paths.extend([confusion_csv, confusion_png])
     run_summary = {
-        "selected_checkpoint": "best_val_macro_f1.keras",
-        "best_epoch": int(policy.best_macro_epoch),
+        "selected_checkpoint": selected_checkpoint,
+        "best_epoch": int(selected_epoch),
+        "best_macro_epoch": int(policy.best_macro_epoch),
         "best_val_macro_f1": float(policy.best_macro),
         "best_accuracy_epoch": int(policy.best_accuracy_epoch),
         "best_val_accuracy": float(policy.best_accuracy),
@@ -519,7 +545,7 @@ def run_training(
             "completed": True,
             "resume": False,
             "epochs": len(history),
-            "selected_checkpoint": "best_val_macro_f1.keras",
+            "selected_checkpoint": selected_checkpoint,
             "test_used_for_selection": False,
         },
     )
@@ -531,7 +557,7 @@ def run_training(
     )
     print(
         f"[DONE] output={output_dir} | epochs={len(history)} | "
-        f"best_epoch={policy.best_macro_epoch}",
+        f"selected_checkpoint={selected_checkpoint} | best_epoch={selected_epoch}",
         flush=True,
     )
     return {"output_dir": str(output_dir), "history": history, "test_metrics": test_metrics}
