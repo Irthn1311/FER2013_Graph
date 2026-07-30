@@ -66,7 +66,13 @@ def validate_locked_config(config: dict[str, Any]) -> dict[str, Any]:
         )
         == EXECUTION_CONTRACT_SHA256,
         "scheduler": training.get("scheduler", {}).get("type") == "plateau",
-        "checkpoint": training.get("checkpoint_monitor") == "val_macro_f1",
+        "checkpoint": (
+            training.get("checkpoint_monitor") == "val_accuracy"
+            and training.get("final_test_checkpoint") == "best_val_accuracy"
+            and training.get("checkpoint_policy", {}).get("type") == "single"
+            and training.get("checkpoint_policy", {}).get("monitor")
+            == "val_accuracy"
+        ),
         "parameter_count": config.get("locked", {}).get("parameter_count") == EXPECTED_PARAMETER_COUNT,
     }
     failures = [name for name, passed in checks.items() if not passed]

@@ -170,11 +170,11 @@ training:
     clipnorm: null
   eval_every_epoch: true
   save_best: true
-  final_test_checkpoint: best
-  checkpoint_monitor: val_macro_f1
+  final_test_checkpoint: best_val_accuracy
+  checkpoint_monitor: val_accuracy
   checkpoint_monitor_mode: max
-  metric_for_best_model: val_macro_f1
-  best_metric: val_macro_f1
+  metric_for_best_model: val_accuracy
+  best_metric: val_accuracy
   progress_interval_batches: 500
   amp: true
   allow_tf32: true
@@ -196,11 +196,11 @@ training:
     min_lr: 3.0e-05
   eval_train_metrics: true
   eval_train_limit_batches: null
-  save_best_val_loss_diagnostic: true
-  dual_validation_checkpoints:
-    enabled: true
-    preserve_best_macro_alias: true
-    save_validation_predictions: true
+  save_best_val_loss_diagnostic: false
+  checkpoint_policy:
+    type: single
+    monitor: val_accuracy
+    mode: max
     tie_break: earliest_epoch_strict_improvement
 logging:
   metrics:
@@ -208,7 +208,7 @@ logging:
   - ce_loss
   - val_macro_f1
   - val_accuracy
-  - test_from_best_pt
+  - test_from_best_val_accuracy
   - pred_count
   - per_class_f1
   - detected_vs_fallback
@@ -262,4 +262,4 @@ locked:
   edge_signature: e8eee163001c7ed4397fcca8601f1c6206fad84625f199d5649990d84fb503b6
   prior_signature: ea888bab9c003af9b279719025da7c39f90537179411326c2c3119fc8c3f0824
   dataset_split_signature: fer2013_train28709_val3589_test3589
-  package_checksum: 727d56f1e595e7846e83c787e9c11782e2c30fae512517761fc21a0714750fe0
+  package_checksum: 1bc5b0807f6dd72cc06cf89641c5acdf16800179e4a6beb6910e044d04049945

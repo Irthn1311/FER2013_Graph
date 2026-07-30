@@ -13,5 +13,15 @@ def test_kaggle_notebook_contract():
         "READY_FOR_TENSORFLOW_KAGGLE_SEED42", "ofix7_mid_seed42_tensorflow_outputs.zip",
         'FINAL_TEST_CHECKPOINT = "best_val_accuracy"',
         'selected_metrics_name = f"test_metrics_{selected_checkpoint_stem}.json"',
+        '"best_val_accuracy.keras"',
+        '"best_val_accuracy.weights.h5"',
+        '"best_val_accuracy.metadata.json"',
+        "Single-checkpoint inventory mismatch",
     ]:
         assert token in source
+    for forbidden in [
+        '"best.keras"',
+        '"best_val_macro_f1.keras"',
+        '"last.keras"',
+    ]:
+        assert forbidden not in source

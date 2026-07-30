@@ -27,9 +27,8 @@
     "patience": 15,
     "strict_improvement": true
   },
-  "checkpoint_primary": "val_macro_f1",
-  "checkpoint_secondary": "val_accuracy",
+  "checkpoint_primary": "val_accuracy",
+  "checkpoint_secondary": null,
   "resume_default": false,
   "test_used_for_selection": false
 }
-

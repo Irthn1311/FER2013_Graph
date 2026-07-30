@@ -76,25 +76,15 @@ def _percent(value: float | None) -> str:
 
 
 def resolve_final_checkpoint(config: dict, policy: CheckpointPolicy) -> tuple[str, int]:
-    requested = str(config["training"].get("final_test_checkpoint", "best"))
-    aliases = {
-        "best": ("best_val_macro_f1.keras", policy.best_macro_epoch),
-        "best_val_macro_f1": (
-            "best_val_macro_f1.keras",
-            policy.best_macro_epoch,
-        ),
-        "best_val_accuracy": (
-            "best_val_accuracy.keras",
-            policy.best_accuracy_epoch,
-        ),
-    }
-    if requested not in aliases:
+    requested = str(
+        config["training"].get("final_test_checkpoint", "best_val_accuracy")
+    )
+    if requested != "best_val_accuracy":
         raise ValueError(
-            "training.final_test_checkpoint must be one of "
-            f"{sorted(aliases)}, got {requested!r}"
+            "training.final_test_checkpoint must be 'best_val_accuracy', "
+            f"got {requested!r}"
         )
-    checkpoint, epoch = aliases[requested]
-    return checkpoint, int(epoch)
+    return "best_val_accuracy.keras", int(policy.best_accuracy_epoch)
 
 
 def _print_epoch_summary(row: dict, policy: CheckpointPolicy) -> None:
@@ -433,8 +423,6 @@ def run_training(
         lr = scheduler.step(val_metrics["loss"])
         metadata["scheduler_state"] = scheduler.get_state()
         metadata["optimizer_state"]["learning_rate"] = lr
-        policy.save_last(model, optimizer, epoch, val_metrics, metadata)
-        checkpoint["saved"].append("last")
         train_macro = None if train_metrics is None else train_metrics["macro_f1"]
         macro_gap = (
             None if train_macro is None

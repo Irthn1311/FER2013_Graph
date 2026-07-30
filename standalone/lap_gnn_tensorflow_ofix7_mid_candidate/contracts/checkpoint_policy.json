@@ -1,8 +1,8 @@
 {
-  "lock": "VAL_MACRO_F1",
-  "primary": "best_val_macro_f1.pt",
-  "best_alias": "byte-identical copy of best_val_macro_f1.pt",
-  "secondary": "best_val_accuracy.pt",
+  "lock": "VAL_ACCURACY_SINGLE_CHECKPOINT",
+  "primary": "best_val_accuracy.keras",
+  "best_alias": null,
+  "secondary": null,
   "scheduler_monitor": "val_loss",
   "early_stopping_monitor": "val_loss",
   "strict_improvement_tie_break": "earliest epoch"

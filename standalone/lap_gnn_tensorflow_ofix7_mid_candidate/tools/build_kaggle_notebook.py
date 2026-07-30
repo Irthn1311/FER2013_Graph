@@ -29,8 +29,8 @@ cells = [
         """# TensorFlow LAP-GNN OFIX7-mid Seed 42
 
 Runs exactly one fresh TensorFlow/Keras seed-42 experiment after strict bounded
-validation. The reported test result uses the checkpoint selected by validation
-accuracy; validation macro-F1 and last checkpoints are retained as diagnostics.
+validation. The run persists one model checkpoint only, selected by validation
+accuracy. Validation macro-F1 remains a logged diagnostic metric.
 
 Required Kaggle Inputs:
 
@@ -55,7 +55,7 @@ GRAPH_CACHE_ROOT = Path("/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-recor
 OUTPUT_ROOT = Path("/kaggle/working/outputs/tensorflow_validation/lap_gnn_tensorflow_ofix7_mid_candidate/ofix7_mid_seed42")
 TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
 TF_PACKAGE_PATH = Path("/kaggle/working/FER2013_Graph") / TF_PACKAGE_RELATIVE
-EXPECTED_TENSORFLOW_PAYLOAD_SHA = "727d56f1e595e7846e83c787e9c11782e2c30fae512517761fc21a0714750fe0"
+EXPECTED_TENSORFLOW_PAYLOAD_SHA = "1bc5b0807f6dd72cc06cf89641c5acdf16800179e4a6beb6910e044d04049945"
 EXPECTED_EXECUTION_CONTRACT_SHA = "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
 TRAIN_CONFIG = TF_PACKAGE_PATH / "configs/fer2013_ofix7_mid_tensorflow_optimized_seed42.yaml"
 FINAL_TEST_CHECKPOINT = "best_val_accuracy"
@@ -77,7 +77,7 @@ WANDB_ENABLED = False
 XLA_ENABLED = False
 
 assert SEED == 42 and BATCH_SIZE == 16 and EVAL_BATCH_SIZE >= BATCH_SIZE
-assert FINAL_TEST_CHECKPOINT in {"best_val_macro_f1", "best_val_accuracy"}
+assert FINAL_TEST_CHECKPOINT == "best_val_accuracy"
 assert RESUME is False and WANDB_ENABLED is False and XLA_ENABLED is False
 if GRAPH_CACHE_ROOT is not None:
     GRAPH_CACHE_ROOT = Path(GRAPH_CACHE_ROOT)
@@ -483,13 +483,9 @@ if RUN_FULL_TRAINING:
         OUTPUT_ROOT / "history.json",
         OUTPUT_ROOT / "telemetry.json",
         OUTPUT_ROOT / selected_metrics_name,
-        OUTPUT_ROOT / "checkpoints/best.keras",
-        OUTPUT_ROOT / "checkpoints/best_val_macro_f1.keras",
-        OUTPUT_ROOT / "checkpoints/best_val_macro_f1.metadata.json",
         OUTPUT_ROOT / "checkpoints/best_val_accuracy.keras",
         OUTPUT_ROOT / "checkpoints/best_val_accuracy.metadata.json",
-        OUTPUT_ROOT / "checkpoints/last.keras",
-        OUTPUT_ROOT / "checkpoints/last.metadata.json",
+        OUTPUT_ROOT / "checkpoints/best_val_accuracy.weights.h5",
         OUTPUT_ROOT / "train_log.csv",
         OUTPUT_ROOT / "latest_epoch_summary.json",
         OUTPUT_ROOT / "run_summary.json",
@@ -519,6 +515,14 @@ if RUN_FULL_TRAINING:
     resolved_training = resolved_config["training"]
     if resolved_training.get("final_test_checkpoint") != FINAL_TEST_CHECKPOINT:
         raise RuntimeError("Resolved final test checkpoint mismatch")
+    if resolved_training.get("checkpoint_monitor") != "val_accuracy":
+        raise RuntimeError("Resolved checkpoint monitor mismatch")
+    checkpoint_policy = resolved_training.get("checkpoint_policy", {})
+    if (
+        checkpoint_policy.get("type") != "single"
+        or checkpoint_policy.get("monitor") != "val_accuracy"
+    ):
+        raise RuntimeError("Resolved configuration is not single-checkpoint accuracy")
     if resolved_training.get("gradient_execution_mode") != "tf_function":
         raise RuntimeError("Resolved gradient execution mode mismatch")
     if resolved_training.get("optimizer_execution_mode") != "restricted_tf_function":
@@ -607,36 +611,50 @@ if RUN_FULL_TRAINING:
     ):
         raise RuntimeError("Confusion matrix shape mismatch")
 
-    checkpoint_inventory = {}
-    for stem in ["best_val_macro_f1", "best_val_accuracy", "last"]:
-        checkpoint_path = OUTPUT_ROOT / "checkpoints" / f"{stem}.keras"
-        metadata_path = OUTPUT_ROOT / "checkpoints" / f"{stem}.metadata.json"
-        metadata = json.loads(metadata_path.read_text())
-        if metadata.get("config_hash") != resolved_config_hash:
-            raise RuntimeError(f"{stem} config hash mismatch")
-        if metadata.get("package_checksum") != EXPECTED_TENSORFLOW_PAYLOAD_SHA:
-            raise RuntimeError(f"{stem} package payload mismatch")
-        if metadata.get("execution_contract_sha256") != EXPECTED_EXECUTION_CONTRACT_SHA:
-            raise RuntimeError(f"{stem} execution contract mismatch")
-        for key, expected in [
-            ("graph_signature", expected_signatures["graph"]),
-            ("feature_signature", expected_signatures["feature"]),
-            ("prior_signature", expected_signatures["prior"]),
-            ("dataset_split_signature", expected_signatures["dataset_split"]),
-        ]:
-            if metadata.get(key) != expected:
-                raise RuntimeError(f"{stem} {key} mismatch")
-        loaded = tf.keras.models.load_model(
-            checkpoint_path,
-            custom_objects={"LapGNN": LapGNN, "lap_gnn_tf>LapGNN": LapGNN},
-            compile=False,
+    checkpoint_files = sorted(
+        path.name for path in (OUTPUT_ROOT / "checkpoints").iterdir()
+        if path.is_file()
+    )
+    expected_checkpoint_files = [
+        "best_val_accuracy.keras",
+        "best_val_accuracy.metadata.json",
+        "best_val_accuracy.weights.h5",
+    ]
+    if checkpoint_files != expected_checkpoint_files:
+        raise RuntimeError(
+            "Single-checkpoint inventory mismatch: "
+            f"actual={checkpoint_files} expected={expected_checkpoint_files}"
         )
-        parameters = sum(int(v.shape.num_elements()) for v in loaded.trainable_variables)
-        if parameters != 1_061_192:
-            raise RuntimeError(f"{stem} checkpoint architecture drift")
-        if not all(bool(tf.reduce_all(tf.math.is_finite(v)).numpy()) for v in loaded.variables):
-            raise RuntimeError(f"{stem} contains non-finite parameters")
-        checkpoint_inventory[stem] = {
+    stem = "best_val_accuracy"
+    checkpoint_path = OUTPUT_ROOT / "checkpoints" / f"{stem}.keras"
+    metadata_path = OUTPUT_ROOT / "checkpoints" / f"{stem}.metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    if metadata.get("config_hash") != resolved_config_hash:
+        raise RuntimeError(f"{stem} config hash mismatch")
+    if metadata.get("package_checksum") != EXPECTED_TENSORFLOW_PAYLOAD_SHA:
+        raise RuntimeError(f"{stem} package payload mismatch")
+    if metadata.get("execution_contract_sha256") != EXPECTED_EXECUTION_CONTRACT_SHA:
+        raise RuntimeError(f"{stem} execution contract mismatch")
+    for key, expected in [
+        ("graph_signature", expected_signatures["graph"]),
+        ("feature_signature", expected_signatures["feature"]),
+        ("prior_signature", expected_signatures["prior"]),
+        ("dataset_split_signature", expected_signatures["dataset_split"]),
+    ]:
+        if metadata.get(key) != expected:
+            raise RuntimeError(f"{stem} {key} mismatch")
+    loaded = tf.keras.models.load_model(
+        checkpoint_path,
+        custom_objects={"LapGNN": LapGNN, "lap_gnn_tf>LapGNN": LapGNN},
+        compile=False,
+    )
+    parameters = sum(int(v.shape.num_elements()) for v in loaded.trainable_variables)
+    if parameters != 1_061_192:
+        raise RuntimeError(f"{stem} checkpoint architecture drift")
+    if not all(bool(tf.reduce_all(tf.math.is_finite(v)).numpy()) for v in loaded.variables):
+        raise RuntimeError(f"{stem} contains non-finite parameters")
+    checkpoint_inventory = {
+        stem: {
             "path": str(checkpoint_path),
             "bytes": checkpoint_path.stat().st_size,
             "epoch": int(metadata["epoch"]),
@@ -644,6 +662,7 @@ if RUN_FULL_TRAINING:
             "parameter_count": parameters,
             "strict_load": True,
         }
+    }
 
     telemetry = json.loads((OUTPUT_ROOT / "telemetry.json").read_text())
     train_steps = [float(value) for value in telemetry.get("train_step_sec", [])]
@@ -652,7 +671,6 @@ if RUN_FULL_TRAINING:
         raise RuntimeError("Training telemetry is incomplete")
     if not all(math.isfinite(value) and value >= 0.0 for value in train_steps + validation_times):
         raise RuntimeError("Training telemetry contains non-finite durations")
-    best_macro = checkpoint_inventory["best_val_macro_f1"]
     best_accuracy = checkpoint_inventory["best_val_accuracy"]
     selected_checkpoint = checkpoint_inventory[selected_checkpoint_stem]
     total_epochs = len(history)
@@ -667,7 +685,6 @@ if RUN_FULL_TRAINING:
         "best_accuracy_epoch": best_accuracy["epoch"],
         "total_epochs": total_epochs,
         "stop_reason": stop_reason,
-        "validation_metrics_at_best_macro_f1": best_macro["validation_metrics"],
         "validation_metrics_at_selected_checkpoint": selected_checkpoint[
             "validation_metrics"
         ],

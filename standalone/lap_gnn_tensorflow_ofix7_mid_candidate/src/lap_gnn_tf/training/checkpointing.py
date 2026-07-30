@@ -1,10 +1,9 @@
-"""Atomic macro-F1 primary and accuracy-secondary Keras checkpoints."""
+"""Atomic single validation-accuracy Keras checkpoint."""
 
 from __future__ import annotations
 
 import json
 import os
-import shutil
 from pathlib import Path
 
 
@@ -40,13 +39,6 @@ class CheckpointPolicy:
         if macro > self.best_macro:
             self.best_macro = macro
             self.best_macro_epoch = int(epoch)
-            self._save(model, optimizer, "best_val_macro_f1", common)
-            shutil.copy2(self.checkpoint_dir / "best_val_macro_f1.keras", self.checkpoint_dir / "best.keras")
-            shutil.copy2(
-                self.checkpoint_dir / "best_val_macro_f1.metadata.json",
-                self.checkpoint_dir / "best.metadata.json",
-            )
-            saved.extend(["best_val_macro_f1", "best"])
         if accuracy > self.best_accuracy:
             self.best_accuracy = accuracy
             self.best_accuracy_epoch = int(epoch)
@@ -54,12 +46,5 @@ class CheckpointPolicy:
             saved.append("best_val_accuracy")
         return {"saved": saved, "best_macro_epoch": self.best_macro_epoch, "best_accuracy_epoch": self.best_accuracy_epoch}
 
-    def save_last(self, model, optimizer, epoch: int, metrics: dict, metadata: dict) -> None:
-        common = {**metadata, "epoch": int(epoch), "validation_metrics": metrics}
-        self._save(model, optimizer, "last", common)
-
     def update(self, model, optimizer, epoch: int, metrics: dict, metadata: dict) -> dict:
-        result = self.update_best(model, optimizer, epoch, metrics, metadata)
-        self.save_last(model, optimizer, epoch, metrics, metadata)
-        result["saved"].append("last")
-        return result
+        return self.update_best(model, optimizer, epoch, metrics, metadata)
