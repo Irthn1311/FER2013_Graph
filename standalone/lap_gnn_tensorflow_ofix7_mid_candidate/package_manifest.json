@@ -145,9 +145,9 @@
       "sha256": "818a1f69f325db8ccc7d60c6f8919d3afc968fb98531643eb89592c4c8fbd1ae"
     },
     {
-      "bytes": 923,
+      "bytes": 1939,
       "path": "README.md",
-      "sha256": "02985f29449f7951a3233ddc05a0a9333e9362526ae8c2611936d0ce46466223"
+      "sha256": "ce82f49b08e5789c003e364165f22d21f361ef75b9c5908d0b06d5ff23d27f1c"
     },
     {
       "bytes": 515,
@@ -720,6 +720,11 @@
       "sha256": "35d8576f6bbaddc536e56a8231646a13f89c2b01d433fafbc22410aa803f98b0"
     },
     {
+      "bytes": 12580,
+      "path": "tests/test_audit_learning_history.py",
+      "sha256": "eb4015efc429f383329cc719a7b225b35fb49b7e3b2fffdc9a7657e928c58bad"
+    },
+    {
       "bytes": 364,
       "path": "tests/test_bounded_smoke.py",
       "sha256": "63f5b26e5d875d72e7486e593d6887b4739f9af68b190a8672bbea3c4ae38c4e"
@@ -1093,6 +1098,11 @@
       "bytes": 28741,
       "path": "tools/analyze_adamw_arithmetic_closure.py",
       "sha256": "6d995cea90d565ed25cd7ad00e89a95cce4619f8cca051fb603f167627d0a0cb"
+    },
+    {
+      "bytes": 21945,
+      "path": "tools/audit_learning_history.py",
+      "sha256": "96983871a5f4e3f23e341fda1a3fe84a9578b95a4215bae46b097eea7bc02ba6"
     },
     {
       "bytes": 28314,
