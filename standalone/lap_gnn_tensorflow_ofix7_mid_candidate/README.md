@@ -40,3 +40,33 @@ the best validation macro-F1 epoch yields
 `UNKNOWN_TRAIN_EVAL_INCOMPLETE`; it is never approximated. Gap thresholds are
 diagnostic conveniences only and are not evidence of overfitting, a basis for
 changing training, or a final-model selection rule.
+
+## Validation-only training execution
+
+`tools/train_validation_only.py` calls the frozen trainer unchanged, but pins
+the reviewed trainer SHA-256 and intercepts its first post-training boundary.
+It stops after history and telemetry are written and before final-test
+checkpoint loading, test-data construction, or inference. Normal
+`lap-gnn-tf-train` behavior is unchanged.
+
+```bash
+python tools/train_validation_only.py \
+  --config configs/fer2013_ofix7_mid_tensorflow_optimized_seed42.yaml \
+  --fer-csv /path/to/fer2013.csv \
+  --prior-root /path/to/d16_mediapipe_pixel_priors_v1 \
+  --output-root /path/to/fresh/validation-only-output \
+  --device gpu \
+  --no-resume
+```
+
+On success the output contains `VALIDATION_ONLY_COMPLETE.json` with trainer,
+config, history, and scientific-payload provenance plus explicit
+`test_accessed: false`, `test_data_constructed: false`, and
+`test_checkpoint_loaded: false` fields. The wrapper refuses trainer or payload
+drift and never falls back to normal final-test behavior.
+
+The optional `--limit-epochs`, `--limit-train-batches`,
+`--limit-val-batches`, and `--limit-train-eval-batches` arguments are for
+bounded smoke verification only. Do not use them for the later registered
+baseline. This Issue adds and tests the path only; it does not launch that
+baseline.
