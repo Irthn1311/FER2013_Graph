@@ -12,6 +12,9 @@ _ZERO = tf.constant(0.0, _FLOAT32)
 _ONE = tf.constant(1.0, _FLOAT32)
 _TWO = tf.constant(2.0, _FLOAT32)
 _SPLITTER = tf.constant(4097.0, _FLOAT32)
+_KERAS3_OPTIMIZER_API = hasattr(
+    tf.keras.optimizers.Optimizer, "_backend_apply_gradients"
+)
 
 
 def _float32_parts(value: float) -> tuple[float, float]:
@@ -200,12 +203,22 @@ class TorchCompatibleAdamW(tf.keras.optimizers.Optimizer):
             raise ValueError("TorchCompatibleAdamW requires global_clipnorm=5.0")
         if not isinstance(learning_rate, (int, float)):
             raise TypeError("TorchCompatibleAdamW requires a scalar learning rate")
-        super().__init__(
-            learning_rate=learning_rate,
-            name=name,
-            global_clipnorm=global_clipnorm,
-            **kwargs,
-        )
+        if _KERAS3_OPTIMIZER_API:
+            super().__init__(
+                learning_rate=learning_rate,
+                name=name,
+                global_clipnorm=global_clipnorm,
+                **kwargs,
+            )
+        else:
+            kwargs.pop("jit_compile", None)
+            super().__init__(
+                name=name,
+                global_clipnorm=global_clipnorm,
+                jit_compile=False,
+                **kwargs,
+            )
+            self._learning_rate = self._build_learning_rate(learning_rate)
         self.weight_decay_rate = float(weight_decay)
         self.beta_1 = float(beta_1)
         self.beta_2 = float(beta_2)
@@ -238,6 +251,8 @@ class TorchCompatibleAdamW(tf.keras.optimizers.Optimizer):
         self._clip_variables = None
 
     def build(self, variables):
+        if not _KERAS3_OPTIMIZER_API and hasattr(self, "_index_dict"):
+            return
         for variable in variables:
             if variable.dtype != _FLOAT32:
                 raise TypeError(
@@ -245,14 +260,28 @@ class TorchCompatibleAdamW(tf.keras.optimizers.Optimizer):
                     f"received {variable.dtype}"
                 )
         super().build(variables)
-        self._momentums = [
-            self.add_variable_from_reference(variable, name="momentum")
-            for variable in variables
-        ]
-        self._velocities = [
-            self.add_variable_from_reference(variable, name="velocity")
-            for variable in variables
-        ]
+        if _KERAS3_OPTIMIZER_API:
+            self._momentums = [
+                self.add_variable_from_reference(variable, name="momentum")
+                for variable in variables
+            ]
+            self._velocities = [
+                self.add_variable_from_reference(variable, name="velocity")
+                for variable in variables
+            ]
+        else:
+            self._momentums = [
+                self.add_variable_from_reference(
+                    variable, variable_name="momentum"
+                )
+                for variable in variables
+            ]
+            self._velocities = [
+                self.add_variable_from_reference(
+                    variable, variable_name="velocity"
+                )
+                for variable in variables
+            ]
 
     def _clip_gradients(self, gradients):
         present = [gradient for gradient in gradients if gradient is not None]
@@ -308,6 +337,26 @@ class TorchCompatibleAdamW(tf.keras.optimizers.Optimizer):
             )
         finally:
             self.__dict__["_clip_variables"] = None
+
+    def apply_gradients(self, grads_and_vars, *args, **kwargs):
+        if _KERAS3_OPTIMIZER_API:
+            return super().apply_gradients(grads_and_vars, *args, **kwargs)
+        pairs = list(grads_and_vars)
+        self.__dict__["_clip_variables"] = [pair[1] for pair in pairs]
+        try:
+            return super().apply_gradients(pairs, *args, **kwargs)
+        finally:
+            self.__dict__["_clip_variables"] = None
+
+    def _internal_apply_gradients(self, grads_and_vars):
+        if _KERAS3_OPTIMIZER_API:
+            return super()._internal_apply_gradients(grads_and_vars)
+        (
+            self._current_step_size,
+            self._current_bias_correction2_sqrt,
+            self._current_decay_factor,
+        ) = self._exact_step_scalars(self.learning_rate)
+        return super()._internal_apply_gradients(grads_and_vars)
 
     def _exact_step_scalars(
         self, learning_rate: tf.Tensor
@@ -368,14 +417,18 @@ class TorchCompatibleAdamW(tf.keras.optimizers.Optimizer):
             gradients, trainable_variables, learning_rate
         )
 
-    def update_step(self, gradient, variable, learning_rate):
+    def update_step(self, gradient, variable, learning_rate=None):
         if isinstance(gradient, tf.IndexedSlices):
             raise TypeError("TorchCompatibleAdamW does not support sparse gradients")
         if variable.dtype != _FLOAT32 or gradient.dtype != _FLOAT32:
             raise TypeError(
                 "TorchCompatibleAdamW update requires float32 variable and gradient"
             )
-        index = self._get_variable_index(variable)
+        index = (
+            self._get_variable_index(variable)
+            if _KERAS3_OPTIMIZER_API
+            else self._index_dict[self._var_key(variable)]
+        )
         momentum = self._momentums[index]
         velocity = self._velocities[index]
         variable.assign(variable * self._current_decay_factor)

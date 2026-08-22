@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 from _helpers import loaded
+from lap_gnn_tf.compat import save_model_with_optimizer
 from lap_gnn_tf.training.optimizer import TorchCompatibleAdamW
 
 
@@ -16,7 +17,7 @@ def test_keras_clean_roundtrip(tmp_path):
         optimizer.build(model.trainable_variables)
         model.compile(optimizer=optimizer, run_eagerly=True)
         path = tmp_path / "clean.keras"
-        model.save(path, include_optimizer=True)
+        save_model_with_optimizer(model, path)
         restored = tf.keras.models.load_model(path)
         actual = restored(batch, training=False)["logits"].numpy()
     messages = [str(item.message) for item in captured]

@@ -88,6 +88,7 @@ class MicroMotifSupportReadout(MappedLayer):
         priors_flat = group_priors(part_soft)
         priors_pad, _, _, _ = pad_flat_nodes(priors_flat, node_graph_index, num_graphs, max_nodes=tf.shape(h_pad)[1])
         priors_pad = tf.transpose(priors_pad, (0, 2, 1))
+        priors_pad = tf.cast(priors_pad, h_pad.dtype)
 
         gx = node_features[:, 1]
         gy = node_features[:, 2]
@@ -98,6 +99,7 @@ class MicroMotifSupportReadout(MappedLayer):
         detail = centered / tf.maximum(tf.sqrt(tf.gather(detail_var, node_graph_index)), tf.cast(self.eps, gx.dtype))
         detail = tf.clip_by_value(tf.stop_gradient(detail), -2.0, 2.0)
         detail_pad = tf.scatter_nd(scatter_indices, detail, tf.shape(h_pad)[:2])
+        detail_pad = tf.cast(detail_pad, h_pad.dtype)
 
         valid_matrix = tf.stack([valid_groups[name] for name in PART_ORDER], axis=1)
         major = self._branch(

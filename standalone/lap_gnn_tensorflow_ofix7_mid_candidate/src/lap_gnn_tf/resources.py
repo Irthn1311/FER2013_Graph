@@ -10,6 +10,8 @@ from dataclasses import asdict, dataclass, field
 import psutil
 import tensorflow as tf
 
+from lap_gnn_tf.compat import keras_version
+
 
 @dataclass
 class ResourceControls:
@@ -114,7 +116,7 @@ def environment_manifest() -> dict:
         "os": platform.platform(),
         "architecture": platform.machine(),
         "tensorflow": tf.__version__,
-        "keras": tf.keras.__version__,
+        "keras": keras_version(),
         "tensorflow_build": build,
         "cpu_devices": [item.name for item in tf.config.list_physical_devices("CPU")],
         "gpu_devices": [item.name for item in tf.config.list_physical_devices("GPU")],

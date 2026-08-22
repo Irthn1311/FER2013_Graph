@@ -155,9 +155,19 @@
       "sha256": "3d273925554877d2ed0cc5ad847e8304b7231c48d24c1210bc962774c9e08c95"
     },
     {
+      "bytes": 1713,
+      "path": "TEACHER_LINUX_INSTALL.md",
+      "sha256": "a6afd1cf5d3c3ec1a38dee95542844f9acd568f07bf1c5ab93fc85706c51957c"
+    },
+    {
+      "bytes": 1609,
+      "path": "TEACHER_LINUX_RUN.md",
+      "sha256": "591cb4be0be95e7f8730e1782a29d36007f15a01d7d82838ed3d775ec12cde90"
+    },
+    {
       "bytes": 6023,
       "path": "configs/fer2013_ofix7_mid_tensorflow_baseline.yaml",
-      "sha256": "84eb9f3808572476f8636765d2aa6c6279d13433c6f0e33dae2a2efef65e860a"
+      "sha256": "75e7dfb82f3b6b1ec0cbc34296e3068a97e6423d5b1ec6828ae88cb8a3b8b3ff"
     },
     {
       "bytes": 245,
@@ -225,14 +235,19 @@
       "sha256": "8396d3f71977c1c1fd50e213d73a382588d3e4b3567541c822f0901370392e32"
     },
     {
+      "bytes": 317,
+      "path": "environment-linux-driver470.yml",
+      "sha256": "e7b3639777a54ac2cca6d462c3d1c5c71c692d93ddf0012ad1416970d029a88d"
+    },
+    {
       "bytes": 123,
       "path": "environment.example.yml",
       "sha256": "c62efc5832ff1a38c904b07e6025173f326ef03b84b93ab9404bb22d6ad21f02"
     },
     {
-      "bytes": 855,
+      "bytes": 859,
       "path": "pyproject.toml",
-      "sha256": "faa48b274166895986e1626c14bb1b86cfb262dd19d91245a1ec02fe3e4fd788"
+      "sha256": "ac6f0654ee5f5b999b15ef2f806a8b7267ddc2c2169946123d6a15b5f5620706"
     },
     {
       "bytes": 68,
@@ -243,6 +258,11 @@
       "bytes": 173,
       "path": "requirements-kaggle.txt",
       "sha256": "60241622283c4cf02ca0186c9050c822b9f3a45979c36f262440ad1db8056fb5"
+    },
+    {
+      "bytes": 166,
+      "path": "requirements-linux-gpu.txt",
+      "sha256": "2a6850ee08c9546ce2b2a7cdae8ccee3d082b0e75ebd0ec429e1f73b08564743"
     },
     {
       "bytes": 103,
@@ -318,6 +338,11 @@
       "bytes": 2621,
       "path": "src/lap_gnn_tf/cli/validate.py",
       "sha256": "8b43f5f83f5eb2d28c6585d17a329fec7ac79ef17249aa2d980c19a001c72303"
+    },
+    {
+      "bytes": 661,
+      "path": "src/lap_gnn_tf/compat.py",
+      "sha256": "909d54724775602020d118fc09c76aa382719332c8a2246cdecc24b16cfe7275"
     },
     {
       "bytes": 3293,
@@ -440,14 +465,14 @@
       "sha256": "e308e1ffb95ee7903520b01a5e8fd8060661fc418efb6237e42ceac6cd8b748b"
     },
     {
-      "bytes": 3102,
+      "bytes": 3144,
       "path": "src/lap_gnn_tf/model/part_context.py",
-      "sha256": "997d3a8d29903d09e32e84003e155f4a841c96b9ca937b07d46e6f17c271e2c2"
+      "sha256": "8c04a2356fa64836c5d1646dddfe5fc7d8f125477a50fdd8221fcf9865561632"
     },
     {
-      "bytes": 9026,
+      "bytes": 9134,
       "path": "src/lap_gnn_tf/model/readout.py",
-      "sha256": "8a1bec4dbb6cc5bed452f9c49b96d00ccf35b07b72b09710342f4e973fbd8194"
+      "sha256": "2b209a88dbeb2b3bbf979b348787b372a1b06d7d628c2a815493f6d71e35266e"
     },
     {
       "bytes": 89,
@@ -475,9 +500,9 @@
       "sha256": "cd8518b1118ae67c56c0662c5992c35b0e2fe125216d65077c346fdc1fdd8bc9"
     },
     {
-      "bytes": 4933,
+      "bytes": 4973,
       "path": "src/lap_gnn_tf/resources.py",
-      "sha256": "07d57d7d0a8eedcaeca270bb8c120ec821cd8d5e07dc3787629991f0cea4a761"
+      "sha256": "75e3286ec024d2eb5a799d4cd92347bfca830eaff0c06419fa347c9323c55da3"
     },
     {
       "bytes": 498,
@@ -500,9 +525,9 @@
       "sha256": "b497f6bcef5eb50c3e87c6ffa4ececcc0ed6f695fcffaeb53037c715dc6c9818"
     },
     {
-      "bytes": 2282,
+      "bytes": 2337,
       "path": "src/lap_gnn_tf/training/checkpointing.py",
-      "sha256": "4ad54233251901fe99af7975f119695c620871f5eecd8487efb1c25baf45fead"
+      "sha256": "7a82abea94f890f090561c8b9caaf4cb1b0809e9a6f9c996b422854007eb640e"
     },
     {
       "bytes": 984,
@@ -515,9 +540,9 @@
       "sha256": "ce030aed184464817b758cac41d61383d1afee503ed4b8bb95e5012fadbb2941"
     },
     {
-      "bytes": 5825,
+      "bytes": 6141,
       "path": "src/lap_gnn_tf/training/execution.py",
-      "sha256": "f75eceba94a2967bafeeb81cc0dc81f323ca2dc67048f9c3ea1aae199bf0239a"
+      "sha256": "2f0a579f51fb216d859b2a7e063614e7f76e5a74948067b7d7abd9f2d59e2f70"
     },
     {
       "bytes": 286,
@@ -530,9 +555,9 @@
       "sha256": "7ad04ddf138f17b0b58ab42235a46e20193639d396a4e5b4481c29e478415145"
     },
     {
-      "bytes": 15978,
+      "bytes": 18016,
       "path": "src/lap_gnn_tf/training/optimizer.py",
-      "sha256": "a17b6f0a37202c17e5f9a5819b14b6739e96d90e318a3f6e7073890436a7cb8c"
+      "sha256": "ce2e36f155bd181d6c089ed67cf9579c2baad9576d7c4b6dcc453a274df9b9c4"
     },
     {
       "bytes": 2457,
@@ -540,9 +565,9 @@
       "sha256": "78df6afe6cbe4e0b5f7c1a58660b7ab856dd22eeacf7fa066d75dc2126adab83"
     },
     {
-      "bytes": 23082,
+      "bytes": 23121,
       "path": "src/lap_gnn_tf/training/trainer.py",
-      "sha256": "59323123211cec6d2429284c1d2f8c7d572f3cce035ad48094c81c2885600b12"
+      "sha256": "4c3cb1aa311578038ff656cb7d119103ae5a651135f8ee1c76e37c2c04c1fc75"
     },
     {
       "bytes": 1175,
@@ -585,9 +610,9 @@
       "sha256": "adc64c17ee20613f06a2c91e471c3093e271e1d0527b618d016ca6cd94e4f41e"
     },
     {
-      "bytes": 1175,
+      "bytes": 1229,
       "path": "tests/test_adamw_checkpoint_continuation.py",
-      "sha256": "d25627e7b03f3ef7211cceecfa7f989ece3994a290956814206c1063968f6f28"
+      "sha256": "81b57114d6f2404087ba1e37bf8a5e2cf2e78fee26c158afef227b8c5bd70f38"
     },
     {
       "bytes": 161,
@@ -710,9 +735,9 @@
       "sha256": "a440db5227678f2ea936884856447aa9e66b31898f821d91e63b82ef3cb9b46f"
     },
     {
-      "bytes": 1373,
+      "bytes": 1427,
       "path": "tests/test_checkpoint_roundtrip.py",
-      "sha256": "e17a89e165fb6bcdc3253838fc3738d1ac35dd9bff5298dc01d69370ab88b2f2"
+      "sha256": "5d52181315e721d4d47fcaa0236ef9760590f88ffc66785c0fa2ccb7122e0df2"
     },
     {
       "bytes": 462,
@@ -855,14 +880,19 @@
       "sha256": "d8f7aa13ae5e580a0fde2fb3fda4c2f9df1f22fdbc194dcf939ed8597a7c5d42"
     },
     {
-      "bytes": 1126,
+      "bytes": 1180,
       "path": "tests/test_keras_clean_roundtrip.py",
-      "sha256": "655236fa30aef3e1710d097654e950dc5e5a741aaf3f27533615004f2dd9b93d"
+      "sha256": "caea512ab18916cd2c75ba0c7e94ca76de3b60af167ad7f5fd0fb9d382c48063"
     },
     {
       "bytes": 437,
       "path": "tests/test_layer_parity.py",
       "sha256": "16be094ade33b532f42e8937a568f2e71ca63f21870cdbc4304fcc0eac51f054"
+    },
+    {
+      "bytes": 2221,
+      "path": "tests/test_legacy_tf213_compatibility.py",
+      "sha256": "bd227cdd6a126abefd438f001a97c4e20b381e6f383bc07aa301d78bc4f371f4"
     },
     {
       "bytes": 229,
@@ -917,7 +947,7 @@
     {
       "bytes": 277,
       "path": "tests/test_notebook_final_payload_hash.py",
-      "sha256": "0eb3803a80a857c024b16a85df93eaeca42785d42898e725c9ab5b76fc170be2"
+      "sha256": "74f05c58f99d0c5c5e3e7126a2beccfeeb804f295384cfaa65564fc28f953164"
     },
     {
       "bytes": 607,
@@ -940,9 +970,9 @@
       "sha256": "a67f3baff1c74d8722d0ea4a0aa339665f90bab12117992ff462b8474390dc18"
     },
     {
-      "bytes": 1086,
+      "bytes": 1140,
       "path": "tests/test_optimizer_slot_roundtrip.py",
-      "sha256": "faa6d89dcf434c079e87b0891ee3c9ee57be381a58ca56921a60b6faccad5852"
+      "sha256": "59a3d749d297bd7fc3ca9a8a2f58fe62ba12cfb53ab3fa6e2950ce99e84ea29a"
     },
     {
       "bytes": 291,
@@ -1020,6 +1050,16 @@
       "sha256": "0e20697cdddecfbc9db831259513b6a1471eb5a3bb02464bde281c138a54e19d"
     },
     {
+      "bytes": 1266,
+      "path": "tests/test_teacher_drive_bundle.py",
+      "sha256": "5b4971b180ac98adb5b9cecea345ee518a128bce787db847b5729251eb21df13"
+    },
+    {
+      "bytes": 1531,
+      "path": "tests/test_teacher_linux_launcher.py",
+      "sha256": "6d00b8c59bcd425486b645d207d12b4362b7bc306598a7c13f9549b75e874663"
+    },
+    {
       "bytes": 367,
       "path": "tests/test_torch_compatible_adamw_live_step1.py",
       "sha256": "8bd5e74bfaabe41b3fa0a64f7a49e397942e72d03b1200ee7096bfb5821e442d"
@@ -1077,12 +1117,17 @@
     {
       "bytes": 35951,
       "path": "tools/build_kaggle_notebook.py",
-      "sha256": "36a22ac94e781cfcb3f15eab5bd9b445c06eed95b2d4791fbd8fea2025e39df7"
+      "sha256": "dc9f30c4fb1ed50ef8ac49d658b15b59e4aa971db5029d21d6429d305488662c"
     },
     {
       "bytes": 25767,
       "path": "tools/build_repair_reports.py",
       "sha256": "7881763f5a7bd1184ea425f1c049ad33420655e9d5d874bf0f41bf656a1ee7ee"
+    },
+    {
+      "bytes": 10455,
+      "path": "tools/build_teacher_drive_bundle.py",
+      "sha256": "def24e2c4ab67fcfabb7268ad5691ea910d3affcfd5fff0b00c3f3bfe5a8df6b"
     },
     {
       "bytes": 22430,
@@ -1178,6 +1223,16 @@
       "bytes": 4706,
       "path": "tools/repair_tensorflow_live_adamw.py",
       "sha256": "9b3f54a1177cae456b43c28adf365eb05f02506ef4e7a591df9201c1517870fb"
+    },
+    {
+      "bytes": 5525,
+      "path": "tools/run_teacher_drive_bundle.sh",
+      "sha256": "5403be9e99f36b2b1bb4ac21c466d10145a298d3d7cbda8602a75523ecb3ff9f"
+    },
+    {
+      "bytes": 18467,
+      "path": "tools/run_teacher_linux_seed42.py",
+      "sha256": "a7c1bb083563ec195c92b2ce2578bbd500dc53fd9b5f060d28863ec837e65b46"
     },
     {
       "bytes": 6408,
@@ -1351,7 +1406,7 @@
   "package": "lap_gnn_tensorflow_ofix7_mid_candidate",
   "readiness_decision": "READY_FOR_TENSORFLOW_KAGGLE_SEED42",
   "readiness_reason": "G1-A restricted Grappler passes the 2e-8 two-step gate, 15 repetitions, mixed precision, and exact checkpoint continuation.",
-  "scientific_payload_sha256": "1bc5b0807f6dd72cc06cf89641c5acdf16800179e4a6beb6910e044d04049945",
+  "scientific_payload_sha256": "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e",
   "selected_execution_strategy": "SELECT_G1_RESTRICTED_GRAPH_OPTIMIZER",
   "trainable_parameters": 1061192,
   "version": "0.1.0"

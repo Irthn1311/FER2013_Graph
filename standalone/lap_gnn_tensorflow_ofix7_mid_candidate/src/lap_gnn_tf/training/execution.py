@@ -150,12 +150,18 @@ def build_restricted_graph_train_step(
         with tf.GradientTape() as tape:
             output = model(batch, training=True)
             loss = sparse_cross_entropy(batch["labels"], output["logits"])
-            scaled_loss = (
-                optimizer.scale_loss(loss)
-                if hasattr(optimizer, "scale_loss")
-                else loss
-            )
+            if hasattr(optimizer, "scale_loss"):
+                scaled_loss = optimizer.scale_loss(loss)
+            elif hasattr(optimizer, "get_scaled_loss"):
+                scaled_loss = optimizer.get_scaled_loss(loss)
+            else:
+                scaled_loss = loss
         gradients = tape.gradient(scaled_loss, model.trainable_variables)
+        if (
+            not hasattr(optimizer, "scale_loss")
+            and hasattr(optimizer, "get_unscaled_gradients")
+        ):
+            gradients = optimizer.get_unscaled_gradients(gradients)
         validate_gradient_contract(gradients, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))
         return loss

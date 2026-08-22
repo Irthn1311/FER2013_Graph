@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 from _adamw_reference import make_optimizer
+from lap_gnn_tf.compat import save_model_with_optimizer
 
 
 def _model():
@@ -18,7 +19,7 @@ def test_adamw_checkpoint_continuation(tmp_path):
     gradient = tf.constant([[0.25], [-0.5]], tf.float32)
     optimizer.apply_gradients([(gradient, model.layers[-1].kernel)])
     path = tmp_path / "adamw_continuation.keras"
-    model.save(path, include_optimizer=True)
+    save_model_with_optimizer(model, path)
     restored = tf.keras.models.load_model(path)
     optimizer.apply_gradients([(gradient, model.layers[-1].kernel)])
     restored.optimizer.apply_gradients(

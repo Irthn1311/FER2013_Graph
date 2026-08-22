@@ -3,6 +3,7 @@ import tensorflow as tf
 from pathlib import Path
 
 from _helpers import loaded
+from lap_gnn_tf.compat import save_model_with_optimizer
 from lap_gnn_tf.config import load_config
 from lap_gnn_tf.training.optimizer import build_optimizer
 
@@ -26,7 +27,7 @@ def test_full_keras_checkpoint_roundtrip(tmp_path):
     optimizer.build(model.trainable_variables)
     model.compile(optimizer=optimizer, run_eagerly=True)
     path = tmp_path / "roundtrip.keras"
-    model.save(path, include_optimizer=True)
+    save_model_with_optimizer(model, path)
     restored = tf.keras.models.load_model(path)
     actual = restored(batch, training=False)["logits"].numpy()
     assert np.array_equal(actual, expected)

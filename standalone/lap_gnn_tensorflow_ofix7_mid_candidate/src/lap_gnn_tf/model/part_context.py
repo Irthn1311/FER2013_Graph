@@ -35,6 +35,7 @@ class PartGlobalContext(MappedLayer):
         priors = [tf.reduce_max(tf.gather(part_soft, indices, axis=1), axis=1) for indices in self.GROUP_INDICES]
         priors.append(tf.ones((tf.shape(part_soft)[0],), dtype=part_soft.dtype))
         priors = tf.stack(priors, axis=1)
+        priors = tf.cast(priors, h.dtype)
         token_sums = tf.math.unsorted_segment_sum(
             h[:, None, :] * priors[:, :, None], node_graph_index, num_graphs,
         )

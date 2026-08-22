@@ -12,6 +12,7 @@ import tensorflow as tf
 import yaml
 
 from lap_gnn_tf.config import canonical_config_hash, load_config, validate_locked_config
+from lap_gnn_tf.compat import keras_version
 from lap_gnn_tf.data.graph_generator import GraphBatchGenerator
 from lap_gnn_tf.model import LapGNN
 from lap_gnn_tf.provenance import write_provenance
@@ -402,7 +403,7 @@ def run_training(
             "prior_signature": signatures["prior"],
             "dataset_split_signature": signatures["dataset_split"],
             "tensorflow_version": tf.__version__,
-            "keras_version": tf.keras.__version__,
+            "keras_version": keras_version(),
             "optimizer_state": {
                 "class": optimizer.__class__.__name__,
                 "iterations": int(optimizer.iterations.numpy()),

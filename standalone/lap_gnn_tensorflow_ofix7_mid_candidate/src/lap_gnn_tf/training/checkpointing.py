@@ -6,6 +6,8 @@ import json
 import os
 from pathlib import Path
 
+from lap_gnn_tf.compat import save_model_with_optimizer
+
 
 class CheckpointPolicy:
     def __init__(self, output_dir: str | Path):
@@ -22,7 +24,7 @@ class CheckpointPolicy:
         weights_path = self.checkpoint_dir / f"{stem}.weights.h5"
         temp_model = self.checkpoint_dir / f".{stem}.keras"
         temp_weights = self.checkpoint_dir / f".{stem}.weights.h5"
-        model.save(temp_model, include_optimizer=True)
+        save_model_with_optimizer(model, temp_model)
         model.save_weights(temp_weights)
         os.replace(temp_model, model_path)
         os.replace(temp_weights, weights_path)
