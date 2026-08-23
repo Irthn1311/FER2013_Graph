@@ -10,7 +10,7 @@
 - Deterministic builder SHA-256: `dad60440574b641ec441dc8017673df877f5464fbc01587233bf253b58c9f9ff`.
 - Reviewed Step 5 tool SHA-256: `3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3`.
 - Frozen scientific payload SHA-256: `286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e`.
-- The checked-in notebook remains unexecuted. Both approved Kaggle attempts failed before checkpoint loading/model evaluation and before any C0/C1/C2 metric was produced; both are classified `PRE-METRIC TECHNICAL HARNESS FAILURE`. No Kaggle rerun was performed for this second hotfix.
+- The checked-in notebook remains unexecuted. The first two approved Kaggle attempts failed before checkpoint loading/model evaluation and before any C0/C1/C2 metric was produced; both remain classified `PRE-METRIC TECHNICAL HARNESS FAILURE`. The subsequent reviewed run completed, and its compact report is committed at `research/evidence/tf_step6_fixed_topology_prior_sensitivity.md`.
 
 ## Runtime-blocker closure
 
@@ -40,7 +40,7 @@ The adapter accepts exactly one matching file for each expected basename outside
 - `best_val_accuracy.metadata.json`: `e62cf8c86f0d6a56c3041911de6397d18f47276f79f03c6a50ca71fa47300a37`;
 - `resolved_config.json`: `3c028dd2f32ebed3a252544e170220b150b5e29920cea865924dddce6aef5a32`.
 
-It additionally locks epoch `31`, seed `42`, config hash `a4038682bf09c03786e86119001cf5f81ac5fec25d09062e6a0866484c32a3cf`, the execution/graph/feature/prior/split signatures from Issue #11, and the exact persisted C0 reference metrics. Artifact hashes are checked again after the probe. The actual Kaggle mount is intentionally not trusted and will be resolved only during the approved Kaggle session.
+It additionally locks epoch `31`, seed `42`, config hash `a4038682bf09c03786e86119001cf5f81ac5fec25d09062e6a0866484c32a3cf`, the execution/graph/feature/prior/split signatures from Issue #11, and the exact persisted C0 reference metrics. Artifact hashes are checked again after the probe. The reviewed run did not trust the Kaggle mount name; it resolved the artifacts only by their locked basenames and SHA-256 values.
 
 ## Kaggle inputs and access boundary
 
@@ -52,7 +52,7 @@ It additionally locks epoch `31`, seed `42`, config hash `a4038682bf09c03786e861
 
 The registered command invokes `evaluate_fixed_checkpoint_prior_probe.py` once with the checkpoint, metadata, config, official prior root, official clean-cache root, and a fresh output root. It contains no `--limit-val-batches`, training command, optimizer path, test split path, or raw-prior corruption path.
 
-## Compact outputs after approved execution
+## Compact outputs from reviewed execution
 
 - Report: `/kaggle/working/tf_step6_fixed_topology_prior_sensitivity.md`.
 - Archive: `/kaggle/working/tf_step6_fixed_topology_prior_sensitivity_kaggle_t4.zip`.
@@ -70,9 +70,12 @@ The archive is limited to the Step 5 probe outputs, adapter metadata/evidence, a
 - Every notebook code cell compiles; all execution counts are null and all outputs are empty.
 - `git diff --check` — PASS.
 
-## Pre-run limitations and review gate
+## Reviewed runtime evidence closure and final review gate
 
-- The first attempt established exact artifact discovery/hashes and all three validation asset counts at `3589`, then failed at the config-identity gate. The second passed that identity gate and reached T4 memory-growth setup, then failed on the already-initialized runtime-policy mismatch. Neither produced a C0 reproduction result, C1/C2 outcome, or output archive.
+- The first attempt established exact artifact discovery/hashes and all three validation asset counts at `3589`, then failed at the config-identity gate. The second passed that identity gate and reached T4 memory-growth setup, then failed on the already-initialized runtime-policy mismatch. Neither produced a scientific outcome.
+- The research-lead-reviewed subsequent output archive is `/kaggle/working/tf_step6_fixed_topology_prior_sensitivity_kaggle_t4.zip`, SHA-256 `7a3d04451c0204f6362f74976dd9650b15d535bc5f080cf4c27ea9b8794900b6`, size `744685` bytes, with exactly `9` compact files.
+- The committed compact runtime report is byte-identical to the reviewed ZIP member and has SHA-256 `29beaede54dea719127d726b89257d85a2891d72bacb065152e2e44d7446adb6`.
+- The reviewed run passed every preregistered C0 reproduction check on `3589` samples and produced the registered label `HIGH_EXPLICIT_PRIOR_SENSITIVITY`; exact metrics, paired diagnostics, integrity evidence, and interpretation boundaries are preserved in the committed compact report.
 - C0 failure is locked to `INVALID_REFERENCE_REPRODUCTION`; in that case the adapter preserves raw files and suppresses C1/C2 derived reporting and scientific interpretation.
 - C2 remains explicit semantic-prior/direct-part sensitivity conditional on the official MediaPipe-derived scaffold. It is not MediaPipe removal and is not a prior-free graph.
-- No further registered rerun is authorized until research-lead review of this second hotfix. No outcome-driven protocol change or rerun has been performed here.
+- Evidence closure used only the reviewed archive; Codex did not run Kaggle again or create a new experiment. PR #12 remains draft pending final research-lead review before merge.
