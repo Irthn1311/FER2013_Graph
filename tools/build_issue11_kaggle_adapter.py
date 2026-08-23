@@ -78,12 +78,13 @@ def build_notebook() -> dict:
             from pathlib import Path
 
             REPO_URL = "https://github.com/Irthn1311/FER2013_Graph.git"
-            REPO_BRANCH = "main"
-            EXPECTED_COMMIT = "69f4571c5069da9a7f8558ef3c01101635ee904a"
+            REPO_BRANCH = "codex/issue-11-kaggle-t4-adapter"
+            EXPECTED_SCIENTIFIC_BASE_COMMIT = "69f4571c5069da9a7f8558ef3c01101635ee904a"
+            EXPECTED_EXECUTION_COMMIT = "9d7f7ef9b9f821e66d7f671e7ec860c1fe8aa81f"
             TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
             PROBE_TOOL_RELATIVE = TF_PACKAGE_RELATIVE / "tools/evaluate_fixed_checkpoint_prior_probe.py"
 
-            EXPECTED_PROBE_TOOL_SHA256 = "564eab26b7cf683bd531fec08bf6539a1384d9ef370961b9484335726c7c2351"
+            EXPECTED_PROBE_TOOL_SHA256 = "b3a668bb16d4daf70b9f32b03bd35281b3791925dff97da35d4a245bcf75c4d4"
             EXPECTED_SCIENTIFIC_PAYLOAD_SHA256 = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
             EXPECTED_EXECUTION_CONTRACT_SHA256 = "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
             EXPECTED_CONFIG_HASH = "a4038682bf09c03786e86119001cf5f81ac5fec25d09062e6a0866484c32a3cf"
@@ -208,14 +209,17 @@ def build_notebook() -> dict:
                 "git", "clone", "--branch", REPO_BRANCH, "--single-branch",
                 clone_url, PROJECT_PATH,
             ])
-            run_checked(["git", "checkout", "--detach", EXPECTED_COMMIT], cwd=PROJECT_PATH)
+            run_checked(
+                ["git", "checkout", "--detach", EXPECTED_EXECUTION_COMMIT],
+                cwd=PROJECT_PATH,
+            )
             actual_commit = run_checked(
                 ["git", "rev-parse", "HEAD"], cwd=PROJECT_PATH, capture=True
             ).strip()
             dirty = run_checked(
                 ["git", "status", "--porcelain"], cwd=PROJECT_PATH, capture=True
             ).strip()
-            if actual_commit != EXPECTED_COMMIT or dirty:
+            if actual_commit != EXPECTED_EXECUTION_COMMIT or dirty:
                 raise RuntimeError(
                     f"Source lock failed: commit={actual_commit}, dirty={bool(dirty)}"
                 )
@@ -242,7 +246,8 @@ def build_notebook() -> dict:
             if sha256(PROBE_TOOL_PATH) != EXPECTED_PROBE_TOOL_SHA256:
                 raise RuntimeError("Reviewed Step 5 probe tool drift")
             print(json.dumps({
-                "commit": actual_commit,
+                "scientific_base_commit": EXPECTED_SCIENTIFIC_BASE_COMMIT,
+                "execution_commit": actual_commit,
                 "probe_tool_sha256": sha256(PROBE_TOOL_PATH),
                 "scientific_payload_sha256": package_manifest["scientific_payload_sha256"],
                 "execution_contract_sha256": package_manifest["execution_contract_sha256"],
@@ -488,7 +493,8 @@ def build_notebook() -> dict:
             }
             pre_run_manifest = {
                 "issue": 11,
-                "base_commit": actual_commit,
+                "scientific_base_commit": EXPECTED_SCIENTIFIC_BASE_COMMIT,
+                "execution_commit": actual_commit,
                 "probe_tool_sha256": sha256(PROBE_TOOL_PATH),
                 "scientific_payload_sha256": package_manifest["scientific_payload_sha256"],
                 "artifact_hashes": artifact_hashes_before,
@@ -705,7 +711,8 @@ def build_notebook() -> dict:
 
             final_evidence = {
                 "issue": 11,
-                "base_commit": actual_commit,
+                "scientific_base_commit": EXPECTED_SCIENTIFIC_BASE_COMMIT,
+                "execution_commit": actual_commit,
                 "probe_tool_sha256": sha256(PROBE_TOOL_PATH),
                 "scientific_payload_sha256": package_manifest["scientific_payload_sha256"],
                 "artifact_hashes_before": artifact_hashes_before,
@@ -766,7 +773,8 @@ def build_notebook() -> dict:
                 "## Provenance",
                 "",
                 f"- Issue: #11.",
-                f"- Base commit: `{actual_commit}`.",
+                f"- Frozen scientific base commit: `{EXPECTED_SCIENTIFIC_BASE_COMMIT}`.",
+                f"- Technical execution commit: `{actual_commit}`.",
                 f"- Probe tool SHA-256: `{sha256(PROBE_TOOL_PATH)}`.",
                 f"- Frozen scientific payload SHA-256: `{package_manifest['scientific_payload_sha256']}`.",
                 f"- Checkpoint SHA-256: `{artifact_hashes_after['checkpoint']}`.",

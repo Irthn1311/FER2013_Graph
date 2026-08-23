@@ -13,8 +13,9 @@ BUILDER_PATH = ROOT / "tools" / "build_issue11_kaggle_adapter.py"
 PACKAGE_ROOT = ROOT / "standalone" / "lap_gnn_tensorflow_ofix7_mid_candidate"
 PROBE_TOOL = PACKAGE_ROOT / "tools" / "evaluate_fixed_checkpoint_prior_probe.py"
 
-EXPECTED_BASE = "69f4571c5069da9a7f8558ef3c01101635ee904a"
-EXPECTED_TOOL_SHA = "564eab26b7cf683bd531fec08bf6539a1384d9ef370961b9484335726c7c2351"
+EXPECTED_SCIENTIFIC_BASE = "69f4571c5069da9a7f8558ef3c01101635ee904a"
+EXPECTED_EXECUTION_COMMIT = "9d7f7ef9b9f821e66d7f671e7ec860c1fe8aa81f"
+EXPECTED_TOOL_SHA = "b3a668bb16d4daf70b9f32b03bd35281b3791925dff97da35d4a245bcf75c4d4"
 EXPECTED_PAYLOAD_SHA = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
 EXPECTED_ARTIFACT_HASHES = {
     "9ec11bb819f97e4fbda432f68da76c1201b8a3f9e06fae9eb30489a528d6ac16",
@@ -63,7 +64,9 @@ def test_notebook_is_deterministic_unexecuted_and_code_compiles():
 
 def test_exact_issue11_source_tool_payload_and_artifact_locks():
     source = _all_source()
-    assert EXPECTED_BASE in source
+    assert EXPECTED_SCIENTIFIC_BASE in source
+    assert EXPECTED_EXECUTION_COMMIT in source
+    assert EXPECTED_SCIENTIFIC_BASE != EXPECTED_EXECUTION_COMMIT
     assert EXPECTED_TOOL_SHA in source
     assert EXPECTED_PAYLOAD_SHA in source
     for expected in EXPECTED_ARTIFACT_HASHES:
@@ -71,7 +74,13 @@ def test_exact_issue11_source_tool_payload_and_artifact_locks():
     assert _sha256(PROBE_TOOL) == EXPECTED_TOOL_SHA
     manifest = json.loads((PACKAGE_ROOT / "package_manifest.json").read_text())
     assert manifest["scientific_payload_sha256"] == EXPECTED_PAYLOAD_SHA
-    assert "git\", \"checkout\", \"--detach\", EXPECTED_COMMIT" in source
+    assert (
+        '"git", "checkout", "--detach", EXPECTED_EXECUTION_COMMIT'
+        in source
+    )
+    assert "actual_commit != EXPECTED_EXECUTION_COMMIT" in source
+    assert '"scientific_base_commit": EXPECTED_SCIENTIFIC_BASE_COMMIT' in source
+    assert '"execution_commit": actual_commit' in source
     assert "sha256(PROBE_TOOL_PATH) != EXPECTED_PROBE_TOOL_SHA256" in source
 
 
