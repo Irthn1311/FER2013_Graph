@@ -8,6 +8,7 @@ never constructs a train or test split.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import hashlib
 import io
@@ -132,6 +133,11 @@ class PriorProbeError(RuntimeError):
     """Fail-closed Issue #9 harness error."""
 
 
+ALREADY_INITIALIZED_MEMORY_GROWTH_ERROR = (
+    "Physical devices cannot be modified after being initialized"
+)
+
+
 def _json_ready(value):
     if isinstance(value, dict):
         return {str(key): _json_ready(item) for key, item in value.items()}
@@ -166,6 +172,53 @@ def _require_positive(name: str, value: int | None) -> int | None:
     if isinstance(value, bool) or int(value) <= 0:
         raise PriorProbeError(f"{name} must be a positive integer")
     return int(value)
+
+
+def load_persisted_resolved_config(path: str | Path) -> dict:
+    """Load the persisted JSON mapping without YAML scalar reinterpretation."""
+    config_path = Path(path)
+    try:
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PriorProbeError(
+            f"Persisted resolved config must be valid UTF-8 JSON: {config_path}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise PriorProbeError("Persisted resolved config must be a JSON object")
+    return payload
+
+
+def build_runtime_config(raw_resolved_config: Mapping) -> dict:
+    """Isolate inference-only runtime use from persisted identity state."""
+    return copy.deepcopy(dict(raw_resolved_config))
+
+
+def configure_gpu_memory_growth(requested: bool) -> dict:
+    """Apply the frozen runtime policy while recording its explicit outcome."""
+    status = "not_requested"
+    device_statuses = []
+    if requested:
+        gpus = list(tf.config.list_physical_devices("GPU"))
+        status = "no_gpu_detected" if not gpus else "configured"
+        for gpu in gpus:
+            device_status = "configured"
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except RuntimeError as exc:
+                if ALREADY_INITIALIZED_MEMORY_GROWTH_ERROR not in str(exc):
+                    raise PriorProbeError(
+                        "Unable to configure GPU memory growth"
+                    ) from exc
+                device_status = "already_initialized"
+                status = "already_initialized"
+            device_statuses.append(
+                {"device": getattr(gpu, "name", str(gpu)), "status": device_status}
+            )
+    return {
+        "memory_growth_requested": bool(requested),
+        "memory_growth_status": status,
+        "memory_growth_devices": device_statuses,
+    }
 
 
 def validate_frozen_contract(config: Mapping, package_root: Path = PACKAGE_ROOT) -> dict:
@@ -700,12 +753,16 @@ def main(argv: list[str] | None = None) -> int:
         "limit_val_batches", args.limit_val_batches
     )
 
-    config = load_config(resolved_config_path)
-    contract = validate_frozen_contract(config)
+    raw_resolved_config = load_persisted_resolved_config(resolved_config_path)
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     if not isinstance(metadata, dict):
         raise PriorProbeError("Checkpoint metadata must be a JSON object")
-    checkpoint_cross_check = validate_checkpoint_metadata(config, metadata)
+    checkpoint_cross_check = validate_checkpoint_metadata(
+        raw_resolved_config, metadata
+    )
+
+    config = build_runtime_config(raw_resolved_config)
+    contract = validate_frozen_contract(config)
 
     resources_config = dict(config.get("resources") or {})
     eval_batch_size = eval_batch_size or int(
@@ -722,13 +779,11 @@ def main(argv: list[str] | None = None) -> int:
         "shuffle": False,
         "dataset_split": "val",
     }
-
-    if bool(resources_config.get("memory_growth", True)):
-        for gpu in tf.config.list_physical_devices("GPU"):
-            try:
-                tf.config.experimental.set_memory_growth(gpu, True)
-            except RuntimeError as exc:
-                raise PriorProbeError("Unable to configure GPU memory growth") from exc
+    resources.update(
+        configure_gpu_memory_growth(
+            bool(resources_config.get("memory_growth", True))
+        )
+    )
 
     checkpoint_sha256_before = sha256_file(checkpoint_path)
     model = load_fixed_checkpoint(checkpoint_path)
