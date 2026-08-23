@@ -14,8 +14,8 @@ PACKAGE_ROOT = ROOT / "standalone" / "lap_gnn_tensorflow_ofix7_mid_candidate"
 PROBE_TOOL = PACKAGE_ROOT / "tools" / "evaluate_fixed_checkpoint_prior_probe.py"
 
 EXPECTED_SCIENTIFIC_BASE = "69f4571c5069da9a7f8558ef3c01101635ee904a"
-EXPECTED_EXECUTION_COMMIT = "9d7f7ef9b9f821e66d7f671e7ec860c1fe8aa81f"
-EXPECTED_TOOL_SHA = "b3a668bb16d4daf70b9f32b03bd35281b3791925dff97da35d4a245bcf75c4d4"
+EXPECTED_EXECUTION_COMMIT = "7fbe0ea306f23db9682833a7ff66ea65da7300e9"
+EXPECTED_TOOL_SHA = "3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3"
 EXPECTED_PAYLOAD_SHA = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
 EXPECTED_ARTIFACT_HASHES = {
     "9ec11bb819f97e4fbda432f68da76c1201b8a3f9e06fae9eb30489a528d6ac16",
@@ -200,6 +200,9 @@ def test_adapter_requires_t4_registered_versions_and_fresh_outputs():
         in source
     )
     assert "/kaggle/working/tf_step6_fixed_topology_prior_sensitivity.md" in source
+    assert '"probe_runtime_resources": probe_manifest["resources"]' in source
+    assert "memory_growth_requested" in source
+    assert "memory_growth_status" in source
 
 
 def test_c0_gate_and_registered_diagnostics_are_locked():
