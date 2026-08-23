@@ -785,9 +785,9 @@
       "sha256": "8e1982c0d612228b637b424ce6bc1ecc85b0a291a2b86d65934a6ffb389f9674"
     },
     {
-      "bytes": 21502,
+      "bytes": 23796,
       "path": "tests/test_fixed_checkpoint_prior_probe.py",
-      "sha256": "780328229b007920bfddc176ae91acbbd60f17acf149a06aa3bd9dfe0d3a842d"
+      "sha256": "e8760ba7d3a980e417ab77e02b138d26ea78d7c20c491a3658b00d698ceb4f95"
     },
     {
       "bytes": 391,
@@ -1170,9 +1170,9 @@
       "sha256": "f770ccb3a1898e7145a6db93044e39c16ebd0bfe0dc98402cfee2fc1d9a6636a"
     },
     {
-      "bytes": 30596,
+      "bytes": 31500,
       "path": "tools/evaluate_fixed_checkpoint_prior_probe.py",
-      "sha256": "564eab26b7cf683bd531fec08bf6539a1384d9ef370961b9484335726c7c2351"
+      "sha256": "b3a668bb16d4daf70b9f32b03bd35281b3791925dff97da35d4a245bcf75c4d4"
     },
     {
       "bytes": 11605,

@@ -8,6 +8,7 @@ never constructs a train or test split.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import hashlib
 import io
@@ -166,6 +167,25 @@ def _require_positive(name: str, value: int | None) -> int | None:
     if isinstance(value, bool) or int(value) <= 0:
         raise PriorProbeError(f"{name} must be a positive integer")
     return int(value)
+
+
+def load_persisted_resolved_config(path: str | Path) -> dict:
+    """Load the persisted JSON mapping without YAML scalar reinterpretation."""
+    config_path = Path(path)
+    try:
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PriorProbeError(
+            f"Persisted resolved config must be valid UTF-8 JSON: {config_path}"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise PriorProbeError("Persisted resolved config must be a JSON object")
+    return payload
+
+
+def build_runtime_config(raw_resolved_config: Mapping) -> dict:
+    """Isolate inference-only runtime use from persisted identity state."""
+    return copy.deepcopy(dict(raw_resolved_config))
 
 
 def validate_frozen_contract(config: Mapping, package_root: Path = PACKAGE_ROOT) -> dict:
@@ -700,12 +720,16 @@ def main(argv: list[str] | None = None) -> int:
         "limit_val_batches", args.limit_val_batches
     )
 
-    config = load_config(resolved_config_path)
-    contract = validate_frozen_contract(config)
+    raw_resolved_config = load_persisted_resolved_config(resolved_config_path)
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     if not isinstance(metadata, dict):
         raise PriorProbeError("Checkpoint metadata must be a JSON object")
-    checkpoint_cross_check = validate_checkpoint_metadata(config, metadata)
+    checkpoint_cross_check = validate_checkpoint_metadata(
+        raw_resolved_config, metadata
+    )
+
+    config = build_runtime_config(raw_resolved_config)
+    contract = validate_frozen_contract(config)
 
     resources_config = dict(config.get("resources") or {})
     eval_batch_size = eval_batch_size or int(

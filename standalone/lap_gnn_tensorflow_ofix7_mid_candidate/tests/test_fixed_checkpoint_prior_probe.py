@@ -87,6 +87,23 @@ def _checkpoint_metadata(config):
     }
 
 
+def _issue7_persisted_resolved_config():
+    config = _real_config()
+    config["data"]["fer_csv"] = (
+        "/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv"
+    )
+    config["data"]["prior_dir"] = (
+        "/kaggle/input/datasets/irthn1311/"
+        "d16-mediapipe-pixel-priors-best-retry-rescue/outputs/"
+        "d16_mediapipe_pixel_priors_best_retry_rescue"
+    )
+    config["resources"]["clean_graph_cache_dir"] = (
+        "/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-records"
+    )
+    config["resources"]["eval_batch_size"] = 32
+    return config
+
+
 def test_c0_is_identity_and_does_not_mutate_source():
     source = _batch()
     before = _snapshot(source)
@@ -291,6 +308,47 @@ def test_checkpoint_metadata_cross_check_passes_and_fails_closed():
         probe.validate_checkpoint_metadata(config, metadata)
 
 
+def test_issue7_persisted_config_identity_precedes_isolated_runtime_mutation(
+    tmp_path,
+):
+    raw_config = _issue7_persisted_resolved_config()
+    assert probe.canonical_config_hash(raw_config) == (
+        "a4038682bf09c03786e86119001cf5f81ac5fec25d09062e6a0866484c32a3cf"
+    )
+
+    resolved = tmp_path / "resolved_config.json"
+    resolved.write_text(
+        json.dumps(raw_config, indent=2, sort_keys=True, ensure_ascii=True),
+        encoding="utf-8",
+        newline="",
+    )
+    assert probe.sha256_file(resolved) == (
+        "3c028dd2f32ebed3a252544e170220b150b5e29920cea865924dddce6aef5a32"
+    )
+    persisted_identity = probe.load_persisted_resolved_config(resolved)
+    metadata = _checkpoint_metadata(persisted_identity)
+    assert probe.validate_checkpoint_metadata(
+        persisted_identity, metadata
+    )["checkpoint_epoch"] == 31
+
+    legacy_yaml_loaded = probe.load_config(resolved)
+    assert probe.canonical_config_hash(legacy_yaml_loaded) == (
+        "916472d6e813b15dca6e7cd5016e87e95fad5d608bc1e341117675797cce8e54"
+    )
+    with pytest.raises(probe.PriorProbeError, match="config_hash"):
+        probe.validate_checkpoint_metadata(legacy_yaml_loaded, metadata)
+
+    runtime_config = probe.build_runtime_config(persisted_identity)
+    assert runtime_config == persisted_identity
+    assert runtime_config is not persisted_identity
+    assert runtime_config["resources"] is not persisted_identity["resources"]
+    runtime_config["resources"]["eval_batch_size"] = 64
+    assert persisted_identity["resources"]["eval_batch_size"] == 32
+    assert probe.validate_checkpoint_metadata(
+        persisted_identity, metadata
+    )["checkpoint_epoch"] == 31
+
+
 def test_metadata_inference_is_unambiguous():
     checkpoint = Path("run/checkpoints/best_val_accuracy.keras")
     assert probe.infer_checkpoint_metadata_path(checkpoint) == Path(
@@ -474,7 +532,7 @@ def test_main_constructs_only_paired_validation_and_rechecks_checkpoint(
     config = _real_config()
     resolved = tmp_path / "resolved_config.json"
     resolved.write_text(json.dumps(config), encoding="utf-8")
-    persisted_config = probe.load_config(resolved)
+    persisted_config = probe.load_persisted_resolved_config(resolved)
     metadata = tmp_path / "fixed.metadata.json"
     metadata.write_text(
         json.dumps(_checkpoint_metadata(persisted_config)), encoding="utf-8"
