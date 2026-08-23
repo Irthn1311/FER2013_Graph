@@ -524,7 +524,7 @@ def test_output_root_must_be_fresh(tmp_path):
         )
 
 
-def test_main_constructs_only_paired_validation_and_rechecks_checkpoint(
+def test_main_continues_after_already_initialized_memory_growth_runtime_error(
     tmp_path, monkeypatch, capsys
 ):
     checkpoint = tmp_path / "fixed.keras"
@@ -578,7 +578,17 @@ def test_main_constructs_only_paired_validation_and_rechecks_checkpoint(
     monkeypatch.setattr(probe, "evaluate_conditions", fake_evaluate)
     monkeypatch.setattr(probe, "model_weights_sha256", lambda _model: "w" * 64)
     monkeypatch.setattr(probe, "write_probe_outputs", fake_write)
-    monkeypatch.setattr(probe.tf.config, "list_physical_devices", lambda _kind: [])
+    fake_gpu = type("FakeGpu", (), {"name": "/physical_device:GPU:0"})()
+    monkeypatch.setattr(
+        probe.tf.config, "list_physical_devices", lambda _kind: [fake_gpu]
+    )
+
+    def already_initialized(_gpu, _enabled):
+        raise RuntimeError(probe.ALREADY_INITIALIZED_MEMORY_GROWTH_ERROR)
+
+    monkeypatch.setattr(
+        probe.tf.config.experimental, "set_memory_growth", already_initialized
+    )
 
     assert probe.main(
         [
@@ -605,7 +615,31 @@ def test_main_constructs_only_paired_validation_and_rechecks_checkpoint(
     assert captured["model_weights_sha256_before"] == "w" * 64
     assert captured["model_weights_sha256_after"] == "w" * 64
     assert captured["bounded_limit"] == 2
+    assert captured["resources"]["memory_growth_requested"] is True
+    assert captured["resources"]["memory_growth_status"] == "already_initialized"
+    assert captured["resources"]["memory_growth_devices"] == [
+        {
+            "device": "/physical_device:GPU:0",
+            "status": "already_initialized",
+        }
+    ]
     assert '"validation_only": true' in capsys.readouterr().out
+
+
+def test_memory_growth_keeps_unexpected_runtime_errors_fail_closed(monkeypatch):
+    fake_gpu = type("FakeGpu", (), {"name": "/physical_device:GPU:0"})()
+    monkeypatch.setattr(
+        probe.tf.config, "list_physical_devices", lambda _kind: [fake_gpu]
+    )
+
+    def unexpected_failure(_gpu, _enabled):
+        raise RuntimeError("unexpected GPU runtime failure")
+
+    monkeypatch.setattr(
+        probe.tf.config.experimental, "set_memory_growth", unexpected_failure
+    )
+    with pytest.raises(probe.PriorProbeError, match="Unable to configure"):
+        probe.configure_gpu_memory_growth(True)
 
 
 def test_cli_is_narrow_validation_only_and_has_no_split_or_intervention_selector():
