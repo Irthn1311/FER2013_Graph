@@ -145,9 +145,9 @@
       "sha256": "818a1f69f325db8ccc7d60c6f8919d3afc968fb98531643eb89592c4c8fbd1ae"
     },
     {
-      "bytes": 3246,
+      "bytes": 4958,
       "path": "README.md",
-      "sha256": "9ef0107c4722a3c2e29a95ad68e14f8e4b49409cb284e453c0d9b2f0d629bfb2"
+      "sha256": "4978f07fbc81c6d5ed0dbc921b30250a2c13233796e781df1702da1cef043379"
     },
     {
       "bytes": 515,
@@ -785,6 +785,11 @@
       "sha256": "8e1982c0d612228b637b424ce6bc1ecc85b0a291a2b86d65934a6ffb389f9674"
     },
     {
+      "bytes": 21502,
+      "path": "tests/test_fixed_checkpoint_prior_probe.py",
+      "sha256": "780328229b007920bfddc176ae91acbbd60f17acf149a06aa3bd9dfe0d3a842d"
+    },
+    {
       "bytes": 391,
       "path": "tests/test_g1_repeated_fresh_process.py",
       "sha256": "84b53ad297f39197340fecba54de2ed4d3cdf0fb884b6eff57709c7131c31bcf"
@@ -1163,6 +1168,11 @@
       "bytes": 2267,
       "path": "tools/compare_repair_traces.py",
       "sha256": "f770ccb3a1898e7145a6db93044e39c16ebd0bfe0dc98402cfee2fc1d9a6636a"
+    },
+    {
+      "bytes": 30596,
+      "path": "tools/evaluate_fixed_checkpoint_prior_probe.py",
+      "sha256": "564eab26b7cf683bd531fec08bf6539a1384d9ef370961b9484335726c7c2351"
     },
     {
       "bytes": 11605,

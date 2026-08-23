@@ -70,3 +70,39 @@ The optional `--limit-epochs`, `--limit-train-batches`,
 bounded smoke verification only. Do not use them for the later registered
 baseline. This Issue adds and tests the path only; it does not launch that
 baseline.
+
+## Fixed-topology validation-only prior probe
+
+`tools/evaluate_fixed_checkpoint_prior_probe.py` is the Issue #9
+infrastructure harness for a later preregistered fixed-checkpoint experiment.
+It constructs only `GraphBatchGenerator(..., split="val", shuffle=False)` and
+evaluates all three registered conditions from copies of each same original
+post-graph batch before advancing:
+
+- `official`: identity;
+- `direct_part_path_zero_fixed_graph`: zero `part_soft` and
+  `valid_part_mask` only;
+- `semantic_prior_zero_fixed_graph`: the direct-path intervention plus node
+  columns `5..31` and edge columns `6..7` zeroed.
+
+C2 retains the official MediaPipe-derived nodes, edges, ordering, graph
+assignments, coordinates, and anchor mask. It tests semantic prior content
+conditional on that topology and is not a prior-free or MediaPipe-free graph.
+
+```bash
+python tools/evaluate_fixed_checkpoint_prior_probe.py \
+  --checkpoint /path/to/fixed.keras \
+  --checkpoint-metadata /path/to/fixed.metadata.json \
+  --resolved-config /path/to/resolved_config.json \
+  --prior-root /path/to/d16_mediapipe_pixel_priors_v1 \
+  --clean-graph-cache-dir /path/to/clean_graph_cache \
+  --output-root /path/to/fresh/prior-probe-output
+```
+
+The tool loads one `.keras` checkpoint with `compile=False`, checks config and
+checkpoint signatures, hashes the checkpoint and in-memory weights before and
+after inference, exposes no split or arbitrary-intervention selector, and
+creates compact per-condition validation metrics, paired predictions,
+`intervention_integrity.json`, and `probe_manifest.json`. The optional
+`--limit-val-batches` argument is for implementation smoke only and must not be
+used by the later registered experiment.
