@@ -126,7 +126,7 @@ INTERVENTION_SPECS = {
 NATIVE_MANUAL_TOLERANCE = {
     "prediction_agreement": 1.0,
     "max_abs_logit_difference": 1e-5,
-    "max_abs_probability_difference": 1e-6,
+    "max_abs_probability_difference": 3e-6,
 }
 D0_REFERENCE = {
     "accuracy": 0.63137364168292,

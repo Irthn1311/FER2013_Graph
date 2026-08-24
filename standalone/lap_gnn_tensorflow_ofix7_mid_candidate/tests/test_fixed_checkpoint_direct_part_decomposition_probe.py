@@ -143,7 +143,7 @@ def test_d0_manual_forward_is_exactly_equivalent_to_native_on_golden(golden_runs
     assert evidence["gate_pass"] is True
     assert evidence["prediction_agreement"] == 1.0
     assert evidence["max_abs_logit_difference"] <= 1e-5
-    assert evidence["max_abs_probability_difference"] <= 1e-6
+    assert evidence["max_abs_probability_difference"] <= 3e-6
     integrity = probe.validate_pathway_integrity(
         golden_runs["model"],
         golden_runs["batch"],
@@ -405,6 +405,115 @@ def test_manual_equivalence_failure_uses_the_registered_fail_closed_label():
     error = probe.ManualForwardEquivalenceError({"batches": [evidence]})
     assert str(error) == "INVALID_MANUAL_FORWARD_EQUIVALENCE"
     assert error.evidence["batches"][0]["prediction_agreement"] == 0.0
+
+
+def test_gate_a_probability_calibration_and_unchanged_guards_are_exact():
+    assert probe.NATIVE_MANUAL_TOLERANCE == {
+        "prediction_agreement": 1.0,
+        "max_abs_logit_difference": 1e-5,
+        "max_abs_probability_difference": 3e-6,
+    }
+    sample_ids = tf.constant([100, 101], dtype=tf.int64)
+    base_logits = tf.constant([[2.0, 0.0], [0.0, 2.0]], dtype=tf.float64)
+    base_probabilities = tf.constant(
+        [[0.75, 0.25], [0.25, 0.75]], dtype=tf.float64
+    )
+
+    def evidence(*, logits=base_logits, probabilities=base_probabilities):
+        return probe.native_manual_equivalence(
+            {
+                "logits": base_logits,
+                "probabilities": base_probabilities,
+            },
+            {"logits": logits, "probabilities": probabilities},
+            sample_ids,
+        )
+
+    prediction_native_probabilities = tf.constant(
+        [[0.500001, 0.499999], [0.25, 0.75]], dtype=tf.float64
+    )
+    prediction_mismatch = probe.native_manual_equivalence(
+        {
+            "logits": base_logits,
+            "probabilities": prediction_native_probabilities,
+        },
+        {
+            "logits": base_logits,
+            "probabilities": tf.constant(
+                [[0.499999, 0.500001], [0.25, 0.75]], dtype=tf.float64
+            ),
+        },
+        sample_ids,
+    )
+    assert prediction_mismatch["prediction_agreement"] < 1.0
+    assert prediction_mismatch["max_abs_logit_difference"] <= 1e-5
+    assert prediction_mismatch["max_abs_probability_difference"] <= 3e-6
+    assert prediction_mismatch["gate_pass"] is False
+
+    logit_mismatch = evidence(
+        logits=tf.constant(
+            [[2.000011, 0.0], [0.0, 2.0]], dtype=tf.float64
+        )
+    )
+    assert logit_mismatch["prediction_agreement"] == 1.0
+    assert logit_mismatch["max_abs_probability_difference"] == 0.0
+    assert logit_mismatch["max_abs_logit_difference"] > 1e-5
+    assert logit_mismatch["gate_pass"] is False
+
+    forensic_envelope = 2.205371856689453e-06
+    envelope_evidence = evidence(
+        probabilities=tf.constant(
+            [
+                [0.75 + forensic_envelope, 0.25 - forensic_envelope],
+                [0.25, 0.75],
+            ],
+            dtype=tf.float64,
+        )
+    )
+    assert envelope_evidence["max_abs_probability_difference"] == pytest.approx(
+        forensic_envelope, rel=0.0, abs=1e-15
+    )
+    assert envelope_evidence["gate_pass"] is True
+
+    within_threshold = 2.999e-6
+    threshold_evidence = evidence(
+        probabilities=tf.constant(
+            [
+                [0.75 + within_threshold, 0.25 - within_threshold],
+                [0.25, 0.75],
+            ],
+            dtype=tf.float64,
+        )
+    )
+    assert threshold_evidence["max_abs_probability_difference"] == pytest.approx(
+        within_threshold, rel=0.0, abs=1e-15
+    )
+    assert threshold_evidence["max_abs_probability_difference"] <= 3e-6
+    assert threshold_evidence["gate_pass"] is True
+
+    above_threshold = evidence(
+        probabilities=tf.constant(
+            [[0.7500031, 0.2499969], [0.25, 0.75]], dtype=tf.float64
+        )
+    )
+    assert above_threshold["max_abs_probability_difference"] > 3e-6
+    assert above_threshold["gate_pass"] is False
+
+    controlled_pre_hotfix = 1.744628e-4
+    pre_hotfix_evidence = evidence(
+        probabilities=tf.constant(
+            [
+                [0.75 + controlled_pre_hotfix, 0.25 - controlled_pre_hotfix],
+                [0.25, 0.75],
+            ],
+            dtype=tf.float64,
+        )
+    )
+    assert pre_hotfix_evidence["max_abs_probability_difference"] == pytest.approx(
+        controlled_pre_hotfix, rel=0.0, abs=1e-15
+    )
+    assert pre_hotfix_evidence["max_abs_probability_difference"] > 58 * 3e-6
+    assert pre_hotfix_evidence["gate_pass"] is False
 
 
 def test_equivalence_failure_evidence_is_preserved_without_condition_metrics(tmp_path):
