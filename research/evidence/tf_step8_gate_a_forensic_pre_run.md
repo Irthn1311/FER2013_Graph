@@ -42,13 +42,13 @@ D1-D5 interventions, training/optimizer/gradient operations, test access, raw-pr
 
 ## Kaggle adapter and failure preservation
 
-- Notebook SHA-256: `447bac9c6d0b441e4b3e0d256a6ca9864d87c01e123b49f31b77272d9ba30752`.
-- Deterministic builder SHA-256: `096be4427e82cba52c27470071464f054563ba183ad8a6021c4d10b9aabef208`.
-- Adapter test SHA-256: `f4d764dff7683cac55186ea4e7ea6800c17c3879aeee243399d3e48802601cc2`.
+- Notebook SHA-256: `f4a30d5c4a9892c12fab6bd121e52ebf13ba2da4e9962e5bdd2729fc80ae0d75`.
+- Deterministic builder SHA-256: `f8656519d43b338158a9802b9bd5c2fed891c48ad15443e6239a0c316da829dd`.
+- Adapter test SHA-256: `fccc473acbb58df1b261e57c4b33297f1a608de55b6ca1966492bb12b182e374`.
 - Forensic-tool test SHA-256: `d499e0ba3251046f59aa5d2b52f6a7084c143845cc7d894d0e1094c147510251`.
 - All 9 notebook code cells have `execution_count: null` and empty outputs.
 
-The wrapper captures combined subprocess output in `tf_step8_gate_a_forensic/forensic_subprocess.log`. On a non-zero return or wrapper exception it writes wrapper failure evidence, creates the report, archives all existing incremental JSON/log files, and only then raises fail-closed. A focused regression test executes a synthetic non-zero subprocess and verifies the partial batch JSON, log, wrapper evidence, and report are present in the ZIP.
+The wrapper captures combined subprocess output in `tf_step8_gate_a_forensic/forensic_subprocess.log`. On a non-zero return or wrapper exception it records `TECHNICAL_FORENSIC_FAILURE`, writes `wrapper_execution.json` and an explicit failure report, preserves all existing incremental batch/progress/manifest/failure JSON, and creates and verifies the compact ZIP. It then completes normally so Kaggle can publish `/kaggle/working` outputs while remaining scientifically fail-closed: `scientific_interpretation` is null, `scientific_decomposition_run` is false, interventions remain empty, and no success-only `final_evidence.json` is fabricated. A focused regression executes a synthetic non-zero subprocess and verifies this full failure-publication contract without expecting `RuntimeError`.
 
 ## Kaggle inputs and output contract
 
@@ -63,7 +63,7 @@ The wrapper captures combined subprocess output in `tf_step8_gate_a_forensic/for
 ## Verification performed
 
 - Gate-A forensic tool plus reviewed Step-7 regression suites: PASS, `23 passed`.
-- Gate-A adapter plus Issue #11 adapter suites: PASS, `17 passed`.
+- Gate-A adapter plus Issue #11 adapter suites: PASS, `18 passed`.
 - Package checksum verification: PASS, `checked=265 failures=0`.
 - Parent-import isolation: PASS, zero violations.
 - PyTorch-runtime isolation: PASS, zero violations.

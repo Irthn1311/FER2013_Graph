@@ -343,8 +343,9 @@ if reference_metric_mismatches:
 
         **Pre-run review gate:** do not execute this cell until this draft technical
         PR is approved. It invokes only the forensic tool, without a bounded-batch
-        argument. The wrapper archives partial JSON and the subprocess log before
-        failing closed on any non-zero exit.
+        argument. The wrapper archives and verifies partial JSON and the subprocess
+        log on any non-zero exit, then completes normally with a scientifically
+        fail-closed `TECHNICAL_FORENSIC_FAILURE` status so Kaggle can publish it.
         """,
     )
     _set_source(
@@ -379,6 +380,37 @@ if reference_metric_mismatches:
                 raise RuntimeError(f"Forensic archive contains forbidden artifacts: {forbidden}")
             return names
 
+        def verify_failure_archive(archived_names):
+            archived = set(archived_names)
+            required_paths = [
+                SUBPROCESS_LOG_PATH,
+                ADAPTER_METADATA_ROOT / "wrapper_execution.json",
+                REPORT_PATH,
+            ]
+            conditional_paths = list(
+                sorted((FORENSIC_OUTPUT_ROOT / "batches").glob("batch_*.json"))
+            )
+            conditional_paths.extend([
+                FORENSIC_OUTPUT_ROOT / "progress.json",
+                FORENSIC_OUTPUT_ROOT / "forensic_manifest.json",
+                FORENSIC_OUTPUT_ROOT / "diagnostic_failure.json",
+            ])
+            for path in required_paths:
+                if not path.is_file():
+                    raise RuntimeError(f"Missing required failure evidence: {path}")
+                member = path.relative_to(WORKING).as_posix()
+                if member not in archived:
+                    raise RuntimeError(f"Failure archive missing required evidence: {member}")
+            for path in conditional_paths:
+                if path.is_file() and path.relative_to(WORKING).as_posix() not in archived:
+                    raise RuntimeError(f"Failure archive omitted partial evidence: {path}")
+            final_evidence_path = ADAPTER_METADATA_ROOT / "final_evidence.json"
+            if (
+                final_evidence_path.exists()
+                or final_evidence_path.relative_to(WORKING).as_posix() in archived
+            ):
+                raise RuntimeError("Failure path must not fabricate success final_evidence")
+
         def write_wrapper_report(status, returncode, error_text=None):
             report_lines = [
                 "# TensorFlow Step 8 Gate-A technical forensic",
@@ -405,6 +437,8 @@ if reference_metric_mismatches:
                 "- Validation-only native/manual D0 repeatability evidence is under `tf_step8_gate_a_forensic/forensic/`.",
                 "- Incremental batch JSON and progress are preserved even if a later batch fails.",
                 "- TensorFlow op determinism was not enabled by this tool.",
+                "- Scientific interpretation: `null`; scientific decomposition run: `false`.",
+                "- Intervention conditions executed: `[]`; D1-D5 were not executed.",
             ]
             if error_text:
                 report_lines.extend(["", "## Wrapper error", "", f"- `{error_text}`"])
@@ -428,10 +462,16 @@ if reference_metric_mismatches:
                     wrapper_error = f"Forensic subprocess exited non-zero: {returncode}"
             except BaseException as exc:
                 wrapper_error = f"Forensic subprocess wrapper error: {exc}"
-            artifact_hashes_after = {
-                name: sha256(path) for name, path in located_artifacts.items()
-            }
-            artifacts_unchanged = artifact_hashes_after == artifact_hashes_before
+            try:
+                artifact_hashes_after = {
+                    name: sha256(path) for name, path in located_artifacts.items()
+                }
+                artifacts_unchanged = artifact_hashes_after == artifact_hashes_before
+            except BaseException as exc:
+                artifact_hashes_after = {}
+                artifacts_unchanged = False
+                if wrapper_error is None:
+                    wrapper_error = f"Post-subprocess artifact verification error: {exc}"
             if not artifacts_unchanged and wrapper_error is None:
                 wrapper_error = "Issue #7 checkpoint/config artifacts changed"
             wrapper_payload = {
@@ -443,9 +483,13 @@ if reference_metric_mismatches:
                 "artifacts_unchanged": artifacts_unchanged,
                 "scientific_decomposition_run": False,
                 "intervention_conditions_executed": [],
+                "scientific_interpretation": None,
                 "training": False,
                 "test_access": False,
             }
+            final_evidence_path = ADAPTER_METADATA_ROOT / "final_evidence.json"
+            if wrapper_error is not None and final_evidence_path.exists():
+                final_evidence_path.unlink()
             (ADAPTER_METADATA_ROOT / "wrapper_execution.json").write_text(
                 json.dumps(wrapper_payload, indent=2, sort_keys=True) + "\\n",
                 encoding="utf-8",
@@ -453,10 +497,12 @@ if reference_metric_mismatches:
             write_wrapper_report(wrapper_payload["status"], returncode, wrapper_error)
             archived_names = create_forensic_archive()
             if wrapper_error is not None:
-                raise RuntimeError(
-                    f"{wrapper_error}; partial forensic archive: {ARCHIVE_PATH}"
-                )
-            return result, archived_names
+                verify_failure_archive(archived_names)
+            return {
+                "result": result,
+                "wrapper_execution": wrapper_payload,
+                "archive_names": archived_names,
+            }
 
         forensic_command = [
             sys.executable,
@@ -487,149 +533,188 @@ if reference_metric_mismatches:
             raise RuntimeError("Forensic tool must be invoked exactly once")
         if STEP7_TOOL_PATH in forensic_command or STEP6_SUPPORT_PATH in forensic_command:
             raise RuntimeError("Scientific/support tools must not be invoked directly")
-        forensic_result, initial_archive_names = run_forensic_with_failure_archive(
+        wrapper_outcome = run_forensic_with_failure_archive(
             forensic_command, TF_PACKAGE_PATH
         )
+        forensic_result = wrapper_outcome["result"]
+        wrapper_execution = wrapper_outcome["wrapper_execution"]
+        initial_archive_names = wrapper_outcome["archive_names"]
         """,
     )
 
-    _set_source(cells[13], "## 7. Verify complete technical evidence after a zero exit\n")
+    _set_source(cells[13], "## 7. Verify status-appropriate technical evidence\n")
     _set_source(
         cells[14],
         """
-        forensic_manifest = json.loads(
-            (FORENSIC_OUTPUT_ROOT / "forensic_manifest.json").read_text(encoding="utf-8")
-        )
-        progress = json.loads(
-            (FORENSIC_OUTPUT_ROOT / "progress.json").read_text(encoding="utf-8")
-        )
-        immutability = json.loads(
-            (FORENSIC_OUTPUT_ROOT / "immutability.json").read_text(encoding="utf-8")
-        )
-        dtype_manifest = json.loads(
-            (FORENSIC_OUTPUT_ROOT / "dtype_manifest.json").read_text(encoding="utf-8")
-        )
-        batch_paths = sorted((FORENSIC_OUTPUT_ROOT / "batches").glob("batch_*.json"))
-        if (
-            forensic_manifest.get("status") != "COMPLETE"
-            or progress.get("status") != "COMPLETE"
-            or progress.get("completed_sample_count") != EXPECTED_VALIDATION_SAMPLES
-            or len(batch_paths) != progress.get("completed_batch_count")
-        ):
-            raise RuntimeError("Incomplete full-validation forensic evidence")
-        if (
-            forensic_manifest.get("intervention_conditions_executed") != []
-            or forensic_manifest.get("scientific_decomposition_run") is not False
-            or forensic_manifest.get("gate_a_tolerances_are_diagnostic_only") is not True
-            or forensic_manifest.get("stop_on_reference_exceedance") is not False
-        ):
-            raise RuntimeError("Forensic/non-scientific execution boundary drift")
-        if forensic_manifest.get("gate_a_reference_tolerances") != GATE_A_REFERENCE_TOLERANCE:
-            raise RuntimeError("Gate-A diagnostic reference tolerance drift")
-        if not immutability.get("checkpoint_unchanged") or not immutability.get("model_weights_unchanged"):
-            raise RuntimeError("Checkpoint/model immutability evidence failed")
-        if any(bool(value) for value in forensic_manifest.get("test_access", {}).values()):
-            raise RuntimeError("Test isolation evidence failed")
-        if any(bool(value) for value in forensic_manifest.get("training_access", {}).values()):
-            raise RuntimeError("Training isolation evidence failed")
-        required_roles = {
-            "outer_lap_gnn", "encoder", "gnn_container", "gnn_layer",
-            "part_global_context", "readout", "classifier",
-        }
-        actual_roles = {item.get("role") for item in dtype_manifest.get("layers", [])}
-        if not required_roles.issubset(actual_roles):
-            raise RuntimeError(f"Dtype manifest missing roles: {required_roles - actual_roles}")
-        artifact_hashes_after = {
-            name: sha256(path) for name, path in located_artifacts.items()
-        }
-        if artifact_hashes_after != artifact_hashes_before:
-            raise RuntimeError("Issue #7 artifact identity changed")
-        final_evidence = {
-            "issue": 15,
-            "diagnostic": "gate_a_native_manual_repeatability_forensic",
-            "scientific_base_commit": EXPECTED_SCIENTIFIC_BASE_COMMIT,
-            "execution_commit": actual_commit,
-            "required_hotfix_ancestor": EXPECTED_HOTFIX_ANCESTOR_COMMIT,
-            "forensic_tool_sha256": sha256(FORENSIC_TOOL_PATH),
-            "step7_tool_sha256": sha256(STEP7_TOOL_PATH),
-            "step6_support_sha256": sha256(STEP6_SUPPORT_PATH),
-            "scientific_payload_sha256": package_manifest["scientific_payload_sha256"],
-            "artifact_hashes_before": artifact_hashes_before,
-            "artifact_hashes_after": artifact_hashes_after,
-            "environment": environment_payload,
-            "progress": progress,
-            "immutability": immutability,
-            "dtype_manifest": dtype_manifest,
-            "scientific_decomposition_run": False,
-            "intervention_conditions_executed": [],
-            "scientific_interpretation": None,
-        }
-        (ADAPTER_METADATA_ROOT / "final_evidence.json").write_text(
-            json.dumps(final_evidence, indent=2, sort_keys=True) + "\\n",
-            encoding="utf-8",
-        )
-        print(json.dumps({
-            "batch_count": progress["completed_batch_count"],
-            "sample_count": progress["completed_sample_count"],
-            "comparisons": progress["comparisons"],
-        }, indent=2))
+        wrapper_execution_path = ADAPTER_METADATA_ROOT / "wrapper_execution.json"
+        wrapper_execution = json.loads(wrapper_execution_path.read_text(encoding="utf-8"))
+        wrapper_status = wrapper_execution.get("status")
+        final_evidence_path = ADAPTER_METADATA_ROOT / "final_evidence.json"
+        if wrapper_status == "COMPLETE":
+            forensic_manifest = json.loads(
+                (FORENSIC_OUTPUT_ROOT / "forensic_manifest.json").read_text(encoding="utf-8")
+            )
+            progress = json.loads(
+                (FORENSIC_OUTPUT_ROOT / "progress.json").read_text(encoding="utf-8")
+            )
+            immutability = json.loads(
+                (FORENSIC_OUTPUT_ROOT / "immutability.json").read_text(encoding="utf-8")
+            )
+            dtype_manifest = json.loads(
+                (FORENSIC_OUTPUT_ROOT / "dtype_manifest.json").read_text(encoding="utf-8")
+            )
+            batch_paths = sorted((FORENSIC_OUTPUT_ROOT / "batches").glob("batch_*.json"))
+            if (
+                forensic_manifest.get("status") != "COMPLETE"
+                or progress.get("status") != "COMPLETE"
+                or progress.get("completed_sample_count") != EXPECTED_VALIDATION_SAMPLES
+                or len(batch_paths) != progress.get("completed_batch_count")
+            ):
+                raise RuntimeError("Incomplete full-validation forensic evidence")
+            if (
+                forensic_manifest.get("intervention_conditions_executed") != []
+                or forensic_manifest.get("scientific_decomposition_run") is not False
+                or forensic_manifest.get("gate_a_tolerances_are_diagnostic_only") is not True
+                or forensic_manifest.get("stop_on_reference_exceedance") is not False
+            ):
+                raise RuntimeError("Forensic/non-scientific execution boundary drift")
+            if forensic_manifest.get("gate_a_reference_tolerances") != GATE_A_REFERENCE_TOLERANCE:
+                raise RuntimeError("Gate-A diagnostic reference tolerance drift")
+            if not immutability.get("checkpoint_unchanged") or not immutability.get("model_weights_unchanged"):
+                raise RuntimeError("Checkpoint/model immutability evidence failed")
+            if any(bool(value) for value in forensic_manifest.get("test_access", {}).values()):
+                raise RuntimeError("Test isolation evidence failed")
+            if any(bool(value) for value in forensic_manifest.get("training_access", {}).values()):
+                raise RuntimeError("Training isolation evidence failed")
+            required_roles = {
+                "outer_lap_gnn", "encoder", "gnn_container", "gnn_layer",
+                "part_global_context", "readout", "classifier",
+            }
+            actual_roles = {item.get("role") for item in dtype_manifest.get("layers", [])}
+            if not required_roles.issubset(actual_roles):
+                raise RuntimeError(f"Dtype manifest missing roles: {required_roles - actual_roles}")
+            artifact_hashes_after = {
+                name: sha256(path) for name, path in located_artifacts.items()
+            }
+            if artifact_hashes_after != artifact_hashes_before:
+                raise RuntimeError("Issue #7 artifact identity changed")
+            final_evidence = {
+                "issue": 15,
+                "diagnostic": "gate_a_native_manual_repeatability_forensic",
+                "scientific_base_commit": EXPECTED_SCIENTIFIC_BASE_COMMIT,
+                "execution_commit": actual_commit,
+                "required_hotfix_ancestor": EXPECTED_HOTFIX_ANCESTOR_COMMIT,
+                "forensic_tool_sha256": sha256(FORENSIC_TOOL_PATH),
+                "step7_tool_sha256": sha256(STEP7_TOOL_PATH),
+                "step6_support_sha256": sha256(STEP6_SUPPORT_PATH),
+                "scientific_payload_sha256": package_manifest["scientific_payload_sha256"],
+                "artifact_hashes_before": artifact_hashes_before,
+                "artifact_hashes_after": artifact_hashes_after,
+                "environment": environment_payload,
+                "progress": progress,
+                "immutability": immutability,
+                "dtype_manifest": dtype_manifest,
+                "scientific_decomposition_run": False,
+                "intervention_conditions_executed": [],
+                "scientific_interpretation": None,
+            }
+            final_evidence_path.write_text(
+                json.dumps(final_evidence, indent=2, sort_keys=True) + "\\n",
+                encoding="utf-8",
+            )
+            print(json.dumps({
+                "status": wrapper_status,
+                "batch_count": progress["completed_batch_count"],
+                "sample_count": progress["completed_sample_count"],
+                "comparisons": progress["comparisons"],
+            }, indent=2))
+        elif wrapper_status == "TECHNICAL_FORENSIC_FAILURE":
+            if (
+                wrapper_execution.get("scientific_interpretation") is not None
+                or wrapper_execution.get("scientific_decomposition_run") is not False
+                or wrapper_execution.get("intervention_conditions_executed") != []
+            ):
+                raise RuntimeError("Technical failure scientific boundary drift")
+            if final_evidence_path.exists():
+                raise RuntimeError("Technical failure must not fabricate success final_evidence")
+            verify_failure_archive(initial_archive_names)
+            print(json.dumps({
+                "status": "TECHNICAL_FORENSIC_FAILURE",
+                "returncode": wrapper_execution.get("returncode"),
+                "error": wrapper_execution.get("error"),
+                "archive_path": str(ARCHIVE_PATH),
+                "scientific_interpretation": None,
+                "scientific_decomposition_run": False,
+                "intervention_conditions_executed": [],
+            }, indent=2))
+        else:
+            raise RuntimeError(f"Unknown forensic wrapper status: {wrapper_status}")
         """,
     )
 
-    _set_source(cells[15], "## 8. Write the successful forensic report\n")
+    _set_source(cells[15], "## 8. Write a success report or retain the failure report\n")
     _set_source(
         cells[16],
         """
-        report_lines = [
-            "# TensorFlow Step 8 Gate-A technical forensic",
-            "",
-            "## Provenance",
-            "",
-            f"- Issue: #15 technical diagnostic.",
-            f"- Scientific base: `{EXPECTED_SCIENTIFIC_BASE_COMMIT}`.",
-            f"- Required hotfix ancestor: `{EXPECTED_HOTFIX_ANCESTOR_COMMIT}`.",
-            f"- Execution commit: `{EXPECTED_EXECUTION_COMMIT}`.",
-            f"- Forensic tool SHA-256: `{EXPECTED_FORENSIC_TOOL_SHA256}`.",
-            f"- Step-7 tool SHA-256: `{EXPECTED_STEP7_TOOL_SHA256}`.",
-            f"- Step-6 support SHA-256: `{EXPECTED_STEP6_SUPPORT_SHA256}`.",
-            f"- Frozen scientific payload: `{EXPECTED_SCIENTIFIC_PAYLOAD_SHA256}`.",
-            "",
-            "## Technical measurements",
-            "",
-            f"- Validation samples/batches: `{progress['completed_sample_count']}` / `{progress['completed_batch_count']}`.",
-            f"- Gate-A reference tolerances: `{json.dumps(GATE_A_REFERENCE_TOLERANCE, sort_keys=True)}`.",
-            f"- Aggregate envelopes: `{json.dumps(progress['comparisons'], sort_keys=True)}`.",
-            "- Per-batch sample-ID hashes, node/edge counts, four comparison records, and boundary dtypes are preserved in the archive.",
-            "",
-            "## Integrity and boundaries",
-            "",
-            f"- Checkpoint unchanged: `{immutability['checkpoint_unchanged']}`; model weights unchanged: `{immutability['model_weights_unchanged']}`.",
-            "- Source batches are checked after each of the four forwards.",
-            "- Validation only; no training, optimizer, test access, graph rebuild, or op-determinism enablement.",
-            "- D1-D5 were not executed. This is not a Step 8 scientific outcome.",
-            "- Diagnosis between GPU repeatability and remaining native/manual semantics is reserved for research-lead review of the measured envelopes.",
-        ]
-        REPORT_PATH.write_text("\\n".join(report_lines) + "\\n", encoding="utf-8")
+        if wrapper_status == "COMPLETE":
+            report_lines = [
+                "# TensorFlow Step 8 Gate-A technical forensic",
+                "",
+                "## Provenance",
+                "",
+                f"- Issue: #15 technical diagnostic.",
+                f"- Scientific base: `{EXPECTED_SCIENTIFIC_BASE_COMMIT}`.",
+                f"- Required hotfix ancestor: `{EXPECTED_HOTFIX_ANCESTOR_COMMIT}`.",
+                f"- Execution commit: `{EXPECTED_EXECUTION_COMMIT}`.",
+                f"- Forensic tool SHA-256: `{EXPECTED_FORENSIC_TOOL_SHA256}`.",
+                f"- Step-7 tool SHA-256: `{EXPECTED_STEP7_TOOL_SHA256}`.",
+                f"- Step-6 support SHA-256: `{EXPECTED_STEP6_SUPPORT_SHA256}`.",
+                f"- Frozen scientific payload: `{EXPECTED_SCIENTIFIC_PAYLOAD_SHA256}`.",
+                "",
+                "## Technical measurements",
+                "",
+                f"- Validation samples/batches: `{progress['completed_sample_count']}` / `{progress['completed_batch_count']}`.",
+                f"- Gate-A reference tolerances: `{json.dumps(GATE_A_REFERENCE_TOLERANCE, sort_keys=True)}`.",
+                f"- Aggregate envelopes: `{json.dumps(progress['comparisons'], sort_keys=True)}`.",
+                "- Per-batch sample-ID hashes, node/edge counts, four comparison records, and boundary dtypes are preserved in the archive.",
+                "",
+                "## Integrity and boundaries",
+                "",
+                f"- Checkpoint unchanged: `{immutability['checkpoint_unchanged']}`; model weights unchanged: `{immutability['model_weights_unchanged']}`.",
+                "- Source batches are checked after each of the four forwards.",
+                "- Validation only; no training, optimizer, test access, graph rebuild, or op-determinism enablement.",
+                "- D1-D5 were not executed. This is not a Step 8 scientific outcome.",
+                "- Diagnosis between GPU repeatability and remaining native/manual semantics is reserved for research-lead review of the measured envelopes.",
+            ]
+            REPORT_PATH.write_text("\\n".join(report_lines) + "\\n", encoding="utf-8")
+        else:
+            failure_report = REPORT_PATH.read_text(encoding="utf-8")
+            if "TECHNICAL_FORENSIC_FAILURE" not in failure_report:
+                raise RuntimeError("Technical failure report status missing")
         """,
     )
     _set_source(cells[17], "## 9. Refresh and verify the compact archive\n")
     _set_source(
         cells[18],
         """
-        archived_names = create_forensic_archive()
-        required_archive_suffixes = {
-            "forensic/forensic_manifest.json",
-            "forensic/progress.json",
-            "forensic/dtype_manifest.json",
-            "forensic/immutability.json",
-            "adapter_metadata/pre_run_manifest.json",
-            "adapter_metadata/wrapper_execution.json",
-            "adapter_metadata/final_evidence.json",
-            "forensic_subprocess.log",
-        }
-        for suffix in required_archive_suffixes:
-            if not any(name.endswith(suffix) for name in archived_names):
-                raise RuntimeError(f"Forensic archive missing required evidence: {suffix}")
+        if wrapper_status == "COMPLETE":
+            archived_names = create_forensic_archive()
+            required_archive_suffixes = {
+                "forensic/forensic_manifest.json",
+                "forensic/progress.json",
+                "forensic/dtype_manifest.json",
+                "forensic/immutability.json",
+                "adapter_metadata/pre_run_manifest.json",
+                "adapter_metadata/wrapper_execution.json",
+                "adapter_metadata/final_evidence.json",
+                "forensic_subprocess.log",
+            }
+            for suffix in required_archive_suffixes:
+                if not any(name.endswith(suffix) for name in archived_names):
+                    raise RuntimeError(f"Forensic archive missing required evidence: {suffix}")
+        else:
+            archived_names = initial_archive_names
+            verify_failure_archive(archived_names)
         print("report_path:", REPORT_PATH)
         print("archive_path:", ARCHIVE_PATH)
         print("archive_bytes:", ARCHIVE_PATH.stat().st_size)

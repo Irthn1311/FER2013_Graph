@@ -9,9 +9,6 @@ import subprocess
 import sys
 import zipfile
 
-import pytest
-
-
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK_PATH = ROOT / "notebooks" / "kaggle-issue15-gate-a-forensic.ipynb"
 BUILDER_PATH = ROOT / "tools" / "build_issue15_gate_a_forensic_adapter.py"
@@ -211,6 +208,11 @@ def test_nonzero_subprocess_always_archives_partial_evidence_and_log(tmp_path):
     partial = forensic_root / "batches/batch_00000.json"
     partial.parent.mkdir()
     partial.write_text('{"batch_index": 0}\n', encoding="utf-8")
+    progress = forensic_root / "progress.json"
+    progress.write_text(
+        '{"status": "RUNNING", "completed_batch_count": 1}\n',
+        encoding="utf-8",
+    )
     located = {}
     for name in ("checkpoint", "checkpoint_metadata", "resolved_config"):
         path = tmp_path / name
@@ -244,25 +246,47 @@ def test_nonzero_subprocess_always_archives_partial_evidence_and_log(tmp_path):
         compile(ast.Module(body=functions, type_ignores=[]), "wrapper", "exec"),
         namespace,
     )
-    with pytest.raises(RuntimeError, match="partial forensic archive"):
-        namespace["run_forensic_with_failure_archive"](
-            [sys.executable, "-c", "import sys; sys.exit(7)"], tmp_path
-        )
+    outcome = namespace["run_forensic_with_failure_archive"](
+        [sys.executable, "-c", "import sys; sys.exit(7)"], tmp_path
+    )
+    assert outcome["result"].returncode == 7
+    assert outcome["wrapper_execution"]["status"] == "TECHNICAL_FORENSIC_FAILURE"
 
     archive_path = namespace["ARCHIVE_PATH"]
     assert archive_path.is_file()
     with zipfile.ZipFile(archive_path) as archive:
         names = archive.namelist()
         assert any(name.endswith("forensic/batches/batch_00000.json") for name in names)
+        assert any(name.endswith("forensic/progress.json") for name in names)
         assert any(name.endswith("forensic_subprocess.log") for name in names)
         assert any(name.endswith("adapter_metadata/wrapper_execution.json") for name in names)
         assert "tf_step8_gate_a_forensic.md" in names
+        assert not any(name.endswith("adapter_metadata/final_evidence.json") for name in names)
     wrapper_payload = json.loads(
         (adapter_root / "wrapper_execution.json").read_text(encoding="utf-8")
     )
     assert wrapper_payload["returncode"] == 7
     assert wrapper_payload["status"] == "TECHNICAL_FORENSIC_FAILURE"
     assert wrapper_payload["artifacts_unchanged"] is True
+    assert wrapper_payload["scientific_interpretation"] is None
+    assert wrapper_payload["scientific_decomposition_run"] is False
+    assert wrapper_payload["intervention_conditions_executed"] == []
+    assert not (adapter_root / "final_evidence.json").exists()
+    failure_report = namespace["REPORT_PATH"].read_text(encoding="utf-8")
+    assert "TECHNICAL_FORENSIC_FAILURE" in failure_report
+    assert "Scientific interpretation: `null`" in failure_report
+    assert "Intervention conditions executed: `[]`" in failure_report
+
+
+def test_notebook_branches_complete_and_technical_failure_paths():
+    verify_cell, report_cell, archive_cell = _code_cells()[6:9]
+    for source in (verify_cell, report_cell, archive_cell):
+        assert 'wrapper_status == "COMPLETE"' in source
+    assert 'wrapper_status == "TECHNICAL_FORENSIC_FAILURE"' in verify_cell
+    assert "verify_failure_archive(initial_archive_names)" in verify_cell
+    assert "final_evidence_path.exists()" in verify_cell
+    assert "TECHNICAL_FORENSIC_FAILURE" in report_cell
+    assert "archived_names = initial_archive_names" in archive_cell
 
 
 def test_documented_inputs_internet_outputs_and_review_stop():
