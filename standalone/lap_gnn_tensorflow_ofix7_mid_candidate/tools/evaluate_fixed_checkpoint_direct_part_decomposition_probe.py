@@ -29,7 +29,7 @@ from lap_gnn_tf.training.losses import sparse_cross_entropy
 from lap_gnn_tf.training.metrics import classification_metrics
 
 
-TOOL_VERSION = "1.0.0"
+TOOL_VERSION = "1.0.1"
 ISSUE_NUMBER = 13
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 SUPPORT_TOOL_PATH = Path(__file__).with_name(
@@ -192,6 +192,22 @@ def _copy_tensor_dict(values: Mapping[str, tf.Tensor]) -> dict[str, tf.Tensor]:
     return {name: value for name, value in values.items()}
 
 
+def _normalize_model_boundary_inputs(
+    model, batch: Mapping[str, tf.Tensor]
+) -> dict[str, tf.Tensor]:
+    """Mirror Keras Model.__call__ autocast before manually entering call()."""
+    input_dtype = tf.dtypes.as_dtype(model.input_dtype)
+    autocast = bool(model.autocast)
+    return {
+        name: (
+            tf.cast(value, input_dtype)
+            if autocast and value.dtype.is_floating and value.dtype != input_dtype
+            else value
+        )
+        for name, value in batch.items()
+    }
+
+
 def manual_forward(
     model,
     batch: Mapping[str, tf.Tensor],
@@ -200,14 +216,17 @@ def manual_forward(
     """Run one registered manual forward without changing model or source batch."""
     _require_condition(condition)
     step6.validate_batch_schema(batch)
+    boundary_batch = _normalize_model_boundary_inputs(model, batch)
 
-    node_features = tf.cast(batch["node_features"], tf.float32)
-    edge_features = tf.cast(batch["edge_features"], tf.float32)
-    edge_index = tf.cast(batch["edge_index"], tf.int64)
-    node_graph_index = tf.cast(batch["node_graph_index"], tf.int32)
-    official_part_soft = tf.cast(batch["part_soft"], tf.float32)
-    official_valid_part_mask = tf.cast(batch["valid_part_mask"], tf.float32)
-    num_graphs = tf.shape(batch["labels"])[0]
+    node_features = tf.cast(boundary_batch["node_features"], tf.float32)
+    edge_features = tf.cast(boundary_batch["edge_features"], tf.float32)
+    edge_index = tf.cast(boundary_batch["edge_index"], tf.int64)
+    node_graph_index = tf.cast(boundary_batch["node_graph_index"], tf.int32)
+    official_part_soft = tf.cast(boundary_batch["part_soft"], tf.float32)
+    official_valid_part_mask = tf.cast(
+        boundary_batch["valid_part_mask"], tf.float32
+    )
+    num_graphs = tf.shape(boundary_batch["labels"])[0]
 
     h = model.encoder(node_features, training=False)
     for layer in model.gnn.layers_:
@@ -284,6 +303,16 @@ def manual_forward(
     }
     trace = {
         "condition": condition,
+        "model_boundary": {
+            "autocast": bool(model.autocast),
+            "input_dtype": tf.dtypes.as_dtype(model.input_dtype).name,
+            "source_dtypes": {
+                name: value.dtype.name for name, value in batch.items()
+            },
+            "effective_dtypes": {
+                name: value.dtype.name for name, value in boundary_batch.items()
+            },
+        },
         "message_passing": {
             "node_features": node_features,
             "edge_features": edge_features,
@@ -306,6 +335,7 @@ def manual_forward(
 
 
 def validate_pathway_integrity(
+    model,
     batch: Mapping[str, tf.Tensor],
     snapshot: Mapping[str, np.ndarray],
     condition: str,
@@ -314,8 +344,11 @@ def validate_pathway_integrity(
     """Prove that only registered intermediate pathway arguments changed."""
     _require_condition(condition)
     _assert_source_unchanged(batch, snapshot)
-    official_part_soft = tf.cast(batch["part_soft"], tf.float32)
-    official_valid_part_mask = tf.cast(batch["valid_part_mask"], tf.float32)
+    boundary_batch = _normalize_model_boundary_inputs(model, batch)
+    official_part_soft = tf.cast(boundary_batch["part_soft"], tf.float32)
+    official_valid_part_mask = tf.cast(
+        boundary_batch["valid_part_mask"], tf.float32
+    )
     zero_part_soft = tf.zeros_like(official_part_soft)
     zero_valid_part_mask = tf.zeros_like(official_valid_part_mask)
 
@@ -342,12 +375,25 @@ def validate_pathway_integrity(
 
     message = trace["message_passing"]
     for name, expected in (
-        ("node_features", tf.cast(batch["node_features"], tf.float32)),
-        ("edge_features", tf.cast(batch["edge_features"], tf.float32)),
-        ("edge_index", tf.cast(batch["edge_index"], tf.int64)),
-        ("node_graph_index", tf.cast(batch["node_graph_index"], tf.int32)),
+        ("node_features", tf.cast(boundary_batch["node_features"], tf.float32)),
+        ("edge_features", tf.cast(boundary_batch["edge_features"], tf.float32)),
+        ("edge_index", tf.cast(boundary_batch["edge_index"], tf.int64)),
+        (
+            "node_graph_index",
+            tf.cast(boundary_batch["node_graph_index"], tf.int32),
+        ),
     ):
         _assert_equal(message[name], expected, f"Message-passing input drift: {name}")
+    expected_boundary = {
+        "autocast": bool(model.autocast),
+        "input_dtype": tf.dtypes.as_dtype(model.input_dtype).name,
+        "source_dtypes": {name: value.dtype.name for name, value in batch.items()},
+        "effective_dtypes": {
+            name: value.dtype.name for name, value in boundary_batch.items()
+        },
+    }
+    if trace.get("model_boundary") != expected_boundary:
+        raise DirectPartProbeError("Keras model-boundary input semantics drift")
 
     pooled = trace["pooled_before_readout_intervention"]
     readout_pooled = trace["readout_part_embeddings"]
@@ -397,6 +443,7 @@ def validate_pathway_integrity(
         "message_passing_inputs_unchanged": True,
         "node_edge_topology_unchanged": True,
         "registered_pathway_arguments_exact": True,
+        "model_boundary_input_semantics": expected_boundary,
     }
 
 
@@ -512,6 +559,7 @@ def evaluate_conditions(
     losses = {condition: [] for condition in CONDITIONS}
     integrity_counts = {condition: 0 for condition in CONDITIONS}
     equivalence_batches = []
+    model_boundary_input_semantics = None
     batch_count = 0
 
     for source_batch in batches:
@@ -521,9 +569,18 @@ def evaluate_conditions(
         sample_ids = np.asarray(source_batch["sample_ids"].numpy(), dtype=np.int64)
         native_output = model(source_batch, training=False)
         d0_output, d0_trace = manual_forward(model, source_batch, CONDITION_D0)
-        validate_pathway_integrity(
-            source_batch, snapshot, CONDITION_D0, d0_trace
+        d0_integrity = validate_pathway_integrity(
+            model, source_batch, snapshot, CONDITION_D0, d0_trace
         )
+        current_boundary_semantics = d0_integrity[
+            "model_boundary_input_semantics"
+        ]
+        if model_boundary_input_semantics is None:
+            model_boundary_input_semantics = current_boundary_semantics
+        elif current_boundary_semantics != model_boundary_input_semantics:
+            raise DirectPartProbeError(
+                "Model-boundary input semantics changed across validation batches"
+            )
         equivalence = native_manual_equivalence(
             native_output, d0_output, source_batch["sample_ids"]
         )
@@ -534,6 +591,7 @@ def evaluate_conditions(
                 {
                     "status": "INVALID_MANUAL_FORWARD_EQUIVALENCE",
                     "tolerances": NATIVE_MANUAL_TOLERANCE,
+                    "model_boundary_input_semantics": current_boundary_semantics,
                     "batches": equivalence_batches,
                 }
             )
@@ -545,7 +603,16 @@ def evaluate_conditions(
                 output, trace = d0_output, d0_trace
             else:
                 output, trace = manual_forward(model, source_batch, condition)
-            validate_pathway_integrity(source_batch, snapshot, condition, trace)
+            condition_integrity = validate_pathway_integrity(
+                model, source_batch, snapshot, condition, trace
+            )
+            if (
+                condition_integrity["model_boundary_input_semantics"]
+                != d0_integrity["model_boundary_input_semantics"]
+            ):
+                raise DirectPartProbeError(
+                    "Model-boundary input semantics changed across conditions"
+                )
             probabilities = np.asarray(
                 output["probabilities"].numpy(), dtype=np.float64
             )
@@ -604,6 +671,7 @@ def evaluate_conditions(
         "paired_diagnostics": _paired_diagnostics(labels, probabilities),
         "integrity_counts": integrity_counts,
         "native_manual_equivalence": equivalence_summary,
+        "model_boundary_input_semantics": model_boundary_input_semantics,
     }
 
 
@@ -790,6 +858,9 @@ def write_probe_outputs(
         "node_edge_features_changed": False,
         "topology_changed": False,
         "paired_original_batch_evaluation": True,
+        "model_boundary_input_semantics": result[
+            "model_boundary_input_semantics"
+        ],
         "checkpoint_unchanged": checkpoint_sha256_before == checkpoint_sha256_after,
         "model_weights_unchanged": model_weights_sha256_before
         == model_weights_sha256_after,

@@ -9,6 +9,9 @@ import pytest
 import tensorflow as tf
 
 from _helpers import loaded
+from lap_gnn_tf.conversion import load_pytorch_npz
+from lap_gnn_tf.graph.batch import load_golden_batch
+from lap_gnn_tf.model import LapGNN
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +46,48 @@ def golden_runs():
         "native": native,
         "runs": runs,
     }
+
+
+@pytest.fixture(scope="module")
+def mixed_boundary_runs():
+    """Reproduce the persisted outer-mixed/internal-float32 Keras boundary."""
+
+    class BoundaryObservedLapGNN(LapGNN):
+        def call(self, batch, *args, **kwargs):
+            self.observed_boundary_dtypes = {
+                name: value.dtype.name for name, value in batch.items()
+            }
+            return super().call(batch, *args, **kwargs)
+
+    previous = tf.keras.mixed_precision.global_policy()
+    try:
+        tf.keras.mixed_precision.set_global_policy("float32")
+        batch = load_golden_batch(
+            str(PACKAGE_ROOT / "validation_assets" / "golden" / "graph_batch.npz")
+        )
+        model = BoundaryObservedLapGNN(dtype="mixed_float16")
+        LapGNN.call(model, batch, training=False)
+        model.build({name: value.shape for name, value in batch.items()})
+        load_pytorch_npz(
+            model,
+            PACKAGE_ROOT / "validation_assets" / "golden" / "model_state.npz",
+        )
+        before_batch = probe._snapshot_batch(batch)
+        native = model(batch, training=False)
+        runs = {
+            condition: probe.manual_forward(model, batch, condition)
+            for condition in probe.CONDITIONS
+        }
+        yield {
+            "model": model,
+            "batch": batch,
+            "before_batch": before_batch,
+            "native": native,
+            "runs": runs,
+            "observed_boundary_dtypes": dict(model.observed_boundary_dtypes),
+        }
+    finally:
+        tf.keras.mixed_precision.set_global_policy(previous)
 
 
 def _assert_tensor_equal(actual, expected):
@@ -100,6 +145,7 @@ def test_d0_manual_forward_is_exactly_equivalent_to_native_on_golden(golden_runs
     assert evidence["max_abs_logit_difference"] <= 1e-5
     assert evidence["max_abs_probability_difference"] <= 1e-6
     integrity = probe.validate_pathway_integrity(
+        golden_runs["model"],
         golden_runs["batch"],
         golden_runs["before_batch"],
         probe.CONDITION_D0,
@@ -171,6 +217,7 @@ def test_d1_d4_change_only_the_registered_intermediate_arguments(golden_runs):
 
     for condition in probe.CONDITIONS[1:5]:
         evidence = probe.validate_pathway_integrity(
+            golden_runs["model"],
             batch,
             golden_runs["before_batch"],
             condition,
@@ -201,11 +248,117 @@ def test_d5_exactly_matches_step6_c1_semantics(golden_runs):
         atol=0.0,
     )
     probe.validate_pathway_integrity(
+        model,
         batch,
         golden_runs["before_batch"],
         probe.CONDITION_D5,
         d5_trace,
     )
+
+
+def test_mixed_float16_boundary_reproduces_old_gate_a_failure_and_fix(
+    mixed_boundary_runs, monkeypatch
+):
+    model = mixed_boundary_runs["model"]
+    batch = mixed_boundary_runs["batch"]
+    assert tf.keras.mixed_precision.global_policy().name == "float32"
+    assert model.dtype_policy.name == "mixed_float16"
+    assert model.compute_dtype == "float16"
+    assert model.encoder.dtype_policy.name == "float32"
+    assert batch["node_features"].dtype == tf.float32
+    assert mixed_boundary_runs["observed_boundary_dtypes"]["node_features"] == "float16"
+    assert mixed_boundary_runs["observed_boundary_dtypes"]["part_soft"] == "float16"
+    assert mixed_boundary_runs["observed_boundary_dtypes"]["labels"] == "int64"
+
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            probe,
+            "_normalize_model_boundary_inputs",
+            lambda _model, source: dict(source),
+        )
+        legacy_manual, _ = probe.manual_forward(
+            model, batch, probe.CONDITION_D0
+        )
+        with pytest.raises(probe.ManualForwardEquivalenceError) as captured:
+            probe.evaluate_conditions(model, [batch])
+    legacy_evidence = probe.native_manual_equivalence(
+        mixed_boundary_runs["native"], legacy_manual, batch["sample_ids"]
+    )
+    assert legacy_evidence["gate_pass"] is False
+    assert legacy_evidence["max_abs_logit_difference"] > 1e-5
+    assert legacy_evidence["max_abs_probability_difference"] > 1e-6
+    assert captured.value.evidence["status"] == (
+        "INVALID_MANUAL_FORWARD_EQUIVALENCE"
+    )
+    assert captured.value.evidence["model_boundary_input_semantics"] == {
+        "autocast": True,
+        "input_dtype": "float16",
+        "source_dtypes": {
+            name: value.dtype.name for name, value in batch.items()
+        },
+        "effective_dtypes": {
+            name: value.dtype.name for name, value in batch.items()
+        },
+    }
+    assert len(captured.value.evidence["batches"]) == 1
+
+    fixed_manual, fixed_trace = mixed_boundary_runs["runs"][probe.CONDITION_D0]
+    fixed_evidence = probe.native_manual_equivalence(
+        mixed_boundary_runs["native"], fixed_manual, batch["sample_ids"]
+    )
+    assert fixed_evidence["gate_pass"] is True
+    assert fixed_evidence["prediction_agreement"] == 1.0
+    assert fixed_evidence["max_abs_logit_difference"] == 0.0
+    assert fixed_evidence["max_abs_probability_difference"] == 0.0
+    integrity = probe.validate_pathway_integrity(
+        model,
+        batch,
+        mixed_boundary_runs["before_batch"],
+        probe.CONDITION_D0,
+        fixed_trace,
+    )
+    assert integrity["model_boundary_input_semantics"]["autocast"] is True
+    assert integrity["model_boundary_input_semantics"]["input_dtype"] == "float16"
+
+
+def test_mixed_float16_boundary_preserves_d5_anchor_and_all_registered_semantics(
+    mixed_boundary_runs
+):
+    model = mixed_boundary_runs["model"]
+    batch = mixed_boundary_runs["batch"]
+    d5_output, _ = mixed_boundary_runs["runs"][probe.CONDITION_D5]
+    step6_c1_batch = probe.step6.apply_intervention(
+        batch, probe.step6.CONDITION_DIRECT_ZERO
+    )
+    native_step6_c1 = model(step6_c1_batch, training=False)
+    np.testing.assert_allclose(
+        d5_output["logits"].numpy(),
+        native_step6_c1["logits"].numpy(),
+        rtol=0.0,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(
+        d5_output["probabilities"].numpy(),
+        native_step6_c1["probabilities"].numpy(),
+        rtol=0.0,
+        atol=0.0,
+    )
+
+    for condition in probe.CONDITIONS:
+        _, trace = mixed_boundary_runs["runs"][condition]
+        integrity = probe.validate_pathway_integrity(
+            model,
+            batch,
+            mixed_boundary_runs["before_batch"],
+            condition,
+            trace,
+        )
+        assert integrity["changed_pathway_arguments"] == list(
+            probe.INTERVENTION_SPECS[condition]["changed_pathway_arguments"]
+        )
+        assert integrity["registered_pathway_arguments_exact"] is True
+        assert integrity["source_batch_unchanged"] is True
+    probe._assert_source_unchanged(batch, mixed_boundary_runs["before_batch"])
 
 
 def test_every_condition_preserves_source_batch_and_one_model_state(golden_runs):
@@ -313,7 +466,11 @@ def test_paired_condition_order_sample_identity_and_determinism(monkeypatch):
     monkeypatch.setattr(probe.step6, "validate_batch_schema", lambda _batch: {})
     monkeypatch.setattr(probe, "manual_forward", fake_manual)
     monkeypatch.setattr(
-        probe, "validate_pathway_integrity", lambda *_args, **_kwargs: {}
+        probe,
+        "validate_pathway_integrity",
+        lambda *_args, **_kwargs: {
+            "model_boundary_input_semantics": {"test_double": True}
+        },
     )
     first = probe.evaluate_conditions(FakeModel(), [_minimal_batch()])
     assert calls == list(probe.CONDITIONS)
