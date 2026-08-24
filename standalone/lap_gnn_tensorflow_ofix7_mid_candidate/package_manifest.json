@@ -800,6 +800,11 @@
       "sha256": "84b53ad297f39197340fecba54de2ed4d3cdf0fb884b6eff57709c7131c31bcf"
     },
     {
+      "bytes": 9197,
+      "path": "tests/test_gate_a_forensic_probe.py",
+      "sha256": "d499e0ba3251046f59aa5d2b52f6a7084c143845cc7d894d0e1094c147510251"
+    },
+    {
       "bytes": 1166,
       "path": "tests/test_gradient_parity.py",
       "sha256": "047c31dd7e2d4cf9a4a08588c6448f67d9f6eec0d1bcc4bd7c96de8f21c06432"
@@ -1188,6 +1193,11 @@
       "bytes": 11605,
       "path": "tools/evaluate_g1_grappler.py",
       "sha256": "822a41cb3865c25b50024ceb4c7eb1c4b89f5740a91aab7f44a61871db802b9d"
+    },
+    {
+      "bytes": 25312,
+      "path": "tools/evaluate_gate_a_forensic_probe.py",
+      "sha256": "30c00fd6985810533cc09be05f66b64f7da5a794903aef493b9839b461eac7c0"
     },
     {
       "bytes": 13831,
