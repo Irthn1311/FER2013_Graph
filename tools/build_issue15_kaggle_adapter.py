@@ -50,15 +50,26 @@ def build_notebook() -> dict:
         # Issue #15: fixed-checkpoint direct-part pathway decomposition adapter
 
         This is the dedicated **pre-run adapter** for the preregistered Step 8
-        experiment. This relocked notebook artifact is intentionally unexecuted after
-        the reviewed Gate-A hotfix. After renewed research-lead approval, it runs the
-        reviewed Step 7 D0-D5 harness exactly once on Kaggle GPU T4, using the exact
-        Issue #7 epoch-31 checkpoint and validation assets only.
+        experiment. This final relocked notebook artifact is intentionally unexecuted
+        after the reviewed Issue #19 Gate-A calibration. After renewed research-lead
+        approval, it runs the reviewed Step 7 D0-D5 harness exactly once on Kaggle GPU
+        T4, using the exact Issue #7 epoch-31 checkpoint and validation assets only.
 
-        The first registered Step 8 attempt is preserved as
-        **PRE-INTERVENTION TECHNICAL HARNESS FAILURE / INVALID_MANUAL_FORWARD_EQUIVALENCE**.
-        It failed Gate A before any D1-D4 intervention outcome. This relock is not a
-        rerun.
+        Registered execution history is preserved exactly:
+
+        1. Attempt 1: **PRE-INTERVENTION TECHNICAL HARNESS FAILURE /
+           INVALID_MANUAL_FORWARD_EQUIVALENCE**.
+        2. Attempt 2: **POST-HOTFIX PRE-INTERVENTION TECHNICAL HARNESS FAILURE /
+           INVALID_MANUAL_FORWARD_EQUIVALENCE**.
+
+        Both failed at Gate A before any D1-D4 intervention outcome.
+        Neither attempt produced a valid D1-D4 scientific outcome. The separate
+        validation-only Gate-A forensic completed all `113` batches / `3589` samples
+        and showed that the original `1e-6` probability tolerance was below the
+        registered T4 same-path repeatability envelope. Its reviewed archive SHA-256
+        is `bf693500078f170ceea094fad319f513c2a64d8610fa41c65ebac088ec954c8d`.
+        That technical result motivated the preregistered Issue #19 calibration and
+        is not a D1-D4 scientific decomposition result. This relock is not a rerun.
 
         Required Kaggle Inputs and resolved reads:
 
@@ -102,14 +113,17 @@ def build_notebook() -> dict:
 
         REPO_URL = "https://github.com/Irthn1311/FER2013_Graph.git"
         EXPECTED_SCIENTIFIC_BASE_COMMIT = "d14e7e1e3eec2ffbd5339b5a3bd0d5db5ab3de8b"
-        EXPECTED_EXECUTION_COMMIT = "a1b1d279bb9ec388f1d93ad86196e423dc750ad1"
+        EXPECTED_EXECUTION_COMMIT = "27c366a955648764386fe48e489a6a1e94a479a1"
         TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
         PROBE_TOOL_RELATIVE = TF_PACKAGE_RELATIVE / "tools/evaluate_fixed_checkpoint_direct_part_decomposition_probe.py"
         SUPPORT_TOOL_RELATIVE = TF_PACKAGE_RELATIVE / "tools/evaluate_fixed_checkpoint_prior_probe.py"
 
-        EXPECTED_PROBE_TOOL_SHA256 = "fc60ece71caea14927c4840edfcd527d005737106f60d0bb475b9b1ba79eadd3"
+        EXPECTED_PROBE_TOOL_SHA256 = "c0b1df778e469665dd6437c58831d29dcc34fbde44231db75894c5469a1ade78"
         EXPECTED_SUPPORT_TOOL_SHA256 = "3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3"
         EXPECTED_SCIENTIFIC_PAYLOAD_SHA256 = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
+        REVIEWED_GATE_A_FORENSIC_ARCHIVE_SHA256 = "bf693500078f170ceea094fad319f513c2a64d8610fa41c65ebac088ec954c8d"
+        REVIEWED_GATE_A_FORENSIC_BATCHES = 113
+        REVIEWED_GATE_A_FORENSIC_SAMPLES = 3589
         EXPECTED_EXECUTION_CONTRACT_SHA256 = "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
         EXPECTED_CONFIG_HASH = "a4038682bf09c03786e86119001cf5f81ac5fec25d09062e6a0866484c32a3cf"
         EXPECTED_GRAPH_SIGNATURE = "1c7597b170fd8604056ab7787fd2880d6e84f3025962fc4b6c8fb3e3faf8e1e8"
@@ -145,7 +159,7 @@ def build_notebook() -> dict:
         D0_REFERENCE = {"accuracy": 0.63137364168292, "macro_f1": 0.5932591901893336, "loss": 1.1537981724317095}
         D5_REFERENCE = {"accuracy": 0.27751462803009197, "macro_f1": 0.19745892656222366, "loss": 1.757720434560185}
         REFERENCE_TOLERANCE = {"accuracy": 0.001, "macro_f1": 0.001, "loss": 0.005}
-        NATIVE_MANUAL_TOLERANCE = {"prediction_agreement": 1.0, "max_abs_logit_difference": 1e-5, "max_abs_probability_difference": 1e-6}
+        NATIVE_MANUAL_TOLERANCE = {"prediction_agreement": 1.0, "max_abs_logit_difference": 1e-5, "max_abs_probability_difference": 3e-6}
 
         KAGGLE_INPUT_ROOT = Path("/kaggle/input")
         FER_DATASET_MOUNT = Path("/kaggle/input/datasets/doduyquynii/fer13-split")
@@ -220,7 +234,19 @@ if reference_metric_mismatches:
         '    "step7_probe_tool_sha256": sha256(PROBE_TOOL_PATH),\n    "step6_support_tool_sha256": sha256(SUPPORT_TOOL_PATH),\n',
     )
     _replace_required(cells[10], "READY_FOR_ISSUE11_REGISTERED_PROBE", "READY_FOR_ISSUE15_REGISTERED_PROBE")
-    _replace_required(cells[10], '"registered_full_run": True,', '"registered_full_run": True,\n    "registered_condition_order": list(CONDITIONS),')
+    _replace_required(
+        cells[10],
+        '"registered_full_run": True,',
+        '"registered_full_run": True,\n'
+        '    "registered_condition_order": list(CONDITIONS),\n'
+        '    "gate_a_native_manual_tolerance": dict(NATIVE_MANUAL_TOLERANCE),\n'
+        '    "reviewed_gate_a_forensic": {\n'
+        '        "archive_sha256": REVIEWED_GATE_A_FORENSIC_ARCHIVE_SHA256,\n'
+        '        "batch_count": REVIEWED_GATE_A_FORENSIC_BATCHES,\n'
+        '        "sample_count": REVIEWED_GATE_A_FORENSIC_SAMPLES,\n'
+        '        "scientific_decomposition_run": False,\n'
+        '    },'
+    )
 
     _set_source(
         cells[11],

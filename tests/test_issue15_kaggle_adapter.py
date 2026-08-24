@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 
 import pytest
 
@@ -15,10 +16,11 @@ PROBE_TOOL = PACKAGE_ROOT / "tools" / "evaluate_fixed_checkpoint_direct_part_dec
 SUPPORT_TOOL = PACKAGE_ROOT / "tools" / "evaluate_fixed_checkpoint_prior_probe.py"
 
 EXPECTED_BASE = "d14e7e1e3eec2ffbd5339b5a3bd0d5db5ab3de8b"
-EXPECTED_EXECUTION = "a1b1d279bb9ec388f1d93ad86196e423dc750ad1"
-EXPECTED_PROBE_SHA = "fc60ece71caea14927c4840edfcd527d005737106f60d0bb475b9b1ba79eadd3"
+EXPECTED_EXECUTION = "27c366a955648764386fe48e489a6a1e94a479a1"
+EXPECTED_PROBE_SHA = "c0b1df778e469665dd6437c58831d29dcc34fbde44231db75894c5469a1ade78"
 EXPECTED_SUPPORT_SHA = "3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3"
 EXPECTED_PAYLOAD_SHA = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
+EXPECTED_FORENSIC_ARCHIVE_SHA = "bf693500078f170ceea094fad319f513c2a64d8610fa41c65ebac088ec954c8d"
 EXPECTED_ARTIFACT_HASHES = {
     "9ec11bb819f97e4fbda432f68da76c1201b8a3f9e06fae9eb30489a528d6ac16",
     "e62cf8c86f0d6a56c3041911de6397d18f47276f79f03c6a50ca71fa47300a37",
@@ -91,6 +93,10 @@ def test_exact_base_payload_tool_and_artifact_locks_match_repository():
     manifest = json.loads((PACKAGE_ROOT / "package_manifest.json").read_text())
     assert manifest["scientific_payload_sha256"] == EXPECTED_PAYLOAD_SHA
     assert EXPECTED_EXECUTION != EXPECTED_BASE
+    assert subprocess.run(
+        ["git", "merge-base", "--is-ancestor", EXPECTED_BASE, EXPECTED_EXECUTION],
+        cwd=ROOT,
+    ).returncode == 0
     assert f'EXPECTED_EXECUTION_COMMIT = "{EXPECTED_EXECUTION}"' in source
     assert '"git", "checkout", "--detach", EXPECTED_EXECUTION_COMMIT' in source
     assert "actual_commit != EXPECTED_EXECUTION_COMMIT or dirty" in source
@@ -193,6 +199,9 @@ def test_registered_command_invokes_step7_once_on_validation_and_is_unbounded():
         "--prior-root",
         "--clean-graph-cache-dir",
         "--output-root",
+        "--eval-batch-size",
+        "--graph-workers",
+        "--graph-cache-size",
     ):
         assert argument in string_arguments
     assert not any(argument.startswith("--limit-") for argument in string_arguments)
@@ -200,6 +209,10 @@ def test_registered_command_invokes_step7_once_on_validation_and_is_unbounded():
     assert "probe_command.count(PROBE_TOOL_PATH) != 1" in run_cell
     assert "PROBE_TOOL_PATH" in run_cell
     assert "SUPPORT_TOOL_PATH" not in run_cell
+    constants = _code_cells()[0]
+    assert "EVAL_BATCH_SIZE = 32" in constants
+    assert "GRAPH_WORKERS = 2" in constants
+    assert "GRAPH_CACHE_SIZE = 64" in constants
 
 
 def test_adapter_requires_t4_registered_versions_and_fresh_compact_outputs():
@@ -217,6 +230,12 @@ def test_adapter_requires_t4_registered_versions_and_fresh_compact_outputs():
 
 def test_gate_evidence_conditions_and_interpretation_are_harness_owned_and_preserved():
     source = _all_source()
+    assert (
+        'NATIVE_MANUAL_TOLERANCE = {"prediction_agreement": 1.0, '
+        '"max_abs_logit_difference": 1e-5, '
+        '"max_abs_probability_difference": 3e-6}'
+    ) in source
+    assert '"max_abs_probability_difference": 1e-6' not in source
     for condition in CONDITIONS:
         assert condition in source
     for token in (
@@ -287,6 +306,7 @@ def test_no_training_test_lifecycle_or_scientific_intervention_logic():
         "attenuate_prior",
         "manual_forward(",
         "GraphBatchGenerator(",
+        "enable_op_determinism",
     ):
         assert forbidden not in source
     assert '"training": False' in source
@@ -313,3 +333,9 @@ def test_documented_kaggle_inputs_internet_outputs_and_review_stop():
     assert "PRE-INTERVENTION TECHNICAL HARNESS FAILURE" in markdown_source
     assert "INVALID_MANUAL_FORWARD_EQUIVALENCE" in markdown_source
     assert "before any D1-D4 intervention outcome" in markdown_source
+    assert "POST-HOTFIX PRE-INTERVENTION TECHNICAL HARNESS FAILURE" in markdown_source
+    assert "Neither attempt produced a valid D1-D4 scientific outcome" in markdown_source
+    assert "113` batches / `3589` samples" in markdown_source
+    assert "original `1e-6` probability tolerance" in markdown_source
+    assert EXPECTED_FORENSIC_ARCHIVE_SHA in markdown_source
+    assert "not a D1-D4 scientific decomposition result" in markdown_source
