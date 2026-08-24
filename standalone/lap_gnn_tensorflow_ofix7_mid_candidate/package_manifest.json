@@ -785,6 +785,11 @@
       "sha256": "8e1982c0d612228b637b424ce6bc1ecc85b0a291a2b86d65934a6ffb389f9674"
     },
     {
+      "bytes": 20985,
+      "path": "tests/test_fixed_checkpoint_direct_part_decomposition_probe.py",
+      "sha256": "0aabdab8676bdace43706e9f96afc96f533678b6f631f38b1bdd321237d87b5b"
+    },
+    {
       "bytes": 25062,
       "path": "tests/test_fixed_checkpoint_prior_probe.py",
       "sha256": "c3a8e57ebbb158d82c70c61671398a6be9519ef8eceeddc600f79bcb8349b874"
@@ -1168,6 +1173,11 @@
       "bytes": 2267,
       "path": "tools/compare_repair_traces.py",
       "sha256": "f770ccb3a1898e7145a6db93044e39c16ebd0bfe0dc98402cfee2fc1d9a6636a"
+    },
+    {
+      "bytes": 38993,
+      "path": "tools/evaluate_fixed_checkpoint_direct_part_decomposition_probe.py",
+      "sha256": "e611b74ac143c50149326c9761b35177183a09b3cf44b52ab018b01ed3d87ffd"
     },
     {
       "bytes": 32558,
