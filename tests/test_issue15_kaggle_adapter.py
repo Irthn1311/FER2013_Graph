@@ -15,7 +15,8 @@ PROBE_TOOL = PACKAGE_ROOT / "tools" / "evaluate_fixed_checkpoint_direct_part_dec
 SUPPORT_TOOL = PACKAGE_ROOT / "tools" / "evaluate_fixed_checkpoint_prior_probe.py"
 
 EXPECTED_BASE = "d14e7e1e3eec2ffbd5339b5a3bd0d5db5ab3de8b"
-EXPECTED_PROBE_SHA = "e611b74ac143c50149326c9761b35177183a09b3cf44b52ab018b01ed3d87ffd"
+EXPECTED_EXECUTION = "a1b1d279bb9ec388f1d93ad86196e423dc750ad1"
+EXPECTED_PROBE_SHA = "fc60ece71caea14927c4840edfcd527d005737106f60d0bb475b9b1ba79eadd3"
 EXPECTED_SUPPORT_SHA = "3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3"
 EXPECTED_PAYLOAD_SHA = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
 EXPECTED_ARTIFACT_HASHES = {
@@ -75,7 +76,13 @@ def test_notebook_is_deterministic_unexecuted_and_code_compiles():
 
 def test_exact_base_payload_tool_and_artifact_locks_match_repository():
     source = _all_source()
-    for value in (EXPECTED_BASE, EXPECTED_PROBE_SHA, EXPECTED_SUPPORT_SHA, EXPECTED_PAYLOAD_SHA):
+    for value in (
+        EXPECTED_BASE,
+        EXPECTED_EXECUTION,
+        EXPECTED_PROBE_SHA,
+        EXPECTED_SUPPORT_SHA,
+        EXPECTED_PAYLOAD_SHA,
+    ):
         assert value in source
     for expected in EXPECTED_ARTIFACT_HASHES:
         assert expected in source
@@ -83,7 +90,8 @@ def test_exact_base_payload_tool_and_artifact_locks_match_repository():
     assert _sha256(SUPPORT_TOOL) == EXPECTED_SUPPORT_SHA
     manifest = json.loads((PACKAGE_ROOT / "package_manifest.json").read_text())
     assert manifest["scientific_payload_sha256"] == EXPECTED_PAYLOAD_SHA
-    assert "EXPECTED_EXECUTION_COMMIT = EXPECTED_SCIENTIFIC_BASE_COMMIT" in source
+    assert EXPECTED_EXECUTION != EXPECTED_BASE
+    assert f'EXPECTED_EXECUTION_COMMIT = "{EXPECTED_EXECUTION}"' in source
     assert '"git", "checkout", "--detach", EXPECTED_EXECUTION_COMMIT' in source
     assert "actual_commit != EXPECTED_EXECUTION_COMMIT or dirty" in source
     assert "sha256(PROBE_TOOL_PATH) != EXPECTED_PROBE_TOOL_SHA256" in source
@@ -302,3 +310,6 @@ def test_documented_kaggle_inputs_internet_outputs_and_review_stop():
     assert "Internet is required only" in markdown_source
     assert "attach one separate read-only Kaggle Input" in markdown_source
     assert "Pre-run review gate" in markdown_source
+    assert "PRE-INTERVENTION TECHNICAL HARNESS FAILURE" in markdown_source
+    assert "INVALID_MANUAL_FORWARD_EQUIVALENCE" in markdown_source
+    assert "before any D1-D4 intervention outcome" in markdown_source

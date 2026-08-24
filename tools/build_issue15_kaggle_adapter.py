@@ -50,9 +50,15 @@ def build_notebook() -> dict:
         # Issue #15: fixed-checkpoint direct-part pathway decomposition adapter
 
         This is the dedicated **pre-run adapter** for the preregistered Step 8
-        experiment. It is intentionally unexecuted in this PR. After research-lead
-        approval, it runs the reviewed Step 7 D0-D5 harness exactly once on Kaggle
-        GPU T4, using the exact Issue #7 epoch-31 checkpoint and validation assets only.
+        experiment. This relocked notebook artifact is intentionally unexecuted after
+        the reviewed Gate-A hotfix. After renewed research-lead approval, it runs the
+        reviewed Step 7 D0-D5 harness exactly once on Kaggle GPU T4, using the exact
+        Issue #7 epoch-31 checkpoint and validation assets only.
+
+        The first registered Step 8 attempt is preserved as
+        **PRE-INTERVENTION TECHNICAL HARNESS FAILURE / INVALID_MANUAL_FORWARD_EQUIVALENCE**.
+        It failed Gate A before any D1-D4 intervention outcome. This relock is not a
+        rerun.
 
         Required Kaggle Inputs and resolved reads:
 
@@ -73,9 +79,10 @@ def build_notebook() -> dict:
           located outside the public sample inputs by basename and exact SHA-256, and
           ambiguous matches are rejected.
 
-        Internet is required only to clone the exact registered scientific commit and,
-        if the Kaggle image is incompatible, install the registered dependencies. All
-        datasets, cache records, and checkpoint/config artifacts are offline inputs.
+        Internet is required only to clone the exact reviewed execution commit and, if
+        the Kaggle image is incompatible, install the registered dependencies. The
+        preregistered scientific base remains locked separately. All datasets, cache
+        records, and checkpoint/config artifacts are offline inputs.
 
         Compact outputs:
 
@@ -95,12 +102,12 @@ def build_notebook() -> dict:
 
         REPO_URL = "https://github.com/Irthn1311/FER2013_Graph.git"
         EXPECTED_SCIENTIFIC_BASE_COMMIT = "d14e7e1e3eec2ffbd5339b5a3bd0d5db5ab3de8b"
-        EXPECTED_EXECUTION_COMMIT = EXPECTED_SCIENTIFIC_BASE_COMMIT
+        EXPECTED_EXECUTION_COMMIT = "a1b1d279bb9ec388f1d93ad86196e423dc750ad1"
         TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
         PROBE_TOOL_RELATIVE = TF_PACKAGE_RELATIVE / "tools/evaluate_fixed_checkpoint_direct_part_decomposition_probe.py"
         SUPPORT_TOOL_RELATIVE = TF_PACKAGE_RELATIVE / "tools/evaluate_fixed_checkpoint_prior_probe.py"
 
-        EXPECTED_PROBE_TOOL_SHA256 = "e611b74ac143c50149326c9761b35177183a09b3cf44b52ab018b01ed3d87ffd"
+        EXPECTED_PROBE_TOOL_SHA256 = "fc60ece71caea14927c4840edfcd527d005737106f60d0bb475b9b1ba79eadd3"
         EXPECTED_SUPPORT_TOOL_SHA256 = "3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3"
         EXPECTED_SCIENTIFIC_PAYLOAD_SHA256 = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
         EXPECTED_EXECUTION_CONTRACT_SHA256 = "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22"
@@ -415,7 +422,8 @@ if reference_metric_mismatches:
             "## Provenance",
             "",
             "- Issue: #15.",
-            f"- Frozen scientific base/execution commit: `{EXPECTED_SCIENTIFIC_BASE_COMMIT}`.",
+            f"- Preregistered scientific base commit: `{EXPECTED_SCIENTIFIC_BASE_COMMIT}`.",
+            f"- Reviewed execution commit: `{EXPECTED_EXECUTION_COMMIT}`.",
             f"- Step 7 probe-tool SHA-256: `{sha256(PROBE_TOOL_PATH)}`.",
             f"- Step 6 support-tool SHA-256: `{sha256(SUPPORT_TOOL_PATH)}`.",
             f"- Frozen scientific payload SHA-256: `{package_manifest['scientific_payload_sha256']}`.",
