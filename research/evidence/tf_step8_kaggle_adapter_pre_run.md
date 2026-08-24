@@ -10,7 +10,7 @@
 - Reviewed Step 6 support-tool SHA-256: `3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3`.
 - Frozen execution-contract SHA-256: `14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22`.
 
-The notebook clones the repository without checkout, detaches the exact reviewed execution commit, requires a clean worktree, runs the package checksum verifier, and independently checks both reviewed tool hashes before execution. The preregistered scientific base remains separately recorded. The execution lineage contains the reviewed model-boundary autocast hotfix and the Issue #19 technical Gate-A calibration; the frozen scientific payload remains unchanged.
+The notebook clones the repository without checkout, detaches the exact reviewed execution commit, requires a clean worktree, runs the package checksum verifier, and independently checks both reviewed tool hashes before execution. The preregistered scientific base remains separately recorded. The execution lineage contains the reviewed model-boundary autocast hotfix and the Issue #19 technical Gate-A calibration; the frozen scientific payload remains unchanged. This final publication-safety change does not modify the reviewed Step 7 or Step 6 tool files.
 
 ## Failed-attempt preservation
 
@@ -25,9 +25,9 @@ The separate validation-only Gate-A forensic covered all `113` batches / `3589` 
 
 ## Adapter artifacts
 
-- Notebook: `notebooks/kaggle-issue15-direct-part-decomposition.ipynb`, SHA-256 `e0640c763c4f4ed49b3c86898968a29ef4d51037b783e5fe60d54091370b3283`.
-- Deterministic builder: `tools/build_issue15_kaggle_adapter.py`, SHA-256 `aa0c300c767f114543009e9db333037489f582942fd2442906b561072e904fcc`.
-- Adapter tests: `tests/test_issue15_kaggle_adapter.py`, SHA-256 `b32a648a52787f479fc82c6dce32f5714ee0760374bc245c35b47c98250d1812`.
+- Notebook: `notebooks/kaggle-issue15-direct-part-decomposition.ipynb`, SHA-256 `fad12b29a7dcd67463449c12c29ec6d988b05f48391493d96aebce00386e9adc`.
+- Deterministic builder: `tools/build_issue15_kaggle_adapter.py`, SHA-256 `3305b81812ff77093094fdd0513bcd80af96c01df200482994a30eb3af6dc04c`.
+- Adapter tests: `tests/test_issue15_kaggle_adapter.py`, SHA-256 `9da05021f8aecc35fe14eb21ee41136a011ec6017f11ae3738bea818a00aee36`.
 - Every code cell is unexecuted and has empty outputs; rebuilding is byte-deterministic.
 
 ## Locked Issue #7 artifacts
@@ -53,6 +53,14 @@ Metadata is fail-closed on epoch `31`, seed `42`, config hash `a4038682bf09c0378
 
 No train/test sample path is constructed or opened. No training, optimizer, gradient, checkpoint selection, graph rebuild, raw-prior corruption, or scientific intervention logic exists in the adapter.
 
+## Failure-safe publication contract
+
+The adapter invokes the unchanged Step 7 command through `run_probe_with_failure_archive`, capturing merged stdout/stderr in `tf_step8_direct_part_decomposition/step7_subprocess.log`. It always records checkpoint/config artifact hashes before and after the subprocess and writes `adapter_metadata/wrapper_execution.json` with status, subprocess return code, error text, artifact hashes, `scientific_result_valid`, `training=false`, and `test_access=false`.
+
+On a subprocess, artifact-integrity, or success-only evidence-verification failure, the adapter records `TECHNICAL_OR_GATE_FAILURE`, removes any `final_evidence.json`, writes explicit Markdown and JSON failure status, classifies partial probe files as diagnostic/raw evidence only, creates the compact ZIP, and verifies that every existing raw probe file plus the log, pre-run manifest, wrapper execution, and failure status is present. It then allows the remaining notebook cells to complete normally. The failure ZIP rejects `.keras`, train/test CSVs, train/test directories, test-metric artifacts, fabricated final evidence, and scientific interpretation derived from incomplete gates.
+
+On subprocess success, Gate A/B/C verification, exact D0-D5 inventory/integrity, artifact immutability, and validation/test isolation remain mandatory. Only after every success-only check passes does the adapter mark `scientific_result_valid=true`, write `final_evidence.json`, produce the scientific report, and create the success archive.
+
 ## Registered invocation and evidence gates
 
 The notebook constructs one command for `evaluate_fixed_checkpoint_direct_part_decomposition_probe.py`, passes the SHA-verified checkpoint/metadata/config and only the registered prior/cache roots, and calls it exactly once. It executes exactly the preregistered D0-D5 condition set, with no extra intervention condition. Resource-only inference arguments are present. No `--limit-val-batches` argument is present.
@@ -74,11 +82,12 @@ The compact report consumes the reviewed harness's `registered_gates_and_diagnos
 - Compact archive: `/kaggle/working/tf_step8_direct_part_decomposition_kaggle_t4.zip`.
 - Future reviewed repository report path: `research/evidence/tf_step8_direct_part_decomposition.md`.
 
-The archive contains the report, harness outputs, and adapter metadata only. It rejects `.keras`, train/test CSV paths, train/test directories, and test-metric artifacts.
+The archive contains the report, subprocess log, harness outputs, and adapter metadata only. It rejects `.keras`, train/test CSV paths, train/test directories, and test-metric artifacts. A failure archive additionally proves that `final_evidence.json` is absent.
 
 ## Verification performed
 
-- Issue #15 and Issue #11 adapter suites: PASS, `21 passed`.
+- Issue #15 and Issue #11 adapter suites: PASS, `23 passed`.
+- Synthetic non-zero Step 7 regression: PASS; return code `7` completed all remaining notebook cells, produced and verified the ZIP, retained the log/pre-run manifest/partial probe JSON, recorded `TECHNICAL_OR_GATE_FAILURE`, and produced no `final_evidence.json` or scientific interpretation.
 - Existing Step 7 direct-part harness suite in the dedicated TensorFlow environment: PASS, `17 passed`.
 - Package checksum verification: PASS, `checked=265 failures=0`.
 - Parent-import isolation verification: PASS, zero violations.

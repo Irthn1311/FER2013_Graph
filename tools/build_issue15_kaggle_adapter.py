@@ -184,6 +184,7 @@ def build_notebook() -> dict:
         ADAPTER_METADATA_ROOT = RUN_ROOT / "adapter_metadata"
         REPORT_PATH = WORKING / "tf_step8_direct_part_decomposition.md"
         ARCHIVE_PATH = WORKING / "tf_step8_direct_part_decomposition_kaggle_t4.zip"
+        SUBPROCESS_LOG_PATH = RUN_ROOT / "step7_subprocess.log"
 
         EVAL_BATCH_SIZE = 32
         GRAPH_WORKERS = 2
@@ -256,9 +257,236 @@ if reference_metric_mismatches:
         **Pre-run review gate:** do not execute this cell until this draft PR is
         approved by the research lead. It invokes the SHA-verified Step 7 harness
         exactly once and deliberately supplies no `--limit-val-batches` argument.
+        Its failure-safe wrapper always captures the subprocess log and publishes a
+        verified diagnostic ZIP on a technical or gate failure without fabricating
+        a scientific decomposition result.
         """,
     )
-    _replace_required(cells[12], "Reviewed probe tool must be invoked exactly once", "Reviewed Step 7 harness must be invoked exactly once")
+    _set_source(
+        cells[12],
+        """
+        import zipfile
+
+        def create_step8_archive():
+            if ARCHIVE_PATH.exists():
+                ARCHIVE_PATH.unlink()
+            with zipfile.ZipFile(
+                ARCHIVE_PATH, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6
+            ) as archive:
+                for source in (RUN_ROOT, REPORT_PATH):
+                    if source.is_dir():
+                        for path in sorted(source.rglob("*")):
+                            if path.is_file():
+                                archive.write(path, path.relative_to(WORKING))
+                    elif source.is_file():
+                        archive.write(source, source.relative_to(WORKING))
+            with zipfile.ZipFile(ARCHIVE_PATH) as archive:
+                names = archive.namelist()
+            forbidden = [
+                name for name in names
+                if name.endswith(".keras")
+                or Path(name).name in {"train.csv", "test.csv"}
+                or "/train/" in f"/{name}"
+                or "/test/" in f"/{name}"
+                or Path(name).name.startswith("test_metrics_")
+            ]
+            if forbidden:
+                raise RuntimeError(f"Compact archive contains forbidden artifacts: {forbidden}")
+            if not ARCHIVE_PATH.is_file() or ARCHIVE_PATH.stat().st_size <= 0:
+                raise RuntimeError("Compact archive was not created safely")
+            return names
+
+        def write_failure_report(wrapper_payload):
+            report_lines = [
+                "# TensorFlow Step 8 direct-part pathway decomposition",
+                "",
+                "## Status",
+                "",
+                f"- Wrapper status: `{wrapper_payload['status']}`.",
+                f"- Step-7 subprocess return code: `{wrapper_payload['subprocess_return_code']}`.",
+                "- Scientific result valid: `false`.",
+                "- Scientific interpretation: `null`.",
+                "- Partial probe outputs are diagnostic/raw evidence only.",
+                "- No valid D1-D4 decomposition outcome is claimed.",
+                "",
+                "## Provenance",
+                "",
+                f"- Scientific base: `{EXPECTED_SCIENTIFIC_BASE_COMMIT}`.",
+                f"- Execution commit: `{EXPECTED_EXECUTION_COMMIT}`.",
+                f"- Step-7 SHA-256: `{EXPECTED_PROBE_TOOL_SHA256}`.",
+                f"- Step-6 SHA-256: `{EXPECTED_SUPPORT_TOOL_SHA256}`.",
+                f"- Frozen scientific payload: `{EXPECTED_SCIENTIFIC_PAYLOAD_SHA256}`.",
+                "",
+                "## Isolation",
+                "",
+                "- Training: `false`.",
+                "- Test access: `false`.",
+                "- Validation-only raw evidence is preserved under `probe/`.",
+            ]
+            error_text = wrapper_payload.get("error_text")
+            if error_text:
+                report_lines.extend(["", "## Failure", "", f"- `{error_text}`"])
+            REPORT_PATH.write_text("\\n".join(report_lines) + "\\n", encoding="utf-8")
+            failure_status = {
+                "status": wrapper_payload["status"],
+                "subprocess_return_code": wrapper_payload["subprocess_return_code"],
+                "error_text": error_text,
+                "scientific_result_valid": False,
+                "scientific_interpretation": None,
+                "partial_probe_evidence_classification": "DIAGNOSTIC_RAW_ONLY",
+                "training": False,
+                "test_access": False,
+            }
+            (ADAPTER_METADATA_ROOT / "failure_status.json").write_text(
+                json.dumps(failure_status, indent=2, sort_keys=True) + "\\n",
+                encoding="utf-8",
+            )
+
+        def verify_failure_archive(archived_names):
+            archived = set(archived_names)
+            required_paths = [
+                SUBPROCESS_LOG_PATH,
+                ADAPTER_METADATA_ROOT / "pre_run_manifest.json",
+                ADAPTER_METADATA_ROOT / "wrapper_execution.json",
+                ADAPTER_METADATA_ROOT / "failure_status.json",
+                REPORT_PATH,
+            ]
+            for path in required_paths:
+                if not path.is_file():
+                    raise RuntimeError(f"Missing required failure evidence: {path}")
+                member = path.relative_to(WORKING).as_posix()
+                if member not in archived:
+                    raise RuntimeError(f"Failure archive missing required evidence: {member}")
+            if PROBE_OUTPUT_ROOT.is_dir():
+                for path in sorted(PROBE_OUTPUT_ROOT.rglob("*")):
+                    if path.is_file() and path.relative_to(WORKING).as_posix() not in archived:
+                        raise RuntimeError(f"Failure archive omitted raw probe evidence: {path}")
+            final_evidence_path = ADAPTER_METADATA_ROOT / "final_evidence.json"
+            if (
+                final_evidence_path.exists()
+                or final_evidence_path.relative_to(WORKING).as_posix() in archived
+            ):
+                raise RuntimeError("Failure path must not fabricate final_evidence.json")
+
+        def persist_wrapper_execution(wrapper_payload):
+            (ADAPTER_METADATA_ROOT / "wrapper_execution.json").write_text(
+                json.dumps(wrapper_payload, indent=2, sort_keys=True) + "\\n",
+                encoding="utf-8",
+            )
+
+        def record_failure_and_archive(wrapper_payload, error_text):
+            failed_payload = dict(wrapper_payload)
+            failed_payload.update({
+                "status": "TECHNICAL_OR_GATE_FAILURE",
+                "error_text": error_text,
+                "scientific_result_valid": False,
+                "scientific_interpretation": None,
+                "training": False,
+                "test_access": False,
+            })
+            final_evidence_path = ADAPTER_METADATA_ROOT / "final_evidence.json"
+            if final_evidence_path.exists():
+                final_evidence_path.unlink()
+            persist_wrapper_execution(failed_payload)
+            write_failure_report(failed_payload)
+            archived_names = create_step8_archive()
+            verify_failure_archive(archived_names)
+            return failed_payload, archived_names
+
+        def run_probe_with_failure_archive(command, cwd):
+            result = None
+            returncode = None
+            wrapper_error = None
+            try:
+                with SUBPROCESS_LOG_PATH.open("w", encoding="utf-8", newline="\\n") as log:
+                    result = subprocess.run(
+                        [str(item) for item in command],
+                        cwd=cwd,
+                        text=True,
+                        stdout=log,
+                        stderr=subprocess.STDOUT,
+                    )
+                returncode = int(result.returncode)
+                if returncode != 0:
+                    wrapper_error = f"Step-7 subprocess exited non-zero: {returncode}"
+            except BaseException as exc:
+                wrapper_error = f"Step-7 subprocess wrapper error: {exc}"
+            try:
+                hashes_after = {
+                    name: sha256(path) for name, path in located_artifacts.items()
+                }
+                artifacts_unchanged = hashes_after == artifact_hashes_before
+            except BaseException as exc:
+                hashes_after = {}
+                artifacts_unchanged = False
+                if wrapper_error is None:
+                    wrapper_error = f"Post-subprocess artifact verification error: {exc}"
+            if not artifacts_unchanged and wrapper_error is None:
+                wrapper_error = "Issue #7 checkpoint/config artifacts changed during probe"
+            wrapper_payload = {
+                "status": (
+                    "SUBPROCESS_COMPLETE_PENDING_VERIFICATION"
+                    if wrapper_error is None
+                    else "TECHNICAL_OR_GATE_FAILURE"
+                ),
+                "subprocess_return_code": returncode,
+                "error_text": wrapper_error,
+                "artifact_hashes_before": artifact_hashes_before,
+                "artifact_hashes_after": hashes_after,
+                "artifacts_unchanged": artifacts_unchanged,
+                "scientific_result_valid": False,
+                "scientific_interpretation": None,
+                "training": False,
+                "test_access": False,
+            }
+            persist_wrapper_execution(wrapper_payload)
+            archived_names = None
+            if wrapper_error is not None:
+                wrapper_payload, archived_names = record_failure_and_archive(
+                    wrapper_payload, wrapper_error
+                )
+            return {
+                "result": result,
+                "wrapper_execution": wrapper_payload,
+                "archive_names": archived_names,
+            }
+
+        probe_command = [
+            sys.executable,
+            "-B",
+            PROBE_TOOL_PATH,
+            "--checkpoint",
+            located_artifacts["checkpoint"],
+            "--checkpoint-metadata",
+            located_artifacts["checkpoint_metadata"],
+            "--resolved-config",
+            located_artifacts["resolved_config"],
+            "--prior-root",
+            PRIOR_ROOT,
+            "--clean-graph-cache-dir",
+            GRAPH_CACHE_ROOT,
+            "--output-root",
+            PROBE_OUTPUT_ROOT,
+            "--eval-batch-size",
+            str(EVAL_BATCH_SIZE),
+            "--graph-workers",
+            str(GRAPH_WORKERS),
+            "--graph-cache-size",
+            str(GRAPH_CACHE_SIZE),
+        ]
+        if any(str(argument).startswith("--limit-") for argument in probe_command):
+            raise RuntimeError("Registered Issue #15 probe must be an unbounded validation run")
+        if probe_command.count(PROBE_TOOL_PATH) != 1:
+            raise RuntimeError("Reviewed Step 7 harness must be invoked exactly once")
+        wrapper_outcome = run_probe_with_failure_archive(probe_command, TF_PACKAGE_PATH)
+        probe_result = wrapper_outcome["result"]
+        wrapper_execution = wrapper_outcome["wrapper_execution"]
+        wrapper_status = wrapper_execution["status"]
+        artifact_hashes_after = wrapper_execution["artifact_hashes_after"]
+        initial_archive_names = wrapper_outcome["archive_names"]
+        print(json.dumps(wrapper_execution, indent=2, sort_keys=True))
+        """,
+    )
     _set_source(cells[13], "## 7. Preserve and verify the harness Gate A/B/C evidence\n")
     _set_source(
         cells[14],
@@ -430,6 +658,65 @@ if reference_metric_mismatches:
         }, indent=2))
         """,
     )
+    success_verification_source = "".join(cells[14]["source"])
+    verification_return_source = """
+return {
+    "probe_manifest": probe_manifest,
+    "native_manual_equivalence": native_manual_equivalence,
+    "integrity": integrity,
+    "condition_metrics": condition_metrics,
+    "gates": gates,
+    "gate_a": gate_a,
+    "gate_b": gate_b,
+    "gate_c": gate_c,
+}
+"""
+    verification_dispatch_source = """
+
+wrapper_execution = json.loads(
+    (ADAPTER_METADATA_ROOT / "wrapper_execution.json").read_text(encoding="utf-8")
+)
+wrapper_status = wrapper_execution.get("status")
+if wrapper_status == "SUBPROCESS_COMPLETE_PENDING_VERIFICATION":
+    try:
+        verified_values = verify_complete_probe_evidence()
+        globals().update(verified_values)
+        wrapper_execution.update({
+            "status": "COMPLETE",
+            "error_text": None,
+            "scientific_result_valid": True,
+            "scientific_interpretation": gates["overall_decision"],
+            "training": False,
+            "test_access": False,
+        })
+        persist_wrapper_execution(wrapper_execution)
+        wrapper_status = "COMPLETE"
+    except BaseException as exc:
+        wrapper_execution, initial_archive_names = record_failure_and_archive(
+            wrapper_execution,
+            f"Success-only Gate A/B/C evidence verification failed: {exc}",
+        )
+        wrapper_status = wrapper_execution["status"]
+elif wrapper_status == "TECHNICAL_OR_GATE_FAILURE":
+    verify_failure_archive(initial_archive_names)
+else:
+    wrapper_execution, initial_archive_names = record_failure_and_archive(
+        wrapper_execution,
+        f"Unknown Step-7 wrapper status: {wrapper_status}",
+    )
+    wrapper_status = wrapper_execution["status"]
+print(json.dumps({
+    "wrapper_status": wrapper_status,
+    "subprocess_return_code": wrapper_execution.get("subprocess_return_code"),
+    "scientific_result_valid": wrapper_execution.get("scientific_result_valid"),
+}, indent=2))
+"""
+    cells[14]["source"] = (
+        "def verify_complete_probe_evidence():\n"
+        + textwrap.indent(success_verification_source, "    ")
+        + textwrap.indent(textwrap.dedent(verification_return_source).lstrip("\n"), "    ")
+        + textwrap.dedent(verification_dispatch_source)
+    ).splitlines(keepends=True)
     _set_source(cells[15], "## 8. Write the compact Step 8 report\n")
     _set_source(
         cells[16],
@@ -497,7 +784,54 @@ if reference_metric_mismatches:
         print("report:", REPORT_PATH)
         """,
     )
+    success_report_source = "".join(cells[16]["source"])
+    cells[16]["source"] = (
+        'if wrapper_status == "COMPLETE":\n'
+        + textwrap.indent(success_report_source, "    ")
+        + textwrap.dedent(
+            """
+            else:
+                verify_failure_archive(initial_archive_names)
+                failure_report = REPORT_PATH.read_text(encoding="utf-8")
+                if (
+                    "TECHNICAL_OR_GATE_FAILURE" not in failure_report
+                    or "Scientific result valid: `false`" not in failure_report
+                    or "Scientific interpretation: `null`" not in failure_report
+                ):
+                    raise RuntimeError("Failure report scientific/status boundary drift")
+                print("failure_report:", REPORT_PATH)
+            """
+        )
+    ).splitlines(keepends=True)
     _set_source(cells[17], "## 9. Archive compact validation-only evidence\n")
+    _set_source(
+        cells[18],
+        """
+        if wrapper_status == "COMPLETE":
+            archived_names = create_step8_archive()
+            required_success_paths = [
+                SUBPROCESS_LOG_PATH,
+                ADAPTER_METADATA_ROOT / "pre_run_manifest.json",
+                ADAPTER_METADATA_ROOT / "wrapper_execution.json",
+                ADAPTER_METADATA_ROOT / "final_evidence.json",
+                PROBE_OUTPUT_ROOT / "probe_manifest.json",
+                REPORT_PATH,
+            ]
+            for path in required_success_paths:
+                if not path.is_file():
+                    raise RuntimeError(f"Missing required success evidence: {path}")
+                if path.relative_to(WORKING).as_posix() not in archived_names:
+                    raise RuntimeError(f"Success archive missing required evidence: {path}")
+        else:
+            archived_names = initial_archive_names
+            verify_failure_archive(archived_names)
+        print("report_path:", REPORT_PATH)
+        print("archive_path:", ARCHIVE_PATH)
+        print("archive_bytes:", ARCHIVE_PATH.stat().st_size)
+        print("archive_sha256:", sha256(ARCHIVE_PATH))
+        print("archive_files:", len(archived_names))
+        """,
+    )
     for index, cell in enumerate(cells):
         cell["id"] = f"issue15-{index:02d}"
     return notebook

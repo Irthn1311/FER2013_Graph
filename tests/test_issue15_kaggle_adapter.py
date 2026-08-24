@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import sys
+import zipfile
 
 import pytest
 
@@ -119,7 +121,8 @@ def test_sha_only_artifact_discovery_is_unique_and_excludes_sample_inputs():
     assert "PUBLIC_SAMPLE_INPUT_ROOTS" in source
     assert "Artifact candidate overlaps a sample input" in source
     assert "Artifact is not a read-only Kaggle Input" in source
-    assert "artifact_hashes_after != artifact_hashes_before" in source
+    assert "artifacts_unchanged = hashes_after == artifact_hashes_before" in source
+    assert "if not artifacts_unchanged" in source
     assert "EXPECTED_CHECKPOINT_EPOCH = 31" in source
     assert "EXPECTED_SEED = 42" in source
     assert "EXPECTED_CONFIG_HASH" in source
@@ -205,7 +208,9 @@ def test_registered_command_invokes_step7_once_on_validation_and_is_unbounded():
     ):
         assert argument in string_arguments
     assert not any(argument.startswith("--limit-") for argument in string_arguments)
-    assert run_cell.count("run_checked(probe_command") == 1
+    assert "run_checked(probe_command" not in run_cell
+    assert run_cell.count("run_probe_with_failure_archive(probe_command") == 1
+    assert "subprocess.run(" in run_cell
     assert "probe_command.count(PROBE_TOOL_PATH) != 1" in run_cell
     assert "PROBE_TOOL_PATH" in run_cell
     assert "SUPPORT_TOOL_PATH" not in run_cell
@@ -213,6 +218,121 @@ def test_registered_command_invokes_step7_once_on_validation_and_is_unbounded():
     assert "EVAL_BATCH_SIZE = 32" in constants
     assert "GRAPH_WORKERS = 2" in constants
     assert "GRAPH_CACHE_SIZE = 64" in constants
+
+
+def test_nonzero_step7_subprocess_returns_normally_with_failure_archive(tmp_path):
+    run_cell = _code_cells()[5]
+    tree = ast.parse(run_cell)
+    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
+    working = tmp_path / "working"
+    run_root = working / "tf_step8_direct_part_decomposition"
+    probe_root = run_root / "probe"
+    adapter_root = run_root / "adapter_metadata"
+    probe_root.mkdir(parents=True)
+    adapter_root.mkdir(parents=True)
+    partial_probe = probe_root / "partial_probe_evidence.json"
+    partial_probe.write_text(
+        '{"status": "PARTIAL", "scientific_result_valid": false}\n',
+        encoding="utf-8",
+    )
+    pre_run = adapter_root / "pre_run_manifest.json"
+    pre_run.write_text('{"issue": 15}\n', encoding="utf-8")
+    located = {}
+    for name in ("checkpoint", "checkpoint_metadata", "resolved_config"):
+        path = tmp_path / name
+        path.write_bytes(name.encode())
+        located[name] = path
+    artifact_hashes = {name: _sha256(path) for name, path in located.items()}
+    namespace = {
+        "Path": Path,
+        "zipfile": zipfile,
+        "subprocess": subprocess,
+        "json": json,
+        "WORKING": working,
+        "RUN_ROOT": run_root,
+        "PROBE_OUTPUT_ROOT": probe_root,
+        "ADAPTER_METADATA_ROOT": adapter_root,
+        "SUBPROCESS_LOG_PATH": run_root / "step7_subprocess.log",
+        "REPORT_PATH": working / "tf_step8_direct_part_decomposition.md",
+        "ARCHIVE_PATH": working / "tf_step8_direct_part_decomposition_kaggle_t4.zip",
+        "located_artifacts": located,
+        "artifact_hashes_before": artifact_hashes,
+        "sha256": _sha256,
+        "EXPECTED_SCIENTIFIC_BASE_COMMIT": EXPECTED_BASE,
+        "EXPECTED_EXECUTION_COMMIT": EXPECTED_EXECUTION,
+        "EXPECTED_PROBE_TOOL_SHA256": EXPECTED_PROBE_SHA,
+        "EXPECTED_SUPPORT_TOOL_SHA256": EXPECTED_SUPPORT_SHA,
+        "EXPECTED_SCIENTIFIC_PAYLOAD_SHA256": EXPECTED_PAYLOAD_SHA,
+    }
+    exec(
+        compile(ast.Module(body=functions, type_ignores=[]), "wrapper", "exec"),
+        namespace,
+    )
+    outcome = namespace["run_probe_with_failure_archive"](
+        [
+            sys.executable,
+            "-c",
+            "import sys; print('synthetic Step-7 failure'); sys.exit(7)",
+        ],
+        tmp_path,
+    )
+    assert outcome["result"].returncode == 7
+    wrapper_payload = outcome["wrapper_execution"]
+    assert wrapper_payload["status"] == "TECHNICAL_OR_GATE_FAILURE"
+    assert wrapper_payload["subprocess_return_code"] == 7
+    assert wrapper_payload["scientific_result_valid"] is False
+    assert wrapper_payload["scientific_interpretation"] is None
+    assert wrapper_payload["training"] is False
+    assert wrapper_payload["test_access"] is False
+    assert wrapper_payload["artifact_hashes_before"] == artifact_hashes
+    assert wrapper_payload["artifact_hashes_after"] == artifact_hashes
+
+    namespace.update({
+        "wrapper_execution": wrapper_payload,
+        "wrapper_status": wrapper_payload["status"],
+        "initial_archive_names": outcome["archive_names"],
+    })
+    for cell_index in (6, 7, 8):
+        exec(
+            compile(_code_cells()[cell_index], f"failure-cell-{cell_index}", "exec"),
+            namespace,
+        )
+    assert namespace["wrapper_status"] == "TECHNICAL_OR_GATE_FAILURE"
+
+    archive_path = namespace["ARCHIVE_PATH"]
+    assert archive_path.is_file()
+    with zipfile.ZipFile(archive_path) as archive:
+        names = archive.namelist()
+        assert any(name.endswith("step7_subprocess.log") for name in names)
+        assert any(name.endswith("adapter_metadata/pre_run_manifest.json") for name in names)
+        assert any(name.endswith("adapter_metadata/wrapper_execution.json") for name in names)
+        assert any(name.endswith("adapter_metadata/failure_status.json") for name in names)
+        assert any(name.endswith("probe/partial_probe_evidence.json") for name in names)
+        assert "tf_step8_direct_part_decomposition.md" in names
+        assert not any(name.endswith("final_evidence.json") for name in names)
+        assert not any(name.endswith(".keras") for name in names)
+        assert "synthetic Step-7 failure" in archive.read(
+            "tf_step8_direct_part_decomposition/step7_subprocess.log"
+        ).decode()
+    assert not (adapter_root / "final_evidence.json").exists()
+    report = namespace["REPORT_PATH"].read_text(encoding="utf-8")
+    assert "TECHNICAL_OR_GATE_FAILURE" in report
+    assert "Scientific result valid: `false`" in report
+    assert "Scientific interpretation: `null`" in report
+
+
+def test_notebook_branches_failure_and_success_evidence_paths():
+    run_cell, verify_cell, report_cell, archive_cell = _code_cells()[5:9]
+    assert '"status": "TECHNICAL_OR_GATE_FAILURE"' in run_cell
+    assert '"scientific_result_valid": False' in run_cell
+    assert 'wrapper_status == "SUBPROCESS_COMPLETE_PENDING_VERIFICATION"' in verify_cell
+    assert 'wrapper_status == "TECHNICAL_OR_GATE_FAILURE"' in verify_cell
+    assert "verify_complete_probe_evidence()" in verify_cell
+    assert "record_failure_and_archive(" in verify_cell
+    assert 'wrapper_status == "COMPLETE"' in report_cell
+    assert "verify_failure_archive(initial_archive_names)" in report_cell
+    assert 'wrapper_status == "COMPLETE"' in archive_cell
+    assert "verify_failure_archive(archived_names)" in archive_cell
 
 
 def test_adapter_requires_t4_registered_versions_and_fresh_compact_outputs():
