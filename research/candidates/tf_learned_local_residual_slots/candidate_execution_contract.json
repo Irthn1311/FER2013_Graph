@@ -1,0 +1,36 @@
+{
+  "baseline_variable_prefix_count": 127,
+  "candidate_model_sha256": "0a7cfa315baf0d6666b7ab86139b328ab6d138985cfddd71180410675602fcca",
+  "contract_id": "learned_local_residual_slots_candidate_execution_v1",
+  "eager_exact": {
+    "status": "unsupported_out_of_scope"
+  },
+  "expected_trainable_variable_count": 128,
+  "frozen_execution_source_sha256": "2f0a579f51fb216d859b2a7e063614e7f76e5a74948067b7d7abd9f2d59e2f70",
+  "implementation_base": "572885a0bb650434f5b36bd3be2049524377067b",
+  "inherited_baseline_execution_contract_sha256": "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22",
+  "inherited_semantics": {
+    "clipping_and_update_arithmetic": "unchanged",
+    "loss": "unchanged",
+    "mixed_precision": "unchanged_outside_explicit_candidate_residual_boundary_cast",
+    "optimizer": "unchanged"
+  },
+  "precision_boundary": {
+    "mixed_float16_supported": true,
+    "official_global_cast": false,
+    "raw_slot_diagnostics_dtype": "float32",
+    "residual_input_dtype": "official_global_dtype",
+    "slot_compute_dtype": "float32"
+  },
+  "q": {
+    "dtype": "float32",
+    "index": 127,
+    "scalar_count": 384,
+    "shape": [
+      4,
+      96
+    ]
+  },
+  "selected_grappler_profile": "G1-A",
+  "selected_mode": "restricted_tf_function"
+}
