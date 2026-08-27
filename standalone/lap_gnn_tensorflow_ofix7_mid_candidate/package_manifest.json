@@ -790,9 +790,9 @@
       "sha256": "b601fddd4da4773afa02ec7b339ae9477a1589ca40757757b874559d16347758"
     },
     {
-      "bytes": 19499,
+      "bytes": 20890,
       "path": "tests/test_fixed_checkpoint_local_residual_slot_decomposition_probe.py",
-      "sha256": "75d03dc63e07754db91f646d6b33dceb503d0b31bbfbf4a7e82214c0e4a49c9d"
+      "sha256": "a9e60c7ef8b95b2455788b47a216f1a8d0ad2ee37699f2ab4ae283f79ae77cc8"
     },
     {
       "bytes": 25062,
@@ -1190,9 +1190,9 @@
       "sha256": "c0b1df778e469665dd6437c58831d29dcc34fbde44231db75894c5469a1ade78"
     },
     {
-      "bytes": 39787,
+      "bytes": 40006,
       "path": "tools/evaluate_fixed_checkpoint_local_residual_slot_decomposition_probe.py",
-      "sha256": "a35893cc90c4179d31c101f7db026c4c41eaf2509e9c3b0e19a0c53bc8887645"
+      "sha256": "50a310f622cdf9dccf13eff4edf6394f1d39b8ccf315dce5ede07d0a45bdd77a"
     },
     {
       "bytes": 32558,

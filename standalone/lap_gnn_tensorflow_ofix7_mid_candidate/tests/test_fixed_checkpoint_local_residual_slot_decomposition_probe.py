@@ -53,6 +53,24 @@ def _assert_tensor_equal(actual, expected):
     np.testing.assert_array_equal(actual.numpy(), expected.numpy())
 
 
+def _real_shape_frozen_contract():
+    return {
+        "node_width": 37,
+        "edge_width": 8,
+        "part_width": 13,
+        "scientific_payload_sha256": probe.EXPECTED_SCIENTIFIC_PAYLOAD_SHA256,
+        "locked": {
+            "package_checksum": probe.EXPECTED_SCIENTIFIC_PAYLOAD_SHA256,
+            "execution_contract_sha256": probe.EXPECTED_EXECUTION_CONTRACT_SHA256,
+            "graph_signature": probe.step6.EXPECTED_GRAPH_SIGNATURE,
+            "feature_signature": probe.step6.EXPECTED_FEATURE_SIGNATURE,
+            "prior_signature": probe.step6.EXPECTED_PRIOR_SIGNATURE,
+            "dataset_split_signature": probe.step6.EXPECTED_DATASET_SPLIT_SIGNATURE,
+            "parameter_count": probe.EXPECTED_PARAMETER_COUNT,
+        },
+    }
+
+
 def test_exact_identities_condition_order_and_registered_contract():
     assert probe.EXPECTED_IMPLEMENTATION_BASE == (
         "cd6a6b751d52729f7330adad58d94fbe7d1a7ac4"
@@ -344,6 +362,30 @@ def test_manual_forward_rejects_unknown_condition_and_nonconforming_schema(golde
         probe.manual_forward(golden_runs["model"], malformed, probe.CONDITION_S0)
 
 
+def test_valid_nested_step6_execution_contract_identity_passes():
+    probe._validate_frozen_contract_identity(_real_shape_frozen_contract())
+
+
+@pytest.mark.parametrize(
+    "locked",
+    [
+        {"execution_contract_sha256": "0" * 64},
+        {},
+        None,
+    ],
+    ids=("wrong-nested-sha", "missing-nested-field", "missing-locked-mapping"),
+)
+def test_wrong_or_missing_nested_execution_contract_identity_fails_closed(locked):
+    with pytest.raises(
+        probe.LocalResidualSlotProbeError,
+        match="Frozen execution contract drift",
+    ):
+        probe._validate_frozen_contract_identity({
+            "scientific_payload_sha256": probe.EXPECTED_SCIENTIFIC_PAYLOAD_SHA256,
+            "locked": locked,
+        })
+
+
 def test_main_constructs_validation_only_generator_and_one_bounded_run(tmp_path, monkeypatch):
     checkpoint = tmp_path / "fixed.keras"
     checkpoint.write_bytes(b"immutable")
@@ -371,10 +413,11 @@ def test_main_constructs_validation_only_generator_and_one_bounded_run(tmp_path,
             return iter(())
 
     monkeypatch.setattr(probe.step6, "validate_checkpoint_metadata", lambda *_: {})
-    monkeypatch.setattr(probe.step6, "validate_frozen_contract", lambda *_: {
-        "scientific_payload_sha256": probe.EXPECTED_SCIENTIFIC_PAYLOAD_SHA256,
-        "execution_contract_sha256": probe.EXPECTED_EXECUTION_CONTRACT_SHA256,
-    })
+    monkeypatch.setattr(
+        probe.step6,
+        "validate_frozen_contract",
+        lambda *_: _real_shape_frozen_contract(),
+    )
     monkeypatch.setattr(probe.step6, "configure_gpu_memory_growth", lambda requested: {
         "memory_growth_requested": requested,
         "memory_growth_status": "not_requested",
