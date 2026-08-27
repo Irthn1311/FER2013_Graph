@@ -1,0 +1,29 @@
+{
+  "baseline_variable_prefix_count": 127,
+  "candidate_model_sha256": "0069b2fa4a548719c1eeb464b820d22b6d12a686606dcf81ea3e498d24d4515d",
+  "contract_id": "learned_local_residual_slots_candidate_execution_v1",
+  "eager_exact": {
+    "status": "unsupported_out_of_scope"
+  },
+  "expected_trainable_variable_count": 128,
+  "frozen_execution_source_sha256": "2f0a579f51fb216d859b2a7e063614e7f76e5a74948067b7d7abd9f2d59e2f70",
+  "implementation_base": "572885a0bb650434f5b36bd3be2049524377067b",
+  "inherited_baseline_execution_contract_sha256": "14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22",
+  "inherited_semantics": {
+    "clipping_and_update_arithmetic": "unchanged",
+    "loss": "unchanged",
+    "mixed_precision": "unchanged",
+    "optimizer": "unchanged"
+  },
+  "q": {
+    "dtype": "float32",
+    "index": 127,
+    "scalar_count": 384,
+    "shape": [
+      4,
+      96
+    ]
+  },
+  "selected_grappler_profile": "G1-A",
+  "selected_mode": "restricted_tf_function"
+}
