@@ -418,6 +418,18 @@ def load_fixed_checkpoint(checkpoint: str | Path):
     return model
 
 
+def _validate_frozen_contract_identity(contract: Mapping) -> None:
+    if contract["scientific_payload_sha256"] != EXPECTED_SCIENTIFIC_PAYLOAD_SHA256:
+        raise LocalResidualSlotProbeError("Frozen scientific payload drift")
+    locked = contract.get("locked")
+    if (
+        not isinstance(locked, Mapping)
+        or locked.get("execution_contract_sha256")
+        != EXPECTED_EXECUTION_CONTRACT_SHA256
+    ):
+        raise LocalResidualSlotProbeError("Frozen execution contract drift")
+
+
 def _paired_diagnostics(
     labels: np.ndarray, probabilities: Mapping[str, np.ndarray]
 ) -> dict:
@@ -942,10 +954,7 @@ def main(argv: list[str] | None = None) -> int:
     checkpoint_cross_check = step6.validate_checkpoint_metadata(raw_config, metadata)
     config = step6.build_runtime_config(raw_config)
     contract = step6.validate_frozen_contract(config)
-    if contract["scientific_payload_sha256"] != EXPECTED_SCIENTIFIC_PAYLOAD_SHA256:
-        raise LocalResidualSlotProbeError("Frozen scientific payload drift")
-    if contract.get("execution_contract_sha256") != EXPECTED_EXECUTION_CONTRACT_SHA256:
-        raise LocalResidualSlotProbeError("Frozen execution contract drift")
+    _validate_frozen_contract_identity(contract)
 
     resources_config = dict(config.get("resources") or {})
     eval_batch_size = eval_batch_size or int(
