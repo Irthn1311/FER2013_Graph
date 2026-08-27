@@ -51,13 +51,13 @@ CANDIDATE_EXECUTION_CONTRACT_ID = (
 )
 IMPLEMENTATION_BASE = "572885a0bb650434f5b36bd3be2049524377067b"
 EXPECTED_CANDIDATE_MODEL_SHA256 = (
-    "0069b2fa4a548719c1eeb464b820d22b6d12a686606dcf81ea3e498d24d4515d"
+    "0a7cfa315baf0d6666b7ab86139b328ab6d138985cfddd71180410675602fcca"
 )
 EXPECTED_CANDIDATE_EXECUTION_SHA256 = (
     "48c0e5f8ad4676e17fb4127b3a30ad053beedca8e04e05cfb6fb24f2bb9236f9"
 )
 EXPECTED_CANDIDATE_EXECUTION_CONTRACT_SHA256 = (
-    "7d0c8fec08564bc405276413b70d7ad3d1f0adbcfc9c18d4d50b22d5efd4ce6f"
+    "331570bacd3ec97474c85f25e7e3cb461ef42b0aa3f442caf3dd1f52314bcbc7"
 )
 EXPECTED_WRAPPER_SHA256 = (
     "c94c122066fdd19210c8ba64a2a61567b249fad4f69c69cb4236b68cce6ff7b4"
@@ -189,11 +189,22 @@ def _verify_candidate_execution_contract() -> dict[str, Any]:
     expected_semantics = {
         "clipping_and_update_arithmetic": "unchanged",
         "loss": "unchanged",
-        "mixed_precision": "unchanged",
+        "mixed_precision": (
+            "unchanged_outside_explicit_candidate_residual_boundary_cast"
+        ),
         "optimizer": "unchanged",
     }
     if contract.get("inherited_semantics") != expected_semantics:
         raise CandidateValidationOnlyError("Inherited candidate execution semantics drift")
+    expected_precision_boundary = {
+        "mixed_float16_supported": True,
+        "official_global_cast": False,
+        "raw_slot_diagnostics_dtype": "float32",
+        "residual_input_dtype": "official_global_dtype",
+        "slot_compute_dtype": "float32",
+    }
+    if contract.get("precision_boundary") != expected_precision_boundary:
+        raise CandidateValidationOnlyError("Candidate precision boundary drift")
     return contract
 
 

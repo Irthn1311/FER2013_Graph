@@ -1,6 +1,6 @@
 {
   "baseline_variable_prefix_count": 127,
-  "candidate_model_sha256": "0069b2fa4a548719c1eeb464b820d22b6d12a686606dcf81ea3e498d24d4515d",
+  "candidate_model_sha256": "0a7cfa315baf0d6666b7ab86139b328ab6d138985cfddd71180410675602fcca",
   "contract_id": "learned_local_residual_slots_candidate_execution_v1",
   "eager_exact": {
     "status": "unsupported_out_of_scope"
@@ -12,8 +12,15 @@
   "inherited_semantics": {
     "clipping_and_update_arithmetic": "unchanged",
     "loss": "unchanged",
-    "mixed_precision": "unchanged",
+    "mixed_precision": "unchanged_outside_explicit_candidate_residual_boundary_cast",
     "optimizer": "unchanged"
+  },
+  "precision_boundary": {
+    "mixed_float16_supported": true,
+    "official_global_cast": false,
+    "raw_slot_diagnostics_dtype": "float32",
+    "residual_input_dtype": "official_global_dtype",
+    "slot_compute_dtype": "float32"
   },
   "q": {
     "dtype": "float32",

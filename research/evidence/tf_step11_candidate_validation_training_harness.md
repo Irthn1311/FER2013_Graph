@@ -2,15 +2,18 @@
 
 Status: `HARNESS_IMPLEMENTATION_ONLY`
 
-Issue: `#29`, including Protocol Amendment A comment `5437568570`.
+Issue: `#29`, including Protocol Amendment A comment `5437568570` and
+Protocol Amendment B comment `5437895559`.
 Implementation base: `572885a0bb650434f5b36bd3be2049524377067b`.
 
 ## Locked identities
 
-- Candidate model SHA-256: `0069b2fa4a548719c1eeb464b820d22b6d12a686606dcf81ea3e498d24d4515d`.
+- Pre-Amendment-B candidate model SHA-256: `0069b2fa4a548719c1eeb464b820d22b6d12a686606dcf81ea3e498d24d4515d`.
+- Relocked candidate model SHA-256: `0a7cfa315baf0d6666b7ab86139b328ab6d138985cfddd71180410675602fcca`.
 - Candidate execution adapter SHA-256: `48c0e5f8ad4676e17fb4127b3a30ad053beedca8e04e05cfb6fb24f2bb9236f9`.
-- Candidate execution contract SHA-256: `7d0c8fec08564bc405276413b70d7ad3d1f0adbcfc9c18d4d50b22d5efd4ce6f`.
-- Candidate validation harness SHA-256: `9b7d4e76acd953334261a79ea82ae09cfb0b0816435dedad60420899cca0d75f`.
+- Pre-Amendment-B candidate execution contract SHA-256: `7d0c8fec08564bc405276413b70d7ad3d1f0adbcfc9c18d4d50b22d5efd4ce6f`.
+- Relocked candidate execution contract SHA-256: `331570bacd3ec97474c85f25e7e3cb461ef42b0aa3f442caf3dd1f52314bcbc7`.
+- Relocked candidate validation harness SHA-256: `1b0707c41f30a9a5b9b9dba3995030ac50fccc90cf439d1ac26a31a32a878f2f`.
 - Frozen validation-only wrapper SHA-256: `c94c122066fdd19210c8ba64a2a61567b249fad4f69c69cb4236b68cce6ff7b4`.
 - Frozen trainer SHA-256: `4c3cb1aa311578038ff656cb7d119103ae5a651135f8ee1c76e37c2c04c1fc75`.
 - Frozen execution source SHA-256: `2f0a579f51fb216d859b2a7e063614e7f76e5a74948067b7d7abd9f2d59e2f70`.
@@ -36,9 +39,16 @@ execution-contract lock remains the inherited baseline contract. Candidate
 provenance separately records `1061576` parameters and the candidate execution
 contract SHA-256.
 
-## Bounded closure
+Protocol Amendment B adds one candidate-only precision boundary. The learned
+slot pool, Q, attention math, and raw diagnostics remain float32. Only a copy
+of the raw slot embeddings is cast to the exact official-global dtype for the
+residual dictionary, residual stack, and readout residual input. The official
+global residual is not cast. Outside this explicit boundary, inherited mixed
+precision arithmetic is unchanged.
 
-Golden/synthetic-only evidence established:
+## Secondary pre-hotfix float32 evidence
+
+The previous float32 bounded implementation evidence remains recorded:
 
 - baseline trainable variables: `127`;
 - candidate trainable variables: `128`;
@@ -56,17 +66,40 @@ Golden/synthetic-only evidence established:
 - bounded checkpoint reload: exact `LearnedLocalResidualSlotLapGNN`, `1061576`
   parameters, Q `[4,96]` float32, exact Q state preserved.
 
-The bounded Q update used the selected G1-A `restricted_tf_function` path with
-the global float32 policy. Structural equivalence locks the inherited
-mixed-precision loss-scaling branches unchanged. A separate pre-run observation
-is that the locked Step-10 model currently raises a dtype mismatch under a
-global `mixed_float16` policy when its float32 learned slot embeddings are
-stacked with the inherited float16 global residual. This Issue does not
-authorize modifying the locked candidate-model SHA; no such change was made.
+This evidence used the selected G1-A path with global float32 and is secondary,
+not the mixed-production readiness basis. The original Step-10 model SHA
+`0069b2...` failed before an optimizer update under `mixed_float16` because it
+combined float32 learned slots with the inherited float16 global residual.
+
+## Mixed-float16 bounded production-path closure
+
+Golden/synthetic-only evidence under the actual `mixed_float16`,
+`restricted_tf_function`, G1-A path established:
+
+- candidate forward: passed;
+- raw learned-slot diagnostics: float32, shape `[8,4,96]`;
+- official global residual: unchanged float16;
+- residual stack: homogeneous float16, shape `[8,5,96]`;
+- readout residual inputs: the four cast float16 slot copies plus the untouched
+  float16 official global residual;
+- parameters: `1061576`;
+- trainable variables: `128`, exact baseline prefix `0..126`, Q at index `127`;
+- Q: `[4,96]`, float32, finite non-zero gradient;
+- Q gradient L2 norm: `0.012508180923759937`;
+- inherited dynamic-loss-scale calibration calls before the accepted update:
+  `1` (`32768 -> 16384`, with no iteration or Q change);
+- accepted registered optimizer call: iterations `0 -> 1`;
+- maximum absolute Q change on the accepted call:
+  `0.0003000088036060333`;
+- optimizer variables: `262 -> 262` across calibration and accepted update;
+- model trainable-variable identities: unchanged;
+- mixed-policy checkpoint reload: exact
+  `LearnedLocalResidualSlotLapGNN`, `1061576` parameters, 128 variables, Q
+  `[4,96]` float32, exact Q state preserved.
 
 ## Verification
 
-- Focused Step-11 suite: `27 passed`.
+- Focused Step-11 suite: `31 passed`.
 - Step-10 candidate regression suite: `11 passed`.
 - Frozen validation-only wrapper, selected execution/contract, optimizer
   mixed-precision smoke, parent-import, and PyTorch-runtime isolation selection:

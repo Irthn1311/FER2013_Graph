@@ -170,8 +170,12 @@ class LearnedLocalResidualSlotLapGNN(LapGNN):
         slot_diagnostics = self.learned_local_residual_slots(
             h, node_graph_index, num_graphs
         )
+        raw_slot_embeddings = slot_diagnostics["slot_embeddings"]
+        residual_slot_embeddings = tf.cast(
+            raw_slot_embeddings, official_pooled["global"].dtype
+        )
         learned_slots = tf.unstack(
-            slot_diagnostics["slot_embeddings"],
+            residual_slot_embeddings,
             num=NUM_LOCAL_SLOTS,
             axis=1,
         )
@@ -222,7 +226,7 @@ class LearnedLocalResidualSlotLapGNN(LapGNN):
             "predictions": tf.argmax(logits, axis=1, output_type=tf.int64),
             "z_image": z_image,
             "node_embeddings": h,
-            "learned_local_residual_slots": slot_diagnostics["slot_embeddings"],
+            "learned_local_residual_slots": raw_slot_embeddings,
             "learned_local_attention_weights": slot_diagnostics[
                 "attention_weights"
             ],

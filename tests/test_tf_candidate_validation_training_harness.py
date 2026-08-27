@@ -23,6 +23,7 @@ if str(PACKAGE_SRC) not in sys.path:
 from lap_gnn_tf.config import load_config  # noqa: E402
 from lap_gnn_tf.graph.batch import load_golden_batch  # noqa: E402
 from lap_gnn_tf.model import LapGNN, build_model  # noqa: E402
+from lap_gnn_tf.seed import seed_everything  # noqa: E402
 from lap_gnn_tf.training import trainer  # noqa: E402
 from lap_gnn_tf.training.execution import (  # noqa: E402
     build_compiled_gradient_function,
@@ -89,6 +90,13 @@ def test_exact_source_locks_contract_and_frozen_package_diff_are_clean():
     assert contract["selected_mode"] == "restricted_tf_function"
     assert contract["selected_grappler_profile"] == "G1-A"
     assert contract["eager_exact"]["status"] == "unsupported_out_of_scope"
+    assert contract["precision_boundary"] == {
+        "mixed_float16_supported": True,
+        "official_global_cast": False,
+        "raw_slot_diagnostics_dtype": "float32",
+        "residual_input_dtype": "official_global_dtype",
+        "slot_compute_dtype": "float32",
+    }
     assert subprocess.run(
         ["git", "cat-file", "-e", f"{BASE}^{{commit}}"], cwd=ROOT, check=False
     ).returncode == 0
@@ -122,6 +130,23 @@ def test_candidate_variable_order_is_exact_baseline_prefix_then_q(ordered_models
     assert getattr(q, "path", "").endswith("learned_local_residual_slot_pool/Q")
     assert tuple(q.shape) == (4, 96)
     assert str(q.dtype) == "float32"
+
+
+def test_float32_precision_boundary_is_exact_residual_identity(ordered_models):
+    _, candidate = ordered_models
+    batch = load_golden_batch(str(GOLDEN / "graph_batch.npz"))
+    output = candidate(batch, training=False)
+    assert output["learned_local_residual_slots"].dtype == tf.float32
+    assert output["official_global_residual"].dtype == tf.float32
+    assert output["residual_stack"].dtype == tf.float32
+    np.testing.assert_array_equal(
+        output["residual_stack"][:, :4, :].numpy(),
+        output["learned_local_residual_slots"].numpy(),
+    )
+    np.testing.assert_array_equal(
+        output["residual_stack"][:, 4, :].numpy(),
+        output["official_global_residual"].numpy(),
+    )
 
 
 class _VariableCountModel(tf.keras.Model):
@@ -275,6 +300,222 @@ def test_selected_g1a_step_has_finite_nonzero_q_gradient_and_one_update(
     assert result["iteration_after"] == result["iteration_before"] + 1
     assert result["model_variable_ids_after"] == result["model_variable_ids_before"]
     assert result["optimizer_state_after"] == result["optimizer_state_before"]
+
+
+@pytest.fixture(scope="module")
+def bounded_mixed_selected_step(golden_batch):
+    previous_policy = tf.keras.mixed_precision.global_policy().name
+    tf.keras.mixed_precision.set_global_policy("mixed_float16")
+    try:
+        seed_everything(42)
+        config = load_config(SEED42_CONFIG)
+        state = validate_execution_config(config["training"])
+        candidate = build_candidate_model(golden_batch)
+        baseline = build_model(golden_batch)
+        baseline_prefix = tuple(
+            (value.name, getattr(value, "path", None), tuple(value.shape), str(value.dtype))
+            for value in baseline.trainable_variables
+        )
+        candidate_prefix = tuple(
+            (value.name, getattr(value, "path", None), tuple(value.shape), str(value.dtype))
+            for value in candidate.trainable_variables[:127]
+        )
+        variable_ids_before = tuple(id(value) for value in candidate.trainable_variables)
+
+        captured_readout = {}
+        original_readout_call = candidate.readout.call
+
+        def capture_readout(
+            h,
+            node_features,
+            part_soft,
+            node_graph_index,
+            num_graphs,
+            part_embeddings,
+            valid_groups,
+            training=False,
+        ):
+            captured_readout["part_dtypes"] = {
+                name: part_embeddings[name].dtype.name
+                for name in ("mouth", "eye", "brow", "nose_cheek", "global")
+            }
+            captured_readout["part_values"] = {
+                name: part_embeddings[name].numpy().copy()
+                for name in ("mouth", "eye", "brow", "nose_cheek", "global")
+            }
+            return original_readout_call(
+                h,
+                node_features,
+                part_soft,
+                node_graph_index,
+                num_graphs,
+                part_embeddings,
+                valid_groups,
+                training=training,
+            )
+
+        candidate.readout.call = capture_readout
+        try:
+            output = candidate(golden_batch, training=False)
+        finally:
+            candidate.readout.call = original_readout_call
+
+        gradient_fn = build_compiled_gradient_function(candidate, training=True)
+        _, _, gradients, finite = gradient_fn(golden_batch)
+        q = candidate.learned_local_residual_slots.Q
+        q_index = next(
+            index
+            for index, variable in enumerate(candidate.trainable_variables)
+            if variable is q
+        )
+        q_gradient = gradients[q_index]
+        optimizer = build_optimizer(config)
+        optimizer.build(candidate.trainable_variables)
+        optimizer_state_before = tuple(
+            (variable.name, tuple(variable.shape), str(variable.dtype))
+            for variable in optimizer.variables
+        )
+        step = build_candidate_restricted_graph_train_step(candidate, optimizer)
+
+        skipped_loss_scale_calls = 0
+        accepted = None
+        for _ in range(8):
+            q_before = q.numpy().copy()
+            iteration_before = int(optimizer.iterations.numpy())
+            loss = step(golden_batch)
+            iteration_after = int(optimizer.iterations.numpy())
+            q_after = q.numpy().copy()
+            if iteration_after == iteration_before + 1:
+                accepted = {
+                    "q_before": q_before,
+                    "q_after": q_after,
+                    "iteration_before": iteration_before,
+                    "iteration_after": iteration_after,
+                    "loss_finite": bool(tf.math.is_finite(loss).numpy()),
+                }
+                break
+            assert iteration_after == iteration_before
+            np.testing.assert_array_equal(q_after, q_before)
+            skipped_loss_scale_calls += 1
+        assert accepted is not None, "No mixed-precision optimizer update was accepted"
+
+        return {
+            "candidate": candidate,
+            "baseline_prefix_count": len(baseline.trainable_variables),
+            "baseline_prefix_matches": candidate_prefix == baseline_prefix,
+            "state": state,
+            "policy": tf.keras.mixed_precision.global_policy().name,
+            "raw_slots": output["learned_local_residual_slots"].numpy(),
+            "raw_slots_dtype": output["learned_local_residual_slots"].dtype.name,
+            "raw_slots_shape": output["learned_local_residual_slots"].shape.as_list(),
+            "official_global": output["official_global_residual"].numpy(),
+            "official_global_dtype": output["official_global_residual"].dtype.name,
+            "residual_stack": output["residual_stack"].numpy(),
+            "residual_stack_dtype": output["residual_stack"].dtype.name,
+            "residual_stack_shape": output["residual_stack"].shape.as_list(),
+            "captured_readout": captured_readout,
+            "all_gradients_finite": bool(finite.numpy()),
+            "q_gradient": q_gradient.numpy(),
+            "q_gradient_norm": float(tf.linalg.global_norm([q_gradient]).numpy()),
+            "q_index": q_index,
+            "q_dtype": str(q.dtype),
+            "q_shape": q.shape.as_list(),
+            "q_max_abs_delta": float(
+                np.max(np.abs(accepted["q_after"] - accepted["q_before"]))
+            ),
+            "iteration_before": accepted["iteration_before"],
+            "iteration_after": accepted["iteration_after"],
+            "loss_finite": accepted["loss_finite"],
+            "skipped_loss_scale_calls": skipped_loss_scale_calls,
+            "variable_ids_before": variable_ids_before,
+            "variable_ids_after": tuple(
+                id(value) for value in candidate.trainable_variables
+            ),
+            "optimizer_state_before": optimizer_state_before,
+            "optimizer_state_after": tuple(
+                (variable.name, tuple(variable.shape), str(variable.dtype))
+                for variable in optimizer.variables
+            ),
+            "q_after": accepted["q_after"],
+        }
+    finally:
+        tf.keras.mixed_precision.set_global_policy(previous_policy)
+
+
+def test_mixed_float16_registered_forward_precision_boundary_and_readout(
+    bounded_mixed_selected_step,
+):
+    result = bounded_mixed_selected_step
+    assert result["policy"] == "mixed_float16"
+    assert result["raw_slots_dtype"] == "float32"
+    assert result["raw_slots_shape"][1:] == [4, 96]
+    assert result["official_global_dtype"] == "float16"
+    assert result["residual_stack_dtype"] == "float16"
+    assert result["residual_stack_shape"][1:] == [5, 96]
+    np.testing.assert_array_equal(
+        result["residual_stack"][:, :4, :],
+        result["raw_slots"].astype(np.float16),
+    )
+    np.testing.assert_array_equal(
+        result["residual_stack"][:, 4, :], result["official_global"]
+    )
+    assert set(result["captured_readout"]["part_dtypes"].values()) == {"float16"}
+    for index, name in enumerate(("mouth", "eye", "brow", "nose_cheek")):
+        np.testing.assert_array_equal(
+            result["captured_readout"]["part_values"][name],
+            result["residual_stack"][:, index, :],
+        )
+    np.testing.assert_array_equal(
+        result["captured_readout"]["part_values"]["global"],
+        result["official_global"],
+    )
+
+
+def test_mixed_float16_selected_g1a_step_updates_q_once_without_state_drift(
+    bounded_mixed_selected_step,
+):
+    result = bounded_mixed_selected_step
+    candidate = result["candidate"]
+    assert result["state"]["optimizer_execution_mode"] == "restricted_tf_function"
+    assert result["state"]["gradient_execution_mode"] == "tf_function"
+    assert result["state"]["grappler_profile"] == "G1-A"
+    assert candidate.count_params() == 1_061_576
+    assert len(candidate.trainable_variables) == 128
+    assert result["baseline_prefix_count"] == 127
+    assert result["baseline_prefix_matches"] is True
+    assert result["q_index"] == 127
+    assert candidate.trainable_variables[127] is candidate.learned_local_residual_slots.Q
+    assert result["q_shape"] == [4, 96]
+    assert result["q_dtype"] == "float32"
+    assert result["q_gradient"].dtype == np.float32
+    assert result["all_gradients_finite"] is True
+    assert np.all(np.isfinite(result["q_gradient"]))
+    assert np.any(result["q_gradient"] != 0)
+    assert result["q_gradient_norm"] > 0
+    assert result["loss_finite"] is True
+    assert result["q_max_abs_delta"] > 0
+    assert result["iteration_after"] == result["iteration_before"] + 1
+    assert result["variable_ids_after"] == result["variable_ids_before"]
+    assert result["optimizer_state_after"] == result["optimizer_state_before"]
+
+
+def test_mixed_float16_checkpoint_roundtrip_preserves_candidate_and_q(
+    tmp_path, bounded_mixed_selected_step
+):
+    candidate = bounded_mixed_selected_step["candidate"]
+    expected_q = candidate.learned_local_residual_slots.Q.numpy().copy()
+    checkpoint = tmp_path / "mixed_candidate.keras"
+    candidate.save(checkpoint)
+    restored = tf.keras.models.load_model(checkpoint, compile=False)
+    assert type(restored) is LearnedLocalResidualSlotLapGNN
+    assert restored.count_params() == 1_061_576
+    assert len(restored.trainable_variables) == 128
+    assert restored.trainable_variables[127] is restored.learned_local_residual_slots.Q
+    assert tuple(restored.learned_local_residual_slots.Q.shape) == (4, 96)
+    assert str(restored.learned_local_residual_slots.Q.dtype) == "float32"
+    np.testing.assert_array_equal(
+        restored.learned_local_residual_slots.Q.numpy(), expected_q
+    )
 
 
 def test_candidate_checkpoint_roundtrip_preserves_exact_class_parameters_and_q(
