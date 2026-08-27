@@ -2,7 +2,7 @@
 
 Status: `HARNESS_IMPLEMENTATION_ONLY`
 
-Issue: #21  
+Issue: #21
 Exact implementation base: `cd6a6b751d52729f7330adad58d94fbe7d1a7ac4`
 
 ## Locked identities
