@@ -28,8 +28,11 @@ STEP7_TOOL = (
 )
 STEP6_TOOL = PACKAGE_ROOT / "tools" / "evaluate_fixed_checkpoint_prior_probe.py"
 
-EXPECTED_EXECUTION = "753ae1a27b9e4467d11c5d68cb416df63de29ff5"
-EXPECTED_STEP9_SHA = "a35893cc90c4179d31c101f7db026c4c41eaf2509e9c3b0e19a0c53bc8887645"
+EXPECTED_SCIENTIFIC_BASE = "753ae1a27b9e4467d11c5d68cb416df63de29ff5"
+EXPECTED_EXECUTION = "73a5bd6fe1210b379287ca9e0048526ff682e7a9"
+EXPECTED_STEP9_SHA = "50a310f622cdf9dccf13eff4edf6394f1d39b8ccf315dce5ede07d0a45bdd77a"
+FAILED_STEP9_SHA = "a35893cc90c4179d31c101f7db026c4c41eaf2509e9c3b0e19a0c53bc8887645"
+FAILED_ARCHIVE_SHA = "ff19925fc4ad6f6d8144512979dd2f725355cacc31303a848bd77037d4a41b17"
 EXPECTED_STEP7_SHA = "c0b1df778e469665dd6437c58831d29dcc34fbde44231db75894c5469a1ade78"
 EXPECTED_STEP6_SHA = "3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3"
 EXPECTED_PAYLOAD_SHA = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
@@ -93,6 +96,7 @@ def test_notebook_is_deterministic_unexecuted_and_code_compiles():
 def test_exact_source_payload_contract_tools_and_artifact_locks():
     source = _all_source()
     for value in (
+        EXPECTED_SCIENTIFIC_BASE,
         EXPECTED_EXECUTION,
         EXPECTED_STEP9_SHA,
         EXPECTED_STEP7_SHA,
@@ -111,6 +115,14 @@ def test_exact_source_payload_contract_tools_and_artifact_locks():
     assert subprocess.run(
         ["git", "cat-file", "-e", f"{EXPECTED_EXECUTION}^{{commit}}"], cwd=ROOT
     ).returncode == 0
+    assert subprocess.run(
+        ["git", "cat-file", "-e", f"{EXPECTED_SCIENTIFIC_BASE}^{{commit}}"],
+        cwd=ROOT,
+    ).returncode == 0
+    assert (
+        f'EXPECTED_SCIENTIFIC_BASE_COMMIT = "{EXPECTED_SCIENTIFIC_BASE}"'
+        in source
+    )
     assert f'EXPECTED_EXECUTION_COMMIT = "{EXPECTED_EXECUTION}"' in source
     assert '"git", "clone", "--no-checkout"' in source
     assert '"git", "checkout", "--detach", EXPECTED_EXECUTION_COMMIT' in source
@@ -122,6 +134,23 @@ def test_exact_source_payload_contract_tools_and_artifact_locks():
         "sha256(STEP6_SUPPORT_PATH) != EXPECTED_STEP6_SUPPORT_SHA256",
     ):
         assert check in source
+    assert EXPECTED_STEP9_SHA != FAILED_STEP9_SHA
+    assert f'EXPECTED_STEP9_TOOL_SHA256 = "{EXPECTED_STEP9_SHA}"' in source
+    assert f'FAILED_ATTEMPT_STEP9_TOOL_SHA256 = "{FAILED_STEP9_SHA}"' in source
+
+
+def test_first_authorized_failure_is_preserved_without_scientific_outcome():
+    source = _all_source()
+    for token in (
+        "PRE-INTERVENTION TECHNICAL HARNESS FAILURE",
+        "tf_step9_local_residual_slot_decomposition_kaggle_t4.zip",
+        FAILED_ARCHIVE_SHA,
+        "LocalResidualSlotProbeError: Frozen execution contract drift",
+        '"scientific_result_valid": False',
+        '"scientific_interpretation": None',
+        '"s0_s5_scientific_outcome": None',
+    ):
+        assert token in source
 
 
 def test_sha_locator_uses_identity_rejects_zero_or_ambiguous_and_excludes_samples(
@@ -263,12 +292,16 @@ def test_exit7_returns_normally_and_publishes_failure_archive(tmp_path):
         "located_artifacts": located,
         "artifact_hashes_before": artifact_hashes,
         "sha256": _sha256,
-        "EXPECTED_SCIENTIFIC_BASE_COMMIT": EXPECTED_EXECUTION,
+        "EXPECTED_SCIENTIFIC_BASE_COMMIT": EXPECTED_SCIENTIFIC_BASE,
         "EXPECTED_EXECUTION_COMMIT": EXPECTED_EXECUTION,
         "EXPECTED_STEP9_TOOL_SHA256": EXPECTED_STEP9_SHA,
         "EXPECTED_STEP7_TOOL_SHA256": EXPECTED_STEP7_SHA,
         "EXPECTED_STEP6_SUPPORT_SHA256": EXPECTED_STEP6_SHA,
         "EXPECTED_SCIENTIFIC_PAYLOAD_SHA256": EXPECTED_PAYLOAD_SHA,
+        "FAILED_ATTEMPT_CLASSIFICATION": (
+            "PRE-INTERVENTION TECHNICAL HARNESS FAILURE"
+        ),
+        "FAILED_ATTEMPT_ARCHIVE_SHA256": FAILED_ARCHIVE_SHA,
     }
     exec(
         compile(ast.Module(body=functions, type_ignores=[]), "wrapper", "exec"),

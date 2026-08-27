@@ -6,9 +6,9 @@ Issue: #23
 
 ## Exact locks
 
-- reviewed scientific execution source: `753ae1a27b9e4467d11c5d68cb416df63de29ff5`
-- notebook execution commit lock: `753ae1a27b9e4467d11c5d68cb416df63de29ff5`
-- Step-9 harness SHA-256: `a35893cc90c4179d31c101f7db026c4c41eaf2509e9c3b0e19a0c53bc8887645`
+- preregistered scientific Step-9 base: `753ae1a27b9e4467d11c5d68cb416df63de29ff5`
+- reviewed technical execution commit: `73a5bd6fe1210b379287ca9e0048526ff682e7a9`
+- Step-9 harness SHA-256: `50a310f622cdf9dccf13eff4edf6394f1d39b8ccf315dce5ede07d0a45bdd77a`
 - Step-7 harness SHA-256: `c0b1df778e469665dd6437c58831d29dcc34fbde44231db75894c5469a1ade78`
 - Step-6 support SHA-256: `3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3`
 - frozen scientific payload: `286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e`
@@ -18,6 +18,23 @@ The notebook clones without trusting branch state, detaches the exact execution
 commit, requires a clean worktree, runs package checksum verification, and then
 independently verifies the payload, execution contract, and all three tool file
 hashes.
+
+## Preserved first authorized run
+
+- classification: `PRE-INTERVENTION TECHNICAL HARNESS FAILURE`
+- archive: `tf_step9_local_residual_slot_decomposition_kaggle_t4.zip`
+- reviewed archive SHA-256:
+  `ff19925fc4ad6f6d8144512979dd2f725355cacc31303a848bd77037d4a41b17`
+- failure: `LocalResidualSlotProbeError: Frozen execution contract drift`
+- root cause: Step-9 read the validated Step-6 execution-contract identity at
+  the wrong return-map level
+- scientific result valid: `false`
+- scientific interpretation: `null`
+- S0-S5 scientific outcome: none
+
+This failed attempt is retained unchanged as technical evidence. The renewed
+adapter consumes the reviewed Issue #25 Step-9 harness SHA while retaining the
+original scientific Step-9 base separately.
 
 ## Registered Issue #7 artifacts
 
@@ -99,18 +116,18 @@ fabricated final scientific evidence.
 
 ## Static and synthetic verification
 
-- Issue #23 adapter tests: `11 passed`
+- Issue #23 adapter tests: `12 passed`
 - synthetic subprocess exit `7`: PASS; the wrapper and all later cells returned
   normally, the failure ZIP preserved the recognizable subprocess log,
   pre-run manifest, wrapper execution, failure status, and partial probe JSON;
   `final_evidence.json` was absent and scientific interpretation remained null
-- Step-9 harness regressions: `12 passed`
+- Step-9 harness regressions: `16 passed`
 - reviewed Step-7 and Step-6 regressions: `43 passed`
 - parent-import and PyTorch-runtime isolation: `2 passed`
 - fresh Step-9 import: `0` PyTorch modules loaded
 - package checksums: `PASS checked=267 failures=0`
 - deterministic notebook rebuild SHA-256:
-  `8b298a982f45693a491a68f380aed964cdccd30c1451c861f66323f3b8ea8bc0`
+  `8a8b42605510bec5d07423a05693dfb551f626d861ed5e7ff73766bcf4cdeb8b`
 - notebook cells: `19` total, `9` code; every code cell has
   `execution_count = null` and `outputs = []`
 

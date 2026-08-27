@@ -150,6 +150,12 @@ def build_notebook() -> dict:
         residual slots under the fixed official MediaPipe-derived scaffold. They
         must not be summed or divided by S5, and they are not causal percentage
         contributions or MediaPipe-prior isolation.
+
+        The first authorized Issue #23 run remains classified as a
+        **PRE-INTERVENTION TECHNICAL HARNESS FAILURE**. Its reviewed archive SHA-256
+        is `ff19925fc4ad6f6d8144512979dd2f725355cacc31303a848bd77037d4a41b17`;
+        `scientific_result_valid=false`, scientific interpretation is null, and no
+        S0-S5 scientific outcome exists from that attempt.
         """,
     )
     _set_source(cells[1], "## 1. Preregistered constants and immutable paths\n")
@@ -160,13 +166,13 @@ def build_notebook() -> dict:
 
         REPO_URL = "https://github.com/Irthn1311/FER2013_Graph.git"
         EXPECTED_SCIENTIFIC_BASE_COMMIT = "753ae1a27b9e4467d11c5d68cb416df63de29ff5"
-        EXPECTED_EXECUTION_COMMIT = "753ae1a27b9e4467d11c5d68cb416df63de29ff5"
+        EXPECTED_EXECUTION_COMMIT = "73a5bd6fe1210b379287ca9e0048526ff682e7a9"
         TF_PACKAGE_RELATIVE = Path("standalone/lap_gnn_tensorflow_ofix7_mid_candidate")
         STEP9_TOOL_RELATIVE = TF_PACKAGE_RELATIVE / "tools/evaluate_fixed_checkpoint_local_residual_slot_decomposition_probe.py"
         STEP7_TOOL_RELATIVE = TF_PACKAGE_RELATIVE / "tools/evaluate_fixed_checkpoint_direct_part_decomposition_probe.py"
         STEP6_SUPPORT_RELATIVE = TF_PACKAGE_RELATIVE / "tools/evaluate_fixed_checkpoint_prior_probe.py"
 
-        EXPECTED_STEP9_TOOL_SHA256 = "a35893cc90c4179d31c101f7db026c4c41eaf2509e9c3b0e19a0c53bc8887645"
+        EXPECTED_STEP9_TOOL_SHA256 = "50a310f622cdf9dccf13eff4edf6394f1d39b8ccf315dce5ede07d0a45bdd77a"
         EXPECTED_STEP7_TOOL_SHA256 = "c0b1df778e469665dd6437c58831d29dcc34fbde44231db75894c5469a1ade78"
         EXPECTED_STEP6_SUPPORT_SHA256 = "3a033c977a29e102cfed75282ae7c1062f41feac8bef1b955ae425ec7e4004b3"
         EXPECTED_SCIENTIFIC_PAYLOAD_SHA256 = "286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e"
@@ -176,6 +182,11 @@ def build_notebook() -> dict:
         EXPECTED_FEATURE_SIGNATURE = "752538062fa2e40d9615c650c529e9f4117f33a030b74d281b5b21fa573731fc"
         EXPECTED_PRIOR_SIGNATURE = "ea888bab9c003af9b279719025da7c39f90537179411326c2c3119fc8c3f0824"
         EXPECTED_DATASET_SPLIT_SIGNATURE = "fer2013_train28709_val3589_test3589"
+        FAILED_ATTEMPT_CLASSIFICATION = "PRE-INTERVENTION TECHNICAL HARNESS FAILURE"
+        FAILED_ATTEMPT_ARCHIVE = "tf_step9_local_residual_slot_decomposition_kaggle_t4.zip"
+        FAILED_ATTEMPT_ARCHIVE_SHA256 = "ff19925fc4ad6f6d8144512979dd2f725355cacc31303a848bd77037d4a41b17"
+        FAILED_ATTEMPT_STEP9_TOOL_SHA256 = "a35893cc90c4179d31c101f7db026c4c41eaf2509e9c3b0e19a0c53bc8887645"
+        FAILED_ATTEMPT_ERROR = "LocalResidualSlotProbeError: Frozen execution contract drift"
 
         EXPECTED_ARTIFACTS = {
             "checkpoint": {"basename": "best_val_accuracy.keras", "sha256": "9ec11bb819f97e4fbda432f68da76c1201b8a3f9e06fae9eb30489a528d6ac16"},
@@ -275,6 +286,21 @@ def build_notebook() -> dict:
         '    "slot_sensitivity_thresholds_pp": dict(SLOT_SENSITIVITY_THRESHOLDS_PP),\n'
         '    "overall_decisions": list(OVERALL_DECISIONS),\n',
     )
+    _replace_required(
+        cells[10],
+        '    "registered_full_run": True,\n',
+        '    "previous_registered_attempt": {\n'
+        '        "classification": FAILED_ATTEMPT_CLASSIFICATION,\n'
+        '        "archive": FAILED_ATTEMPT_ARCHIVE,\n'
+        '        "archive_sha256": FAILED_ATTEMPT_ARCHIVE_SHA256,\n'
+        '        "step9_harness_sha256": FAILED_ATTEMPT_STEP9_TOOL_SHA256,\n'
+        '        "failure": FAILED_ATTEMPT_ERROR,\n'
+        '        "scientific_result_valid": False,\n'
+        '        "scientific_interpretation": None,\n'
+        '        "s0_s5_scientific_outcome": None,\n'
+        '    },\n'
+        '    "registered_full_run": True,\n',
+    )
     forensic_block = '''    "reviewed_gate_a_forensic": {
         "archive_sha256": REVIEWED_GATE_A_FORENSIC_ARCHIVE_SHA256,
         "batch_count": REVIEWED_GATE_A_FORENSIC_BATCHES,
@@ -290,6 +316,12 @@ def build_notebook() -> dict:
         '        f"- Step-9 SHA-256: `{EXPECTED_STEP9_TOOL_SHA256}`.",\n'
         '        f"- Step-7 SHA-256: `{EXPECTED_STEP7_TOOL_SHA256}`.",\n'
         '        f"- Step-6 SHA-256: `{EXPECTED_STEP6_SUPPORT_SHA256}`.",\n',
+    )
+    _replace_required(
+        cells[12],
+        '        f"- Frozen scientific payload: `{EXPECTED_SCIENTIFIC_PAYLOAD_SHA256}`.",\n',
+        '        f"- Frozen scientific payload: `{EXPECTED_SCIENTIFIC_PAYLOAD_SHA256}`.",\n'
+        '        f"- Previous run: `{FAILED_ATTEMPT_CLASSIFICATION}`; archive SHA-256 `{FAILED_ATTEMPT_ARCHIVE_SHA256}`; no S0-S5 scientific outcome.",\n',
     )
     required_integrity_old = '''        "source_batches_mutated": False,
         "message_passing_inputs_changed": False,
@@ -359,6 +391,12 @@ def build_notebook() -> dict:
         '        f"- Step 9 harness SHA-256: `{sha256(STEP9_TOOL_PATH)}`.",\n'
         '        f"- Step 7 harness SHA-256: `{sha256(STEP7_TOOL_PATH)}`.",\n'
         '        f"- Step 6 support-tool SHA-256: `{sha256(STEP6_SUPPORT_PATH)}`.",\n',
+    )
+    _replace_required(
+        cells[16],
+        '        f"- Frozen scientific payload SHA-256: `{package_manifest[\'scientific_payload_sha256\']}`.",\n',
+        '        f"- Frozen scientific payload SHA-256: `{package_manifest[\'scientific_payload_sha256\']}`.",\n'
+        '        f"- Previous run: `{FAILED_ATTEMPT_CLASSIFICATION}`; archive SHA-256 `{FAILED_ATTEMPT_ARCHIVE_SHA256}`; no S0-S5 scientific outcome.",\n',
     )
     _replace_required(
         cells[16],
