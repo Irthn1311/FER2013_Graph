@@ -12,6 +12,8 @@
 
 The generated notebook performs one future registered subprocess invocation only after a clean detached checkout and all source, contract, environment, input, and candidate-identity checks pass. The scientific decision is not computed unless the subprocess succeeds and both reviewed validation-only completion markers pass every Issue #31 validity gate.
 
+The research-lead provenance review at PR head `6ae9445a44d8e75488a75012a643cd0e9fa37426` identified two adapter-only gaps. This patch closes only those gaps: the frozen marker and candidate sidecar are bound to the exact seed-42 config identity with the frozen trainer revision guard required, and the selected checkpoint metadata must identify the earliest complete-history epoch attaining the global maximum validation accuracy.
+
 ## Locked source identities
 
 - Execution commit: `cc54ec045f2af0dad6aca4bf4b8b1710677ab1a4`.
@@ -78,12 +80,12 @@ The rolling ZIP includes the pre-run manifest, subprocess log, adapter progress,
 
 On nonzero subprocess exit or verification failure, the wrapper records `TECHNICAL_OR_RUNTIME_FAILURE`, `scientific_result_valid=false`, and `scientific_interpretation=null`; it removes/refuses `final_evidence.json` and republishes all available partial diagnostic evidence. A Kaggle hard censor before valid markers therefore leaves only diagnostic rolling evidence and cannot receive a registered performance label.
 
-On normal success, the adapter independently validates complete sequential history, both marker contracts, restored trainer bindings, source identity before/after, resolved runtime resources, checkpoint class/parameters/Q identity and hashes, metadata/history agreement, and test isolation. Only then does it derive the locked primary/secondary metrics and create `wrapper_execution.json`, `final_evidence.json`, and `/kaggle/working/tf_step12_learned_local_residual_slots_seed42.md`.
+On normal success, the adapter independently validates complete sequential history, both marker contracts, `trainer_revision_guard_passed=true`, marker seed `42`, the exact input-config SHA `aa3bf2d3932bbad6c5f8cdcc347f4a9866e2c027d6135a60b5002a8f6a3b6908`, restored trainer bindings, source identity before/after, resolved runtime resources, checkpoint class/parameters/Q identity and hashes, strict-improvement checkpoint provenance, metadata/history agreement, and test isolation. The checkpoint metadata epoch must be the earliest epoch attaining the complete-history global maximum `val_accuracy`; its stored accuracy must equal that maximum while macro-F1 and loss remain consistent with the same history row. Only then does the adapter derive the locked primary/secondary metrics and create `wrapper_execution.json`, `final_evidence.json`, and `/kaggle/working/tf_step12_learned_local_residual_slots_seed42.md`.
 
 ## Verification completed locally
 
-- `python -m pytest -q tests/test_issue31_kaggle_adapter.py` — PASS, `21 passed`.
-  - Covers deterministic unexecuted notebook generation, exact locks/resources, decision boundaries, completion gates, malformed/missing sidecars, checkpoint identity failures, source drift, atomic rolling archives, synthetic epoch progression, synthetic subprocess failure, valid success publication, hard censoring, test isolation, and absence of retry/direct-trainer execution.
+- `python -m pytest -q tests/test_issue31_kaggle_adapter.py` — PASS, `28 passed`.
+  - Covers deterministic unexecuted notebook generation, exact locks/resources, decision boundaries, completion gates, missing/false trainer revision guard, frozen/candidate config-SHA drift, marker seed drift, malformed/missing sidecars, checkpoint identity failures, rejection of self-consistent non-best checkpoint metadata, earliest-epoch enforcement under an exact global-maximum accuracy tie, source drift, atomic rolling archives, synthetic epoch progression, synthetic subprocess failure, valid success publication, hard censoring, test isolation, and absence of retry/direct-trainer execution.
 - `C:\Users\ADMIN\anaconda3\envs\lap-gnn-tf\python.exe -m pytest -q tests/test_tf_candidate_validation_training_harness.py tests/test_tf_learned_local_residual_slots.py` — PASS, `42 passed` with 14 dependency deprecation warnings.
 - `verify_checksums.py` — PASS, `checked=267 failures=0`.
 - `verify_no_parent_imports.py` — PASS, no violations.

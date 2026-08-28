@@ -138,9 +138,12 @@ def _valid_completion(tmp_path: Path):
         "test_checkpoint_loaded": False,
         "normal_full_training_completed": False,
         "boundary": "before_resolve_final_checkpoint",
+        "trainer_revision_guard_passed": True,
         "intercepted_function_restored": True,
         "trainer_source_sha256": builder.SOURCE_LOCKS["frozen_trainer"][1],
         "scientific_payload_sha256": builder.SCIENTIFIC_PAYLOAD_SHA256,
+        "input_config_sha256": builder.SOURCE_LOCKS["seed42_config"][1],
+        "seed": 42,
         "final_observed_epoch": 2,
         "history_sha256": _sha256(history_path),
         "resolved_config_sha256": _sha256(resolved_path),
@@ -193,6 +196,7 @@ def _valid_completion(tmp_path: Path):
         "frozen_trainer_sha256": builder.SOURCE_LOCKS["frozen_trainer"][1],
         "frozen_execution_sha256": builder.SOURCE_LOCKS["frozen_execution"][1],
         "scientific_payload_sha256": builder.SCIENTIFIC_PAYLOAD_SHA256,
+        "input_config_sha256": builder.SOURCE_LOCKS["seed42_config"][1],
         "inherited_baseline_execution_contract_sha256": (
             builder.BASELINE_EXECUTION_CONTRACT_SHA256
         ),
@@ -216,6 +220,25 @@ def _valid_completion(tmp_path: Path):
         json.dumps(candidate), encoding="utf-8"
     )
     return output, source_hashes, candidate
+
+
+def _rewrite_history_and_marker_hashes(
+    output: Path, candidate: dict, history: dict
+) -> None:
+    history_path = output / "history.json"
+    history_path.write_text(json.dumps(history), encoding="utf-8")
+    final_epoch = history["epochs"][-1]["epoch"]
+    frozen_path = output / builder.FROZEN_MARKER
+    frozen = json.loads(frozen_path.read_text(encoding="utf-8"))
+    frozen["history_sha256"] = _sha256(history_path)
+    frozen["final_observed_epoch"] = final_epoch
+    frozen_path.write_text(json.dumps(frozen), encoding="utf-8")
+    candidate["history_sha256"] = _sha256(history_path)
+    candidate["final_observed_epoch"] = final_epoch
+    candidate["validation_only_marker_sha256"] = _sha256(frozen_path)
+    (output / builder.CANDIDATE_MARKER).write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
 
 
 def test_notebook_is_deterministic_unexecuted_and_compiles(tmp_path):
@@ -356,6 +379,62 @@ def test_scientific_decision_requires_both_valid_completion_markers(tmp_path):
         builder.validate_completion(output, source_hashes, source_hashes)
 
 
+@pytest.mark.parametrize("mode", ["missing", "false"])
+def test_frozen_marker_revision_guard_missing_or_false_fails_closed(tmp_path, mode):
+    output, source_hashes, candidate = _valid_completion(tmp_path)
+    frozen_path = output / builder.FROZEN_MARKER
+    frozen = json.loads(frozen_path.read_text(encoding="utf-8"))
+    if mode == "missing":
+        frozen.pop("trainer_revision_guard_passed")
+    else:
+        frozen["trainer_revision_guard_passed"] = False
+    frozen_path.write_text(json.dumps(frozen), encoding="utf-8")
+    candidate["validation_only_marker_sha256"] = _sha256(frozen_path)
+    (output / builder.CANDIDATE_MARKER).write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
+    with pytest.raises(builder.AdapterError, match="trainer_revision_guard_passed"):
+        builder.validate_completion(output, source_hashes, source_hashes)
+
+
+def test_frozen_marker_wrong_seed42_config_sha_fails_closed(tmp_path):
+    output, source_hashes, candidate = _valid_completion(tmp_path)
+    frozen_path = output / builder.FROZEN_MARKER
+    frozen = json.loads(frozen_path.read_text(encoding="utf-8"))
+    frozen["input_config_sha256"] = "0" * 64
+    frozen_path.write_text(json.dumps(frozen), encoding="utf-8")
+    candidate["validation_only_marker_sha256"] = _sha256(frozen_path)
+    (output / builder.CANDIDATE_MARKER).write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
+    with pytest.raises(builder.AdapterError, match="input_config_sha256"):
+        builder.validate_completion(output, source_hashes, source_hashes)
+
+
+def test_candidate_sidecar_wrong_seed42_config_sha_fails_closed(tmp_path):
+    output, source_hashes, candidate = _valid_completion(tmp_path)
+    candidate["input_config_sha256"] = "f" * 64
+    (output / builder.CANDIDATE_MARKER).write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
+    with pytest.raises(builder.AdapterError, match="input_config_sha256"):
+        builder.validate_completion(output, source_hashes, source_hashes)
+
+
+def test_frozen_marker_wrong_seed_fails_closed(tmp_path):
+    output, source_hashes, candidate = _valid_completion(tmp_path)
+    frozen_path = output / builder.FROZEN_MARKER
+    frozen = json.loads(frozen_path.read_text(encoding="utf-8"))
+    frozen["seed"] = 43
+    frozen_path.write_text(json.dumps(frozen), encoding="utf-8")
+    candidate["validation_only_marker_sha256"] = _sha256(frozen_path)
+    (output / builder.CANDIDATE_MARKER).write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
+    with pytest.raises(builder.AdapterError, match="seed"):
+        builder.validate_completion(output, source_hashes, source_hashes)
+
+
 @pytest.mark.parametrize("mode", ["malformed", "missing"])
 def test_malformed_or_missing_candidate_sidecar_fails_closed(tmp_path, mode):
     output, source_hashes, _candidate = _valid_completion(tmp_path)
@@ -387,6 +466,53 @@ def test_wrong_checkpoint_class_parameters_or_q_fails_closed(
     )
     with pytest.raises(builder.AdapterError, match=match):
         builder.validate_completion(output, source_hashes, source_hashes)
+
+
+def test_self_consistent_non_best_checkpoint_metadata_fails_closed(tmp_path):
+    output, source_hashes, _candidate = _valid_completion(tmp_path)
+    metadata_path = output / "checkpoints" / "best_val_accuracy.metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "epoch": 1,
+                "validation_metrics": {
+                    "accuracy": 0.61,
+                    "macro_f1": 0.59,
+                    "loss": 1.20,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(builder.AdapterError, match="earliest.*global maximum"):
+        builder.validate_completion(output, source_hashes, source_hashes)
+
+
+def test_exact_best_accuracy_tie_requires_earliest_epoch(tmp_path):
+    output, source_hashes, candidate = _valid_completion(tmp_path)
+    history = _history()
+    history["epochs"][0]["val_accuracy"] = 0.63
+    _rewrite_history_and_marker_hashes(output, candidate, history)
+    with pytest.raises(builder.AdapterError, match="earliest.*global maximum"):
+        builder.validate_completion(output, source_hashes, source_hashes)
+
+    metadata_path = output / "checkpoints" / "best_val_accuracy.metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "epoch": 1,
+                "validation_metrics": {
+                    "accuracy": 0.63,
+                    "macro_f1": 0.59,
+                    "loss": 1.20,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    derived = builder.validate_completion(output, source_hashes, source_hashes)
+    assert derived["candidate_best_val_accuracy_epoch"] == 1
+    assert derived["checkpoint_metadata"]["epoch"] == 1
 
 
 def test_source_drift_fails_closed(tmp_path, monkeypatch):

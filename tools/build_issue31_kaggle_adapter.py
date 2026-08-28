@@ -548,9 +548,12 @@ def validate_completion(
         "test_checkpoint_loaded": False,
         "normal_full_training_completed": False,
         "boundary": "before_resolve_final_checkpoint",
+        "trainer_revision_guard_passed": True,
         "intercepted_function_restored": True,
         "trainer_source_sha256": SOURCE_LOCKS["frozen_trainer"][1],
         "scientific_payload_sha256": SCIENTIFIC_PAYLOAD_SHA256,
+        "input_config_sha256": SOURCE_LOCKS["seed42_config"][1],
+        "seed": 42,
     }
     required_candidate = {
         "training_validation_completed": True,
@@ -580,6 +583,7 @@ def validate_completion(
         "frozen_trainer_sha256": SOURCE_LOCKS["frozen_trainer"][1],
         "frozen_execution_sha256": SOURCE_LOCKS["frozen_execution"][1],
         "scientific_payload_sha256": SCIENTIFIC_PAYLOAD_SHA256,
+        "input_config_sha256": SOURCE_LOCKS["seed42_config"][1],
         "inherited_baseline_execution_contract_sha256": (
             BASELINE_EXECUTION_CONTRACT_SHA256
         ),
@@ -691,6 +695,18 @@ def validate_completion(
         raise AdapterError("Checkpoint metadata epoch invalid")
     if not isinstance(validation_metrics, dict):
         raise AdapterError("Checkpoint validation metrics missing")
+    derived = derive_registered_metrics(history)
+    if checkpoint_epoch != derived["candidate_best_val_accuracy_epoch"]:
+        raise AdapterError(
+            "Checkpoint metadata epoch is not the earliest complete-history "
+            "global maximum validation-accuracy epoch"
+        )
+    if float(validation_metrics.get("accuracy")) != derived[
+        "candidate_best_val_accuracy"
+    ]:
+        raise AdapterError(
+            "Checkpoint metadata accuracy is not the complete-history global maximum"
+        )
     selected_row = next((row for row in rows if row["epoch"] == checkpoint_epoch), None)
     if selected_row is None:
         raise AdapterError("Checkpoint epoch absent from complete history")
@@ -701,7 +717,6 @@ def validate_completion(
     ):
         if float(validation_metrics.get(key)) != float(selected_row[history_key]):
             raise AdapterError(f"Checkpoint metadata/history metric drift: {key}")
-    derived = derive_registered_metrics(history)
     derived["checkpoint_metadata"] = {
         "epoch": checkpoint_epoch,
         "validation_accuracy": float(validation_metrics["accuracy"]),
