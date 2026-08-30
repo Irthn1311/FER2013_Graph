@@ -5,6 +5,7 @@ import hashlib
 import inspect
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -64,6 +65,14 @@ def _rows(count: int = 32) -> list[dict]:
         }
         for epoch in range(1, count + 1)
     ]
+
+
+def _combined_rows(count: int) -> list[dict]:
+    rows = _rows(count)
+    for row in rows[30:]:
+        row["row_origin"] = resume.CONTINUATION_ROW_ORIGIN
+        row["continuation_protocol_id"] = resume.PROTOCOL_ID
+    return rows
 
 
 def _archive(tmp_path: Path, members: dict[str, bytes]) -> Path:
@@ -318,6 +327,9 @@ def test_original_epoch30_checkpoint_trio_is_copied_atomically(monkeypatch, tmp_
         path.write_bytes(member.encode())
         extracted[member] = path
         hashes[member] = resume.sha256_file(path)
+    hashes[resume.SOURCE_HISTORY_MEMBER] = resume.SOURCE_MEMBER_SHA256[
+        resume.SOURCE_HISTORY_MEMBER
+    ]
     monkeypatch.setattr(resume, "SOURCE_MEMBER_SHA256", hashes)
     output = resume.initialize_output(
         tmp_path / "output", extracted, _rows(30), {31: _rows()[30], 32: _rows()[31]},
@@ -570,13 +582,91 @@ def _roundtrip_controls(tmp_path, optimizer):
     return early, scheduler, policy
 
 
-def test_latest_completed_state_roundtrip_restores_model_optimizer_and_control_state(tmp_path):
+def _controls_at_epoch(output_root, optimizer, completed_epoch):
+    early, scheduler, policy = _roundtrip_controls(output_root, optimizer)
+    for epoch in range(31, completed_epoch + 1):
+        value = resume.EARLY_STATE_POST_E30["best"] + epoch / 1000.0
+        early.update(epoch, value)
+        scheduler.step(value)
+    return early, scheduler, policy
+
+
+def _prepare_generation_output(output_root: Path, completed_epoch: int) -> None:
+    output_root.mkdir(parents=True, exist_ok=True)
+    config = load_config(CONFIG)
+    resume._atomic_json(output_root / "resolved_config.json", config)
+    prefix = _rows(30)
+    resume._atomic_json(
+        output_root / "continuation_pre_run_manifest.json",
+        {
+            "schema_version": 1,
+            "protocol_id": resume.PROTOCOL_ID,
+            "source_archive_sha256": resume.EXPECTED_SOURCE_ARCHIVE_SHA256,
+            "source_history_sha256": resume.SOURCE_MEMBER_SHA256[
+                resume.SOURCE_HISTORY_MEMBER
+            ],
+            "immutable_scientific_prefix_sha256": resume.immutable_prefix_sha256(
+                prefix
+            ),
+        },
+    )
+    resume._atomic_json(
+        output_root / "history.json", {"epochs": _combined_rows(completed_epoch)}
+    )
+    checkpoint_root = output_root / "checkpoints"
+    checkpoint_root.mkdir()
+    for index, name in enumerate(resume.GENERATION_BEST_ARTIFACT_NAMES):
+        (checkpoint_root / name).write_bytes(f"best-{index}".encode())
+
+
+def _replace_combined_history(output_root: Path, completed_epoch: int) -> None:
+    resume._atomic_json(
+        output_root / "history.json", {"epochs": _combined_rows(completed_epoch)}
+    )
+
+
+def _copy_saved_state(source: Path):
+    def save_model(_model, destination):
+        shutil.copyfile(source, destination)
+
+    return save_model
+
+
+def test_optimizer_full_state_fingerprint_roundtrip_and_slot_tamper(tmp_path):
     model = _build_roundtrip_candidate()
-    early, scheduler, policy = _roundtrip_controls(tmp_path, model.optimizer)
-    (tmp_path / "checkpoints").mkdir(exist_ok=True)
-    (tmp_path / "checkpoints" / "best_val_accuracy.keras").write_bytes(b"best")
-    resume._atomic_json(tmp_path / "history.json", {"epochs": _rows(31)})
-    metadata = resume.publish_latest_completed_state(
+    before = resume.optimizer_state_fingerprint(model.optimizer)
+    state_path = tmp_path / "fingerprint.keras"
+    resume.save_model_with_optimizer(model, state_path)
+    restored = tf.keras.models.load_model(state_path, compile=True)
+    after = resume.optimizer_state_fingerprint(restored.optimizer)
+    assert before == after
+    assert before["variable_count"] == 262
+    assert len(before["variables"]) == 262
+
+    readable_before = resume.optimizer_identity(restored.optimizer)
+    slot = next(
+        variable
+        for variable in restored.optimizer.variables
+        if any(
+            token in str(getattr(variable, "path", "")).lower()
+            for token in ("momentum", "velocity")
+        )
+    )
+    slot.assign_add(tf.ones_like(slot) * tf.cast(0.125, slot.dtype))
+    readable_after = resume.optimizer_identity(restored.optimizer)
+    tampered = resume.optimizer_state_fingerprint(restored.optimizer)
+    assert readable_after == readable_before
+    assert tampered["sha256"] != before["sha256"]
+    assert tampered["variable_count"] == before["variable_count"]
+
+
+def test_generation_manifest_roundtrip_restores_fresh_model_optimizer_and_controls(
+    tmp_path,
+):
+    model = _build_roundtrip_candidate()
+    _prepare_generation_output(tmp_path, 31)
+    early, scheduler, policy = _controls_at_epoch(tmp_path, model.optimizer, 31)
+    manifest = resume.publish_latest_completed_state(
         model=model,
         completed_epoch=31,
         scheduler=scheduler,
@@ -586,73 +676,202 @@ def test_latest_completed_state_roundtrip_restores_model_optimizer_and_control_s
         output_root=tmp_path,
         source_hashes={"harness": "a" * 64},
     )
-    assert (tmp_path / resume.LATEST_STATE_NAME).is_file()
-    assert (tmp_path / resume.LATEST_STATE_METADATA_NAME).is_file()
-    assert metadata["completed_epoch"] == 31 and metadata["next_epoch"] == 32
-    assert metadata["partial_epoch"] is False and metadata["test_access"] is False
-    assert metadata["scheduler_post_step_state"] == resume.SCHEDULER_STATE_POST_E30
-    assert metadata["early_stopping_state"] == resume.EARLY_STATE_POST_E30
-    assert metadata["checkpoint_policy_state"] == resume.CHECKPOINT_POLICY_POST_E30
-    restored = tf.keras.models.load_model(tmp_path / resume.LATEST_STATE_NAME, compile=True)
-    assert resume.model_identity(restored) == resume.model_identity(model)
-    assert resume.optimizer_identity(restored.optimizer) == resume.optimizer_identity(model.optimizer)
+    manifest_path = tmp_path / resume.LATEST_STATE_MANIFEST_NAME
+    assert manifest_path.is_file()
+    assert manifest["generation_id"] == "epoch_0031"
+    assert manifest["partial_epoch"] is False and manifest["test_access"] is False
+    generation = tmp_path / manifest["generation_relative_path"]
+    assert (generation / resume.GENERATION_MODEL_NAME).is_file()
+    assert (generation / resume.GENERATION_METADATA_NAME).is_file()
+    assert (generation / resume.GENERATION_HISTORY_NAME).is_file()
+    current_best = tmp_path / "checkpoints" / "best_val_accuracy.keras"
+    current_best.write_bytes(b"partial-newer-epoch-checkpoint")
 
-
-def test_partial_or_hard_censored_next_epoch_preserves_prior_latest_complete_state(tmp_path):
-    model = _build_roundtrip_candidate()
-    early, scheduler, policy = _roundtrip_controls(tmp_path, model.optimizer)
-    (tmp_path / "checkpoints").mkdir(exist_ok=True)
-    (tmp_path / "checkpoints" / "best_val_accuracy.keras").write_bytes(b"best")
-    resume._atomic_json(tmp_path / "history.json", {"epochs": _rows(31)})
-    resume.publish_latest_completed_state(
-        model=model,
-        completed_epoch=31,
-        scheduler=scheduler,
-        early=early,
-        policy=policy,
-        history_path=tmp_path / "history.json",
-        output_root=tmp_path,
-        source_hashes={"harness": "a" * 64},
+    restored = resume.load_latest_completed_state(tmp_path)
+    assert restored.model is not model
+    assert restored.optimizer is not model.optimizer
+    assert restored.early is not early
+    assert restored.scheduler is not scheduler
+    assert restored.policy is not policy
+    assert restored.completed_epoch == 31 and restored.next_epoch == 32
+    assert restored.early.get_state() == early.get_state()
+    assert restored.scheduler.get_state() == scheduler.get_state()
+    assert resume.checkpoint_policy_state(restored.policy) == resume.checkpoint_policy_state(
+        policy
     )
-    before_model = resume.sha256_file(tmp_path / resume.LATEST_STATE_NAME)
-    before_metadata = resume.sha256_file(tmp_path / resume.LATEST_STATE_METADATA_NAME)
-    model.learned_local_residual_slots.Q.assign_add(
-        tf.ones_like(model.learned_local_residual_slots.Q)
+    assert resume.optimizer_state_fingerprint(restored.optimizer) == (
+        resume.optimizer_state_fingerprint(model.optimizer)
     )
-    # Simulated hard censor during the next epoch: publisher is never reached.
-    assert resume.sha256_file(tmp_path / resume.LATEST_STATE_NAME) == before_model
-    assert resume.sha256_file(tmp_path / resume.LATEST_STATE_METADATA_NAME) == before_metadata
-    assert json.loads((tmp_path / resume.LATEST_STATE_METADATA_NAME).read_text())[
-        "completed_epoch"
-    ] == 31
+    assert [row["epoch"] for row in restored.history] == list(range(1, 32))
+    assert len(restored.best_checkpoint_paths) == 3
+    canonical_best = (
+        generation
+        / resume.GENERATION_BEST_DIRECTORY_NAME
+        / "best_val_accuracy.keras"
+    )
+    assert resume.sha256_file(current_best) == resume.sha256_file(canonical_best)
 
 
-def test_latest_state_not_published_when_temporary_save_fails(tmp_path):
+def test_generation_atomicity_fault_injection_preserves_epoch31_manifest(tmp_path):
     model = _build_roundtrip_candidate()
-    early, scheduler, policy = _roundtrip_controls(tmp_path, model.optimizer)
-    (tmp_path / "checkpoints").mkdir(exist_ok=True)
-    (tmp_path / "checkpoints" / "best_val_accuracy.keras").write_bytes(b"best")
-    resume._atomic_json(tmp_path / "history.json", {"epochs": _rows(31)})
+    cached_state = tmp_path / "cached.keras"
+    resume.save_model_with_optimizer(model, cached_state)
+    save_cached = _copy_saved_state(cached_state)
 
-    def fail_save(model, path):
-        Path(path).write_bytes(b"partial")
-        raise OSError("censored")
-
-    with pytest.raises(OSError, match="censored"):
+    scenarios = (
+        "before_generation_publish",
+        "after_generation_publish_before_manifest_write",
+        "during_temporary_manifest_write",
+    )
+    for scenario in scenarios:
+        output = tmp_path / scenario
+        _prepare_generation_output(output, 31)
+        early31, scheduler31, policy31 = _controls_at_epoch(output, model.optimizer, 31)
         resume.publish_latest_completed_state(
             model=model,
             completed_epoch=31,
-            scheduler=scheduler,
-            early=early,
-            policy=policy,
-            history_path=tmp_path / "history.json",
-            output_root=tmp_path,
+            scheduler=scheduler31,
+            early=early31,
+            policy=policy31,
+            history_path=output / "history.json",
+            output_root=output,
             source_hashes={},
-            save_model=fail_save,
+            save_model=save_cached,
         )
-    assert not (tmp_path / resume.LATEST_STATE_NAME).exists()
-    assert not (tmp_path / resume.LATEST_STATE_METADATA_NAME).exists()
-    assert not list(tmp_path.glob(".latest_state*"))
+        manifest_path = output / resume.LATEST_STATE_MANIFEST_NAME
+        manifest_before = manifest_path.read_bytes()
+        _replace_combined_history(output, 32)
+        early32, scheduler32, policy32 = _controls_at_epoch(output, model.optimizer, 32)
+
+        def fault(point):
+            if point == scenario:
+                raise OSError(f"injected {scenario}")
+
+        def partial_manifest_writer(path, payload):
+            del payload
+            Path(path).write_bytes(b'{"partial":')
+            raise OSError("injected during_temporary_manifest_write")
+
+        with pytest.raises(OSError, match="injected"):
+            resume.publish_latest_completed_state(
+                model=model,
+                completed_epoch=32,
+                scheduler=scheduler32,
+                early=early32,
+                policy=policy32,
+                history_path=output / "history.json",
+                output_root=output,
+                source_hashes={},
+                save_model=save_cached,
+                fault_injector=(None if scenario.startswith("during") else fault),
+                manifest_writer=(
+                    partial_manifest_writer
+                    if scenario.startswith("during")
+                    else resume._write_json_fsync
+                ),
+            )
+        assert manifest_path.read_bytes() == manifest_before
+        restored = resume.load_latest_completed_state(output)
+        assert restored.completed_epoch == 31 and restored.next_epoch == 32
+        assert restored.generation_path.name == "epoch_0031"
+        epoch32 = output / resume.LATEST_STATES_DIRECTORY_NAME / "epoch_0032"
+        assert epoch32.exists() is (scenario != "before_generation_publish")
+
+
+def test_successful_manifest_switch_restores_epoch32_and_rejects_mixed_generation(
+    tmp_path,
+):
+    model = _build_roundtrip_candidate()
+    _prepare_generation_output(tmp_path, 31)
+    early31, scheduler31, policy31 = _controls_at_epoch(tmp_path, model.optimizer, 31)
+    resume.publish_latest_completed_state(
+        model=model,
+        completed_epoch=31,
+        scheduler=scheduler31,
+        early=early31,
+        policy=policy31,
+        history_path=tmp_path / "history.json",
+        output_root=tmp_path,
+        source_hashes={},
+    )
+    _replace_combined_history(tmp_path, 32)
+    early32, scheduler32, policy32 = _controls_at_epoch(tmp_path, model.optimizer, 32)
+    resume.publish_latest_completed_state(
+        model=model,
+        completed_epoch=32,
+        scheduler=scheduler32,
+        early=early32,
+        policy=policy32,
+        history_path=tmp_path / "history.json",
+        output_root=tmp_path,
+        source_hashes={},
+    )
+    restored = resume.load_latest_completed_state(tmp_path)
+    assert restored.completed_epoch == 32 and restored.next_epoch == 33
+    assert (tmp_path / resume.LATEST_STATES_DIRECTORY_NAME / "epoch_0031").is_dir()
+    assert (tmp_path / resume.LATEST_STATES_DIRECTORY_NAME / "epoch_0032").is_dir()
+
+    manifest_path = tmp_path / resume.LATEST_STATE_MANIFEST_NAME
+    mixed = resume._json_object(manifest_path, "manifest")
+    mixed["metadata_relative_path"] = (
+        f"{resume.LATEST_STATES_DIRECTORY_NAME}/epoch_0031/"
+        f"{resume.GENERATION_METADATA_NAME}"
+    )
+    resume._atomic_json(manifest_path, mixed)
+    with pytest.raises(resume.CheckpointContinuationError, match="generation path drift"):
+        resume.load_latest_completed_state(tmp_path)
+
+
+def test_loader_rejects_path_traversal_and_source_first_run_epoch31(tmp_path):
+    with pytest.raises(
+        resume.CheckpointContinuationError, match="non-continuation row"
+    ):
+        resume.validate_combined_history({"epochs": _rows(31)}, 31)
+    output = tmp_path.resolve()
+    with pytest.raises(resume.CheckpointContinuationError, match="path traversal"):
+        resume._resolve_relative_under(output, "../outside.keras", "model")
+
+
+def test_loader_rejects_rehashed_model_with_tampered_optimizer_slot(tmp_path):
+    model = _build_roundtrip_candidate()
+    _prepare_generation_output(tmp_path, 31)
+    early, scheduler, policy = _controls_at_epoch(tmp_path, model.optimizer, 31)
+    manifest = resume.publish_latest_completed_state(
+        model=model,
+        completed_epoch=31,
+        scheduler=scheduler,
+        early=early,
+        policy=policy,
+        history_path=tmp_path / "history.json",
+        output_root=tmp_path,
+        source_hashes={},
+    )
+    model_path = tmp_path / manifest["model_relative_path"]
+    tampered_model = tf.keras.models.load_model(model_path, compile=True)
+    readable_before = resume.optimizer_identity(tampered_model.optimizer)
+    slot = next(
+        variable
+        for variable in tampered_model.optimizer.variables
+        if "momentum" in str(getattr(variable, "path", "")).lower()
+    )
+    slot.assign_add(tf.ones_like(slot) * tf.cast(0.25, slot.dtype))
+    assert resume.optimizer_identity(tampered_model.optimizer) == readable_before
+    temporary_model = model_path.with_name("tampered.keras")
+    resume.save_model_with_optimizer(tampered_model, temporary_model)
+    temporary_model.replace(model_path)
+
+    metadata_path = tmp_path / manifest["metadata_relative_path"]
+    metadata = resume._json_object(metadata_path, "metadata")
+    metadata["state_keras_sha256"] = resume.sha256_file(model_path)
+    resume._atomic_json(metadata_path, metadata)
+    manifest["model_sha256"] = resume.sha256_file(model_path)
+    manifest["metadata_sha256"] = resume.sha256_file(metadata_path)
+    resume._atomic_json(tmp_path / resume.LATEST_STATE_MANIFEST_NAME, manifest)
+    with pytest.raises(
+        resume.CheckpointContinuationError,
+        match="full optimizer state fingerprint drift",
+    ):
+        resume.load_latest_completed_state(tmp_path)
 
 
 def test_no_test_lifecycle_or_scientific_outcome_is_implemented():

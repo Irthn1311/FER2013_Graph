@@ -32,7 +32,8 @@ produced for this implementation PR.
 - frozen scientific payload: `286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e`
 - baseline execution contract: `14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22`
 - seed42 config: `aa3bf2d3932bbad6c5f8cdcc347f4a9866e2c027d6135a60b5002a8f6a3b6908`
-- continuation harness at implementation-test close: `0618df63e6bad0239ddf6d7a1b6500da53adfd867099258ed25b0d60ba4a8cdc`
+- initial continuation harness reviewed at PR head `c48da2915a92988c1c9e7ae304e75cd4a427f242`: `0618df63e6bad0239ddf6d7a1b6500da53adfd867099258ed25b0d60ba4a8cdc`
+- generation-atomic hardening harness: `db66871ad7135460622a13a97fe17a03bd9acf0e1af25a82a3ffc79453719d0d`
 
 ## Implemented fail-closed contract
 
@@ -67,27 +68,54 @@ select a checkpoint, or alter the endpoint. Generator epoch arguments begin at
 early update, checkpoint update, scheduler step, history persistence, summary,
 then completed-state publication and stop handling.
 
-After each fully completed resumed epoch, a temporary Keras model with optimizer
-is reloaded and identity-checked before `latest_state.keras` and its metadata
-are published. A partial next epoch never invokes publication, preserving the
-prior fully completed state. The metadata records model/Q/optimizer identities,
-post-step controls, combined-history and best-checkpoint hashes, source hashes,
-`partial_epoch=false`, and `test_access=false`.
+## Review hardening before runtime authorization
+
+The initial PR implementation used sequential replacement of
+`latest_state.keras` and `latest_state.metadata.json`. Research-lead review
+`5060386356` correctly blocked that two-file publication because a kill between
+the replacements could create a mixed generation. Before any runtime
+authorization, publication was hardened to immutable
+`latest_states/epoch_NNNN/` generations plus one atomically replaced
+`latest_state_manifest.json`. The manifest replacement is the only canonical
+commit point. Generation snapshots include the model+optimizer, metadata,
+combined history, and the complete current best-validation-accuracy checkpoint
+trio. Previous generations remain immutable and available.
+
+Every publication fingerprints all 262 optimizer variables in stable position
+order using shape, original dtype, and contiguous raw tensor bytes, while also
+recording variable name/path and each value digest. The full digest covers
+LossScaleOptimizer state and AdamW moments and must match exactly after Keras
+reload. Class, iterations, variable count, and LR remain separate readable
+guards.
+
+`load_latest_completed_state()` resolves only through the atomic manifest,
+rejects traversal and mixed generations, verifies all generation/history/best
+checkpoint hashes, reloads the model with `compile=True`, verifies the full
+optimizer fingerprint, and reconstructs fresh early-stopping, scheduler, and
+checkpoint-policy objects. The immutable generation history requires source
+epochs 1–30 plus explicitly provenance-marked continuation rows from epoch 31;
+source first-run rows 31/32 cannot be substituted. If a hard censor leaves a
+newer partial root checkpoint, the loader restores the canonical best trio from
+the referenced immutable generation.
 
 ## Bounded verification
 
-The focused suite completed with 33 passing tests. Coverage includes archive
+The hardened focused suite completed with 36 passing tests. Coverage includes archive
 and member SHA rejection, immutable epoch 1–30 prefix, exclusion/preservation
 of first-run epochs 31–32, model/Q/optimizer identity guards, exact control
 reconstruction without duplicate scheduler stepping, atomic epoch-30 checkpoint
 copy, pre-train gate PASS/failure cases, actual epoch 31/32 generator arguments,
 candidate G1-A Q update, optimizer iteration advance, frozen epoch-body order,
-latest-state Keras roundtrip, control-state roundtrip, partial-save rejection,
-hard-censor preservation, absence of a test lifecycle, absence of test
-artifacts, frozen-package diff, and `git diff --check`.
+full optimizer-variable Keras roundtrip, optimizer-slot tamper rejection,
+generation publication fault injection before generation publish, after
+generation publish but before manifest replacement, and during manifest write,
+fresh control-state restoration, mixed-generation/path-traversal rejection,
+canonical best-checkpoint recovery, hard-censor preservation, absence of a test
+lifecycle, absence of test artifacts, frozen-package diff, and
+`git diff --check`.
 
 The combined focused/candidate/checkpoint/control regression selection completed
-with 70 passing tests. Parent-import and PyTorch-runtime isolation completed
+with 73 passing tests. Parent-import and PyTorch-runtime isolation completed
 with 2 passing tests. Frozen package checksum verification reported
 `PASS checked=267 failures=0`; the frozen-package diff from the exact base was
 empty.
@@ -100,8 +128,8 @@ accepted update and Q change without running FER training.
 
 Expected continuation-only artifacts include the combined history, pre-train
 validation gate, original overlap source and per-epoch overlap diagnostics,
-epoch-30 or improved best-validation-accuracy checkpoint, atomic latest
-completed state and metadata, telemetry, and a
+epoch-30 or improved best-validation-accuracy checkpoint, immutable latest-state
+generation directories, the atomic latest-state manifest, telemetry, and a
 `CHECKPOINT_CONTINUATION_VALIDATION_ONLY_COMPLETE.json` marker. No test
 generator, test inference, prediction, confusion-matrix, final-test checkpoint
 resolution, or `TRAINING_COMPLETE.json` path exists in the harness.

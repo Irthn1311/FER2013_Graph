@@ -9,6 +9,7 @@ checkpoint-conditioned restart, not a bitwise-uninterrupted seed42 run.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import json
 import os
@@ -17,6 +18,7 @@ import shutil
 import sys
 import time
 from typing import Any, Callable, Sequence
+import uuid
 import zipfile
 
 import numpy as np
@@ -191,8 +193,18 @@ REGISTERED_RESOURCE_VALUES = {
 COMPLETION_MARKER_NAME = "CHECKPOINT_CONTINUATION_VALIDATION_ONLY_COMPLETE.json"
 FAILURE_MARKER_NAME = "CHECKPOINT_CONTINUATION_TECHNICAL_FAILURE.json"
 OVERLAP_SOURCE_NAME = "FIRST_RUN_OVERLAP_DIAGNOSTICS.json"
-LATEST_STATE_NAME = "latest_state.keras"
-LATEST_STATE_METADATA_NAME = "latest_state.metadata.json"
+LATEST_STATES_DIRECTORY_NAME = "latest_states"
+LATEST_STATE_MANIFEST_NAME = "latest_state_manifest.json"
+GENERATION_MODEL_NAME = "state.keras"
+GENERATION_METADATA_NAME = "state.metadata.json"
+GENERATION_HISTORY_NAME = "history.json"
+GENERATION_BEST_DIRECTORY_NAME = "best_val_accuracy"
+GENERATION_BEST_ARTIFACT_NAMES = (
+    "best_val_accuracy.keras",
+    "best_val_accuracy.weights.h5",
+    "best_val_accuracy.metadata.json",
+)
+CONTINUATION_ROW_ORIGIN = "CHECKPOINT_CONDITIONED_CONTINUATION"
 PROGRESS_INTERVAL_BATCHES = 100
 FORBIDDEN_ARTIFACT_NAMES = (
     "TRAINING_COMPLETE.json",
@@ -255,6 +267,58 @@ def _atomic_json(path: str | Path, payload: dict[str, Any]) -> None:
         newline="",
     )
     os.replace(temporary, path)
+
+
+def _write_json_fsync(path: str | Path, payload: dict[str, Any]) -> None:
+    """Write a complete JSON file and fsync it before publication."""
+
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as stream:
+        stream.write(
+            json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
+        )
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def _fsync_directory(path: str | Path) -> None:
+    """Best-effort directory fsync on runtimes that support it."""
+
+    try:
+        descriptor = os.open(Path(path), os.O_RDONLY)
+    except (OSError, TypeError):
+        return
+    try:
+        os.fsync(descriptor)
+    except OSError:
+        pass
+    finally:
+        os.close(descriptor)
+
+
+def _canonical_json_sha256(value: Any) -> str:
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _resolve_relative_under(
+    output_root: str | Path, relative_path: Any, label: str
+) -> Path:
+    root = Path(output_root).expanduser().resolve()
+    if not isinstance(relative_path, str) or not relative_path:
+        raise CheckpointContinuationError(f"{label} relative path is invalid")
+    relative = Path(relative_path)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise CheckpointContinuationError(f"{label} path traversal rejected")
+    resolved = (root / relative).resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise CheckpointContinuationError(f"{label} escaped output root") from exc
+    return resolved
 
 
 def _atomic_copy(source: str | Path, destination: str | Path) -> None:
@@ -435,6 +499,46 @@ def optimizer_identity(optimizer: Any) -> dict[str, Any]:
         "iterations": int(optimizer.iterations.numpy()),
         "variable_count": len(optimizer.variables),
         "learning_rate": _optimizer_lr(optimizer),
+    }
+
+
+def optimizer_state_fingerprint(optimizer: Any) -> dict[str, Any]:
+    """Fingerprint every optimizer tensor without dtype conversion."""
+
+    digest = hashlib.sha256()
+    variables: list[dict[str, Any]] = []
+    for index, variable in enumerate(optimizer.variables):
+        array = np.asarray(variable.numpy())
+        contiguous = np.ascontiguousarray(array)
+        if contiguous.dtype != array.dtype:
+            raise CheckpointContinuationError(
+                f"Optimizer variable {index} dtype changed during fingerprinting"
+            )
+        raw = contiguous.tobytes(order="C")
+        metadata = {
+            "index": int(index),
+            "shape": list(array.shape),
+            "dtype": str(array.dtype),
+        }
+        canonical_metadata = json.dumps(
+            metadata, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode("utf-8")
+        digest.update(len(canonical_metadata).to_bytes(8, "big"))
+        digest.update(canonical_metadata)
+        digest.update(len(raw).to_bytes(8, "big"))
+        digest.update(raw)
+        variables.append(
+            {
+                **metadata,
+                "name": str(getattr(variable, "name", "")),
+                "path": str(getattr(variable, "path", "")),
+                "value_sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+    return {
+        "sha256": digest.hexdigest(),
+        "variable_count": len(variables),
+        "variables": variables,
     }
 
 
@@ -642,6 +746,39 @@ def overlap_diagnostic(
     }
 
 
+def immutable_prefix_sha256(rows: Sequence[dict[str, Any]]) -> str:
+    if len(rows) < RESUME_EPOCH:
+        raise CheckpointContinuationError("History lacks immutable epochs 1..30")
+    prefix = list(rows[:RESUME_EPOCH])
+    if [row.get("epoch") for row in prefix] != list(range(1, RESUME_EPOCH + 1)):
+        raise CheckpointContinuationError("Immutable history prefix drift")
+    return _canonical_json_sha256(prefix)
+
+
+def validate_combined_history(
+    history_payload: dict[str, Any], completed_epoch: int
+) -> list[dict[str, Any]]:
+    epochs = history_payload.get("epochs")
+    if not isinstance(epochs, list) or len(epochs) != int(completed_epoch):
+        raise CheckpointContinuationError(
+            "Combined history length does not match completed epoch"
+        )
+    if any(not isinstance(row, dict) for row in epochs):
+        raise CheckpointContinuationError("Combined history rows must be objects")
+    if [row.get("epoch") for row in epochs] != list(range(1, completed_epoch + 1)):
+        raise CheckpointContinuationError("Combined history epochs are not contiguous")
+    immutable_prefix_sha256(epochs)
+    for row in epochs[RESUME_EPOCH:]:
+        if (
+            row.get("row_origin") != CONTINUATION_ROW_ORIGIN
+            or row.get("continuation_protocol_id") != PROTOCOL_ID
+        ):
+            raise CheckpointContinuationError(
+                "Combined history contains a non-continuation row after epoch30"
+            )
+    return epochs
+
+
 def initialize_output(
     output_root: str | Path,
     extracted: dict[str, Path],
@@ -678,9 +815,7 @@ def initialize_output(
         },
     )
     _atomic_copy(extracted[SOURCE_CONFIG_MEMBER], output_root / "source_resolved_config.json")
-    _atomic_json(
-        output_root / "continuation_pre_run_manifest.json",
-        {
+    pre_run_manifest = {
             "schema_version": 1,
             "protocol_id": PROTOCOL_ID,
             "implementation_base": IMPLEMENTATION_BASE,
@@ -693,6 +828,8 @@ def initialize_output(
             "input_config_sha256": EXPECTED_SEED42_CONFIG_SHA256,
             "source_code_sha256": source_hashes,
             "scientific_prefix_epochs": [1, 30],
+            "immutable_scientific_prefix_sha256": immutable_prefix_sha256(prefix),
+            "source_history_sha256": SOURCE_MEMBER_SHA256[SOURCE_HISTORY_MEMBER],
             "first_run_overlap_epochs": [31, 32],
             "first_run_overlap_is_diagnostic_only": True,
             "original_step12_scientific_result_valid": False,
@@ -701,33 +838,51 @@ def initialize_output(
             "scientific_interpretation": None,
             "training_started": False,
             "test_access": False,
-        },
-    )
+        }
+    _atomic_json(output_root / "continuation_pre_run_manifest.json", pre_run_manifest)
     return output_root
+
+
+def _best_checkpoint_paths(output_root: Path) -> dict[str, Path]:
+    checkpoint_root = output_root / "checkpoints"
+    paths = {
+        name: checkpoint_root / name for name in GENERATION_BEST_ARTIFACT_NAMES
+    }
+    missing = [name for name, path in paths.items() if not path.is_file()]
+    if missing:
+        raise CheckpointContinuationError(
+            f"Current best-validation checkpoint artifacts missing: {missing}"
+        )
+    return paths
 
 
 def _latest_state_metadata(
     *,
     model: Any,
     model_sha256: str,
+    optimizer_fingerprint: dict[str, Any],
     completed_epoch: int,
     scheduler: TorchCompatibleReduceLROnPlateau,
     early: ValidationLossEarlyStopping,
     policy: CheckpointPolicy,
-    history_path: Path,
+    combined_history_sha256: str,
+    immutable_prefix_sha: str,
+    generation_relative_path: str,
+    best_artifact_sha256: dict[str, str],
     output_root: Path,
     source_hashes: dict[str, str],
 ) -> dict[str, Any]:
     identity = model_identity(model)
     optimizer_state = optimizer_identity(model.optimizer)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "continuation_protocol_id": PROTOCOL_ID,
         "stochastic_continuation": STOCHASTIC_CONTINUATION,
         "source_archive_sha256": EXPECTED_SOURCE_ARCHIVE_SHA256,
         "source_checkpoint_sha256": SOURCE_MEMBER_SHA256[SOURCE_CHECKPOINT_MEMBER],
         "completed_epoch": int(completed_epoch),
         "next_epoch": int(completed_epoch) + 1,
+        "generation_relative_path": generation_relative_path,
         "model_class": identity["class"],
         "model_parameter_count": identity["parameter_count"],
         "model_trainable_variable_count": identity["trainable_variable_count"],
@@ -735,18 +890,23 @@ def _latest_state_metadata(
         "q_shape": identity["q_shape"],
         "q_dtype": identity["q_dtype"],
         "q_flat_float32_sha256": identity["q_flat_float32_sha256"],
-        "latest_state_keras_sha256": model_sha256,
+        "state_keras_sha256": model_sha256,
         "optimizer_class": optimizer_state["class"],
         "optimizer_iterations": optimizer_state["iterations"],
         "optimizer_variable_count": optimizer_state["variable_count"],
         "optimizer_learning_rate": optimizer_state["learning_rate"],
+        "optimizer_state_sha256": optimizer_fingerprint["sha256"],
+        "optimizer_state_fingerprint": optimizer_fingerprint,
         "scheduler_post_step_state": scheduler.get_state(),
         "early_stopping_state": early.get_state(),
         "checkpoint_policy_state": checkpoint_policy_state(policy),
-        "combined_history_sha256": sha256_file(history_path),
-        "best_val_accuracy_checkpoint_sha256": sha256_file(
-            output_root / "checkpoints" / "best_val_accuracy.keras"
+        "combined_history_sha256": combined_history_sha256,
+        "immutable_scientific_prefix_sha256": immutable_prefix_sha,
+        "continuation_pre_run_manifest_sha256": sha256_file(
+            output_root / "continuation_pre_run_manifest.json"
         ),
+        "resolved_config_sha256": sha256_file(output_root / "resolved_config.json"),
+        "best_val_accuracy_artifact_sha256": best_artifact_sha256,
         "source_code_sha256": source_hashes,
         "scientific_result_valid": False,
         "scientific_interpretation": None,
@@ -767,61 +927,425 @@ def publish_latest_completed_state(
     source_hashes: dict[str, str],
     save_model: Callable[[Any, Path], None] = save_model_with_optimizer,
     load_model: Callable[..., Any] = tf.keras.models.load_model,
+    fault_injector: Callable[[str], None] | None = None,
+    manifest_writer: Callable[[Path, dict[str, Any]], None] = _write_json_fsync,
 ) -> dict[str, Any]:
-    """Verify a temporary full state before replacing the last complete epoch."""
+    """Publish one immutable generation, then atomically switch one manifest."""
 
-    output_root = Path(output_root)
-    history_path = Path(history_path)
-    published_model = output_root / LATEST_STATE_NAME
-    published_metadata = output_root / LATEST_STATE_METADATA_NAME
-    temporary_model = output_root / f".{LATEST_STATE_NAME}.tmp.keras"
-    temporary_metadata = output_root / f".{LATEST_STATE_METADATA_NAME}.tmp"
-    temporary_model.unlink(missing_ok=True)
-    temporary_metadata.unlink(missing_ok=True)
+    completed_epoch = int(completed_epoch)
+    if completed_epoch < FIRST_CONTINUATION_EPOCH:
+        raise CheckpointContinuationError("Latest generation must be epoch31 or later")
+    output_root = Path(output_root).expanduser().resolve()
+    history_path = Path(history_path).expanduser().resolve()
+    history_payload = _json_object(history_path, "combined continuation history")
+    history_rows = validate_combined_history(history_payload, completed_epoch)
+    if scheduler.get_state().get("last_epoch") != completed_epoch:
+        raise CheckpointContinuationError(
+            "Scheduler post-step epoch does not match completed generation"
+        )
+    policy_state = checkpoint_policy_state(policy)
+    if any(
+        int(policy_state[key]) > completed_epoch
+        for key in ("best_macro_epoch", "best_accuracy_epoch")
+    ):
+        raise CheckpointContinuationError("Checkpoint-policy epoch exceeds generation")
+    prefix_sha = immutable_prefix_sha256(history_rows)
+    pre_run_manifest_path = output_root / "continuation_pre_run_manifest.json"
+    pre_run_manifest = _json_object(pre_run_manifest_path, "continuation pre-run manifest")
+    if (
+        pre_run_manifest.get("immutable_scientific_prefix_sha256") != prefix_sha
+        or pre_run_manifest.get("source_history_sha256")
+        != SOURCE_MEMBER_SHA256[SOURCE_HISTORY_MEMBER]
+    ):
+        raise CheckpointContinuationError("Immutable scientific history prefix drift")
+    resolved_config_path = output_root / "resolved_config.json"
+    if not resolved_config_path.is_file():
+        raise CheckpointContinuationError("Resolved continuation config missing")
+
     expected_optimizer = optimizer_identity(model.optimizer)
-    expected_q = _q_digest(model)
+    expected_optimizer_fingerprint = optimizer_state_fingerprint(model.optimizer)
+    if expected_optimizer_fingerprint["variable_count"] != expected_optimizer["variable_count"]:
+        raise CheckpointContinuationError("Optimizer fingerprint variable-count drift")
+    expected_model = model_identity(model)
+
+    generation_id = f"epoch_{completed_epoch:04d}"
+    states_root = output_root / LATEST_STATES_DIRECTORY_NAME
+    states_root.mkdir(parents=True, exist_ok=True)
+    generation_relative = Path(LATEST_STATES_DIRECTORY_NAME) / generation_id
+    generation_path = output_root / generation_relative
+    if generation_path.exists():
+        raise CheckpointContinuationError(
+            f"Completed latest-state generation already exists: {generation_id}"
+        )
+    temporary_generation = states_root / f".{generation_id}.{uuid.uuid4().hex}.tmp"
+    temporary_manifest = output_root / (
+        f".{LATEST_STATE_MANIFEST_NAME}.{uuid.uuid4().hex}.tmp"
+    )
+    generation_published = False
     try:
+        temporary_generation.mkdir(parents=False, exist_ok=False)
+        temporary_model = temporary_generation / GENERATION_MODEL_NAME
+        temporary_history = temporary_generation / GENERATION_HISTORY_NAME
+        temporary_metadata = temporary_generation / GENERATION_METADATA_NAME
         save_model(model, temporary_model)
         restored = load_model(temporary_model, compile=True)
         restored_model, restored_optimizer = verify_model_optimizer_identity(
             restored,
-            expected_q_sha256=expected_q,
+            expected_q_sha256=expected_model["q_flat_float32_sha256"],
             expected_iterations=expected_optimizer["iterations"],
             expected_optimizer_variable_count=expected_optimizer["variable_count"],
             expected_lr=expected_optimizer["learning_rate"],
         )
-        if restored_model != model_identity(model) or restored_optimizer != expected_optimizer:
-            raise CheckpointContinuationError("Latest-state roundtrip identity drift")
+        restored_fingerprint = optimizer_state_fingerprint(restored.optimizer)
+        if (
+            restored_model != expected_model
+            or restored_optimizer != expected_optimizer
+            or restored_fingerprint != expected_optimizer_fingerprint
+        ):
+            raise CheckpointContinuationError(
+                "Latest-state full model/optimizer roundtrip identity drift"
+            )
         model_sha = sha256_file(temporary_model)
+        _atomic_copy(history_path, temporary_history)
+        history_sha = sha256_file(temporary_history)
+
+        best_snapshot_root = temporary_generation / GENERATION_BEST_DIRECTORY_NAME
+        best_snapshot_root.mkdir()
+        best_artifact_sha: dict[str, str] = {}
+        for name, source in _best_checkpoint_paths(output_root).items():
+            destination = best_snapshot_root / name
+            _atomic_copy(source, destination)
+            relative = (
+                generation_relative
+                / GENERATION_BEST_DIRECTORY_NAME
+                / name
+            ).as_posix()
+            best_artifact_sha[relative] = sha256_file(destination)
+
         metadata = _latest_state_metadata(
             model=model,
             model_sha256=model_sha,
+            optimizer_fingerprint=expected_optimizer_fingerprint,
             completed_epoch=completed_epoch,
             scheduler=scheduler,
             early=early,
             policy=policy,
-            history_path=history_path,
+            combined_history_sha256=history_sha,
+            immutable_prefix_sha=prefix_sha,
+            generation_relative_path=generation_relative.as_posix(),
+            best_artifact_sha256=best_artifact_sha,
             output_root=output_root,
             source_hashes=source_hashes,
         )
-        temporary_metadata.write_text(
-            json.dumps(metadata, indent=2, sort_keys=True, ensure_ascii=True) + "\n",
-            encoding="utf-8",
-            newline="",
-        )
-        parsed = _json_object(temporary_metadata, "temporary latest-state metadata")
-        if parsed != metadata or parsed["latest_state_keras_sha256"] != model_sha:
+        _write_json_fsync(temporary_metadata, metadata)
+        if _json_object(temporary_metadata, "temporary state metadata") != metadata:
             raise CheckpointContinuationError("Latest-state metadata verification failed")
-        # Both files have been fully written and verified.  A partial next epoch
-        # never reaches these replacements, so the preceding complete state stays.
-        os.replace(temporary_model, published_model)
-        os.replace(temporary_metadata, published_metadata)
-        if sha256_file(published_model) != metadata["latest_state_keras_sha256"]:
-            raise CheckpointContinuationError("Published latest-state SHA drift")
-        return metadata
+        metadata_sha = sha256_file(temporary_metadata)
+        if fault_injector is not None:
+            fault_injector("before_generation_publish")
+
+        os.replace(temporary_generation, generation_path)
+        generation_published = True
+        _fsync_directory(states_root)
+        if fault_injector is not None:
+            fault_injector("after_generation_publish_before_manifest_write")
+
+        manifest = {
+            "schema_version": 1,
+            "continuation_protocol_id": PROTOCOL_ID,
+            "generation_id": generation_id,
+            "completed_epoch": completed_epoch,
+            "next_epoch": completed_epoch + 1,
+            "generation_relative_path": generation_relative.as_posix(),
+            "model_relative_path": (
+                generation_relative / GENERATION_MODEL_NAME
+            ).as_posix(),
+            "metadata_relative_path": (
+                generation_relative / GENERATION_METADATA_NAME
+            ).as_posix(),
+            "history_relative_path": (
+                generation_relative / GENERATION_HISTORY_NAME
+            ).as_posix(),
+            "model_sha256": model_sha,
+            "metadata_sha256": metadata_sha,
+            "combined_history_sha256": history_sha,
+            "optimizer_state_sha256": expected_optimizer_fingerprint["sha256"],
+            "partial_epoch": False,
+            "test_access": False,
+        }
+        manifest_writer(temporary_manifest, manifest)
+        if fault_injector is not None:
+            fault_injector("after_temporary_manifest_write")
+        if _json_object(temporary_manifest, "temporary latest-state manifest") != manifest:
+            raise CheckpointContinuationError("Temporary latest-state manifest drift")
+        os.replace(temporary_manifest, output_root / LATEST_STATE_MANIFEST_NAME)
+        _fsync_directory(output_root)
+        if fault_injector is not None:
+            fault_injector("after_manifest_replace")
+        return manifest
     finally:
-        temporary_model.unlink(missing_ok=True)
-        temporary_metadata.unlink(missing_ok=True)
+        temporary_manifest.unlink(missing_ok=True)
+        if not generation_published and temporary_generation.exists():
+            shutil.rmtree(temporary_generation)
+
+
+@dataclass(frozen=True)
+class LatestCompletedState:
+    model: Any
+    optimizer: Any
+    early: ValidationLossEarlyStopping
+    scheduler: TorchCompatibleReduceLROnPlateau
+    policy: CheckpointPolicy
+    history: list[dict[str, Any]]
+    completed_epoch: int
+    next_epoch: int
+    generation_path: Path
+    best_checkpoint_paths: dict[str, Path]
+
+
+def _reconstruct_saved_controls(
+    *, optimizer: Any, config: dict[str, Any], output_root: Path, metadata: dict[str, Any]
+) -> tuple[ValidationLossEarlyStopping, TorchCompatibleReduceLROnPlateau, CheckpointPolicy]:
+    early_cfg = config["training"]["early_stopping"]
+    early = ValidationLossEarlyStopping(
+        min_epochs=int(early_cfg["min_epochs_before_stop"]),
+        patience=int(early_cfg["patience"]),
+    )
+    early.set_state(dict(metadata["early_stopping_state"]))
+    scheduler_cfg = config["training"]["scheduler"]
+    scheduler = TorchCompatibleReduceLROnPlateau(
+        optimizer,
+        mode=scheduler_cfg["mode"],
+        factor=scheduler_cfg["factor"],
+        patience=scheduler_cfg["patience"],
+        threshold=scheduler_cfg["threshold"],
+        min_lr=scheduler_cfg["min_lr"],
+    )
+    scheduler.set_state(dict(metadata["scheduler_post_step_state"]))
+    policy = CheckpointPolicy(output_root)
+    for key, value in dict(metadata["checkpoint_policy_state"]).items():
+        setattr(policy, key, value)
+    if early.get_state() != metadata["early_stopping_state"]:
+        raise CheckpointContinuationError("Restored early-stopping state drift")
+    if scheduler.get_state() != metadata["scheduler_post_step_state"]:
+        raise CheckpointContinuationError("Restored scheduler state drift")
+    if checkpoint_policy_state(policy) != metadata["checkpoint_policy_state"]:
+        raise CheckpointContinuationError("Restored checkpoint-policy state drift")
+    if not np.isclose(
+        scheduler.current_lr,
+        _optimizer_lr(optimizer),
+        rtol=0.0,
+        atol=LR_ABS_TOLERANCE,
+    ):
+        raise CheckpointContinuationError("Restored scheduler current LR drift")
+    return early, scheduler, policy
+
+
+def load_latest_completed_state(
+    output_root: str | Path,
+    *,
+    load_model: Callable[..., Any] = tf.keras.models.load_model,
+) -> LatestCompletedState:
+    """Resolve and fully validate only the generation committed by the manifest."""
+
+    output_root = Path(output_root).expanduser().resolve()
+    manifest_path = output_root / LATEST_STATE_MANIFEST_NAME
+    manifest = _json_object(manifest_path, "latest-state manifest")
+    completed_epoch = manifest.get("completed_epoch")
+    next_epoch = manifest.get("next_epoch")
+    if (
+        manifest.get("schema_version") != 1
+        or manifest.get("continuation_protocol_id") != PROTOCOL_ID
+        or manifest.get("partial_epoch") is not False
+        or manifest.get("test_access") is not False
+        or isinstance(completed_epoch, bool)
+        or not isinstance(completed_epoch, int)
+        or completed_epoch < FIRST_CONTINUATION_EPOCH
+        or next_epoch != completed_epoch + 1
+    ):
+        raise CheckpointContinuationError("Latest-state manifest contract drift")
+    generation_id = f"epoch_{completed_epoch:04d}"
+    expected_generation_relative = (
+        Path(LATEST_STATES_DIRECTORY_NAME) / generation_id
+    ).as_posix()
+    expected_model_relative = (
+        Path(expected_generation_relative) / GENERATION_MODEL_NAME
+    ).as_posix()
+    expected_metadata_relative = (
+        Path(expected_generation_relative) / GENERATION_METADATA_NAME
+    ).as_posix()
+    expected_history_relative = (
+        Path(expected_generation_relative) / GENERATION_HISTORY_NAME
+    ).as_posix()
+    expected_paths = {
+        "generation_id": generation_id,
+        "generation_relative_path": expected_generation_relative,
+        "model_relative_path": expected_model_relative,
+        "metadata_relative_path": expected_metadata_relative,
+        "history_relative_path": expected_history_relative,
+    }
+    drift = {
+        key: {"actual": manifest.get(key), "expected": expected}
+        for key, expected in expected_paths.items()
+        if manifest.get(key) != expected
+    }
+    if drift:
+        raise CheckpointContinuationError(f"Latest-state generation path drift: {drift}")
+    generation_path = _resolve_relative_under(
+        output_root, expected_generation_relative, "generation"
+    )
+    model_path = _resolve_relative_under(output_root, expected_model_relative, "model")
+    metadata_path = _resolve_relative_under(
+        output_root, expected_metadata_relative, "metadata"
+    )
+    history_path = _resolve_relative_under(
+        output_root, expected_history_relative, "history"
+    )
+    if not generation_path.is_dir():
+        raise CheckpointContinuationError("Referenced latest-state generation missing")
+    expected_file_hashes = {
+        model_path: manifest.get("model_sha256"),
+        metadata_path: manifest.get("metadata_sha256"),
+        history_path: manifest.get("combined_history_sha256"),
+    }
+    for path, expected_sha in expected_file_hashes.items():
+        if not path.is_file() or sha256_file(path) != expected_sha:
+            raise CheckpointContinuationError(f"Referenced generation file SHA drift: {path}")
+
+    metadata = _json_object(metadata_path, "latest-state metadata")
+    required_metadata = {
+        "schema_version": 2,
+        "continuation_protocol_id": PROTOCOL_ID,
+        "completed_epoch": completed_epoch,
+        "next_epoch": next_epoch,
+        "generation_relative_path": expected_generation_relative,
+        "state_keras_sha256": manifest["model_sha256"],
+        "combined_history_sha256": manifest["combined_history_sha256"],
+        "optimizer_state_sha256": manifest["optimizer_state_sha256"],
+        "partial_epoch": False,
+        "test_access": False,
+        "scientific_result_valid": False,
+        "scientific_interpretation": None,
+    }
+    metadata_drift = {
+        key: {"actual": metadata.get(key), "expected": expected}
+        for key, expected in required_metadata.items()
+        if metadata.get(key) != expected
+    }
+    if metadata_drift:
+        raise CheckpointContinuationError(
+            f"Latest-state metadata/manifest drift: {metadata_drift}"
+        )
+    if metadata.get("scheduler_post_step_state", {}).get("last_epoch") != completed_epoch:
+        raise CheckpointContinuationError("Saved scheduler epoch drift")
+
+    pre_run_manifest_path = output_root / "continuation_pre_run_manifest.json"
+    if sha256_file(pre_run_manifest_path) != metadata.get(
+        "continuation_pre_run_manifest_sha256"
+    ):
+        raise CheckpointContinuationError("Continuation pre-run manifest SHA drift")
+    pre_run_manifest = _json_object(pre_run_manifest_path, "continuation pre-run manifest")
+    if (
+        pre_run_manifest.get("schema_version") != 1
+        or pre_run_manifest.get("protocol_id") != PROTOCOL_ID
+        or pre_run_manifest.get("source_archive_sha256") != EXPECTED_SOURCE_ARCHIVE_SHA256
+        or pre_run_manifest.get("source_history_sha256")
+        != SOURCE_MEMBER_SHA256[SOURCE_HISTORY_MEMBER]
+    ):
+        raise CheckpointContinuationError("Continuation pre-run provenance drift")
+
+    history_payload = _json_object(history_path, "generation combined history")
+    history = validate_combined_history(history_payload, completed_epoch)
+    prefix_sha = immutable_prefix_sha256(history)
+    if (
+        prefix_sha != metadata.get("immutable_scientific_prefix_sha256")
+        or prefix_sha != pre_run_manifest.get("immutable_scientific_prefix_sha256")
+    ):
+        raise CheckpointContinuationError("Restored immutable scientific prefix drift")
+
+    model = load_model(model_path, compile=True)
+    model_state, optimizer_state = verify_model_optimizer_identity(
+        model,
+        expected_q_sha256=metadata.get("q_flat_float32_sha256"),
+        expected_iterations=metadata.get("optimizer_iterations"),
+        expected_optimizer_variable_count=metadata.get("optimizer_variable_count"),
+        expected_lr=metadata.get("optimizer_learning_rate"),
+    )
+    readable_model_contract = {
+        "class": metadata.get("model_class"),
+        "parameter_count": metadata.get("model_parameter_count"),
+        "trainable_variable_count": metadata.get("model_trainable_variable_count"),
+        "q_index": metadata.get("q_index"),
+        "q_shape": metadata.get("q_shape"),
+        "q_dtype": metadata.get("q_dtype"),
+        "q_flat_float32_sha256": metadata.get("q_flat_float32_sha256"),
+    }
+    for key, expected in readable_model_contract.items():
+        if model_state.get(key) != expected:
+            raise CheckpointContinuationError(f"Restored model metadata drift: {key}")
+    if optimizer_state != {
+        "class": metadata.get("optimizer_class"),
+        "iterations": metadata.get("optimizer_iterations"),
+        "variable_count": metadata.get("optimizer_variable_count"),
+        "learning_rate": metadata.get("optimizer_learning_rate"),
+    }:
+        raise CheckpointContinuationError("Restored readable optimizer identity drift")
+    restored_fingerprint = optimizer_state_fingerprint(model.optimizer)
+    if (
+        restored_fingerprint != metadata.get("optimizer_state_fingerprint")
+        or restored_fingerprint["sha256"] != manifest.get("optimizer_state_sha256")
+    ):
+        raise CheckpointContinuationError("Restored full optimizer state fingerprint drift")
+
+    resolved_config_path = output_root / "resolved_config.json"
+    if sha256_file(resolved_config_path) != metadata.get("resolved_config_sha256"):
+        raise CheckpointContinuationError("Resolved continuation config SHA drift")
+    config = _json_object(resolved_config_path, "resolved continuation config")
+    validate_locked_config(config)
+    early, scheduler, policy = _reconstruct_saved_controls(
+        optimizer=model.optimizer,
+        config=config,
+        output_root=output_root,
+        metadata=metadata,
+    )
+
+    best_paths: dict[str, Path] = {}
+    best_hashes = metadata.get("best_val_accuracy_artifact_sha256")
+    if not isinstance(best_hashes, dict) or len(best_hashes) != len(
+        GENERATION_BEST_ARTIFACT_NAMES
+    ):
+        raise CheckpointContinuationError("Best-checkpoint artifact inventory drift")
+    for name in GENERATION_BEST_ARTIFACT_NAMES:
+        relative = (
+            Path(expected_generation_relative)
+            / GENERATION_BEST_DIRECTORY_NAME
+            / name
+        ).as_posix()
+        path = _resolve_relative_under(output_root, relative, f"best checkpoint {name}")
+        if not path.is_file() or sha256_file(path) != best_hashes.get(relative):
+            raise CheckpointContinuationError(f"Best-checkpoint artifact SHA drift: {name}")
+        current_path = output_root / "checkpoints" / name
+        expected_sha = best_hashes[relative]
+        if not current_path.is_file() or sha256_file(current_path) != expected_sha:
+            _atomic_copy(path, current_path)
+        if sha256_file(current_path) != expected_sha:
+            raise CheckpointContinuationError(
+                f"Current best-checkpoint recovery failed: {name}"
+            )
+        best_paths[name] = current_path
+
+    return LatestCompletedState(
+        model=model,
+        optimizer=model.optimizer,
+        early=early,
+        scheduler=scheduler,
+        policy=policy,
+        history=history,
+        completed_epoch=completed_epoch,
+        next_epoch=next_epoch,
+        generation_path=generation_path,
+        best_checkpoint_paths=best_paths,
+    )
 
 
 def _persist_history(output_root: Path, history: list[dict[str, Any]], row: dict[str, Any]) -> None:
@@ -958,6 +1482,8 @@ def run_continuation_epoch_loop(
         early_state = early.get_state()
         row = {
             "epoch": epoch,
+            "row_origin": CONTINUATION_ROW_ORIGIN,
+            "continuation_protocol_id": PROTOCOL_ID,
             "train_loss": total_loss / batches,
             "train_eval_loss": train_metrics["loss"],
             "train_accuracy": train_metrics["accuracy"],
@@ -1143,6 +1669,14 @@ def run_checkpoint_conditioned_continuation(
         _atomic_json(output_root / "telemetry.json", telemetry.to_dict())
         _verify_no_forbidden_artifacts(output_root)
         final_epoch = int(history[-1]["epoch"])
+        latest_state_manifest_path = output_root / LATEST_STATE_MANIFEST_NAME
+        latest_state_manifest = _json_object(
+            latest_state_manifest_path, "latest-state manifest"
+        )
+        if latest_state_manifest.get("completed_epoch") != final_epoch:
+            raise CheckpointContinuationError(
+                "Completion epoch and latest-state manifest differ"
+            )
         marker = {
             "schema_version": 1,
             "continuation_protocol_id": PROTOCOL_ID,
@@ -1168,8 +1702,15 @@ def run_checkpoint_conditioned_continuation(
             "test_access": False,
             "test_data_constructed": False,
             "final_test_skipped": True,
-            "latest_state_path": str(output_root / LATEST_STATE_NAME),
-            "latest_state_sha256": sha256_file(output_root / LATEST_STATE_NAME),
+            "latest_state_manifest_path": str(latest_state_manifest_path),
+            "latest_state_manifest_sha256": sha256_file(latest_state_manifest_path),
+            "latest_state_generation": latest_state_manifest[
+                "generation_relative_path"
+            ],
+            "latest_state_model_sha256": latest_state_manifest["model_sha256"],
+            "latest_state_optimizer_sha256": latest_state_manifest[
+                "optimizer_state_sha256"
+            ],
             "combined_history_sha256": sha256_file(output_root / "history.json"),
             "source_code_sha256": source_hashes,
         }
