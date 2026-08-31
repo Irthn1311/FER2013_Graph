@@ -34,6 +34,7 @@ produced for this implementation PR.
 - seed42 config: `aa3bf2d3932bbad6c5f8cdcc347f4a9866e2c027d6135a60b5002a8f6a3b6908`
 - initial continuation harness reviewed at PR head `c48da2915a92988c1c9e7ae304e75cd4a427f242`: `0618df63e6bad0239ddf6d7a1b6500da53adfd867099258ed25b0d60ba4a8cdc`
 - generation-atomic hardening harness: `db66871ad7135460622a13a97fe17a03bd9acf0e1af25a82a3ffc79453719d0d`
+- chained-resume executable harness: `dba0d749b9a8e05b3cd67dad0749ef4235fc06f2a389b552229c76f691edde40`
 
 ## Implemented fail-closed contract
 
@@ -98,9 +99,30 @@ source first-run rows 31/32 cannot be substituted. If a hard censor leaves a
 newer partial root checkpoint, the loader restores the canonical best trio from
 the referenced immutable generation.
 
+Research-lead review `5060474998` identified that the loadable generation was
+not yet executable through the reviewed epoch loop because that loop was fixed
+to epoch 31. The loop now requires an explicit `start_epoch >= 31`, a non-empty
+history exactly spanning `1..start_epoch-1`, and the registered row origin and
+protocol on every existing epoch from 31 onward. Gaps, duplicates, source
+first-run overlap rows, wrong provenance, and a start/history mismatch fail
+closed. The initial source-archive path explicitly supplies epoch 31 and keeps
+the epoch-30 gate unchanged.
+
+`continue_from_latest_completed_state()` is the production chained-resume path.
+It verifies the same source, frozen payload, seed42 config, resource, and stored
+runtime identities; resolves the canonical generation only through
+`load_latest_completed_state()`; seeds the new process once; creates the same
+train, validation, and clean train-evaluation generators; builds the same G1-A
+candidate train step; and feeds the returned model, optimizer, controls,
+history, and `state.next_epoch` into the same `run_continuation_epoch_loop()`.
+It neither initializes a new output, reopens the source archive, reloads the
+epoch-30 checkpoint, nor reruns the epoch-30 pretrain-validation gate. Original
+first-run overlap evidence is verified and remains descriptive only when epoch
+31/32 is still applicable; after epoch 32 it is not loaded.
+
 ## Bounded verification
 
-The hardened focused suite completed with 36 passing tests. Coverage includes archive
+The generation-atomic hardened focused suite completed with 36 passing tests. Coverage includes archive
 and member SHA rejection, immutable epoch 1–30 prefix, exclusion/preservation
 of first-run epochs 31–32, model/Q/optimizer identity guards, exact control
 reconstruction without duplicate scheduler stepping, atomic epoch-30 checkpoint
@@ -119,6 +141,26 @@ with 73 passing tests. Parent-import and PyTorch-runtime isolation completed
 with 2 passing tests. Frozen package checksum verification reported
 `PASS checked=267 failures=0`; the frozen-package diff from the exact base was
 empty.
+
+After the chained-resume closure, the focused continuation suite completed with
+48 passing cases and the combined continuation/candidate/checkpoint/control
+selection completed with 85 passing cases. The bounded production regression
+publishes a valid epoch-32 generation, restores `completed_epoch = 32`,
+`next_epoch = 33`, and history `1..32`, then invokes the actual chained
+production callable with synthetic bounded datasets. Its first generator calls
+are train epoch 33, validation epoch 33, and clean train-evaluation epoch 33.
+The resulting history is exactly `1..33`, epoch 33 carries the registered
+origin/protocol, and the atomic latest-state manifest commits `epoch_0033` with
+`next_epoch = 34`. Separate regressions reject start epoch 32 with history
+through 32, start epoch 34 with history through 32, noncontiguous/duplicated
+history, and wrong or missing continuation provenance. Structural coverage
+requires both initial and chained execution paths to call the one reviewed
+epoch loop with epoch 31 and `state.next_epoch`, respectively.
+
+Parent-import/PyTorch isolation again completed with 2 passing tests. Frozen
+checksum verification again reported `PASS checked=267 failures=0`, the frozen
+package diff from the exact implementation base remained empty, fresh import
+passed, and `git diff --check` passed.
 
 The mixed-precision bounded Q update may consume loss-scale adjustment attempts
 before the first accepted optimizer update; the test requires and observes one

@@ -489,6 +489,7 @@ def test_bounded_epoch_loop_starts_31_uses_epoch_index_and_preserves_order(
     output = tmp_path / "run"
     output.mkdir()
     history = _rows(30)
+    prefix_snapshot = json.loads(json.dumps(history))
     result = resume.run_continuation_epoch_loop(
         model=model,
         optimizer=optimizer,
@@ -508,9 +509,11 @@ def test_bounded_epoch_loop_starts_31_uses_epoch_index_and_preserves_order(
         overlap_rows={31: _rows()[30], 32: _rows()[31]},
         output_root=output,
         source_hashes={"source": "a" * 64},
+        start_epoch=resume.FIRST_CONTINUATION_EPOCH,
         max_epoch=32,
         latest_state_publisher=publish,
     )
+    assert result[:30] == prefix_snapshot
     assert [row["epoch"] for row in result[-2:]] == [31, 32]
     assert [event[:2] for event in events if event[0] in {"train", "val", "train_eval"}] == [
         ("train", 31), ("val", 31), ("train_eval", 31),
@@ -529,6 +532,95 @@ def test_bounded_epoch_loop_starts_31_uses_epoch_index_and_preserves_order(
     assert (output / "resume_overlap_epoch31.json").is_file()
     assert (output / "resume_overlap_epoch32.json").is_file()
     assert not any((output / name).exists() for name in resume.FORBIDDEN_ARTIFACT_NAMES)
+
+
+@pytest.mark.parametrize(
+    "history,start_epoch,match",
+    [
+        ([], 31, "non-empty"),
+        (_rows(30), 30, "at least 31"),
+        (_combined_rows(32), 32, "contiguous through start_epoch"),
+        (_combined_rows(32), 34, "contiguous through start_epoch"),
+        (_rows(31), 32, "non-continuation row"),
+        (
+            [
+                *(_rows(30)),
+                {
+                    **_rows(32)[31],
+                    "row_origin": resume.CONTINUATION_ROW_ORIGIN,
+                    "continuation_protocol_id": resume.PROTOCOL_ID,
+                },
+            ],
+            32,
+            "contiguous through start_epoch",
+        ),
+        (
+            [
+                *_combined_rows(31),
+                {**_combined_rows(31)[-1]},
+            ],
+            33,
+            "contiguous through start_epoch",
+        ),
+    ],
+)
+def test_invalid_continuation_start_epoch_or_history_fails_closed(
+    history, start_epoch, match
+):
+    with pytest.raises(resume.CheckpointContinuationError, match=match):
+        resume.validate_continuation_start(history, start_epoch)
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("row_origin", "SOURCE_FIRST_RUN"),
+        ("continuation_protocol_id", "wrong-protocol"),
+    ],
+)
+def test_continuation_start_rejects_wrong_row_provenance(field, value):
+    history = _combined_rows(31)
+    history[30][field] = value
+    with pytest.raises(
+        resume.CheckpointContinuationError, match="non-continuation row"
+    ):
+        resume.validate_continuation_start(history, 32)
+
+
+def test_initial_and_chained_paths_share_loop_with_explicit_start_epochs():
+    initial = inspect.getsource(resume.run_checkpoint_conditioned_continuation)
+    chained = inspect.getsource(resume.continue_from_latest_completed_state)
+    assert "run_continuation_epoch_loop(" in initial
+    assert "start_epoch=FIRST_CONTINUATION_EPOCH" in initial
+    assert resume.FIRST_CONTINUATION_EPOCH == 31
+    assert "run_continuation_epoch_loop(" in chained
+    assert "start_epoch=state.next_epoch" in chained
+    assert "run_checkpoint_conditioned_continuation(" not in chained
+    for forbidden in (
+        "initialize_output(",
+        "verify_and_extract_source_archive(",
+        "load_resume_checkpoint(",
+        "validate_pretrain_validation_gate(",
+    ):
+        assert forbidden not in chained
+
+
+def test_chained_overlap_rows_are_verified_only_while_applicable(tmp_path):
+    payload = {
+        "schema_version": 1,
+        "classification": "FIRST_RUN_OVERLAP_DIAGNOSTICS",
+        "descriptive_only": True,
+        "excluded_from_combined_scientific_history": True,
+        "rows": {"31": _rows()[30], "32": _rows()[31]},
+    }
+    resume._atomic_json(tmp_path / resume.OVERLAP_SOURCE_NAME, payload)
+    overlap = resume._load_applicable_overlap_rows(tmp_path, 32)
+    assert set(overlap) == {31, 32}
+    assert resume._load_applicable_overlap_rows(tmp_path / "missing", 33) == {}
+    payload["descriptive_only"] = False
+    resume._atomic_json(tmp_path / resume.OVERLAP_SOURCE_NAME, payload)
+    with pytest.raises(resume.CheckpointContinuationError, match="contract drift"):
+        resume._load_applicable_overlap_rows(tmp_path, 32)
 
 
 def test_candidate_g1a_adapter_is_directly_used_by_production_entrypoint():
@@ -820,6 +912,153 @@ def test_successful_manifest_switch_restores_epoch32_and_rejects_mixed_generatio
     resume._atomic_json(manifest_path, mixed)
     with pytest.raises(resume.CheckpointContinuationError, match="generation path drift"):
         resume.load_latest_completed_state(tmp_path)
+
+
+def test_restored_epoch32_executes_same_production_loop_from_epoch33(
+    monkeypatch, tmp_path
+):
+    output = tmp_path / "continued"
+    model = _build_roundtrip_candidate()
+    _prepare_generation_output(output, 32)
+    fer_csv = tmp_path / "fer2013.csv"
+    fer_csv.write_text("emotion,pixels,Usage\n", encoding="utf-8")
+    prior_root = tmp_path / "prior"
+    prior_root.mkdir()
+    controls = resume.ResourceControls()
+    runtime_config = resume._registered_runtime_config(
+        load_config(CONFIG),
+        fer_csv=fer_csv,
+        prior_root=prior_root,
+        controls=controls,
+    )
+    resume._atomic_json(output / "resolved_config.json", runtime_config)
+    early, scheduler, policy = _controls_at_epoch(output, model.optimizer, 32)
+    early.set_state(
+        {
+            "best": early.get_state()["best"],
+            "epochs_without_improvement": early.patience - 1,
+        }
+    )
+    resume.publish_latest_completed_state(
+        model=model,
+        completed_epoch=32,
+        scheduler=scheduler,
+        early=early,
+        policy=policy,
+        history_path=output / "history.json",
+        output_root=output,
+        source_hashes={"harness": "a" * 64},
+    )
+
+    restored = resume.load_latest_completed_state(output)
+    assert restored.completed_epoch == 32
+    assert restored.next_epoch == 33
+    assert [row["epoch"] for row in restored.history] == list(range(1, 33))
+
+    dataset_events = []
+
+    class BoundedGraphBatchGenerator:
+        def __init__(
+            self,
+            _prior_root,
+            split,
+            _config,
+            _batch_size,
+            _seed,
+            training,
+            _cache_size,
+            _telemetry,
+            **_kwargs,
+        ):
+            self.name = "train" if training else ("val" if split == "val" else "train_eval")
+
+        def __len__(self):
+            return 1
+
+        def as_dataset(self, epoch, prefetch=None):
+            dataset_events.append((self.name, epoch, prefetch))
+            return [SimpleNamespace()]
+
+        @staticmethod
+        def output_signature():
+            return "bounded-signature"
+
+    seed_calls = []
+    loader_calls = []
+    original_loader = resume.load_latest_completed_state
+
+    def tracking_loader(path):
+        loader_calls.append(Path(path))
+        return original_loader(path)
+
+    def bounded_train_step(_batch):
+        state_model = active_state["model"]
+        state_model.optimizer.iterations.assign_add(1)
+        return tf.constant(2.0, dtype=tf.float32)
+
+    active_state = {}
+
+    def build_train_step(model_arg, optimizer_arg, *, input_signature):
+        assert model_arg.optimizer is optimizer_arg
+        assert input_signature == "bounded-signature"
+        active_state["model"] = model_arg
+        return bounded_train_step
+
+    monkeypatch.setattr(resume, "load_latest_completed_state", tracking_loader)
+    monkeypatch.setattr(resume, "GraphBatchGenerator", BoundedGraphBatchGenerator)
+    monkeypatch.setattr(
+        resume, "build_candidate_restricted_graph_train_step", build_train_step
+    )
+    monkeypatch.setattr(resume, "build_compiled_evaluation_step", lambda _model: object())
+    monkeypatch.setattr(
+        resume,
+        "evaluate_batches",
+        lambda *_args, **_kwargs: {
+            "loss": 2.5,
+            "accuracy": 0.1,
+            "macro_f1": 0.1,
+        },
+    )
+    monkeypatch.setattr(
+        resume,
+        "validate_execution_config",
+        lambda _training: {"optimizer_execution_mode": "restricted_tf_function"},
+    )
+    monkeypatch.setattr(resume, "seed_everything", lambda seed: seed_calls.append(seed))
+    monkeypatch.setattr(resume.ResourceControls, "apply", lambda _self: None)
+    monkeypatch.setattr(resume, "write_training_curves", lambda *_args: None)
+    monkeypatch.setattr(resume, "_print_epoch_summary", lambda *_args: None)
+
+    marker = resume.continue_from_latest_completed_state(
+        config_path=CONFIG,
+        fer_csv=fer_csv,
+        prior_root=prior_root,
+        output_root=output,
+        controls=controls,
+    )
+
+    assert seed_calls == [42]
+    assert loader_calls == [output.resolve()]
+    assert [event[:2] for event in dataset_events] == [
+        ("train", 33),
+        ("val", 33),
+        ("train_eval", 33),
+    ]
+    history = json.loads((output / "history.json").read_text())["epochs"]
+    assert [row["epoch"] for row in history] == list(range(1, 34))
+    assert history[-1]["row_origin"] == resume.CONTINUATION_ROW_ORIGIN
+    assert history[-1]["continuation_protocol_id"] == resume.PROTOCOL_ID
+    latest = json.loads(
+        (output / resume.LATEST_STATE_MANIFEST_NAME).read_text(encoding="utf-8")
+    )
+    assert latest["completed_epoch"] == 33
+    assert latest["next_epoch"] == 34
+    assert latest["generation_id"] == "epoch_0033"
+    assert (output / resume.LATEST_STATES_DIRECTORY_NAME / "epoch_0033").is_dir()
+    assert marker["final_completed_epoch"] == 33
+    assert marker["scientific_result_valid"] is False
+    assert marker["scientific_interpretation"] is None
+    assert marker["test_access"] is False
 
 
 def test_loader_rejects_path_traversal_and_source_first_run_epoch31(tmp_path):

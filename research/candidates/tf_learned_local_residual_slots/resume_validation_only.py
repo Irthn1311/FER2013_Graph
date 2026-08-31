@@ -779,6 +779,40 @@ def validate_combined_history(
     return epochs
 
 
+def validate_continuation_start(
+    history: Sequence[dict[str, Any]], start_epoch: int
+) -> None:
+    """Require one contiguous registered branch ending immediately before start."""
+
+    if (
+        isinstance(start_epoch, bool)
+        or not isinstance(start_epoch, int)
+        or start_epoch < FIRST_CONTINUATION_EPOCH
+    ):
+        raise CheckpointContinuationError(
+            "Continuation start epoch must be an integer at least 31"
+        )
+    if not history:
+        raise CheckpointContinuationError("Continuation history must be non-empty")
+    if any(not isinstance(row, dict) for row in history):
+        raise CheckpointContinuationError("Continuation history rows must be objects")
+    expected_epochs = list(range(1, start_epoch))
+    actual_epochs = [row.get("epoch") for row in history]
+    if actual_epochs != expected_epochs or history[-1].get("epoch") != start_epoch - 1:
+        raise CheckpointContinuationError(
+            "Continuation history must be contiguous through start_epoch - 1"
+        )
+    immutable_prefix_sha256(history)
+    for row in history[RESUME_EPOCH:]:
+        if (
+            row.get("row_origin") != CONTINUATION_ROW_ORIGIN
+            or row.get("continuation_protocol_id") != PROTOCOL_ID
+        ):
+            raise CheckpointContinuationError(
+                "Continuation history contains a non-continuation row after epoch30"
+            )
+
+
 def initialize_output(
     output_root: str | Path,
     extracted: dict[str, Path],
@@ -1375,17 +1409,19 @@ def run_continuation_epoch_loop(
     overlap_rows: dict[int, dict[str, Any]],
     output_root: Path,
     source_hashes: dict[str, str],
+    start_epoch: int,
     max_epoch: int,
     latest_state_publisher: Callable[..., dict[str, Any]] = publish_latest_completed_state,
 ) -> list[dict[str, Any]]:
-    """Mechanically preserve the frozen epoch body from epoch 31 onward."""
+    """Mechanically preserve the frozen epoch body from a registered branch tip."""
 
-    if [row.get("epoch") for row in history] != list(range(1, 31)):
-        raise CheckpointContinuationError("Continuation must start from immutable epochs 1..30")
-    if max_epoch < FIRST_CONTINUATION_EPOCH:
-        raise CheckpointContinuationError("Continuation max epoch must include epoch31")
+    validate_continuation_start(history, start_epoch)
+    if int(max_epoch) < start_epoch:
+        raise CheckpointContinuationError(
+            "Continuation max epoch must include the requested start epoch"
+        )
     optimizer_mode = execution_state["optimizer_execution_mode"]
-    for epoch in range(FIRST_CONTINUATION_EPOCH, int(max_epoch) + 1):
+    for epoch in range(start_epoch, int(max_epoch) + 1):
         epoch_started = time.perf_counter()
         total_loss = 0.0
         batches = 0
@@ -1535,6 +1571,255 @@ def _verify_no_forbidden_artifacts(output_root: Path) -> None:
         )
 
 
+def _completion_marker(
+    *,
+    output_root: Path,
+    history: list[dict[str, Any]],
+    telemetry: RuntimeTelemetry,
+    source_hashes: dict[str, str],
+) -> dict[str, Any]:
+    _atomic_json(output_root / "telemetry.json", telemetry.to_dict())
+    _verify_no_forbidden_artifacts(output_root)
+    final_epoch = int(history[-1]["epoch"])
+    latest_state_manifest_path = output_root / LATEST_STATE_MANIFEST_NAME
+    latest_state_manifest = _json_object(
+        latest_state_manifest_path, "latest-state manifest"
+    )
+    if latest_state_manifest.get("completed_epoch") != final_epoch:
+        raise CheckpointContinuationError(
+            "Completion epoch and latest-state manifest differ"
+        )
+    marker = {
+        "schema_version": 1,
+        "continuation_protocol_id": PROTOCOL_ID,
+        "implementation_base": IMPLEMENTATION_BASE,
+        "stochastic_continuation": STOCHASTIC_CONTINUATION,
+        "source_archive_sha256": EXPECTED_SOURCE_ARCHIVE_SHA256,
+        "source_checkpoint_sha256": SOURCE_MEMBER_SHA256[SOURCE_CHECKPOINT_MEMBER],
+        "continuation_completed": True,
+        "completion_reason": (
+            "early_stopping" if history[-1]["stop_requested"] else "max_epochs"
+        ),
+        "scientific_prefix_first_epoch": 1,
+        "scientific_prefix_last_epoch": 30,
+        "first_continuation_epoch": 31,
+        "final_completed_epoch": final_epoch,
+        "first_run_overlap_diagnostics": [31, 32],
+        "original_step12_scientific_result_valid": False,
+        "original_step12_scientific_interpretation": None,
+        "scientific_result_valid": False,
+        "scientific_interpretation": None,
+        "training": True,
+        "optimizer_gradient_updates": True,
+        "test_access": False,
+        "test_data_constructed": False,
+        "final_test_skipped": True,
+        "latest_state_manifest_path": str(latest_state_manifest_path),
+        "latest_state_manifest_sha256": sha256_file(latest_state_manifest_path),
+        "latest_state_generation": latest_state_manifest[
+            "generation_relative_path"
+        ],
+        "latest_state_model_sha256": latest_state_manifest["model_sha256"],
+        "latest_state_optimizer_sha256": latest_state_manifest[
+            "optimizer_state_sha256"
+        ],
+        "combined_history_sha256": sha256_file(output_root / "history.json"),
+        "source_code_sha256": source_hashes,
+    }
+    _atomic_json(output_root / COMPLETION_MARKER_NAME, marker)
+    return marker
+
+
+def _load_applicable_overlap_rows(
+    output_root: Path, next_epoch: int
+) -> dict[int, dict[str, Any]]:
+    if next_epoch > 32:
+        return {}
+    payload = _json_object(
+        output_root / OVERLAP_SOURCE_NAME, "first-run overlap diagnostics"
+    )
+    rows = payload.get("rows")
+    if (
+        payload.get("schema_version") != 1
+        or payload.get("classification") != "FIRST_RUN_OVERLAP_DIAGNOSTICS"
+        or payload.get("descriptive_only") is not True
+        or payload.get("excluded_from_combined_scientific_history") is not True
+        or not isinstance(rows, dict)
+        or set(rows) != {"31", "32"}
+    ):
+        raise CheckpointContinuationError("First-run overlap diagnostic contract drift")
+    overlap_rows: dict[int, dict[str, Any]] = {}
+    for epoch in (31, 32):
+        row = rows[str(epoch)]
+        if not isinstance(row, dict) or row.get("epoch") != epoch:
+            raise CheckpointContinuationError(
+                "First-run overlap diagnostic row drift"
+            )
+        overlap_rows[epoch] = row
+    return overlap_rows
+
+
+def _registered_runtime_config(
+    config: dict[str, Any],
+    *,
+    fer_csv: str | Path,
+    prior_root: str | Path,
+    controls: ResourceControls,
+) -> dict[str, Any]:
+    runtime_config = json.loads(json.dumps(config))
+    runtime_config["data"]["prior_dir"] = str(Path(prior_root).expanduser().resolve())
+    runtime_config["data"]["fer_csv"] = str(Path(fer_csv).expanduser().resolve())
+    runtime_config["training"]["batch_size"] = int(controls.batch_size)
+    runtime_config["resources"].update(controls.__dict__)
+    return runtime_config
+
+
+def _registered_datasets(
+    *,
+    prior_root: str | Path,
+    config: dict[str, Any],
+    controls: ResourceControls,
+    telemetry: RuntimeTelemetry,
+) -> tuple[Any, Any, Any]:
+    train_data = GraphBatchGenerator(
+        prior_root,
+        "train",
+        config,
+        controls.batch_size,
+        42,
+        True,
+        controls.graph_cache_size,
+        telemetry,
+        graph_workers=controls.graph_workers,
+        clean_graph_cache_dir=controls.clean_graph_cache_dir,
+    )
+    val_data = GraphBatchGenerator(
+        prior_root,
+        "val",
+        config,
+        controls.eval_batch_size,
+        42,
+        False,
+        controls.graph_cache_size,
+        telemetry,
+        graph_workers=controls.graph_workers,
+        clean_graph_cache_dir=controls.clean_graph_cache_dir,
+    )
+    eval_config = json.loads(json.dumps(config))
+    eval_config["graph"]["prior_corruption"]["enabled"] = False
+    train_eval_data = GraphBatchGenerator(
+        prior_root,
+        "train",
+        eval_config,
+        controls.eval_batch_size,
+        42,
+        False,
+        controls.graph_cache_size,
+        telemetry,
+        graph_workers=controls.graph_workers,
+        clean_graph_cache_dir=controls.clean_graph_cache_dir,
+    )
+    return train_data, val_data, train_eval_data
+
+
+def continue_from_latest_completed_state(
+    *,
+    config_path: str | Path,
+    fer_csv: str | Path,
+    prior_root: str | Path,
+    output_root: str | Path,
+    controls: ResourceControls,
+) -> dict[str, Any]:
+    """Continue the canonical checkpoint-conditioned branch after a hard censor."""
+
+    source_hashes = verify_source_locks()
+    _input_config_path, config = verify_seed42_config(config_path)
+    verify_resource_controls(controls)
+    output_root = Path(output_root).expanduser().resolve()
+    if not output_root.is_dir():
+        raise CheckpointContinuationError("Existing continuation output root missing")
+    try:
+        _verify_no_forbidden_artifacts(output_root)
+        state = load_latest_completed_state(output_root)
+        config = _registered_runtime_config(
+            config,
+            fer_csv=fer_csv,
+            prior_root=prior_root,
+            controls=controls,
+        )
+        stored_config = _json_object(
+            output_root / "resolved_config.json", "resolved continuation config"
+        )
+        if stored_config != config:
+            raise CheckpointContinuationError(
+                "Chained-resume input/config/resource identity drift"
+            )
+
+        # Seed setup occurs exactly once for this checkpoint-conditioned process.
+        seed_everything(42)
+        controls.apply()
+        execution_state = validate_execution_config(config["training"])
+        telemetry = RuntimeTelemetry()
+        train_data, val_data, train_eval_data = _registered_datasets(
+            prior_root=prior_root,
+            config=config,
+            controls=controls,
+            telemetry=telemetry,
+        )
+        eval_step = build_compiled_evaluation_step(state.model)
+        execute_train_step = build_candidate_restricted_graph_train_step(
+            state.model,
+            state.optimizer,
+            input_signature=GraphBatchGenerator.output_signature(),
+        )
+        overlap_rows = _load_applicable_overlap_rows(output_root, state.next_epoch)
+        history = run_continuation_epoch_loop(
+            model=state.model,
+            optimizer=state.optimizer,
+            execute_train_step=execute_train_step,
+            train_data=train_data,
+            val_data=val_data,
+            train_eval_data=train_eval_data,
+            eval_step=eval_step,
+            controls=controls,
+            config=config,
+            execution_state=execution_state,
+            telemetry=telemetry,
+            early=state.early,
+            scheduler=state.scheduler,
+            policy=state.policy,
+            history=state.history,
+            overlap_rows=overlap_rows,
+            output_root=output_root,
+            source_hashes=source_hashes,
+            start_epoch=state.next_epoch,
+            max_epoch=int(config["training"]["max_epochs"]),
+        )
+        return _completion_marker(
+            output_root=output_root,
+            history=history,
+            telemetry=telemetry,
+            source_hashes=source_hashes,
+        )
+    except Exception as exc:
+        if output_root.is_dir():
+            _atomic_json(
+                output_root / FAILURE_MARKER_NAME,
+                {
+                    "schema_version": 1,
+                    "continuation_protocol_id": PROTOCOL_ID,
+                    "status": "TECHNICAL_CONTINUATION_FAILURE",
+                    "error_type": type(exc).__name__,
+                    "error_text": str(exc),
+                    "scientific_result_valid": False,
+                    "scientific_interpretation": None,
+                    "automatic_retry": False,
+                    "test_access": False,
+                },
+            )
+        raise
+
+
 def run_checkpoint_conditioned_continuation(
     *,
     config_path: str | Path,
@@ -1664,58 +1949,15 @@ def run_checkpoint_conditioned_continuation(
             overlap_rows=overlap_rows,
             output_root=output_root,
             source_hashes=source_hashes,
+            start_epoch=FIRST_CONTINUATION_EPOCH,
             max_epoch=int(config["training"]["max_epochs"]),
         )
-        _atomic_json(output_root / "telemetry.json", telemetry.to_dict())
-        _verify_no_forbidden_artifacts(output_root)
-        final_epoch = int(history[-1]["epoch"])
-        latest_state_manifest_path = output_root / LATEST_STATE_MANIFEST_NAME
-        latest_state_manifest = _json_object(
-            latest_state_manifest_path, "latest-state manifest"
+        return _completion_marker(
+            output_root=output_root,
+            history=history,
+            telemetry=telemetry,
+            source_hashes=source_hashes,
         )
-        if latest_state_manifest.get("completed_epoch") != final_epoch:
-            raise CheckpointContinuationError(
-                "Completion epoch and latest-state manifest differ"
-            )
-        marker = {
-            "schema_version": 1,
-            "continuation_protocol_id": PROTOCOL_ID,
-            "implementation_base": IMPLEMENTATION_BASE,
-            "stochastic_continuation": STOCHASTIC_CONTINUATION,
-            "source_archive_sha256": EXPECTED_SOURCE_ARCHIVE_SHA256,
-            "source_checkpoint_sha256": SOURCE_MEMBER_SHA256[SOURCE_CHECKPOINT_MEMBER],
-            "continuation_completed": True,
-            "completion_reason": (
-                "early_stopping" if history[-1]["stop_requested"] else "max_epochs"
-            ),
-            "scientific_prefix_first_epoch": 1,
-            "scientific_prefix_last_epoch": 30,
-            "first_continuation_epoch": 31,
-            "final_completed_epoch": final_epoch,
-            "first_run_overlap_diagnostics": [31, 32],
-            "original_step12_scientific_result_valid": False,
-            "original_step12_scientific_interpretation": None,
-            "scientific_result_valid": False,
-            "scientific_interpretation": None,
-            "training": True,
-            "optimizer_gradient_updates": True,
-            "test_access": False,
-            "test_data_constructed": False,
-            "final_test_skipped": True,
-            "latest_state_manifest_path": str(latest_state_manifest_path),
-            "latest_state_manifest_sha256": sha256_file(latest_state_manifest_path),
-            "latest_state_generation": latest_state_manifest[
-                "generation_relative_path"
-            ],
-            "latest_state_model_sha256": latest_state_manifest["model_sha256"],
-            "latest_state_optimizer_sha256": latest_state_manifest[
-                "optimizer_state_sha256"
-            ],
-            "combined_history_sha256": sha256_file(output_root / "history.json"),
-            "source_code_sha256": source_hashes,
-        }
-        _atomic_json(output_root / COMPLETION_MARKER_NAME, marker)
-        return marker
     except Exception as exc:
         resolved_output = Path(output_root).expanduser().resolve()
         if resolved_output.is_dir():
