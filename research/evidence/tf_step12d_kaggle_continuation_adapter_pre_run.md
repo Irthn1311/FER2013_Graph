@@ -29,9 +29,10 @@ accessed the test split, and has not produced a scientific label.
 - baseline execution contract: `14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22`
 - seed42 config: `aa3bf2d3932bbad6c5f8cdcc347f4a9866e2c027d6135a60b5002a8f6a3b6908`
 - censored source archive: `2ada6cfd1ce1c07f6d7ae36264a1f14840a0936e9448a72e6bb464ae6ab71357`
+- Base64 source transport: `66bc813bd3e3dcc38a1dd4c0c36e41ddb794831895f15e099cec566d1ad51b8d`
 - epoch-30 checkpoint: `818450d56cb480cf08637bee01061e8028a3d58c0f13346716618f0ee186d932`
-- notebook SHA-256: `d429dcfc8b53363ebd1fcba1b67aa88375f4de90da651dd85882b3f6bae2a356`
-- builder SHA-256: `a98f9af8a91cfb807fd4cd9f2b8cd4a8a43f07ab9f05c963a54e3fb85c47cb59`
+- notebook SHA-256: `525e6031cda190c608fc8bd8e6863c272ebd99ac6bada576cb982dbaba59aa4f`
+- builder SHA-256: `42ac86fec54335d1e3cf96ce447f2649c7d87fbc4e21e06423c364f9a7efc5a8`
 
 The notebook has 9 cells, including 4 code cells. Every code cell has
 `execution_count = null` and `outputs = []`; every code cell compiles during
@@ -39,11 +40,16 @@ the synthetic adapter suite.
 
 ## Registered future invocation
 
-The notebook checks out the exact execution commit detached, verifies a clean
-checkout and all source locks, then locates exactly one archive named
-`tf_step12_learned_local_residual_slots_seed42_kaggle_t4.zip` below
-`/kaggle/input` and verifies its exact SHA-256. Zero, duplicate, and wrong-SHA
-matches fail closed.
+The notebook checks out the exact execution commit detached and verifies a
+clean checkout plus all source locks. It then requires exactly one source
+transport below `/kaggle/input`: either the direct reviewed ZIP or the locked
+`tf_step12_learned_local_residual_slots_seed42_kaggle_t4.zip.b64` transport.
+The Base64 form prevents Kaggle dataset ingestion from recursively extracting
+the scientific ZIP. Its encoded SHA is checked before decoding; decoding uses
+a temporary file and atomic replacement in `/kaggle/working`, and the decoded
+file must reproduce the exact reviewed archive SHA before use. Zero, duplicate,
+wrong-transport-SHA, malformed-Base64, and wrong-decoded-SHA cases fail closed
+without leaving a partial source archive.
 
 It invokes `resume_validation_only.py` exactly once with the exact seed42
 config, FER `train.csv`, registered prior/cache roots, verified source archive,
@@ -60,7 +66,8 @@ inputs are:
 - FER: `/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split`
 - priors: `/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-best-retry-rescue/outputs/d16_mediapipe_pixel_priors_best_retry_rescue`
 - cache: `/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-records`
-- the exact censored archive mounted below `/kaggle/input`
+- the exact censored archive or its registered Base64 transport mounted below
+  `/kaggle/input`
 
 Internet is separated from scientific inputs: it is used only for the exact
 Git clone and pinned dependency installation if needed. The scientific inputs
@@ -105,7 +112,7 @@ automatic retry.
 
 ## Static and synthetic verification
 
-- Issue #35 adapter suite: `73 passed`
+- Issue #35 adapter suite: `77 passed`
 - Step-12C focused continuation regression: `48 passed`
 - parent-import/PyTorch isolation: `2 passed`
 - frozen package checksum verification: `PASS checked=267 failures=0`

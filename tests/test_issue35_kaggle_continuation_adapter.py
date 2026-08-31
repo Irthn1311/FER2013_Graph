@@ -261,6 +261,9 @@ def _valid_fixture(monkeypatch, tmp_path: Path, *, reason="early_stopping", coun
         "schema_version": 1, "issue": 35,
         "execution_commit": adapter.EXECUTION_COMMIT,
         "checkout_root": str(checkout),
+        "source_transport_path": str(archive_path.resolve()),
+        "source_transport_filename": adapter.SOURCE_ARCHIVE_NAME,
+        "source_transport_sha256": adapter.SOURCE_ARCHIVE_SHA256,
         "source_archive_path": str(archive_path.resolve()),
         "source_archive_sha256": adapter.SOURCE_ARCHIVE_SHA256,
         "source_locks": {"locked": "a" * 64},
@@ -405,6 +408,10 @@ def test_exact_execution_source_and_artifact_locks():
     assert adapter.SOURCE_ARCHIVE_SHA256 == (
         "2ada6cfd1ce1c07f6d7ae36264a1f14840a0936e9448a72e6bb464ae6ab71357"
     )
+    assert adapter.SOURCE_TRANSPORT_NAME.endswith(".zip.b64")
+    assert adapter.SOURCE_TRANSPORT_SHA256 == (
+        "66bc813bd3e3dcc38a1dd4c0c36e41ddb794831895f15e099cec566d1ad51b8d"
+    )
     assert adapter.verify_source_locks(ROOT)["continuation_harness"] == (
         adapter.SOURCE_LOCKS["continuation_harness"][1]
     )
@@ -453,6 +460,56 @@ def test_source_archive_wrong_sha_fails(monkeypatch, tmp_path):
     monkeypatch.setattr(adapter, "SOURCE_ARCHIVE_SHA256", "0" * 64)
     with pytest.raises(adapter.AdapterError, match="SHA drift"):
         adapter.discover_source_archive(tmp_path / "input")
+
+
+def test_base64_transport_materializes_exact_reviewed_archive(monkeypatch, tmp_path):
+    archive, _rows_value = _source_archive(monkeypatch, tmp_path)
+    payload = archive.read_bytes()
+    transport = archive.with_name(adapter.SOURCE_TRANSPORT_NAME)
+    transport.write_bytes(adapter.base64.b64encode(payload))
+    archive.unlink()
+    monkeypatch.setattr(adapter, "SOURCE_TRANSPORT_SHA256", adapter.sha256_file(transport))
+    materialized = tmp_path / "working" / adapter.SOURCE_ARCHIVE_NAME
+
+    result = adapter.discover_source_archive(tmp_path / "input", materialized)
+
+    assert result == materialized.resolve()
+    assert result.read_bytes() == payload
+    assert adapter.sha256_file(result) == adapter.SOURCE_ARCHIVE_SHA256
+    assert not result.with_name(f".{result.name}.tmp").exists()
+
+
+def test_direct_zip_and_base64_transport_together_fail_as_duplicate(monkeypatch, tmp_path):
+    archive, _rows_value = _source_archive(monkeypatch, tmp_path)
+    transport = archive.with_name(adapter.SOURCE_TRANSPORT_NAME)
+    transport.write_bytes(adapter.base64.b64encode(archive.read_bytes()))
+    monkeypatch.setattr(adapter, "SOURCE_TRANSPORT_SHA256", adapter.sha256_file(transport))
+    with pytest.raises(adapter.AdapterError, match="found 2"):
+        adapter.discover_source_archive(tmp_path / "input", tmp_path / "decoded.zip")
+
+
+def test_wrong_base64_transport_sha_fails_before_decode(monkeypatch, tmp_path):
+    archive, _rows_value = _source_archive(monkeypatch, tmp_path)
+    transport = archive.with_name(adapter.SOURCE_TRANSPORT_NAME)
+    transport.write_bytes(adapter.base64.b64encode(archive.read_bytes()))
+    archive.unlink()
+    monkeypatch.setattr(adapter, "SOURCE_TRANSPORT_SHA256", "0" * 64)
+    materialized = tmp_path / "working" / adapter.SOURCE_ARCHIVE_NAME
+    with pytest.raises(adapter.AdapterError, match="transport SHA drift"):
+        adapter.discover_source_archive(tmp_path / "input", materialized)
+    assert not materialized.exists()
+
+
+def test_malformed_locked_base64_transport_fails_without_partial_archive(monkeypatch, tmp_path):
+    archive, _rows_value = _source_archive(monkeypatch, tmp_path)
+    transport = archive.with_name(adapter.SOURCE_TRANSPORT_NAME)
+    transport.write_bytes(b"not-base64!!")
+    archive.unlink()
+    monkeypatch.setattr(adapter, "SOURCE_TRANSPORT_SHA256", adapter.sha256_file(transport))
+    materialized = tmp_path / "working" / adapter.SOURCE_ARCHIVE_NAME
+    with pytest.raises(adapter.AdapterError, match="Malformed Base64"):
+        adapter.discover_source_archive(tmp_path / "input", materialized)
+    assert not materialized.exists()
 
 
 def test_runtime_resource_manifest_and_argv_are_exact(monkeypatch, tmp_path):

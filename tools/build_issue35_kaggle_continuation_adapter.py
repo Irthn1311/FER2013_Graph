@@ -6,6 +6,7 @@ the generated Kaggle notebook or by the reviewed continuation harness.
 
 from __future__ import annotations
 
+import base64
 import csv
 import hashlib
 import inspect
@@ -79,6 +80,8 @@ EXPECTED_RESUME_LR = 0.0001500000071246177
 
 SOURCE_ARCHIVE_NAME = "tf_step12_learned_local_residual_slots_seed42_kaggle_t4.zip"
 SOURCE_ARCHIVE_SHA256 = "2ada6cfd1ce1c07f6d7ae36264a1f14840a0936e9448a72e6bb464ae6ab71357"
+SOURCE_TRANSPORT_NAME = f"{SOURCE_ARCHIVE_NAME}.b64"
+SOURCE_TRANSPORT_SHA256 = "66bc813bd3e3dcc38a1dd4c0c36e41ddb794831895f15e099cec566d1ad51b8d"
 SOURCE_HISTORY_SHA256 = "0a2edffbc595f09660e01ccacc5338656aef06892949aad4a9e209aac280789c"
 SOURCE_CHECKPOINT_SHA256 = "818450d56cb480cf08637bee01061e8028a3d58c0f13346716618f0ee186d932"
 CONTINUATION_PROTOCOL_ID = "tf-step12c-checkpoint-conditioned-continuation-v1"
@@ -93,6 +96,7 @@ PRIOR_ROOT = Path("/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-b
 CACHE_ROOT = Path("/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-records")
 KAGGLE_INPUT_ROOT = Path("/kaggle/input")
 WORKING_ROOT = Path("/kaggle/working")
+MATERIALIZED_SOURCE_ARCHIVE_PATH = WORKING_ROOT / SOURCE_ARCHIVE_NAME
 CHECKOUT_ROOT = WORKING_ROOT / "FER2013_Graph_issue35"
 RUN_ROOT = WORKING_ROOT / "tf_step12c_checkpoint_continuation"
 TRAIN_OUTPUT_ROOT = RUN_ROOT / "run"
@@ -198,14 +202,64 @@ def verify_source_locks(checkout_root: str | Path) -> dict[str, str]:
     return actual
 
 
-def discover_source_archive(input_root: str | Path) -> Path:
-    matches = sorted(Path(input_root).glob(f"**/{SOURCE_ARCHIVE_NAME}"))
+def discover_source_transport(input_root: str | Path) -> Path:
+    root = Path(input_root)
+    matches = sorted(root.glob(f"**/{SOURCE_ARCHIVE_NAME}"))
+    matches.extend(sorted(root.glob(f"**/{SOURCE_TRANSPORT_NAME}")))
     if len(matches) != 1:
-        raise AdapterError(f"Expected exactly one censored archive; found {len(matches)}")
+        raise AdapterError(f"Expected exactly one censored source transport; found {len(matches)}")
     source = matches[0].resolve()
-    if sha256_file(source) != SOURCE_ARCHIVE_SHA256:
-        raise AdapterError("Censored source archive SHA drift")
+    expected = (
+        SOURCE_ARCHIVE_SHA256
+        if source.name == SOURCE_ARCHIVE_NAME
+        else SOURCE_TRANSPORT_SHA256
+    )
+    if sha256_file(source) != expected:
+        raise AdapterError("Censored source transport SHA drift")
     return source
+
+
+def materialize_source_archive(
+    source_transport: str | Path, materialized_path: str | Path
+) -> Path:
+    source = Path(source_transport).resolve()
+    if source.name == SOURCE_ARCHIVE_NAME:
+        if sha256_file(source) != SOURCE_ARCHIVE_SHA256:
+            raise AdapterError("Censored source archive SHA drift")
+        return source
+    if source.name != SOURCE_TRANSPORT_NAME:
+        raise AdapterError("Unregistered censored source transport")
+    if sha256_file(source) != SOURCE_TRANSPORT_SHA256:
+        raise AdapterError("Censored source transport SHA drift")
+    destination = Path(materialized_path).resolve()
+    if destination.exists():
+        raise FileExistsError(f"Fresh materialized source path required: {destination}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.tmp")
+    temporary.unlink(missing_ok=True)
+    try:
+        try:
+            payload = base64.b64decode(source.read_bytes(), validate=True)
+        except (OSError, ValueError) as exc:
+            raise AdapterError("Malformed Base64 source transport") from exc
+        temporary.write_bytes(payload)
+        if sha256_file(temporary) != SOURCE_ARCHIVE_SHA256:
+            raise AdapterError("Decoded censored source archive SHA drift")
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return destination
+
+
+def discover_source_archive(
+    input_root: str | Path,
+    materialized_path: str | Path = MATERIALIZED_SOURCE_ARCHIVE_PATH,
+) -> Path:
+    source = discover_source_transport(input_root)
+    archive = materialize_source_archive(source, materialized_path)
+    if sha256_file(archive) != SOURCE_ARCHIVE_SHA256:
+        raise AdapterError("Censored source archive SHA drift")
+    return archive
 
 
 def locked_source_history(source_archive: str | Path) -> list[dict[str, Any]]:
@@ -638,9 +692,28 @@ def _validate_runtime_manifest(manifest: dict[str, Any], output: Path) -> None:
         if manifest.get(key) != expected:
             raise AdapterError(f"Adapter pre-run manifest drift: {key}")
     source_archive = manifest.get("source_archive_path")
+    source_transport = manifest.get("source_transport_path")
     checkout = manifest.get("checkout_root")
-    if not isinstance(source_archive, str) or not isinstance(checkout, str):
+    if (
+        not isinstance(source_archive, str)
+        or not isinstance(source_transport, str)
+        or not isinstance(checkout, str)
+    ):
         raise AdapterError("Adapter path identity missing")
+    transport_name = Path(source_transport).name
+    expected_transport_sha = (
+        SOURCE_ARCHIVE_SHA256
+        if transport_name == SOURCE_ARCHIVE_NAME
+        else SOURCE_TRANSPORT_SHA256
+        if transport_name == SOURCE_TRANSPORT_NAME
+        else None
+    )
+    if (
+        expected_transport_sha is None
+        or manifest.get("source_transport_filename") != transport_name
+        or manifest.get("source_transport_sha256") != expected_transport_sha
+    ):
+        raise AdapterError("Adapter source transport identity drift")
     if manifest.get("command") != registered_command(checkout, output, source_archive):
         raise AdapterError("Registered command drift")
     expected_resources = {
@@ -1016,12 +1089,21 @@ def run_subprocess_once(
     return int(return_code)
 
 
-def run_registered_adapter(runtime_evidence: dict[str, Any]) -> dict[str, Any]:
+def run_registered_adapter(
+    runtime_evidence: dict[str, Any],
+    source_transport: str | Path,
+    source_archive: str | Path,
+) -> dict[str, Any]:
     """Invoke exactly one initial checkpoint-continuation subprocess."""
 
     if RUN_ROOT.exists() or ARCHIVE_PATH.exists() or REPORT_PATH.exists():
         raise FileExistsError("Fresh Issue #35 output paths are required")
-    source_archive = discover_source_archive(KAGGLE_INPUT_ROOT)
+    source_transport = Path(source_transport).resolve()
+    source_archive = Path(source_archive).resolve()
+    if source_transport != discover_source_transport(KAGGLE_INPUT_ROOT):
+        raise AdapterError("Source transport changed after preflight")
+    if sha256_file(source_archive) != SOURCE_ARCHIVE_SHA256:
+        raise AdapterError("Materialized source archive SHA drift")
     source_before = verify_source_locks(CHECKOUT_ROOT)
     command = registered_command(CHECKOUT_ROOT, TRAIN_OUTPUT_ROOT, source_archive)
     RUN_ROOT.mkdir(parents=True, exist_ok=False)
@@ -1029,6 +1111,9 @@ def run_registered_adapter(runtime_evidence: dict[str, Any]) -> dict[str, Any]:
     manifest = {
         "schema_version": 1, "issue": 35, "execution_commit": EXECUTION_COMMIT,
         "checkout_root": str(CHECKOUT_ROOT),
+        "source_transport_path": str(source_transport),
+        "source_transport_filename": source_transport.name,
+        "source_transport_sha256": sha256_file(source_transport),
         "source_archive_path": str(source_archive),
         "source_archive_filename": SOURCE_ARCHIVE_NAME,
         "source_archive_sha256": SOURCE_ARCHIVE_SHA256,
@@ -1134,7 +1219,8 @@ def _code(text: str, cell_id: str) -> dict[str, Any]:
 def _runtime_definitions_source() -> str:
     objects = (
         AdapterError, sha256_file, atomic_json, json_object, run_checked,
-        verify_source_locks, discover_source_archive, locked_source_history,
+        verify_source_locks, discover_source_transport, materialize_source_archive,
+        discover_source_archive, locked_source_history,
         registered_decision, registered_command, _canonical_json_sha256,
         _resolve_under, _validated_rows, _is_forbidden_test_artifact,
         _forbidden_output_paths, validate_canonical_generation,
@@ -1158,12 +1244,14 @@ def _constants_source() -> str:
         "EXPECTED_Q_INDEX", "EXPECTED_Q_SHAPE", "EXPECTED_Q_DTYPE",
         "EXPECTED_RESUME_Q_SHA256", "EXPECTED_RESUME_OPTIMIZER_ITERATIONS",
         "EXPECTED_RESUME_OPTIMIZER_VARIABLES", "EXPECTED_RESUME_LR",
-        "SOURCE_ARCHIVE_NAME", "SOURCE_ARCHIVE_SHA256", "SOURCE_HISTORY_SHA256",
+        "SOURCE_ARCHIVE_NAME", "SOURCE_ARCHIVE_SHA256", "SOURCE_TRANSPORT_NAME",
+        "SOURCE_TRANSPORT_SHA256", "SOURCE_HISTORY_SHA256",
         "SOURCE_CHECKPOINT_SHA256", "CONTINUATION_PROTOCOL_ID",
         "CONTINUATION_ROW_ORIGIN", "BASELINE_BEST_VAL_MACRO_F1",
         "PRACTICAL_EFFECT_THRESHOLD_PP", "FER_ROOT", "FER_TRAIN_CSV",
         "FER_VAL_CSV", "PRIOR_ROOT", "CACHE_ROOT", "KAGGLE_INPUT_ROOT",
-        "WORKING_ROOT", "CHECKOUT_ROOT", "RUN_ROOT", "TRAIN_OUTPUT_ROOT",
+        "WORKING_ROOT", "MATERIALIZED_SOURCE_ARCHIVE_PATH", "CHECKOUT_ROOT",
+        "RUN_ROOT", "TRAIN_OUTPUT_ROOT",
         "ADAPTER_ROOT", "PRE_RUN_MANIFEST_PATH", "SUBPROCESS_LOG_PATH",
         "WRAPPER_EXECUTION_PATH", "FINAL_EVIDENCE_PATH",
         "RUNTIME_PROGRESS_PATH", "FAILURE_REPORT_PATH", "REPORT_PATH",
@@ -1189,6 +1277,7 @@ def _constants_source() -> str:
 def build_notebook() -> dict[str, Any]:
     imports = textwrap.dedent("""\
     from __future__ import annotations
+    import base64
     import csv
     import hashlib
     import importlib.metadata
@@ -1222,7 +1311,10 @@ def build_notebook() -> dict[str, Any]:
     preflight = """\
     if platform.python_version() != EXPECTED_PYTHON:
         raise AdapterError(f"Python drift: {platform.python_version()}")
-    source_archive = discover_source_archive(KAGGLE_INPUT_ROOT)
+    source_transport = discover_source_transport(KAGGLE_INPUT_ROOT)
+    source_archive = materialize_source_archive(
+        source_transport, MATERIALIZED_SOURCE_ARCHIVE_PATH
+    )
     source_rows = locked_source_history(source_archive)
     with zipfile.ZipFile(source_archive) as archive:
         checkpoint_digest = hashlib.sha256(
@@ -1296,7 +1388,9 @@ def build_notebook() -> dict[str, Any]:
     }, indent=2))
     """
     run_cell = """\
-    wrapper_execution = run_registered_adapter(runtime_evidence)
+    wrapper_execution = run_registered_adapter(
+        runtime_evidence, source_transport, source_archive
+    )
     if not ARCHIVE_PATH.is_file():
         raise AdapterError("Failure-safe continuation archive was not published")
     print("archive:", ARCHIVE_PATH)
@@ -1318,9 +1412,11 @@ def build_notebook() -> dict[str, Any]:
                   only registered train/validation records are used.
                 - Clean cache: `/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-records`;
                   only train/validation indexes and shards are used.
-                - Censored source archive: exactly one
-                  `tf_step12_learned_local_residual_slots_seed42_kaggle_t4.zip`
-                  anywhere below `/kaggle/input`, with the registered SHA-256.
+                - Censored source transport: exactly one direct reviewed ZIP or
+                  `tf_step12_learned_local_residual_slots_seed42_kaggle_t4.zip.b64`
+                  anywhere below `/kaggle/input`. The Base64 transport is locked,
+                  decoded atomically in `/kaggle/working`, and must reproduce the
+                  exact reviewed source archive SHA-256 before harness invocation.
 
                 Internet is used only for the exact Git clone and pinned dependency
                 installation if the Kaggle image differs. Scientific inputs are offline.
