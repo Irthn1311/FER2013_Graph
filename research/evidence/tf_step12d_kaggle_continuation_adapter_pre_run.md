@@ -30,8 +30,8 @@ accessed the test split, and has not produced a scientific label.
 - seed42 config: `aa3bf2d3932bbad6c5f8cdcc347f4a9866e2c027d6135a60b5002a8f6a3b6908`
 - censored source archive: `2ada6cfd1ce1c07f6d7ae36264a1f14840a0936e9448a72e6bb464ae6ab71357`
 - epoch-30 checkpoint: `818450d56cb480cf08637bee01061e8028a3d58c0f13346716618f0ee186d932`
-- notebook SHA-256: `98b0b57ddd318a4a13b75151bc55f503f801c860c611b143073dd19c82cd7773`
-- builder SHA-256: `0a27a025d7fd910dc23b23980c0cfb0631532845f0dd4d8f50dcc44ff1a2dbc7`
+- notebook SHA-256: `d429dcfc8b53363ebd1fcba1b67aa88375f4de90da651dd85882b3f6bae2a356`
+- builder SHA-256: `a98f9af8a91cfb807fd4cd9f2b8cd4a8a43f07ab9f05c963a54e3fb85c47cb59`
 
 The notebook has 9 cells, including 4 code cells. Every code cell has
 `execution_count = null` and `outputs = []`; every code cell compiles during
@@ -83,16 +83,29 @@ required.
 
 Completion interpretation remains fail closed. It requires subprocess return
 code zero, exact runtime/source/resources, PASS pretrain gate before optimizer
-updates, natural completion marker, exact source rows 1-30, registered resumed
-row provenance, no source e31/e32 contamination, complete canonical generation
-and deep Step-12C loader validation, earliest-global-max strict
-best-validation-accuracy checkpoint provenance, and no test artifact. Any
-failure or hard censor remains invalid/null and cannot create final scientific
-evidence or trigger an automatic retry.
+updates, completion-marker schema version 1, exact source rows 1-30, registered
+resumed-row provenance, complete canonical generation and deep Step-12C loader
+validation, earliest-global-max strict best-validation-accuracy checkpoint
+provenance, and no test artifact. Every combined-history row must carry finite
+registered metrics plus the reviewed integer/boolean early-stopping state.
+Natural completion is cross-checked against that state: early stopping requires
+`stop_requested=true` with wait at least the locked patience 15, while
+`max_epochs` requires exact epoch 90 and `stop_requested=false`.
+
+Epoch-31/32 overlap evidence remains descriptive-only. First-run rows must
+exactly match the locked source, resumed rows must exactly match the registered
+continuation history, and row origin/protocol establish branch identity. Metric
+equality and all-zero deltas are accepted and cannot affect validity or retry.
+The same fail-closed path-name helper rejects exact `test` directories,
+`test.csv`, `test_*`, `test-*`, and the existing prediction/confusion/test
+artifacts in both output-tree completion validation and rolling archive
+validation, without opening those files. Any failure or hard censor remains
+invalid/null and cannot create final scientific evidence or trigger an
+automatic retry.
 
 ## Static and synthetic verification
 
-- Issue #35 adapter suite: `37 passed`
+- Issue #35 adapter suite: `73 passed`
 - Step-12C focused continuation regression: `48 passed`
 - parent-import/PyTorch isolation: `2 passed`
 - frozen package checksum verification: `PASS checked=267 failures=0`

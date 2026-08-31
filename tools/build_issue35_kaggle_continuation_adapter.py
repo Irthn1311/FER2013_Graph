@@ -10,6 +10,7 @@ import csv
 import hashlib
 import inspect
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -111,6 +112,8 @@ GRAPH_WORKERS = 2
 TF_DATA_PREFETCH = 2
 TF_DATA_PARALLEL_CALLS = 1
 GRAPH_CACHE_SIZE = 64
+MAX_EPOCHS = 90
+EARLY_STOPPING_PATIENCE = 15
 EXPECTED_SPLIT_COUNTS = {"train": 28_709, "val": 3_589}
 COMPLETION_MARKER = "CHECKPOINT_CONTINUATION_VALIDATION_ONLY_COMPLETE.json"
 TECHNICAL_FAILURE_MARKER = "CHECKPOINT_CONTINUATION_TECHNICAL_FAILURE.json"
@@ -226,6 +229,12 @@ def locked_source_history(source_archive: str | Path) -> list[dict[str, Any]]:
 
 
 def registered_decision(delta_macro_pp: float) -> str:
+    if (
+        isinstance(delta_macro_pp, bool)
+        or not isinstance(delta_macro_pp, (int, float))
+        or not math.isfinite(float(delta_macro_pp))
+    ):
+        raise AdapterError("Registered decision requires a finite numerical delta")
     if float(delta_macro_pp) >= PRACTICAL_EFFECT_THRESHOLD_PP:
         return "CHECKPOINT_CONTINUATION_PROMISING_SINGLE_SEED_VALIDATION_GAIN"
     if float(delta_macro_pp) <= -PRACTICAL_EFFECT_THRESHOLD_PP:
@@ -278,22 +287,65 @@ def _validated_rows(history: dict[str, Any]) -> list[dict[str, Any]]:
     rows = history.get("epochs")
     if not isinstance(rows, list) or not rows:
         raise AdapterError("History must contain epochs")
-    required = (
+    finite_numeric = (
         "train_macro_f1", "val_macro_f1", "val_accuracy", "val_loss", "lr",
-        "early_stopping_wait",
     )
     for epoch, row in enumerate(rows, start=1):
-        if not isinstance(row, dict) or row.get("epoch") != epoch:
+        if (
+            not isinstance(row, dict)
+            or isinstance(row.get("epoch"), bool)
+            or not isinstance(row.get("epoch"), int)
+            or row.get("epoch") != epoch
+        ):
             raise AdapterError("History has a gap, duplicate, or invalid epoch")
-        for key in required:
-            if isinstance(row.get(key), bool) or not isinstance(row.get(key), (int, float)):
-                raise AdapterError(f"History epoch {epoch} lacks numeric {key}")
+        for key in finite_numeric:
+            value = row.get(key)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+            ):
+                raise AdapterError(f"History epoch {epoch} lacks finite numeric {key}")
+        wait = row.get("early_stopping_wait")
+        if isinstance(wait, bool) or not isinstance(wait, int) or wait < 0:
+            raise AdapterError(f"History epoch {epoch} has invalid early_stopping_wait")
+        patience = row.get("early_stopping_patience")
+        if (
+            isinstance(patience, bool)
+            or not isinstance(patience, int)
+            or patience != EARLY_STOPPING_PATIENCE
+        ):
+            raise AdapterError(f"History epoch {epoch} has invalid early_stopping_patience")
+        if not isinstance(row.get("stop_requested"), bool):
+            raise AdapterError(f"History epoch {epoch} has invalid stop_requested")
         if epoch >= 31 and (
             row.get("row_origin") != CONTINUATION_ROW_ORIGIN
             or row.get("continuation_protocol_id") != CONTINUATION_PROTOCOL_ID
         ):
             raise AdapterError(f"Continuation row provenance drift at epoch {epoch}")
     return rows
+
+
+def _is_forbidden_test_artifact(relative: str | Path) -> bool:
+    candidate = Path(relative)
+    parts = tuple(part.lower() for part in candidate.parts)
+    basename = candidate.name.lower()
+    exact_names = {name.lower() for name in FORBIDDEN_OUTPUT_NAMES}
+    return (
+        any(part == "test" for part in parts)
+        or basename == "test.csv"
+        or basename.startswith("test_")
+        or basename.startswith("test-")
+        or basename in exact_names
+    )
+
+
+def _forbidden_output_paths(output: Path) -> list[str]:
+    return [
+        path.relative_to(output).as_posix()
+        for path in output.rglob("*")
+        if _is_forbidden_test_artifact(path.relative_to(output))
+    ]
 
 
 def validate_canonical_generation(output_root: str | Path) -> dict[str, Any]:
@@ -414,6 +466,9 @@ def archive_members(
     run_root: str | Path, train_output_root: str | Path, report_path: str | Path
 ) -> list[tuple[Path, str]]:
     run, output = Path(run_root), Path(train_output_root)
+    forbidden_outputs = _forbidden_output_paths(output)
+    if forbidden_outputs:
+        raise AdapterError(f"Forbidden test output contamination: {forbidden_outputs}")
     members = []
     adapter = run / "adapter"
     for path in sorted(adapter.glob("*")) if adapter.is_dir() else []:
@@ -432,12 +487,7 @@ def archive_members(
     names = [name for _path, name in members]
     if len(names) != len(set(names)):
         raise AdapterError("Duplicate archive members")
-    forbidden = [
-        name for name in names
-        if Path(name).name in FORBIDDEN_OUTPUT_NAMES
-        or Path(name).name.startswith("test_metrics_")
-        or any(part.lower() == "test" for part in Path(name).parts)
-    ]
+    forbidden = [name for name in names if _is_forbidden_test_artifact(name)]
     if forbidden:
         raise AdapterError(f"Forbidden test archive members: {forbidden}")
     return members
@@ -663,16 +713,10 @@ def _validate_overlap(
     ):
         raise AdapterError("Overlap source drift")
     evidence = {}
-    fields = (
-        "epoch", "val_accuracy", "val_macro_f1", "val_loss",
-        "train_macro_f1", "lr", "early_stopping_wait",
-    )
     for epoch in (31, 32):
         original, resumed = originals[str(epoch)], rows[epoch - 1]
         if original != source_rows[epoch - 1]:
             raise AdapterError(f"Locked overlap row drift: {epoch}")
-        if all(resumed.get(key) == original.get(key) for key in fields):
-            raise AdapterError(f"Original source epoch {epoch} contaminated history")
         diagnostic = json_object(output / f"resume_overlap_epoch{epoch}.json", "overlap")
         required = {
             "classification": "FIRST_RUN_OVERLAP_DIAGNOSTICS", "epoch": epoch,
@@ -717,15 +761,7 @@ def validate_completion(
     output = Path(train_output_root).resolve()
     if source_hashes_before != source_hashes_after:
         raise AdapterError("Reviewed source changed during execution")
-    forbidden = []
-    for path in output.rglob("*"):
-        relative = path.relative_to(output)
-        if (
-            path.name in FORBIDDEN_OUTPUT_NAMES
-            or path.name.startswith("test_metrics_")
-            or any(part.lower() == "test" for part in relative.parts)
-        ):
-            forbidden.append(relative.as_posix())
+    forbidden = _forbidden_output_paths(output)
     if forbidden:
         raise AdapterError(f"Forbidden test output contamination: {forbidden}")
     if (output / TECHNICAL_FAILURE_MARKER).exists():
@@ -747,6 +783,7 @@ def validate_completion(
     completion_path = output / COMPLETION_MARKER
     completion = json_object(completion_path, "completion marker")
     required_completion = {
+        "schema_version": 1,
         "continuation_protocol_id": CONTINUATION_PROTOCOL_ID,
         "source_archive_sha256": SOURCE_ARCHIVE_SHA256,
         "source_checkpoint_sha256": SOURCE_CHECKPOINT_SHA256,
@@ -773,6 +810,16 @@ def validate_completion(
         raise AdapterError("Completion/history final epoch drift")
     if rows[:30] != source_rows[:30]:
         raise AdapterError("Immutable source prefix drift")
+    final_row = rows[-1]
+    if completion["completion_reason"] == "early_stopping":
+        if (
+            final_row["stop_requested"] is not True
+            or final_row["early_stopping_wait"] < EARLY_STOPPING_PATIENCE
+            or final_row["early_stopping_patience"] != EARLY_STOPPING_PATIENCE
+        ):
+            raise AdapterError("Early-stopping completion state is not natural")
+    elif final_epoch != MAX_EPOCHS or final_row["stop_requested"] is not False:
+        raise AdapterError("Max-epochs completion state is not natural")
     continuation_manifest = json_object(
         output / "continuation_pre_run_manifest.json", "continuation pre-run manifest"
     )
@@ -1089,7 +1136,8 @@ def _runtime_definitions_source() -> str:
         AdapterError, sha256_file, atomic_json, json_object, run_checked,
         verify_source_locks, discover_source_archive, locked_source_history,
         registered_decision, registered_command, _canonical_json_sha256,
-        _resolve_under, _validated_rows, validate_canonical_generation,
+        _resolve_under, _validated_rows, _is_forbidden_test_artifact,
+        _forbidden_output_paths, validate_canonical_generation,
         archive_members, publish_archive_atomic, RollingArchiveMonitor,
         derive_registered_metrics, _validate_runtime_manifest,
         _validate_pretrain_gate, _validate_overlap, deep_validate_latest_state,
@@ -1121,6 +1169,7 @@ def _constants_source() -> str:
         "RUNTIME_PROGRESS_PATH", "FAILURE_REPORT_PATH", "REPORT_PATH",
         "ARCHIVE_PATH", "TRAIN_BATCH_SIZE", "EVAL_BATCH_SIZE", "GRAPH_WORKERS",
         "TF_DATA_PREFETCH", "TF_DATA_PARALLEL_CALLS", "GRAPH_CACHE_SIZE",
+        "MAX_EPOCHS", "EARLY_STOPPING_PATIENCE",
         "EXPECTED_SPLIT_COUNTS", "COMPLETION_MARKER", "TECHNICAL_FAILURE_MARKER",
         "LATEST_STATE_MANIFEST", "OVERLAP_SOURCE", "FORBIDDEN_OUTPUT_NAMES",
         "ROLLING_RELATIVE_FILES",
@@ -1144,6 +1193,7 @@ def build_notebook() -> dict[str, Any]:
     import hashlib
     import importlib.metadata
     import json
+    import math
     import os
     from pathlib import Path
     import platform

@@ -43,7 +43,8 @@ def _rows(count=33):
             "val_loss": 1.5 - min(epoch, 30) / 1000.0,
             "lr": 0.00015 if epoch < 33 else 0.000075,
             "early_stopping_wait": max(0, epoch - 30),
-            "stop_requested": epoch == count,
+            "early_stopping_patience": adapter.EARLY_STOPPING_PATIENCE,
+            "stop_requested": False,
         }
         rows.append(row)
     return rows
@@ -100,6 +101,11 @@ def _valid_fixture(monkeypatch, tmp_path: Path, *, reason="early_stopping", coun
     adapter_root.mkdir(parents=True)
     (adapter_root / "subprocess.log").write_text("synthetic\n", encoding="utf-8")
     rows = _combined(source_rows, count)
+    if reason == "early_stopping":
+        rows[-1]["early_stopping_wait"] = adapter.EARLY_STOPPING_PATIENCE
+        rows[-1]["stop_requested"] = True
+    else:
+        rows[-1]["stop_requested"] = False
     history = {"epochs": rows}
     _write_json(output / "history.json", history)
     _write_json(output / "continuation_pre_run_manifest.json", {
@@ -229,6 +235,7 @@ def _valid_fixture(monkeypatch, tmp_path: Path, *, reason="early_stopping", coun
     }
     _write_json(manifest_path, manifest)
     completion = {
+        "schema_version": 1,
         "continuation_protocol_id": adapter.CONTINUATION_PROTOCOL_ID,
         "source_archive_sha256": adapter.SOURCE_ARCHIVE_SHA256,
         "source_checkpoint_sha256": adapter.SOURCE_CHECKPOINT_SHA256,
@@ -326,6 +333,36 @@ def _replace_best_metadata_and_rehash(fixture, payload):
     _write_json(completion_path, completion)
 
 
+def _replace_history_and_rehash(fixture, rows):
+    fixture.rows[:] = json.loads(json.dumps(rows))
+    history = {"epochs": fixture.rows}
+    _write_json(fixture.output / "history.json", history)
+    epoch = fixture.deep["completed_epoch"]
+    generation = fixture.output / f"latest_states/epoch_{epoch:04d}"
+    generation_history = generation / "history.json"
+    _write_json(generation_history, history)
+    history_sha = adapter.sha256_file(generation_history)
+
+    state_path = generation / "state.metadata.json"
+    state = adapter.json_object(state_path, "state")
+    state["combined_history_sha256"] = history_sha
+    _write_json(state_path, state)
+
+    manifest_path = fixture.output / adapter.LATEST_STATE_MANIFEST
+    manifest = adapter.json_object(manifest_path, "manifest")
+    manifest["combined_history_sha256"] = history_sha
+    manifest["metadata_sha256"] = adapter.sha256_file(state_path)
+    _write_json(manifest_path, manifest)
+
+    completion_path = fixture.output / adapter.COMPLETION_MARKER
+    completion = adapter.json_object(completion_path, "completion")
+    completion["combined_history_sha256"] = adapter.sha256_file(
+        fixture.output / "history.json"
+    )
+    completion["latest_state_manifest_sha256"] = adapter.sha256_file(manifest_path)
+    _write_json(completion_path, completion)
+
+
 def test_notebook_is_deterministic_unexecuted_and_compiles(tmp_path):
     first = adapter.build_notebook()
     second = adapter.build_notebook()
@@ -339,6 +376,17 @@ def test_notebook_is_deterministic_unexecuted_and_compiles(tmp_path):
         assert cell["execution_count"] is None
         assert cell["outputs"] == []
         compile("".join(cell["source"]), f"notebook:{cell['id']}", "exec")
+    definitions = "".join(code_cells[0]["source"])
+    assert "import math" in definitions
+    assert "MAX_EPOCHS = 90" in definitions
+    assert "EARLY_STOPPING_PATIENCE = 15" in definitions
+    assert "def _is_forbidden_test_artifact" in definitions
+    assert "def _forbidden_output_paths" in definitions
+    namespace = {}
+    exec(compile(definitions, "notebook:runtime-definitions", "exec"), namespace)
+    assert namespace["MAX_EPOCHS"] == 90
+    assert namespace["EARLY_STOPPING_PATIENCE"] == 15
+    assert namespace["_is_forbidden_test_artifact"]("run/test.csv") is True
     output = tmp_path / "adapter.ipynb"
     output.write_text(payload, encoding="utf-8", newline="\n")
     assert hashlib.sha256(output.read_bytes()).hexdigest() == hashlib.sha256(
@@ -417,14 +465,57 @@ def test_runtime_resource_manifest_and_argv_are_exact(monkeypatch, tmp_path):
     assert manifest["automatic_retry"] is False
 
 
-@pytest.mark.parametrize("reason", ["early_stopping", "max_epochs"])
-def test_valid_synthetic_natural_completion_computes_namespaced_label(monkeypatch, tmp_path, reason):
-    fixture = _valid_fixture(monkeypatch, tmp_path, reason=reason)
+def test_valid_synthetic_natural_early_stop_computes_namespaced_label(monkeypatch, tmp_path):
+    fixture = _valid_fixture(monkeypatch, tmp_path, reason="early_stopping")
     derived = _validate(fixture)
-    assert derived["completion_reason"] == reason
+    assert derived["completion_reason"] == "early_stopping"
     assert derived["registered_decision"].startswith("CHECKPOINT_CONTINUATION_")
     assert derived["final_epoch"] == 33
     assert set(derived["overlap_diagnostics"]) == {"31", "32"}
+
+
+@pytest.mark.parametrize(
+    "stop_requested,wait,error",
+    [
+        (False, 15, "Early-stopping"),
+        (True, 14, "Early-stopping"),
+    ],
+)
+def test_early_stop_requires_stop_flag_and_registered_wait(
+    monkeypatch, tmp_path, stop_requested, wait, error
+):
+    fixture = _valid_fixture(monkeypatch, tmp_path, reason="early_stopping")
+    history = adapter.json_object(fixture.output / "history.json", "history")
+    history["epochs"][-1]["stop_requested"] = stop_requested
+    history["epochs"][-1]["early_stopping_wait"] = wait
+    _write_json(fixture.output / "history.json", history)
+    with pytest.raises(adapter.AdapterError, match=error):
+        _validate(fixture)
+
+
+def test_max_epochs_requires_exact_epoch90_and_false_stop_flag(monkeypatch, tmp_path):
+    fixture = _valid_fixture(monkeypatch, tmp_path, reason="max_epochs", count=90)
+    derived = _validate(fixture)
+    assert derived["completion_reason"] == "max_epochs"
+    assert derived["final_epoch"] == 90
+    assert fixture.rows[-1]["stop_requested"] is False
+
+
+@pytest.mark.parametrize("count", [33, 89])
+def test_max_epochs_before_epoch90_fails_closed(monkeypatch, tmp_path, count):
+    fixture = _valid_fixture(monkeypatch, tmp_path, reason="max_epochs", count=count)
+    with pytest.raises(adapter.AdapterError, match="Max-epochs"):
+        _validate(fixture)
+
+
+def test_completion_marker_schema_version_is_required(monkeypatch, tmp_path):
+    fixture = _valid_fixture(monkeypatch, tmp_path)
+    completion_path = fixture.output / adapter.COMPLETION_MARKER
+    completion = adapter.json_object(completion_path, "completion")
+    completion.pop("schema_version")
+    _write_json(completion_path, completion)
+    with pytest.raises(adapter.AdapterError, match="schema_version"):
+        _validate(fixture)
 
 
 @pytest.mark.parametrize(
@@ -438,6 +529,12 @@ def test_valid_synthetic_natural_completion_computes_namespaced_label(monkeypatc
 )
 def test_exact_registered_threshold_boundaries(delta, expected):
     assert adapter.registered_decision(delta) == expected
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_registered_decision_rejects_non_finite_delta(value):
+    with pytest.raises(adapter.AdapterError, match="finite"):
+        adapter.registered_decision(value)
 
 
 def test_pretrain_gate_failure_produces_no_scientific_label(monkeypatch, tmp_path):
@@ -462,6 +559,62 @@ def test_pretrain_gate_failure_produces_no_scientific_label(monkeypatch, tmp_pat
 
 
 @pytest.mark.parametrize(
+    "field",
+    ["train_macro_f1", "val_macro_f1", "val_accuracy", "val_loss", "lr"],
+)
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_history_fails_before_endpoint_and_emits_no_label(
+    monkeypatch, tmp_path, field, value
+):
+    fixture = _valid_fixture(monkeypatch, tmp_path)
+    history_path = fixture.output / "history.json"
+    history = adapter.json_object(history_path, "history")
+    history["epochs"][30][field] = value
+    _write_json(history_path, history)
+
+    decisions = []
+    monkeypatch.setattr(
+        adapter, "registered_decision",
+        lambda delta: decisions.append(delta) or "SHOULD_NOT_BE_EMITTED",
+    )
+    with pytest.raises(adapter.AdapterError, match=f"finite numeric {field}"):
+        _validate(fixture)
+    assert decisions == []
+
+    evidence = fixture.adapter_root / "final_evidence.json"
+    evidence.write_text("fabricated", encoding="utf-8")
+    wrapper = adapter.write_failure_outputs(
+        subprocess_return_code=0, error_text="invalid non-finite history",
+        source_hashes_before=fixture.source_hashes,
+        source_hashes_after=fixture.source_hashes,
+        wrapper_path=fixture.adapter_root / "wrapper_execution.json",
+        evidence_path=evidence,
+        failure_report_path=fixture.adapter_root / "failure.md",
+    )
+    assert wrapper["scientific_result_valid"] is False
+    assert wrapper["scientific_interpretation"] is None
+    assert not evidence.exists()
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("epoch", True),
+        ("early_stopping_wait", -1),
+        ("early_stopping_wait", 1.0),
+        ("early_stopping_patience", 14),
+        ("early_stopping_patience", True),
+        ("stop_requested", 1),
+    ],
+)
+def test_reviewed_history_schema_fails_closed(field, value):
+    rows = _combined(_rows(32), 33)
+    rows[30][field] = value
+    with pytest.raises(adapter.AdapterError):
+        adapter._validated_rows({"epochs": rows})
+
+
+@pytest.mark.parametrize(
     "field,value",
     [
         ("row_origin", "SOURCE_FIRST_RUN"),
@@ -483,18 +636,51 @@ def test_history_gap_or_duplicate_fails(mode):
         adapter._validated_rows({"epochs": rows})
 
 
-@pytest.mark.parametrize("epoch", [31, 32])
-def test_original_source_epoch31_or_32_contamination_fails(monkeypatch, tmp_path, epoch):
+def test_zero_delta_overlap_is_descriptive_only_and_valid(monkeypatch, tmp_path):
     fixture = _valid_fixture(monkeypatch, tmp_path)
-    contaminated = dict(fixture.source_rows[epoch - 1])
-    contaminated.update({
-        "row_origin": adapter.CONTINUATION_ROW_ORIGIN,
-        "continuation_protocol_id": adapter.CONTINUATION_PROTOCOL_ID,
-    })
     rows = json.loads(json.dumps(fixture.rows))
-    rows[epoch - 1] = contaminated
-    with pytest.raises(adapter.AdapterError, match="contaminated"):
-        adapter._validate_overlap(fixture.output, rows, fixture.source_rows)
+    metric_fields = (
+        "val_accuracy", "val_macro_f1", "val_loss", "train_macro_f1", "lr",
+        "early_stopping_wait",
+    )
+    delta_fields = (
+        "delta_val_accuracy", "delta_val_macro_f1", "delta_val_loss",
+        "delta_train_macro_f1", "delta_lr", "delta_early_stopping_wait",
+    )
+    for epoch in (31, 32):
+        for field in metric_fields:
+            rows[epoch - 1][field] = fixture.source_rows[epoch - 1][field]
+        diagnostic_path = fixture.output / f"resume_overlap_epoch{epoch}.json"
+        diagnostic = adapter.json_object(diagnostic_path, "overlap")
+        diagnostic["resumed_row"] = rows[epoch - 1]
+        diagnostic.update({field: 0.0 for field in delta_fields})
+        _write_json(diagnostic_path, diagnostic)
+    _replace_history_and_rehash(fixture, rows)
+
+    derived = _validate(fixture)
+    for diagnostic in derived["overlap_diagnostics"].values():
+        assert all(diagnostic[field] == 0.0 for field in delta_fields)
+
+
+@pytest.mark.parametrize("identity", ["first_run_row", "resumed_row"])
+def test_overlap_diagnostic_row_identity_drift_fails(monkeypatch, tmp_path, identity):
+    fixture = _valid_fixture(monkeypatch, tmp_path)
+    path = fixture.output / "resume_overlap_epoch31.json"
+    diagnostic = adapter.json_object(path, "overlap")
+    diagnostic[identity] = {**diagnostic[identity], "val_loss": 999.0}
+    _write_json(path, diagnostic)
+    with pytest.raises(adapter.AdapterError, match="row drift"):
+        adapter._validate_overlap(fixture.output, fixture.rows, fixture.source_rows)
+
+
+def test_locked_overlap_source_row_drift_fails(monkeypatch, tmp_path):
+    fixture = _valid_fixture(monkeypatch, tmp_path)
+    path = fixture.output / adapter.OVERLAP_SOURCE
+    payload = adapter.json_object(path, "overlap source")
+    payload["rows"]["31"]["val_loss"] = 999.0
+    _write_json(path, payload)
+    with pytest.raises(adapter.AdapterError, match="Locked overlap row drift"):
+        adapter._validate_overlap(fixture.output, fixture.rows, fixture.source_rows)
 
 
 def test_final_epoch_manifest_mismatch_fails(monkeypatch, tmp_path):
@@ -678,6 +864,38 @@ def test_failure_archive_contains_status_log_partial_evidence_and_no_final(monke
     wrapper = adapter.json_object(fixture.adapter_root / "wrapper_execution.json", "wrapper")
     assert wrapper["scientific_result_valid"] is False
     assert wrapper["scientific_interpretation"] is None
+
+
+@pytest.mark.parametrize(
+    "relative",
+    ["test.csv", "test_predictions.json", "test-artifact.json", "test/foo.json"],
+)
+def test_forbidden_test_artifacts_fail_completion_and_archive_without_read(
+    monkeypatch, tmp_path, relative
+):
+    fixture = _valid_fixture(monkeypatch, tmp_path)
+    forbidden = fixture.output / relative
+    forbidden.parent.mkdir(parents=True, exist_ok=True)
+    forbidden.write_bytes(b"must-not-be-opened")
+    original_open = Path.open
+
+    def guarded_open(path, *args, **kwargs):
+        if path.resolve() == forbidden.resolve():
+            raise AssertionError("forbidden test artifact was opened")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
+    with pytest.raises(adapter.AdapterError, match="Forbidden test output"):
+        _validate(fixture)
+    with pytest.raises(adapter.AdapterError, match="Forbidden test output"):
+        adapter.archive_members(
+            fixture.run_root, fixture.output, tmp_path / "missing-report.md"
+        )
+
+
+def test_test_artifact_helper_does_not_false_reject_latest_state_names():
+    assert not adapter._is_forbidden_test_artifact("run/latest_states/epoch_0033/state.keras")
+    assert not adapter._is_forbidden_test_artifact("run/latest_state_manifest.json")
 
 
 def test_hard_censor_partial_disposition_is_invalid_and_null():
