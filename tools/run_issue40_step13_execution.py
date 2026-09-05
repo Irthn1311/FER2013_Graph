@@ -28,7 +28,8 @@ import zipfile
 
 STATUS = "STEP13_EXECUTION_PREPARATION_ONLY"
 ISSUE_NUMBER = 40
-ADAPTER_VERSION = "1.0.0"
+ADAPTER_VERSION = "1.0.1"
+INVALID_REGISTERED_EXECUTION_EXIT_CODE = 3
 SCIENTIFIC_BASE_COMMIT = "d90cce8c4d23f8f1c2958c76cda4ce9d8cae6608"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PROBE_RELATIVE_PATH = Path(
@@ -611,7 +612,7 @@ def run_registered_execution(args: argparse.Namespace) -> dict[str, Any]:
                 probe_manifest = validate_successful_probe_output(probe_output)
                 status = "COMPLETE"
                 scientific_result_valid = True
-            except BaseException as exc:  # preserve evidence for any probe failure
+            except Exception as exc:  # preserve evidence for ordinary probe failures
                 error_text = f"{type(exc).__name__}: {exc}"
                 traceback.print_exc(file=log)
 
@@ -666,7 +667,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     result = run_registered_execution(args)
     print(json.dumps(result, indent=2, sort_keys=True))
-    return 0
+    if (
+        result.get("status") == "COMPLETE"
+        and result.get("scientific_result_valid") is True
+    ):
+        return 0
+    return INVALID_REGISTERED_EXECUTION_EXIT_CODE
 
 
 if __name__ == "__main__":

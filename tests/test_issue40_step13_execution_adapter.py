@@ -97,6 +97,94 @@ def _required_cli(output: Path) -> list[str]:
     ]
 
 
+def _valid_probe_manifest() -> dict:
+    return {
+        "status": "VALID_REGISTERED_REMAINING_PRIOR_DECOMPOSITION",
+        "sample_count": adapter.EXPECTED_FULL_VALIDATION_SAMPLES,
+        "condition_order": list(adapter.EXPECTED_CONDITIONS),
+        "limit_val_batches": None,
+        "registered_gates_and_decision": {
+            "gate_a_native_vs_p0": {"status": "PASS"},
+            "gate_b_checkpoint_metrics": {"status": "PASS"},
+            "gate_c_checkpoint_identity": {"status": "PASS"},
+        },
+        "training": False,
+        "optimizer_updates": False,
+        "test_access": False,
+        "scientific_interpretation": "SYNTHETIC_VALID_COMPLETION",
+    }
+
+
+def _patch_synthetic_registered_execution(monkeypatch, tmp_path, probe_main):
+    source = tmp_path / "source.zip.b64"
+    source.write_bytes(b"synthetic-transport")
+    prior = tmp_path / "prior"
+    cache = tmp_path / "cache"
+    prior.mkdir()
+    cache.mkdir()
+    output = tmp_path / "run"
+    archive = tmp_path / "run.zip"
+
+    monkeypatch.setattr(
+        adapter,
+        "validate_scientific_sources",
+        lambda _root: {
+            "execution_head": "synthetic",
+            "scientific_base_commit": adapter.SCIENTIFIC_BASE_COMMIT,
+            "probe_sha256": adapter.EXPECTED_PROBE_SHA256,
+            "scientific_payload_sha256": adapter.EXPECTED_SCIENTIFIC_PAYLOAD_SHA256,
+        },
+    )
+
+    def materialize(_source, destination):
+        path = Path(destination)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"synthetic-reviewed-archive")
+        return path, {
+            "source_path": str(source),
+            "source_transport": "base64",
+            "source_transport_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+            "materialized_archive_path": str(path),
+            "materialized_archive_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        }
+
+    def extract(_archive, destination):
+        root = Path(destination)
+        root.mkdir(parents=True, exist_ok=False)
+        artifacts = {}
+        for label, filename in adapter.EXTRACTED_FILENAMES.items():
+            path = root / filename
+            path.write_bytes(f"synthetic-{label}".encode("ascii"))
+            artifacts[label] = path
+        return artifacts
+
+    monkeypatch.setattr(adapter, "materialize_reviewed_archive", materialize)
+    monkeypatch.setattr(adapter, "extract_locked_artifacts", extract)
+    monkeypatch.setattr(
+        adapter,
+        "configure_registered_runtime",
+        lambda: dict(adapter.REGISTERED_ENVIRONMENT),
+    )
+    monkeypatch.setattr(adapter, "invoke_reviewed_probe", probe_main)
+    cli = [
+        "--repository-root",
+        str(ROOT),
+        "--step12e-source",
+        str(source),
+        "--prior-root",
+        str(prior),
+        "--clean-graph-cache-dir",
+        str(cache),
+        "--output-root",
+        str(output),
+        "--archive-path",
+        str(archive),
+        "--confirm",
+        adapter.REGISTERED_CONFIRMATION,
+    ]
+    return cli, output, archive
+
+
 def test_exact_issue40_source_runtime_and_artifact_locks():
     assert adapter.STATUS == "STEP13_EXECUTION_PREPARATION_ONLY"
     assert adapter.SCIENTIFIC_BASE_COMMIT == BASE
@@ -128,6 +216,7 @@ def test_exact_issue40_source_runtime_and_artifact_locks():
     assert adapter.REGISTERED_ENVIRONMENT["mixed_precision_policy"] == "mixed_float16"
     assert adapter.REGISTERED_ENVIRONMENT["xla"] is False
     assert adapter.REGISTERED_ENVIRONMENT["memory_growth"] is True
+    assert adapter.INVALID_REGISTERED_EXECUTION_EXIT_CODE == 3
 
 
 def test_wrong_probe_source_identity_fails_closed(monkeypatch, tmp_path):
@@ -294,26 +383,105 @@ def test_runtime_identity_is_exact_and_drift_fails_closed():
 def test_success_evidence_requires_exact_gates_samples_conditions_and_boundaries(tmp_path):
     root = tmp_path / "probe"
     root.mkdir()
-    valid = {
-        "status": "VALID_REGISTERED_REMAINING_PRIOR_DECOMPOSITION",
-        "sample_count": 3589,
-        "condition_order": list(adapter.EXPECTED_CONDITIONS),
-        "limit_val_batches": None,
-        "registered_gates_and_decision": {
-            "gate_a_native_vs_p0": {"status": "PASS"},
-            "gate_b_checkpoint_metrics": {"status": "PASS"},
-            "gate_c_checkpoint_identity": {"status": "PASS"},
-        },
-        "training": False,
-        "optimizer_updates": False,
-        "test_access": False,
-    }
+    valid = _valid_probe_manifest()
     (root / "probe_manifest.json").write_text(json.dumps(valid), encoding="utf-8")
     assert adapter.validate_successful_probe_output(root)["sample_count"] == 3589
     valid["test_access"] = True
     (root / "probe_manifest.json").write_text(json.dumps(valid), encoding="utf-8")
     with pytest.raises(adapter.Step13ExecutionAdapterError, match="test"):
         adapter.validate_successful_probe_output(root)
+
+
+def test_valid_synthetic_completion_returns_zero(monkeypatch, tmp_path):
+    def successful_probe(_path, arguments):
+        probe_output = Path(arguments[arguments.index("--output-root") + 1])
+        probe_output.mkdir(parents=True)
+        (probe_output / "probe_manifest.json").write_text(
+            json.dumps(_valid_probe_manifest()), encoding="utf-8", newline="\n"
+        )
+        return 0
+
+    cli, output, archive = _patch_synthetic_registered_execution(
+        monkeypatch, tmp_path, successful_probe
+    )
+    assert adapter.main(cli) == 0
+    wrapper = json.loads((output / "wrapper_execution.json").read_text(encoding="utf-8"))
+    assert wrapper["status"] == "COMPLETE"
+    assert wrapper["scientific_result_valid"] is True
+    assert archive.is_file()
+
+
+def test_gate_invalid_completion_preserves_evidence_and_returns_nonzero(
+    monkeypatch, tmp_path
+):
+    def gate_failure(_path, arguments):
+        probe_output = Path(arguments[arguments.index("--output-root") + 1])
+        probe_output.mkdir(parents=True)
+        manifest = _valid_probe_manifest()
+        manifest["registered_gates_and_decision"]["gate_a_native_vs_p0"]["status"] = "FAIL"
+        (probe_output / "probe_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8", newline="\n"
+        )
+        return 0
+
+    cli, output, archive = _patch_synthetic_registered_execution(
+        monkeypatch, tmp_path, gate_failure
+    )
+    assert adapter.main(cli) == adapter.INVALID_REGISTERED_EXECUTION_EXIT_CODE
+    wrapper = json.loads((output / "wrapper_execution.json").read_text(encoding="utf-8"))
+    assert wrapper["status"] == "TECHNICAL_OR_GATE_FAILURE"
+    assert wrapper["scientific_result_valid"] is False
+    assert wrapper["scientific_interpretation"] is None
+    assert (output / "pre_run_manifest.json").is_file()
+    assert (output / "probe_execution.log").is_file()
+    assert (output / "execution_report.md").is_file()
+    with zipfile.ZipFile(archive) as evidence:
+        names = set(evidence.namelist())
+    assert {
+        "pre_run_manifest.json",
+        "probe_execution.log",
+        "probe_output/probe_manifest.json",
+        "wrapper_execution.json",
+        "execution_report.md",
+    } <= names
+
+
+def test_probe_nonzero_preserves_partial_evidence_and_returns_nonzero(
+    monkeypatch, tmp_path
+):
+    def failing_probe(_path, arguments):
+        probe_output = Path(arguments[arguments.index("--output-root") + 1])
+        probe_output.mkdir(parents=True)
+        (probe_output / "partial_probe.json").write_text(
+            '{"status":"PARTIAL"}\n', encoding="utf-8", newline="\n"
+        )
+        return 17
+
+    cli, output, archive = _patch_synthetic_registered_execution(
+        monkeypatch, tmp_path, failing_probe
+    )
+    assert adapter.main(cli) == adapter.INVALID_REGISTERED_EXECUTION_EXIT_CODE
+    wrapper = json.loads((output / "wrapper_execution.json").read_text(encoding="utf-8"))
+    assert wrapper["status"] == "TECHNICAL_OR_GATE_FAILURE"
+    assert wrapper["probe_return_code"] == 17
+    assert wrapper["scientific_result_valid"] is False
+    with zipfile.ZipFile(archive) as evidence:
+        names = set(evidence.namelist())
+        log = evidence.read("probe_execution.log").decode("utf-8")
+    assert "probe_output/partial_probe.json" in names
+    assert "wrapper_execution.json" in names
+    assert "Reviewed probe returned 17" in log
+
+
+def test_keyboard_interrupt_is_not_converted_to_success(monkeypatch, tmp_path):
+    def interrupted_probe(_path, _arguments):
+        raise KeyboardInterrupt
+
+    cli, _output, _archive = _patch_synthetic_registered_execution(
+        monkeypatch, tmp_path, interrupted_probe
+    )
+    with pytest.raises(KeyboardInterrupt):
+        adapter.main(cli)
 
 
 def test_compact_archive_excludes_inputs_and_model_containers(tmp_path):

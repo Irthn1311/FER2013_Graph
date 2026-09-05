@@ -13,7 +13,7 @@ A thin adapter is necessary because the reviewed probe intentionally owns only v
 - Scientific base: `d90cce8c4d23f8f1c2958c76cda4ce9d8cae6608`
 - Reviewed Step 13 probe SHA-256: `cf68c47d428d0b569828d65028024fcc0713e963419ff5511be91b1377327118`
 - Execution adapter: `tools/run_issue40_step13_execution.py`
-- Execution adapter SHA-256: `02c0452d4349d22daa8b2ad85a2ea2cbc8159aab313246127292f735333c5d5c`
+- Execution adapter SHA-256: `2ec514beb399ce5fe62a5cf37989f8317039ca8a2423f79400d1b288e799bec3`
 - Candidate model SHA-256: `0a7cfa315baf0d6666b7ab86139b328ab6d138985cfddd71180410675602fcca`
 - Step-12E archive SHA-256: `f436b0a7a20c751b2fd2f47738469fb409ecf9a1a40628e05d20974639927451`
 - Epoch-42 checkpoint SHA-256: `e0d633cb6200e963f31a28750e28c7febdaae40344c90ba9d94b826a09e4b78c`
@@ -35,6 +35,8 @@ The fixed resource record is evaluation batch `32`, graph workers `2`, graph cac
 There is no split option. The probe command remains fixed to its validation-only path, contains no `--limit-val-batches`, and requires the explicit confirmation `RUN_ISSUE40_VALIDATION_ONLY_P0_P9`. Existing output or archive paths fail closed. Scientific inputs are never placed in the compact output archive; `.keras`, `.h5`, train/test CSVs, and test-named paths are forbidden archive members.
 
 Only a complete probe manifest with exactly `3,589` samples, exact P0-P9 inventory, Gate A/B/C PASS, no batch limit, and false training/optimizer/test flags can produce `scientific_result_valid=true`. The adapter copies no scientific calculation: it only validates the reviewed probe's completion record. A technical or gate failure remains explicit and has null scientific interpretation.
+
+The outer CLI is fail-closed as well as the evidence record. It returns `0` only when wrapper status is exactly `COMPLETE` and `scientific_result_valid` is exactly `true`. An ordinary probe/Gate/manifest failure is first recorded as `TECHNICAL_OR_GATE_FAILURE`, with its pre-run manifest, probe log, wrapper record, report, partial probe outputs, and verified compact ZIP preserved where possible; the CLI then returns the stable invalid-run exit code `3`. `KeyboardInterrupt` and unexpected `SystemExit` are not caught by the ordinary evidence-preservation handler and therefore cannot be converted into a successful CLI return.
 
 ## Proposed Kaggle inputs
 
@@ -73,7 +75,10 @@ This command is documentation only in this PR and was not executed.
 
 ## Static and synthetic verification
 
-- Issue #40 adapter suite: `20 passed`.
+- Issue #40 adapter suite: `24 passed`.
+- Synthetic completion exit regression: exact valid manifest, Gate A/B/C PASS, `3,589` samples, and exact P0-P9 inventory returns `0`.
+- Synthetic Gate-invalid and probe-return-`17` regressions: compact failure evidence retained and outer CLI returns `3`.
+- Synthetic abort regression: `KeyboardInterrupt` propagates and is not converted into exit code `0`.
 - Reviewed Issue #38 probe suite in an LF checkout matching Kaggle/Linux: `50 passed`.
 - Candidate plus reviewed Step-7/Step-6 regressions: `54 passed`.
 - Fresh subprocess CLI with `PYTHONPATH` removed: PASS.
