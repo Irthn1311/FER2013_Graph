@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
+import re
 from typing import Iterable
 
 import numpy as np
@@ -22,10 +23,28 @@ class CFHPGDataError(ValueError):
     """Raised when an explicitly supplied train/validation CSV is invalid."""
 
 
+_FORBIDDEN_SPLIT_DIRECTORIES = frozenset(
+    {"test", "testing", "test_split", "test-split"}
+)
+_FORBIDDEN_TEST_BASENAME = re.compile(r"^test(?:\.csv|[_-].+\.csv)$", re.IGNORECASE)
+
+
+def validate_allowed_csv_path(path: str | Path) -> Path:
+    """Reject explicit final-split paths lexically before any file access."""
+
+    source = Path(path).expanduser().resolve()
+    if _FORBIDDEN_TEST_BASENAME.fullmatch(source.name):
+        raise CFHPGDataError(f"Final-split CSV path is forbidden: {source}")
+    directory_components = {part.casefold() for part in source.parts[:-1]}
+    if directory_components & _FORBIDDEN_SPLIT_DIRECTORIES:
+        raise CFHPGDataError(f"Final-split directory is forbidden: {source}")
+    return source
+
+
 def load_fer_csv(path: str | Path, expected_samples: int | None = None):
     """Load one explicitly supplied FER CSV without split discovery."""
 
-    source = Path(path).expanduser().resolve()
+    source = validate_allowed_csv_path(path)
     if not source.is_file():
         raise FileNotFoundError(source)
     images: list[np.ndarray] = []

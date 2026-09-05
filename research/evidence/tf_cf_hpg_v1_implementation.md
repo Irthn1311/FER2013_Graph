@@ -18,6 +18,10 @@ The parameter-free hierarchy reshapes the fine nodes to `8x8`, arithmetic-means 
 
 The graph is stored as a boolean adjacency mask, but its active edge set is exactly the sparse registered neighbor union. Boolean union provides exact deduplication. No graph is rebuilt between the two blocks at a scale.
 
+## Test-split path isolation
+
+Every CSV request passes through the candidate data-boundary guard before `is_file`, `open`, parsing, hashing, or loading. The guard rejects the exact basename `test.csv`, the precise `test_*.csv` and `test-*.csv` patterns, and explicit directory components `test`, `testing`, `test_split`, and `test-split`, case-insensitively. It does not use substring matching: `train.csv`, `val.csv`, `validation.csv`, `tiny.csv`, and `contest_data.csv` remain valid. The production CLI lexically preflights both supplied CSV paths before creating its output directory or loading either source; `load_fer_csv()` independently applies the same guard so non-CLI callers cannot bypass it.
+
 ## Model inventory
 
 - Total parameters: `413447`
@@ -64,15 +68,18 @@ Validation and clean-train evaluation call the non-augmentation dataset path. Ho
 - `__init__.py`: `427150bf919257d221f0e10d7fbbc154c8cd6e1004150edfc193867bd849a7c2`
 - `graph.py`: `fd425766f8db4d53f87edca0bebb88ff476c43938fff6a507c0687a0efb2d8ec`
 - `model.py`: `74c29b114b37ab8b48e45eed187978213fdecb858554f4d37468042a3db4050d`
-- `data.py`: `eab3e26e7ee9f4498d056857d3e7ed741fd524739d4c7b172f8fd40ec793f6aa`
-- `train_validation_only.py`: `51076a3ff579e041a4638ad2495b2d064a31bc87bdc04cbb187290472a1dbac3`
-- `tests/test_tf_cf_hpg_v1.py`: `ae0dd056c085f932b4b341a87f6d9ef13a6021dac6761ddb393e37e38c8a887d`
+- `data.py`: `e8b586aafc6fbad74d913cb08d25a61432c0e55173a60621597f4c5a8d091776`
+- `train_validation_only.py`: `045eb7762f8dda7a057201f7c4b599d76778ba1aa18b6bac3c797e8c620b4180`
+- `tests/test_tf_cf_hpg_v1.py`: `0e00b2ea819d23582d734f3438896721cb5b9c7a4ec3cae722997e15f21e1e25`
 
 These hashes are the implementation files before adding this evidence document. The evidence-file hash is reported separately in the PR.
 
 ## Synthetic verification
 
-- Focused Issue #42 suite: `33 passed`.
+- Focused Issue #42 suite: `53 passed`.
+- Fourteen forbidden-path cases cover all registered basename/directory forms with both unrestricted and exact-`3589` sample-count arguments; tracked `Path.open` calls remain empty in every case.
+- The synthetic CLI regression rejects `--val-csv test.csv` before either CSV loader is called and before the output directory is created.
+- Five allowed-name cases prove exact matching does not reject ordinary train/validation/tiny sources or `contest_data.csv`.
 - Candidate plus reviewed Step-7/Step-6 regression suites: `54 passed`.
 - The synthetic `tf.function` train step produced finite logits, finite smoothed loss, finite gradients for every trainable variable, and changed model parameters through AdamW.
 - Dynamic learned-relation graph construction executed inside that traced training step.

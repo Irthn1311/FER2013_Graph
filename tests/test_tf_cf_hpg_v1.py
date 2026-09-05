@@ -363,6 +363,75 @@ def test_loader_opens_only_the_explicitly_supplied_tiny_csv(tmp_path, monkeypatc
     assert labels.tolist() == [2]
 
 
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "test.csv",
+        "test_private.csv",
+        "test-final.csv",
+        "test/sample.csv",
+        "testing/sample.csv",
+        "test_split/sample.csv",
+        "test-split/sample.csv",
+    ],
+)
+@pytest.mark.parametrize("expected_samples", [None, 3_589])
+def test_forbidden_split_paths_fail_before_open(
+    tmp_path, monkeypatch, relative_path, expected_samples
+):
+    source = tmp_path / relative_path
+    opened = []
+
+    def forbidden_open(*args, **kwargs):
+        opened.append((args, kwargs))
+        raise AssertionError("Forbidden source must not be opened")
+
+    monkeypatch.setattr(Path, "open", forbidden_open)
+    with pytest.raises(data.CFHPGDataError, match="forbidden"):
+        data.load_fer_csv(source, expected_samples=expected_samples)
+    assert opened == []
+
+
+@pytest.mark.parametrize(
+    "basename", ["train.csv", "val.csv", "validation.csv", "tiny.csv", "contest_data.csv"]
+)
+def test_normal_and_harmless_substring_csv_names_remain_allowed(tmp_path, basename):
+    source = tmp_path / basename
+    with source.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["emotion", "pixels"])
+        writer.writeheader()
+        writer.writerow({"emotion": 4, "pixels": " ".join(["1"] * 2304)})
+    images, labels = data.load_fer_csv(source, expected_samples=1)
+    assert images.shape == (1, 48, 48, 1)
+    assert labels.tolist() == [4]
+
+
+def test_cli_rejects_forbidden_validation_path_before_any_loader_or_output(
+    tmp_path, monkeypatch
+):
+    loader_calls = []
+
+    def unexpected_loader(*args, **kwargs):
+        loader_calls.append((args, kwargs))
+        raise AssertionError("CLI must reject all paths before loading either source")
+
+    monkeypatch.setattr(training, "load_fer_csv", unexpected_loader)
+    output_root = tmp_path / "output"
+    with pytest.raises(data.CFHPGDataError, match="forbidden"):
+        training.main(
+            [
+                "--train-csv",
+                str(tmp_path / "train.csv"),
+                "--val-csv",
+                str(tmp_path / "test.csv"),
+                "--output-root",
+                str(output_root),
+            ]
+        )
+    assert loader_calls == []
+    assert not output_root.exists()
+
+
 def test_synthetic_tf_function_forward_backward_is_finite_and_updates():
     model = build_cf_hpg_v1()
     optimizer = training.build_optimizer(steps_per_epoch=2)

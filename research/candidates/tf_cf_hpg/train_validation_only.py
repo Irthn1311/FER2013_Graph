@@ -14,7 +14,12 @@ import numpy as np
 import tensorflow as tf
 from sklearn.metrics import accuracy_score, f1_score
 
-from .data import build_clean_evaluation_dataset, build_dataset, load_fer_csv
+from .data import (
+    build_clean_evaluation_dataset,
+    build_dataset,
+    load_fer_csv,
+    validate_allowed_csv_path,
+)
 from .model import build_cf_hpg_v1
 
 
@@ -232,13 +237,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    train_csv = validate_allowed_csv_path(args.train_csv)
+    val_csv = validate_allowed_csv_path(args.val_csv)
     output_root = args.output_root.expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=False)
     random.seed(SEED)
     np.random.seed(SEED)
     tf.random.set_seed(SEED)
-    train_images, train_labels = load_fer_csv(args.train_csv, TRAIN_SAMPLES)
-    val_images, val_labels = load_fer_csv(args.val_csv, VALIDATION_SAMPLES)
+    train_images, train_labels = load_fer_csv(train_csv, TRAIN_SAMPLES)
+    val_images, val_labels = load_fer_csv(val_csv, VALIDATION_SAMPLES)
     train_dataset = build_dataset(train_images, train_labels, training=True)
     clean_train = build_clean_evaluation_dataset(train_images, train_labels)
     validation = build_clean_evaluation_dataset(val_images, val_labels)
