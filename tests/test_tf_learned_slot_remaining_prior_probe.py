@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import inspect
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -83,6 +84,9 @@ def test_exact_base_source_checkpoint_q_and_protocol_locks():
     assert probe.EXPECTED_METADATA_SHA256 == (
         "a5ee759bc6fbef587e025199d0dcfe6ebd3a1764cffa567f793c53e972eb47cf"
     )
+    assert probe.EXPECTED_RESOLVED_CONFIG_SHA256 == (
+        "3c028dd2f32ebed3a252544e170220b150b5e29920cea865924dddce6aef5a32"
+    )
     assert probe.EXPECTED_Q_SHA256 == (
         "54b368aa183c65d5843d8b8e340d3020412d1a2dfeaabbe8b2c0166684ab3ff9"
     )
@@ -100,7 +104,13 @@ def test_exact_base_source_checkpoint_q_and_protocol_locks():
 
 @pytest.mark.parametrize(
     "tampered_name",
-    ["step12e_archive", "checkpoint", "checkpoint_weights", "checkpoint_metadata"],
+    [
+        "step12e_archive",
+        "checkpoint",
+        "checkpoint_weights",
+        "checkpoint_metadata",
+        "resolved_config",
+    ],
 )
 def test_artifact_locks_pass_and_each_wrong_sha_fails_closed(
     monkeypatch, tmp_path, tampered_name
@@ -111,6 +121,7 @@ def test_artifact_locks_pass_and_each_wrong_sha_fails_closed(
         "checkpoint": "EXPECTED_CHECKPOINT_SHA256",
         "checkpoint_weights": "EXPECTED_WEIGHTS_SHA256",
         "checkpoint_metadata": "EXPECTED_METADATA_SHA256",
+        "resolved_config": "EXPECTED_RESOLVED_CONFIG_SHA256",
     }
     for name, constant in mapping.items():
         path = tmp_path / name
@@ -127,6 +138,47 @@ def test_artifact_locks_pass_and_each_wrong_sha_fails_closed(
     }
     paths[tampered_name].write_bytes(b"tampered")
     with pytest.raises(probe.RemainingPriorProbeError, match=tampered_name):
+        probe.validate_source_artifacts(**paths)
+
+
+def test_modified_config_that_passes_partial_contract_still_fails_exact_sha_lock(
+    monkeypatch, tmp_path
+):
+    raw_config = probe.step6.load_config(
+        PACKAGE_ROOT / "configs/fer2013_ofix7_mid_tensorflow_seed42.yaml"
+    )
+    changed_config = json.loads(json.dumps(raw_config))
+    changed_config["resources"]["graph_workers"] = 99
+    # The reviewed frozen-contract validator intentionally accepts this
+    # non-locked resource change; the new exact file-identity gate must not.
+    probe.validate_frozen_runtime_config(changed_config)
+
+    paths = {}
+    mapping = {
+        "step12e_archive": "EXPECTED_STEP12E_ARCHIVE_SHA256",
+        "checkpoint": "EXPECTED_CHECKPOINT_SHA256",
+        "checkpoint_weights": "EXPECTED_WEIGHTS_SHA256",
+        "checkpoint_metadata": "EXPECTED_METADATA_SHA256",
+    }
+    for name, constant in mapping.items():
+        path = tmp_path / name
+        path.write_bytes(name.encode())
+        paths[name] = path
+        monkeypatch.setattr(probe, constant, probe.sha256_file(path))
+    resolved_config = tmp_path / "resolved_config.json"
+    resolved_config.write_text(json.dumps(raw_config), encoding="utf-8")
+    monkeypatch.setattr(
+        probe, "EXPECTED_RESOLVED_CONFIG_SHA256", probe.sha256_file(resolved_config)
+    )
+    resolved_config.write_text(json.dumps(changed_config), encoding="utf-8")
+    paths["resolved_config"] = resolved_config
+    candidate = tmp_path / "model.py"
+    candidate.write_bytes(b"candidate")
+    monkeypatch.setattr(probe, "CANDIDATE_MODEL_PATH", candidate)
+    monkeypatch.setattr(
+        probe, "EXPECTED_CANDIDATE_MODEL_SHA256", probe.sha256_file(candidate)
+    )
+    with pytest.raises(probe.RemainingPriorProbeError, match="resolved_config"):
         probe.validate_source_artifacts(**paths)
 
 
@@ -164,6 +216,86 @@ def test_execution_contract_valid_nested_step6_shape_passes(monkeypatch):
     config, contract = probe.validate_frozen_runtime_config({"seed": 42})
     assert config == {"seed": 42}
     assert contract == returned
+
+
+def _matching_raw_config_and_metadata():
+    raw_config = {
+        "seed": 42,
+        "locked": {
+            "package_checksum": probe.EXPECTED_SCIENTIFIC_PAYLOAD_SHA256,
+            "execution_contract_sha256": probe.EXPECTED_EXECUTION_CONTRACT_SHA256,
+            "graph_signature": "graph-signature",
+            "feature_signature": "feature-signature",
+            "prior_signature": "prior-signature",
+            "dataset_split_signature": "split-signature",
+        },
+    }
+    metadata = {
+        "epoch": 42,
+        "config_hash": probe.step6.canonical_config_hash(raw_config),
+        "seed": 42,
+        "package_checksum": probe.EXPECTED_SCIENTIFIC_PAYLOAD_SHA256,
+        "execution_contract_sha256": probe.EXPECTED_EXECUTION_CONTRACT_SHA256,
+        "graph_signature": "graph-signature",
+        "feature_signature": "feature-signature",
+        "prior_signature": "prior-signature",
+        "dataset_split_signature": "split-signature",
+    }
+    return raw_config, metadata
+
+
+def test_exact_metadata_config_provenance_cross_check_passes():
+    raw_config, metadata = _matching_raw_config_and_metadata()
+    result = probe.validate_metadata_config_provenance(raw_config, metadata)
+    assert result["checkpoint_epoch"] == 42
+    assert result["cross_checked_fields"] == [
+        "config_hash",
+        "dataset_split_signature",
+        "execution_contract_sha256",
+        "feature_signature",
+        "graph_signature",
+        "package_checksum",
+        "prior_signature",
+        "seed",
+    ]
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "config_hash",
+        "seed",
+        "package_checksum",
+        "execution_contract_sha256",
+        "graph_signature",
+        "feature_signature",
+        "prior_signature",
+        "dataset_split_signature",
+    ],
+)
+def test_metadata_config_provenance_mismatch_fails_closed(field):
+    raw_config, metadata = _matching_raw_config_and_metadata()
+    metadata[field] = "wrong" if field != "seed" else 43
+    with pytest.raises(probe.RemainingPriorProbeError, match="provenance mismatch"):
+        probe.validate_metadata_config_provenance(raw_config, metadata)
+
+
+def test_fresh_subprocess_help_bootstraps_without_pythonpath_from_outside_repo(tmp_path):
+    environment = dict(os.environ)
+    for name in list(environment):
+        if name.upper() == "PYTHONPATH":
+            environment.pop(name)
+    completed = subprocess.run(
+        [sys.executable, str(PROBE_PATH), "--help"],
+        cwd=tmp_path,
+        env=environment,
+        check=False,
+        text=True,
+        capture_output=True,
+        timeout=90,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "Evaluate fixed-checkpoint P0-P9 remaining-prior paths" in completed.stdout
 
 
 def test_metadata_lock_requires_epoch42_and_exact_reference(tmp_path):

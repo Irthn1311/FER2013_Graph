@@ -12,18 +12,30 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import sys
 from typing import Any, Iterable, Mapping
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+FROZEN_PACKAGE_ROOT = (
+    REPOSITORY_ROOT / "standalone" / "lap_gnn_tensorflow_ofix7_mid_candidate"
+)
+FROZEN_PACKAGE_SRC = FROZEN_PACKAGE_ROOT / "src"
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+if str(FROZEN_PACKAGE_SRC) not in sys.path:
+    sys.path.insert(0, str(FROZEN_PACKAGE_SRC))
 
 import numpy as np
 import tensorflow as tf
 
-from lap_gnn_tf.data.graph_generator import GraphBatchGenerator
-from lap_gnn_tf.model.motif_layers import PART_ORDER, part_pool
-from lap_gnn_tf.signatures import scientific_payload_checksum, sha256_file
-from lap_gnn_tf.training.losses import sparse_cross_entropy
-from lap_gnn_tf.training.metrics import classification_metrics
+from lap_gnn_tf.data.graph_generator import GraphBatchGenerator  # noqa: E402
+from lap_gnn_tf.model.motif_layers import PART_ORDER, part_pool  # noqa: E402
+from lap_gnn_tf.signatures import scientific_payload_checksum, sha256_file  # noqa: E402
+from lap_gnn_tf.training.losses import sparse_cross_entropy  # noqa: E402
+from lap_gnn_tf.training.metrics import classification_metrics  # noqa: E402
 
-from research.candidates.tf_learned_local_residual_slots.model import (
+from research.candidates.tf_learned_local_residual_slots.model import (  # noqa: E402
     HIDDEN_DIM,
     NUM_LOCAL_SLOTS,
     LearnedLocalResidualSlotLapGNN,
@@ -31,12 +43,8 @@ from research.candidates.tf_learned_local_residual_slots.model import (
 )
 
 
-TOOL_VERSION = "1.0.0"
+TOOL_VERSION = "1.0.1"
 ISSUE_NUMBER = 38
-REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-FROZEN_PACKAGE_ROOT = (
-    REPOSITORY_ROOT / "standalone/lap_gnn_tensorflow_ofix7_mid_candidate"
-)
 CANDIDATE_MODEL_PATH = Path(__file__).with_name("model.py")
 STEP6_SUPPORT_PATH = FROZEN_PACKAGE_ROOT / "tools/evaluate_fixed_checkpoint_prior_probe.py"
 
@@ -69,6 +77,9 @@ EXPECTED_WEIGHTS_SHA256 = (
 )
 EXPECTED_METADATA_SHA256 = (
     "a5ee759bc6fbef587e025199d0dcfe6ebd3a1764cffa567f793c53e972eb47cf"
+)
+EXPECTED_RESOLVED_CONFIG_SHA256 = (
+    "3c028dd2f32ebed3a252544e170220b150b5e29920cea865924dddce6aef5a32"
 )
 EXPECTED_CHECKPOINT_EPOCH = 42
 EXPECTED_MODEL_CLASS = "LearnedLocalResidualSlotLapGNN"
@@ -512,12 +523,14 @@ def validate_source_artifacts(
     checkpoint: str | Path,
     checkpoint_weights: str | Path,
     checkpoint_metadata: str | Path,
+    resolved_config: str | Path,
 ) -> dict[str, Any]:
     paths = {
         "step12e_archive": Path(step12e_archive),
         "checkpoint": Path(checkpoint),
         "checkpoint_weights": Path(checkpoint_weights),
         "checkpoint_metadata": Path(checkpoint_metadata),
+        "resolved_config": Path(resolved_config),
         "candidate_model": CANDIDATE_MODEL_PATH,
     }
     expected = {
@@ -525,6 +538,7 @@ def validate_source_artifacts(
         "checkpoint": EXPECTED_CHECKPOINT_SHA256,
         "checkpoint_weights": EXPECTED_WEIGHTS_SHA256,
         "checkpoint_metadata": EXPECTED_METADATA_SHA256,
+        "resolved_config": EXPECTED_RESOLVED_CONFIG_SHA256,
         "candidate_model": EXPECTED_CANDIDATE_MODEL_SHA256,
     }
     actual = {}
@@ -571,6 +585,20 @@ def validate_frozen_runtime_config(
     ):
         raise RemainingPriorProbeError("Frozen execution contract drift")
     return config, dict(contract)
+
+
+def validate_metadata_config_provenance(
+    raw_config: Mapping[str, Any], metadata: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Bind the exact raw config to checkpoint metadata via reviewed Step 6."""
+
+    try:
+        result = step6.validate_checkpoint_metadata(raw_config, metadata)
+    except (KeyError, TypeError, ValueError, step6.PriorProbeError) as exc:
+        raise RemainingPriorProbeError(
+            "Checkpoint/resolved-config provenance mismatch"
+        ) from exc
+    return dict(result)
 
 
 def load_fixed_checkpoint(checkpoint: str | Path) -> LearnedLocalResidualSlotLapGNN:
@@ -961,13 +989,16 @@ def main(argv: list[str] | None = None) -> int:
         checkpoint=args.checkpoint,
         checkpoint_weights=args.checkpoint_weights,
         checkpoint_metadata=args.checkpoint_metadata,
+        resolved_config=args.resolved_config,
     )
-    validate_checkpoint_metadata(args.checkpoint_metadata)
+    metadata = validate_checkpoint_metadata(args.checkpoint_metadata)
     if scientific_payload_checksum(FROZEN_PACKAGE_ROOT) != EXPECTED_SCIENTIFIC_PAYLOAD_SHA256:
         raise RemainingPriorProbeError("Frozen scientific payload drift")
     raw_config = step6.load_persisted_resolved_config(args.resolved_config)
     config, frozen_contract = validate_frozen_runtime_config(raw_config)
-    source_hashes["resolved_config"] = sha256_file(args.resolved_config)
+    metadata_config_cross_check = validate_metadata_config_provenance(
+        raw_config, metadata
+    )
     model = load_fixed_checkpoint(args.checkpoint)
     identity_before = validate_model_identity(model)
     model_weights_before = model_weights_sha256(model)
@@ -997,8 +1028,8 @@ def main(argv: list[str] | None = None) -> int:
         checkpoint=args.checkpoint,
         checkpoint_weights=args.checkpoint_weights,
         checkpoint_metadata=args.checkpoint_metadata,
+        resolved_config=args.resolved_config,
     )
-    source_hashes_after["resolved_config"] = sha256_file(args.resolved_config)
     if source_hashes_after != source_hashes:
         raise RemainingPriorProbeError("Locked source artifacts changed during inference")
     gates = evaluate_registered_gates(result, bounded_limit=args.limit_val_batches)
@@ -1007,6 +1038,8 @@ def main(argv: list[str] | None = None) -> int:
         "source_hashes_before": source_hashes,
         "source_hashes_after": source_hashes_after,
         "frozen_contract": frozen_contract,
+        "metadata_config_cross_check": metadata_config_cross_check,
+        "resolved_config_sha256": source_hashes["resolved_config"],
         "model_identity_before": identity_before,
         "model_identity_after": identity_after,
         "model_weights_sha256_before": model_weights_before,

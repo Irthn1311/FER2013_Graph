@@ -7,16 +7,19 @@ Status: `PROBE_HARNESS_IMPLEMENTATION_ONLY`
 - Issue: `#38`
 - Exact implementation base: `e9b4deec2d4986b4a94fce32f3c1586cdb301047`
 - Probe: `research/candidates/tf_learned_local_residual_slots/evaluate_remaining_prior_probe.py`
-- Probe SHA-256: `407cfed62c5a1dc7e2c381282082c7b7335f5ab400a37e0feaf38be0ce740809`
+- Probe SHA-256: `cf68c47d428d0b569828d65028024fcc0713e963419ff5511be91b1377327118`
 - Candidate model SHA-256: `0a7cfa315baf0d6666b7ab86139b328ab6d138985cfddd71180410675602fcca`
 - Reviewed Step-12E archive SHA-256: `f436b0a7a20c751b2fd2f47738469fb409ecf9a1a40628e05d20974639927451`
 - Epoch-42 checkpoint SHA-256: `e0d633cb6200e963f31a28750e28c7febdaae40344c90ba9d94b826a09e4b78c`
 - Epoch-42 weights SHA-256: `a18a372f70ce56868ae43257e9b7fa5e20517499c2c1e35c48dba4d65eaaaa74`
 - Epoch-42 metadata SHA-256: `a5ee759bc6fbef587e025199d0dcfe6ebd3a1764cffa567f793c53e972eb47cf`
+- Exact resolved-config SHA-256: `3c028dd2f32ebed3a252544e170220b150b5e29920cea865924dddce6aef5a32`
 - Frozen scientific payload SHA-256: `286be711a53b76511bcf3b9bf949fad694f7c7d272392f9defc56f4914822c0e`
 - Frozen execution contract SHA-256: `14acc2750875a25922007459161a137158d8040805e616166be923f63658bf22`
 
-The production entrypoint is validation-only and inference-only. It verifies the reviewed archive, checkpoint, weights, metadata, candidate source, frozen contract, candidate class, `1,061,576` parameters, `128` trainable variables, and Q at trainable-variable index `127` with shape `[4, 96]`, dtype `float32`, and flat-float32 SHA-256 `54b368aa183c65d5843d8b8e340d3020412d1a2dfeaabbe8b2c0166684ab3ff9`. The same model/Q/weight and source-artifact identities are checked again after evaluation.
+The production entrypoint is validation-only and inference-only. It bootstraps the repository root and frozen package `src` before importing project modules, so direct execution does not depend on an editable install or external `PYTHONPATH`. It verifies the reviewed archive, checkpoint, weights, metadata, exact resolved config, candidate source, frozen contract, candidate class, `1,061,576` parameters, `128` trainable variables, and Q at trainable-variable index `127` with shape `[4, 96]`, dtype `float32`, and flat-float32 SHA-256 `54b368aa183c65d5843d8b8e340d3020412d1a2dfeaabbe8b2c0166684ab3ff9`. The same model/Q/weight and source-artifact identities are checked again after evaluation.
+
+Before model loading or `GraphBatchGenerator` construction, the exact persisted raw config is bound to the exact checkpoint metadata with the reviewed Step-6 cross-check. This covers canonical config hash, seed, package checksum, execution contract, graph signature, feature signature, prior signature, and dataset-split signature. Gate C records the exact resolved-config SHA-256 and the returned cross-check fields.
 
 ## Registered conditions
 
@@ -49,7 +52,7 @@ The machine-readable output supports accuracy, macro-F1, loss, per-class F1, pre
 
 ## Verification performed
 
-- Focused Issue #38 suite: `38 passed`.
+- Focused Issue #38 suite: `50 passed`.
 - Candidate model plus reviewed Step-7 and Step-6 regressions: `54 passed`.
 - Frozen package checksum verification: `PASS checked=267 failures=0`.
 - Frozen package diff from the exact base: empty.
