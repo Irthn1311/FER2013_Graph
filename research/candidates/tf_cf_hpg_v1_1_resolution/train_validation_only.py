@@ -187,6 +187,10 @@ def classify_outcome(
         and macro_gap <= 8.0
     ):
         return "CF_HPG_V1_1_PASS"
+    if deltas["delta_clean_train_accuracy_pp"] >= 5.0 and (
+        acc_gap > 10.0 or macro_gap > 10.0
+    ):
+        return "RESOLUTION_OVERFIT_SHIFT"
     if (
         deltas["delta_val_accuracy_pp"] >= 5.0
         and deltas["delta_clean_train_accuracy_pp"] >= 5.0
@@ -194,10 +198,6 @@ def classify_outcome(
         return "RESOLUTION_STRONG_SIGNAL"
     if 3.0 <= deltas["delta_val_accuracy_pp"] < 5.0:
         return "RESOLUTION_PARTIAL_SIGNAL"
-    if deltas["delta_clean_train_accuracy_pp"] >= 5.0 and (
-        acc_gap > 10.0 or macro_gap > 10.0
-    ):
-        return "RESOLUTION_OVERFIT_SHIFT"
     if clean_train_accuracy < 0.6500 and validation_accuracy < 0.6000:
         return "RESOLUTION_UNDERFIT_REMAINS"
     return "RESOLUTION_INCONCLUSIVE"

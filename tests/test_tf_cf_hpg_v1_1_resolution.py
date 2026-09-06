@@ -342,6 +342,41 @@ def test_exact_decision_boundaries(metrics, expected):
     )
 
 
+@pytest.mark.parametrize(
+    ("metrics", "expected"),
+    [
+        ((0.58, 0.50, 0.75, 0.70), "RESOLUTION_OVERFIT_SHIFT"),
+        ((0.56, 0.48, 0.70, 0.65), "RESOLUTION_OVERFIT_SHIFT"),
+        (
+            (0.5782808581777654, 0.50, 0.6150492876798217, 0.55),
+            "RESOLUTION_STRONG_SIGNAL",
+        ),
+        ((0.5582808581777654, 0.48, 0.58, 0.52), "RESOLUTION_PARTIAL_SIGNAL"),
+        ((0.7000, 0.6700, 0.7800, 0.7500), "CF_HPG_V1_1_STRETCH_PASS"),
+        ((0.6500, 0.6200, 0.7300, 0.7000), "CF_HPG_V1_1_PASS"),
+    ],
+    ids=(
+        "overfit-beats-strong",
+        "overfit-beats-partial",
+        "strong-without-overfit",
+        "partial-without-overfit",
+        "stretch-precedes-diagnostic-branches",
+        "pass-precedes-diagnostic-branches",
+    ),
+)
+def test_authoritative_diagnostic_precedence(metrics, expected):
+    validation_accuracy, validation_macro, train_accuracy, train_macro = metrics
+    assert (
+        training.classify_outcome(
+            validation_accuracy=validation_accuracy,
+            validation_macro_f1=validation_macro,
+            clean_train_accuracy=train_accuracy,
+            clean_train_macro_f1=train_macro,
+        )
+        == expected
+    )
+
+
 def test_cli_exposes_only_train_validation_and_output_inputs():
     option_strings = {
         option

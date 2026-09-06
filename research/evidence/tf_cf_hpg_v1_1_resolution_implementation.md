@@ -71,9 +71,12 @@ Final-split lexical guards remain fail closed, including calls with
 `expected_samples=3589`.
 
 Future PASS/STRETCH thresholds and the preregistered resolution diagnostic
-labels are locked in the focused tests. The result schema records the four exact
-percentage-point deltas from the accepted v1.0 metrics. No values have been
-observed for v1.1.
+labels are locked in the focused tests. The timestamped pre-outcome Issue #45
+clarification fixes precedence as STRETCH, PASS, OVERFIT_SHIFT, STRONG_SIGNAL,
+PARTIAL_SIGNAL, UNDERFIT_REMAINS, then INCONCLUSIVE. Six overlapping synthetic
+cases prove the ordering without changing any threshold. The result schema
+records the four exact percentage-point deltas from the accepted v1.0 metrics.
+No values have been observed for v1.1.
 
 ## Source SHA-256
 
@@ -81,18 +84,20 @@ observed for v1.1.
 - `data.py`: `e8b586aafc6fbad74d913cb08d25a61432c0e55173a60621597f4c5a8d091776`
 - `graph.py`: `fd425766f8db4d53f87edca0bebb88ff476c43938fff6a507c0687a0efb2d8ec`
 - `model.py`: `87723409fd6f22d333b9bded2b8707d4e4a3bd5bd3bac19e48022f12f6df0fea`
-- `train_validation_only.py`: `7671d596c1050e4d55c8d3de8d4b1600191c1d72a8a6b9d87344eaeb0ce088bd`
-- `tests/test_tf_cf_hpg_v1_1_resolution.py`: `79023b4736475cf7c55bb39c7cde351e1db111a1c6c344f67365feba701fa28c`
+- `train_validation_only.py`: `49b6df1fb0656b8303ccc957154957611b5b47c2c8a9aefcac1307cfcac24621`
+- `tests/test_tf_cf_hpg_v1_1_resolution.py`: `1f04d2eab4a30662cc8bea022d7368bf1c52c000444fbf49df2690198cec7e74`
 
 The evidence-file hash is reported separately in the PR because a file cannot
 contain its own stable SHA-256.
 
 ## Synthetic verification
 
-- Focused Issue #45 suite: `55 passed`.
+- Focused Issue #45 suite: `61 passed`.
 - Reviewed v1.0 suite: `53 passed`.
-- Combined v1.0/v1.1 process regression: `108 passed`; serialization registry
+- Combined v1.0/v1.1 process regression: `114 passed`; serialization registry
   coexistence produced no conflict.
+- Explicit traced forward/backward plus serialization selection: `2 passed`.
+- Explicit final-split path isolation selection: `15 passed`, `46 deselected`.
 - Synthetic `tf.function` forward/backward: finite logits, loss, and every
   gradient; AdamW updates at least one parameter.
 - Keras save/load round trip: exact synthetic logits.
@@ -102,7 +107,7 @@ contain its own stable SHA-256.
 - Frozen Generation-1 checksum verification: `PASS checked=267 failures=0`.
 - v1.0 candidate diff from exact parent: empty.
 - Generation-1 and Step-13 source diff from exact parent: empty.
-- `git diff --check`: recorded after staging all new files in the PR.
+- `git diff --check`: PASS after staging the patch.
 
 Only synthetic images and a one-row temporary CSV were used by tests. No real
 FER train/validation data was loaded, no Kaggle job was launched, and no final
