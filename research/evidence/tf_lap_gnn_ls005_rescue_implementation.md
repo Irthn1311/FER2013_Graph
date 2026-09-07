@@ -29,8 +29,8 @@ evaluation-loss semantics were changed.
 | `__init__.py` | `922044a681dbe862253b11eaf9da8e2e67bab66fbbbdbfa35ba4acb551d444df` |
 | `configs/fer2013_ofix7_mid_seed42_ls005.yaml` | `bb89c1df7d563ec26a74469c86091fc58cb9f60698d447f24ea2589cdd605535` |
 | `loss_adapter.py` | `72435f59cbc138f4e2184b384d0a4e2c85cdd0082655a6371e0a61ee6362e1e5` |
-| `train_validation_only.py` | `13015422abf1aaef200daf6cda327327c106526b3fcc76d3f7d57695c58fd7e2` |
-| `tests/test_tf_lap_gnn_ls005_rescue.py` | `6f7458887fd58639ceed2f1e3e961adcc1429e3ee717520465e39e4e875e26cf` |
+| `train_validation_only.py` | `8afb489e1fd5444f50c4be48d25e12157ecb6759e7f29521eeb17d9e35697216` |
+| `tests/test_tf_lap_gnn_ls005_rescue.py` | `aae0443babd8c5ba36545816e99961a2658c719cec144bc46cb4ba6d48d02ba3` |
 
 The loaded candidate config inherits the frozen seed42 config. Its complete
 semantic deep-diff is exactly:
@@ -61,15 +61,18 @@ Synthetic forward/backward produced finite loss and finite, non-null gradients.
 
 The wrapper delegates lifecycle ownership to the reviewed frozen
 validation-only wrapper, exposes no test path/test-batch option, rejects
-explicit test-named FER/prior inputs, and never constructs a graph generator or
-calls the post-validation checkpoint resolver itself.
+test-like basenames and the lexical directory components `test`, `testing`,
+`test_split`, and `test-split` for FER, prior, and clean graph-cache inputs. The
+guard performs no path I/O. A test-specific clean graph-cache path fails before
+the frozen wrapper is loaded. The candidate never constructs a graph generator
+or calls the post-validation checkpoint resolver itself.
 
 ## Verification
 
 Executed with Python `3.11.15`, TensorFlow `2.18.1`:
 
 - `python -m pytest -q tests/test_tf_lap_gnn_ls005_rescue.py`
-  - `28 passed`
+  - `34 passed`
 - frozen validation-wrapper/execution regression selection:
   - `20 passed`
 - `python tools/verify_checksums.py`

@@ -304,6 +304,51 @@ def test_explicit_test_paths_fail_closed(path):
         candidate.reject_explicit_test_path(path, "synthetic")
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/data/test/train.csv",
+        "/data/testing/priors",
+        "/data/test_split/cache",
+        "/data/test-split/cache",
+    ],
+)
+def test_nested_test_directory_components_fail_closed(path):
+    with pytest.raises(candidate.LS005RescueError, match="must not identify a test"):
+        candidate.reject_explicit_test_path(path, "synthetic")
+
+
+def test_non_test_train_prior_and_clean_cache_paths_are_accepted():
+    candidate.reject_explicit_test_path("/data/train/train.csv", "fer_csv")
+    candidate.reject_explicit_test_path("/data/validation/priors", "prior_root")
+    candidate.reject_explicit_test_path(
+        "/data/cache/clean_graphs", "controls.clean_graph_cache_dir"
+    )
+
+
+def test_test_specific_clean_graph_cache_fails_before_frozen_wrapper(
+    tmp_path, monkeypatch
+):
+    frozen_wrapper_invoked = False
+
+    def forbidden_wrapper_load():
+        nonlocal frozen_wrapper_invoked
+        frozen_wrapper_invoked = True
+        raise AssertionError("frozen wrapper must not be loaded")
+
+    monkeypatch.setattr(candidate, "_load_frozen_wrapper", forbidden_wrapper_load)
+    controls = SimpleNamespace(clean_graph_cache_dir="/data/test_split/cache")
+    with pytest.raises(candidate.LS005RescueError, match="clean_graph_cache_dir"):
+        candidate.run_validation_only(
+            candidate.CANDIDATE_CONFIG_PATH,
+            tmp_path / "train.csv",
+            tmp_path / "priors",
+            tmp_path / "output",
+            controls,
+        )
+    assert frozen_wrapper_invoked is False
+
+
 def test_fresh_absolute_cli_help_without_pythonpath(tmp_path):
     environment = os.environ.copy()
     environment.pop("PYTHONPATH", None)

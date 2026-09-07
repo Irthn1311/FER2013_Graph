@@ -154,7 +154,15 @@ def verify_frozen_guards() -> dict[str, Any]:
 def reject_explicit_test_path(path: str | Path, label: str) -> None:
     """Fail closed when a caller attempts to provide a test-specific input."""
 
-    name = Path(path).name.casefold()
+    lexical_parts = tuple(
+        part.casefold()
+        for part in os.fspath(path).replace("\\", "/").split("/")
+        if part
+    )
+    forbidden_components = {"test", "testing", "test_split", "test-split"}
+    if forbidden_components.intersection(lexical_parts):
+        raise LS005RescueError(f"{label} must not identify a test path")
+    name = lexical_parts[-1] if lexical_parts else ""
     if name in {"test", "test.csv"} or name.startswith("test_"):
         raise LS005RescueError(f"{label} must not identify a test path")
 
@@ -198,6 +206,11 @@ def run_validation_only(
     verify_candidate_config(config_path)
     reject_explicit_test_path(fer_csv, "fer_csv")
     reject_explicit_test_path(prior_root, "prior_root")
+    clean_graph_cache_dir = getattr(controls, "clean_graph_cache_dir", None)
+    if clean_graph_cache_dir is not None:
+        reject_explicit_test_path(
+            clean_graph_cache_dir, "controls.clean_graph_cache_dir"
+        )
     frozen_guards = verify_frozen_guards()
     frozen_wrapper = _load_frozen_wrapper()
     original_execution_binding = execution.sparse_cross_entropy
