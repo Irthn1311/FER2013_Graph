@@ -437,18 +437,18 @@ def test_exact_future_optimizer_schedule_loss_and_lifecycle_config():
     assert float(optimizer.global_clipnorm) == pytest.approx(1.0)
 
 
-def test_v1_1_comparator_and_delta_formulas_are_exactly_locked():
-    assert training.V1_1_REFERENCE == {
-        "clean_train_accuracy": 0.605385070883695,
-        "clean_train_macro_f1": 0.5474748347135944,
-        "validation_accuracy": 0.5734187796043466,
-        "validation_macro_f1": 0.5154247791468033,
+def test_v1_2_comparator_and_zero_delta_formulas_are_exactly_locked():
+    assert training.V1_2_REFERENCE == {
+        "clean_train_accuracy": 0.614894284022432,
+        "clean_train_macro_f1": 0.5614369765915708,
+        "validation_accuracy": 0.5806631373641683,
+        "validation_macro_f1": 0.5238975323290902,
     }
     assert training.outcome_deltas(
-        validation_accuracy=0.5734187796043466,
-        validation_macro_f1=0.5154247791468033,
-        clean_train_accuracy=0.605385070883695,
-        clean_train_macro_f1=0.5474748347135944,
+        validation_accuracy=0.5806631373641683,
+        validation_macro_f1=0.5238975323290902,
+        clean_train_accuracy=0.614894284022432,
+        clean_train_macro_f1=0.5614369765915708,
     ) == {
         "delta_val_accuracy_pp": 0.0,
         "delta_val_macro_pp": 0.0,
@@ -479,13 +479,10 @@ def test_clean_train_evaluation_explicitly_disables_augmentation(monkeypatch):
 @pytest.mark.parametrize(
     ("metrics", "expected"),
     [
-        ((0.7000, 0.6700, 0.7800, 0.7500), "CF_HPG_V1_2_STRETCH_PASS"),
-        ((0.6500, 0.6200, 0.7300, 0.7000), "CF_HPG_V1_2_PASS"),
-        ((0.6234187796043466, 0.56, 0.655385070883695, 0.60), "TOKENIZER_STRONG_SIGNAL"),
-        ((0.6034187796043466, 0.55, 0.64, 0.58), "TOKENIZER_PARTIAL_SIGNAL"),
-        ((0.63, 0.56, 0.75, 0.70), "TOKENIZER_OVERFIT_SHIFT"),
-        ((0.60, 0.54, 0.65, 0.59), "TOKENIZER_UNDERFIT_REMAINS"),
-        ((0.60, 0.55, 0.70, 0.63), "TOKENIZER_INCONCLUSIVE"),
+        ((0.7000, 0.6700, 0.7800, 0.7500), "CF_HPG_V1_3_STRETCH_PASS"),
+        ((0.6500, 0.6200, 0.7300, 0.7000), "CF_HPG_V1_3_PASS"),
+        ((0.60, 0.54, 0.65, 0.59), "READOUT_UNDERFIT_REMAINS"),
+        ((0.64, 0.55, 0.65, 0.60), "READOUT_INCONCLUSIVE"),
     ],
 )
 def test_exact_decision_boundaries(metrics, expected):
@@ -504,15 +501,15 @@ def test_exact_decision_boundaries(metrics, expected):
 @pytest.mark.parametrize(
     ("metrics", "expected"),
     [
-        ((0.63, 0.56, 0.75, 0.70), "TOKENIZER_OVERFIT_SHIFT"),
-        ((0.6084187796043466, 0.55, 0.72, 0.66), "TOKENIZER_OVERFIT_SHIFT"),
+        ((0.6306631373641683, 0.56, 0.75, 0.70), "READOUT_OVERFIT_SHIFT"),
+        ((0.6106631373641683, 0.55, 0.72, 0.66), "READOUT_OVERFIT_SHIFT"),
         (
-            (0.6234187796043466, 0.56, 0.67, 0.60),
-            "TOKENIZER_STRONG_SIGNAL",
+            (0.6306631373641683, 0.56, 0.664894284022432, 0.60),
+            "READOUT_STRONG_SIGNAL",
         ),
-        ((0.6084187796043466, 0.55, 0.65, 0.59), "TOKENIZER_PARTIAL_SIGNAL"),
-        ((0.7000, 0.6700, 0.7800, 0.7500), "CF_HPG_V1_2_STRETCH_PASS"),
-        ((0.6500, 0.6200, 0.7300, 0.7000), "CF_HPG_V1_2_PASS"),
+        ((0.6106631373641683, 0.55, 0.65, 0.59), "READOUT_PARTIAL_SIGNAL"),
+        ((0.7000, 0.6700, 0.7800, 0.7500), "CF_HPG_V1_3_STRETCH_PASS"),
+        ((0.6500, 0.6200, 0.7300, 0.7000), "CF_HPG_V1_3_PASS"),
     ],
     ids=(
         "overfit-beats-strong",
@@ -539,10 +536,10 @@ def test_authoritative_diagnostic_precedence(metrics, expected):
 @pytest.mark.parametrize(
     ("validation_accuracy", "clean_train_accuracy", "expected"),
     [
-        (training.V1_1_REFERENCE["validation_accuracy"] + 0.03, 0.65, "TOKENIZER_PARTIAL_SIGNAL"),
-        (training.V1_1_REFERENCE["validation_accuracy"] + 0.029999, 0.65, "TOKENIZER_UNDERFIT_REMAINS"),
-        (training.V1_1_REFERENCE["validation_accuracy"] + 0.05, training.V1_1_REFERENCE["clean_train_accuracy"] + 0.05, "TOKENIZER_STRONG_SIGNAL"),
-        (training.V1_1_REFERENCE["validation_accuracy"] + 0.05, training.V1_1_REFERENCE["clean_train_accuracy"] + 0.049999, "TOKENIZER_UNDERFIT_REMAINS"),
+        (training.V1_2_REFERENCE["validation_accuracy"] + 0.03, 0.65, "READOUT_PARTIAL_SIGNAL"),
+        (training.V1_2_REFERENCE["validation_accuracy"] + 0.029999, 0.65, "READOUT_UNDERFIT_REMAINS"),
+        (training.V1_2_REFERENCE["validation_accuracy"] + 0.05, training.V1_2_REFERENCE["clean_train_accuracy"] + 0.05, "READOUT_STRONG_SIGNAL"),
+        (training.V1_2_REFERENCE["validation_accuracy"] + 0.05, training.V1_2_REFERENCE["clean_train_accuracy"] + 0.049999, "READOUT_UNDERFIT_REMAINS"),
     ],
     ids=("partial-lower-inclusive", "partial-below-lower", "strong-five-inclusive", "strong-needs-both-five"),
 )
@@ -553,6 +550,27 @@ def test_exact_delta_boundaries(validation_accuracy, clean_train_accuracy, expec
         clean_train_accuracy=clean_train_accuracy,
         clean_train_macro_f1=0.60,
     ) == expected
+
+
+def test_result_json_uses_only_the_v1_2_delta_field():
+    source = inspect.getsource(training.main)
+    assert '"deltas_vs_v1_2_pp": outcome_deltas(' in source
+    stale_field = "deltas_vs_v1_" + "1_pp"
+    assert stale_field not in source
+
+
+def test_lifecycle_and_tests_contain_no_stale_comparator_or_labels():
+    lifecycle_source = Path(training.__file__).read_text(encoding="utf-8")
+    test_source = Path(__file__).read_text(encoding="utf-8")
+    stale_identifiers = (
+        "V1_" + "1_REFERENCE",
+        "CF_HPG_V1_" + "2_",
+        "TOKEN" + "IZER_",
+    )
+    assert all(
+        identifier not in lifecycle_source and identifier not in test_source
+        for identifier in stale_identifiers
+    )
 
 
 def test_cli_exposes_only_train_validation_and_output_inputs():

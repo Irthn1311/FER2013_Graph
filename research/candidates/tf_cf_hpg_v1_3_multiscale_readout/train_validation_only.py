@@ -32,11 +32,11 @@ NUM_CLASSES = 7
 EXPECTED_PARAMETER_COUNT = 445_799
 EXPECTED_TRAINABLE_VARIABLE_COUNT = 66
 EXPECTED_KERAS_VARIABLE_COUNT = 76
-V1_1_REFERENCE = {
-    "validation_accuracy": 0.5734187796043466,
-    "validation_macro_f1": 0.5154247791468033,
-    "clean_train_accuracy": 0.605385070883695,
-    "clean_train_macro_f1": 0.5474748347135944,
+V1_2_REFERENCE = {
+    "validation_accuracy": 0.5806631373641683,
+    "validation_macro_f1": 0.5238975323290902,
+    "clean_train_accuracy": 0.614894284022432,
+    "clean_train_macro_f1": 0.5614369765915708,
 }
 TRAINING_CONFIG = {
     "seed": SEED,
@@ -185,28 +185,28 @@ def classify_outcome(
         and acc_gap <= 8.0
         and macro_gap <= 8.0
     ):
-        return "CF_HPG_V1_2_STRETCH_PASS"
+        return "CF_HPG_V1_3_STRETCH_PASS"
     if (
         validation_accuracy >= 0.6500
         and validation_macro_f1 >= 0.6200
         and acc_gap <= 8.0
         and macro_gap <= 8.0
     ):
-        return "CF_HPG_V1_2_PASS"
+        return "CF_HPG_V1_3_PASS"
     if delta_clean_train_accuracy >= 5.0 and (
         acc_gap > 10.0 or macro_gap > 10.0
     ):
-        return "TOKENIZER_OVERFIT_SHIFT"
+        return "READOUT_OVERFIT_SHIFT"
     if (
         delta_val_accuracy >= 5.0
         and delta_clean_train_accuracy >= 5.0
     ):
-        return "TOKENIZER_STRONG_SIGNAL"
+        return "READOUT_STRONG_SIGNAL"
     if 3.0 <= delta_val_accuracy < 5.0:
-        return "TOKENIZER_PARTIAL_SIGNAL"
+        return "READOUT_PARTIAL_SIGNAL"
     if clean_train_accuracy < 0.7000 and validation_accuracy < 0.6400:
-        return "TOKENIZER_UNDERFIT_REMAINS"
-    return "TOKENIZER_INCONCLUSIVE"
+        return "READOUT_UNDERFIT_REMAINS"
+    return "READOUT_INCONCLUSIVE"
 
 
 def outcome_deltas(
@@ -216,17 +216,17 @@ def outcome_deltas(
     clean_train_accuracy: float,
     clean_train_macro_f1: float,
 ) -> dict[str, float]:
-    """Return the four preregistered percentage-point deltas from v1.1."""
+    """Return the four preregistered percentage-point deltas from v1.2."""
 
     return {
         "delta_val_accuracy_pp": 100.0
-        * (validation_accuracy - V1_1_REFERENCE["validation_accuracy"]),
+        * (validation_accuracy - V1_2_REFERENCE["validation_accuracy"]),
         "delta_val_macro_pp": 100.0
-        * (validation_macro_f1 - V1_1_REFERENCE["validation_macro_f1"]),
+        * (validation_macro_f1 - V1_2_REFERENCE["validation_macro_f1"]),
         "delta_clean_train_accuracy_pp": 100.0
-        * (clean_train_accuracy - V1_1_REFERENCE["clean_train_accuracy"]),
+        * (clean_train_accuracy - V1_2_REFERENCE["clean_train_accuracy"]),
         "delta_clean_train_macro_pp": 100.0
-        * (clean_train_macro_f1 - V1_1_REFERENCE["clean_train_macro_f1"]),
+        * (clean_train_macro_f1 - V1_2_REFERENCE["clean_train_macro_f1"]),
     }
 
 
@@ -359,7 +359,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "clean_train": clean_metrics,
             "validation": validation_metrics,
             "decision": decision,
-            "deltas_vs_v1_1_pp": outcome_deltas(
+            "deltas_vs_v1_2_pp": outcome_deltas(
                 validation_accuracy=validation_metrics["accuracy"],
                 validation_macro_f1=validation_metrics["macro_f1"],
                 clean_train_accuracy=clean_metrics["accuracy"],
