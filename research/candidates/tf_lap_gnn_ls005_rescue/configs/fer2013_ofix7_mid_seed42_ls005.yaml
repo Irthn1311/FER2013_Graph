@@ -1,0 +1,4 @@
+extends: ../../../../standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_seed42.yaml
+run_name: ofix7_mid_seed42_ls005_rescue
+loss:
+  label_smoothing: 0.05
