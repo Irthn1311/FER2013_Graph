@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import builtins
 import os
 from pathlib import Path
 import subprocess
@@ -251,6 +252,27 @@ def test_package_has_no_data_or_training_lifecycle_and_no_torch_import():
     assert not names.intersection({"data.py", "train.py", "train_validation_only.py"})
     source = "\n".join(p.read_text(encoding="utf-8") for p in package.glob("*.py"))
     assert "import torch" not in source and "test.csv" not in source and "FER2013" not in source
+
+
+def test_synthetic_forward_has_no_filesystem_or_test_split_access(monkeypatch):
+    def forbidden_open(*args, **kwargs):
+        raise AssertionError(f"unexpected filesystem access: {args!r}")
+    built = model.build_ws_hpg_v1_weak_support()
+    monkeypatch.setattr(builtins, "open", forbidden_open)
+    assert built(synthetic_inputs(1)).shape == (1, 7)
+
+
+def test_fresh_runtime_does_not_import_pytorch(tmp_path):
+    repository = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    code = (
+        "import sys; sys.path.insert(0, r'" + str(repository) + "'); "
+        "import research.candidates.tf_ws_hpg_v1_weak_support; "
+        "assert not any(k == 'torch' or k.startswith('torch.') for k in sys.modules)"
+    )
+    completed = subprocess.run([sys.executable, "-c", code], cwd=tmp_path, env=env, text=True, capture_output=True, check=False)
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_fresh_import_without_pythonpath_from_outside_repo(tmp_path):
