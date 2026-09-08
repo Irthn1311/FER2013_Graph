@@ -45,23 +45,85 @@ def test_fine_spatial_topology_is_sparse_eight_neighbor_only():
 
 
 def test_support_uses_only_extent_and_failure_means_no_prior():
-    points_a = np.array([[0.2, 0.3], [0.8, 0.7], [0.4, 0.6]])
+    points_a = np.array([[10.0, 12.0], [37.0, 36.0], [22.0, 28.0]])
     points_b = points_a[[2, 0, 1]]
-    np.testing.assert_array_equal(support.support_from_landmarks(points_a), support.support_from_landmarks(points_b))
-    for invalid in (None, [], [[0.2, 0.2], [0.2, 0.8]], [[np.nan, 0.2], [0.5, 0.8]]):
-        np.testing.assert_array_equal(support.support_from_landmarks(invalid), np.ones((48, 48, 1), np.float32))
-    field = support.support_from_landmarks(points_a)
+    kwargs = {"coordinate_system": support.FER_PIXEL_COORDINATE_SYSTEM}
+    np.testing.assert_array_equal(
+        support.support_from_landmarks(points_a, **kwargs),
+        support.support_from_landmarks(points_b, **kwargs),
+    )
+    for invalid in (None, [], [[20.0, 10.0], [20.0, 35.0]], [[np.nan, 8.0], [30.0, 40.0]], [[-1.0, 5.0], [30.0, 40.0]]):
+        np.testing.assert_array_equal(
+            support.support_from_landmarks(invalid, **kwargs),
+            np.ones((48, 48, 1), np.float32),
+        )
+    field = support.support_from_landmarks(points_a, **kwargs)
     assert field.min() >= 0.0 and field.max() <= 1.0
     assert not hasattr(field, "landmarks")
 
 
+def test_pixel_space_extent_produces_nontrivial_support():
+    field = support.support_from_landmarks(
+        np.array([[10.0, 12.0], [37.0, 36.0], [23.0, 20.0]]),
+        coordinate_system=support.FER_PIXEL_COORDINATE_SYSTEM,
+    )
+    assert field.max() == 1.0
+    assert field.min() < 1.0
+    assert not np.all(field == 1.0)
+    assert field[24, 24, 0] > field[0, 0, 0]
+
+
+def test_coordinate_units_are_explicit_and_normalized_mode_fails_closed():
+    normalized = np.array([[0.2, 0.3], [0.8, 0.7]])
+    with pytest.raises(TypeError):
+        support.support_from_landmarks(normalized)
+    with pytest.raises(ValueError, match="FER pixel coordinates"):
+        support.support_from_landmarks(
+            normalized, coordinate_system="normalized_xy_0_1"
+        )
+
+
 def test_detector_is_called_once_and_no_identity_survives():
-    calls = []
-    def detector(image):
-        calls.append(image)
-        return [[0.25, 0.25], [0.75, 0.75]]
+    class Detector:
+        def __init__(self):
+            self.calls = []
+
+        def detect(self, image):
+            self.calls.append(image)
+            return np.array([[10.0, 12.0], [37.0, 36.0]], np.float32)
+
+    detector = Detector()
     result = support.build_support_from_clean_image(np.zeros((48, 48, 1)), detector)
-    assert len(calls) == 1 and result.shape == (48, 48, 1)
+    assert len(detector.calls) == 1 and result.shape == (48, 48, 1)
+    assert result.min() < 1.0
+
+
+def test_exact_mediapipe_detector_output_contract_integration(monkeypatch):
+    from lap_gnn_tf.priors.mediapipe_priors import MediaPipeFaceDetector
+
+    class Landmark:
+        def __init__(self, x, y):
+            self.x, self.y = x, y
+
+    class Face:
+        landmark = [Landmark(10.0 / 47.0, 12.0 / 47.0), Landmark(37.0 / 47.0, 36.0 / 47.0)]
+
+    class FaceMesh:
+        def process(self, _rgb):
+            return type("Result", (), {"multi_face_landmarks": [Face()]})()
+
+    detector = object.__new__(MediaPipeFaceDetector)
+    detector.available = True
+    detector.detection_size = 48
+    detector.preprocess_mode = "raw"
+    detector.padding_pixels = 0
+    detector.face_mesh = FaceMesh()
+    detector.landmarker = None
+    detector.mp = None
+    detected = detector.detect(np.zeros((48, 48), np.uint8))
+    np.testing.assert_allclose(detected, [[10.0, 12.0], [37.0, 36.0]])
+    field = support.build_support_from_clean_image(np.zeros((48, 48), np.uint8), detector)
+    assert field.max() == 1.0 and field.min() < 1.0
 
 
 def test_patch_support_mean_and_range():

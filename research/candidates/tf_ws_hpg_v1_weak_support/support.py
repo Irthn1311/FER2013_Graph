@@ -7,7 +7,7 @@ coordinate is returned or retained by this module.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Protocol
 
 import numpy as np
 import tensorflow as tf
@@ -16,10 +16,33 @@ import tensorflow as tf
 IMAGE_SIZE = 48
 SUPPORT_SIGMA = 0.25
 EXTENT_EXPANSION = 0.10
+FER_PIXEL_COORDINATE_SYSTEM = "fer_pixel_xy_0_47"
 
 
-def support_from_landmarks(landmarks, height: int = IMAGE_SIZE, width: int = IMAGE_SIZE):
-    """Reduce anonymous normalized (x,y) points to the registered soft ellipse."""
+class PixelLandmarkDetector(Protocol):
+    """Existing detector contract: ``detect`` returns FER pixel-space x/y."""
+
+    def detect(self, image48: np.ndarray) -> np.ndarray | None: ...
+
+
+def support_from_landmarks(
+    landmarks,
+    height: int = IMAGE_SIZE,
+    width: int = IMAGE_SIZE,
+    *,
+    coordinate_system: str,
+):
+    """Reduce FER pixel-space x/y points to the registered soft ellipse.
+
+    ``coordinate_system`` is mandatory and must explicitly name the existing
+    detector's pixel contract.  Normalized inputs are not accepted through a
+    second mode and units are never inferred from numeric magnitude.
+    """
+
+    if coordinate_system != FER_PIXEL_COORDINATE_SYSTEM:
+        raise ValueError(
+            "landmarks must use explicit FER pixel coordinates x/y in [0,47]"
+        )
 
     ones = np.ones((height, width, 1), dtype=np.float32)
     try:
@@ -28,6 +51,13 @@ def support_from_landmarks(landmarks, height: int = IMAGE_SIZE, width: int = IMA
             return ones
         points = points[:, :2]
         if not np.all(np.isfinite(points)):
+            return ones
+        if (
+            np.any(points[:, 0] < 0.0)
+            or np.any(points[:, 0] > width - 1)
+            or np.any(points[:, 1] < 0.0)
+            or np.any(points[:, 1] > height - 1)
+        ):
             return ones
         xmin, ymin = points.min(axis=0)
         xmax, ymax = points.max(axis=0)
@@ -42,8 +72,10 @@ def support_from_landmarks(landmarks, height: int = IMAGE_SIZE, width: int = IMA
         rx, ry = (xmax - xmin) / 2.0, (ymax - ymin) / 2.0
         if not np.isfinite([cx, cy, rx, ry]).all() or rx <= 0.0 or ry <= 0.0:
             return ones
-        xs = (np.arange(width, dtype=np.float64) + 0.5) / width
-        ys = (np.arange(height, dtype=np.float64) + 0.5) / height
+        # MediaPipeFaceDetector.detect maps normalized coordinates to the FER
+        # pixel-index frame by multiplying by 47 and clipping to [0,47].
+        xs = np.arange(width, dtype=np.float64)
+        ys = np.arange(height, dtype=np.float64)
         xx, yy = np.meshgrid(xs, ys)
         radius = np.sqrt(((xx - cx) / rx) ** 2 + ((yy - cy) / ry) ** 2)
         support = np.where(
@@ -57,23 +89,20 @@ def support_from_landmarks(landmarks, height: int = IMAGE_SIZE, width: int = IMA
 
 
 def build_support_from_clean_image(
-    clean_image: np.ndarray, detector: Callable[[np.ndarray], object]
+    clean_image: np.ndarray, detector: PixelLandmarkDetector
 ) -> np.ndarray:
-    """Run a detector once and retain only the detector's global point extent."""
+    """Adapt the existing pixel-space ``MediaPipeFaceDetector.detect`` API."""
 
     try:
-        result = detector(clean_image)
+        result = detector.detect(clean_image)
         if result is None:
             return np.ones((*clean_image.shape[:2], 1), np.float32)
-        if hasattr(result, "face_landmarks"):
-            result = result.face_landmarks
-        if hasattr(result, "landmark"):
-            result = result.landmark
-        points = [
-            (float(point.x), float(point.y)) if hasattr(point, "x") else point[:2]
-            for point in result
-        ]
-        return support_from_landmarks(points, clean_image.shape[0], clean_image.shape[1])
+        return support_from_landmarks(
+            result,
+            clean_image.shape[0],
+            clean_image.shape[1],
+            coordinate_system=FER_PIXEL_COORDINATE_SYSTEM,
+        )
     except (TypeError, ValueError, AttributeError, IndexError):
         return np.ones((*clean_image.shape[:2], 1), np.float32)
 

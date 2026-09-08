@@ -6,7 +6,8 @@ Status: `WS_HPG_V1_WEAK_SUPPORT_IMPLEMENTATION_ONLY`
 
 - Contract: GitHub Issue #65, registered before implementation.
 - Exact parent: `6d89d17b2d3c39b7bf57084f9de4b707a92eb73e`.
-- Verified implementation-source commit: `0d4eeaf3ed2801342f27c8298fb4ddbb7db5ee6a`.
+- Original verified implementation-source commit: `0d4eeaf3ed2801342f27c8298fb4ddbb7db5ee6a`.
+- Coordinate-contract patch reviewed parent: `0ed595be31d98c85f43e20daaea462771452556a`.
 - Branch: `codex/gen3-ws-hpg-v1-weak-support`.
 - TensorFlow used for verification: 2.18.1 (CPU; no accelerator was visible).
 - No FER2013 train or validation data was opened, no Kaggle job was launched, no
@@ -57,7 +58,12 @@ fine blocks. Dynamic graphs are constructed only at 64 and 16 nodes.
 
 ## Support construction and hard boundary
 
-The detector is called once on the clean image. Its anonymous points are reduced
+The detector is called once on the clean image through the existing
+`MediaPipeFaceDetector.detect()` contract. Its output uses FER pixel-space
+`(x,y)` coordinates clipped to `[0,47]`; the ellipse grid therefore uses the
+same pixel indices `0..47`. The public helper requires the explicit unit token
+`fer_pixel_xy_0_47`, rejects any alternative such as normalized coordinates,
+and never infers units from magnitude. Its anonymous points are reduced
 immediately to global `xmin/xmax/ymin/ymax`; individual identity and coordinates
 are not returned or retained. The bounds expand by 10 percent on every side.
 For elliptical radius `r`, support is 1 inside the ellipse and
@@ -104,9 +110,9 @@ Source SHA-256:
 | `graph.py` | `8289e2548a13f7948b614d0a09dbd52869f43b09cc2cf53e45b0ed5c2649b757` |
 | `layers.py` | `f9418516f26f278e48ab32374f15ca182627fa9293ab69bb7c1d47bd3d851a77` |
 | `model.py` | `177a782cd8d5c2178303c44d120dcdd22b0a2108a0b720c5091a19f3d7cbffe3` |
-| `support.py` | `39738a8e6a6a324c5387e4f8ce26f7d9abf0d137b6ba8d41fa61366635babc3d` |
+| `support.py` | `b6ed2ddd20a4e82824208929709ff2d6bcb1c5557144d778ed0157fd4768aeee` |
 | `synthetic_benchmark.py` | `499eda9f99ece928321f4fb8d4cb051264415df447cacf4bf9bdc0eb5f65483f` |
-| focused test | `2780f2141e2a3ce1a3e0eb423a10263f76c487c2ace4451e1f4816b7bbbf7101` |
+| focused test | `f011f2d06334745addf3079181b0c372a3239aaafef599616f875e3f87ba00da` |
 
 ## Golden and regression verification
 
@@ -114,7 +120,10 @@ Focused command used the `lap-gnn-tf` Python environment:
 
 `python -m pytest -q tests/test_tf_ws_hpg_v1_weak_support.py`
 
-Result: **25 passed**. The assertions cover all registered golden requirements:
+Result: **28 passed**. The assertions cover all registered golden requirements,
+including representative pixel-space extents, a nontrivial center-versus-outside
+field, mandatory coordinate units, normalized-unit rejection, and integration
+with the exact frozen detector output contract. They also cover:
 patch/token shapes; fine sparse topology/no self/no kNN; extent-only support and
 failure fallback; range/floor/no deletion; absence from node/gate inputs; generic
 geometry and exact message inputs; PNA mean/max/std/degree-1; sparse-vs-dense
@@ -129,7 +138,8 @@ isolation; and fresh absolute CLI import with `PYTHONPATH` removed from outside
 the repository.
 
 Combined accepted Generation-2 plus WS-HPG command covered CF-HPG v1.0-v1.3,
-RA-HPG v1.0, and this suite on the final source: **332 passed, 14 warnings**.
+RA-HPG v1.0, and this suite on the final coordinate-contract source:
+**335 passed, 14 warnings**.
 
 Frozen package checksum verifier:
 
