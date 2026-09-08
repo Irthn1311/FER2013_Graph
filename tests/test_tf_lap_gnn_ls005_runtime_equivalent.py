@@ -165,6 +165,18 @@ def test_per_epoch_clean_evaluator_absent_and_final_evaluators_follow_binding_re
         observed["evaluator_during_training"] = evaluator.sparse_cross_entropy
         observed["frozen_kwargs"] = kwargs
         Path(output_root).mkdir(parents=True)
+        continuation_root = tmp_path / "continuations"
+        continuation_root.mkdir()
+        (continuation_root / "LATEST.json").write_text(
+            json.dumps(
+                {
+                    "status": "COMPLETE_EPOCH_BOUNDARY",
+                    "completed_epoch": 3,
+                    "issue60_artifacts_used": False,
+                }
+            ),
+            encoding="utf-8",
+        )
         return {
             "training_validation_completed": True,
             "final_test_skipped": True,
@@ -199,6 +211,7 @@ def test_per_epoch_clean_evaluator_absent_and_final_evaluators_follow_binding_re
         tmp_path / "priors",
         tmp_path / "fresh-output",
         controls,
+        continuation_root=tmp_path / "continuations",
         limit_epochs=3,
         limit_train_batches=2,
         limit_val_batches=1,
@@ -240,6 +253,7 @@ def test_binding_restores_when_frozen_training_fails(tmp_path, monkeypatch):
             tmp_path / "priors",
             tmp_path / "output",
             SimpleNamespace(clean_graph_cache_dir=None),
+            continuation_root=tmp_path / "continuations",
         )
     assert execution.sparse_cross_entropy is frozen_hard_ce
     assert evaluator.sparse_cross_entropy is frozen_hard_ce

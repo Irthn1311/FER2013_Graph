@@ -52,6 +52,12 @@ from research.candidates.tf_lap_gnn_ls005_rescue.train_validation_only import ( 
     BASELINE_VAL_MACRO_F1,
     classify_outcome,
 )
+from research.candidates.tf_lap_gnn_ls005_runtime_equivalent.continuation import (  # noqa: E402
+    EpochBoundaryContinuationManager,
+)
+from research.candidates.tf_lap_gnn_ls005_runtime_equivalent.trainer_continuation_adapter import (  # noqa: E402
+    continuation_enabled_trainer,
+)
 
 
 IMPLEMENTATION_BASE = "6d89d17b2d3c39b7bf57084f9de4b707a92eb73e"
@@ -94,6 +100,9 @@ LS005_LOSS_ADAPTER_PATH = (
     / "loss_adapter.py"
 )
 CANDIDATE_MARKER_NAME = "LS005_LEAN_VALIDATION_ONLY_COMPLETE.json"
+CONTINUATION_IMPLEMENTATION_STATUS = (
+    "LAP_LS005_EPOCH_BOUNDARY_EXACT_CONTINUATION_PREPARATION_ONLY"
+)
 
 EXPECTED_CONFIG_DIFF = {
     "loss.label_smoothing": (0.0, LABEL_SMOOTHING),
@@ -229,6 +238,44 @@ def reject_explicit_test_path(path: str | Path, label: str) -> None:
         raise RuntimeEquivalentError(f"{label} must not identify a test path")
     if name in {"test", "test.csv"} or name.startswith(("test_", "test-")):
         raise RuntimeEquivalentError(f"{label} must not identify a test path")
+
+
+def reject_issue60_artifact_path(path: str | Path) -> None:
+    normalized = os.fspath(path).replace("\\", "/").casefold()
+    if "issue60" in normalized or "issue-60" in normalized:
+        raise RuntimeEquivalentError("Issue #60 artifacts are permanently forbidden")
+
+
+def continuation_scientific_identity(
+    controls: ResourceControls | None = None,
+) -> dict[str, Any]:
+    runtime_resources = None
+    if controls is not None:
+        runtime_resources = {
+            key: controls.__dict__[key]
+            for key in sorted(controls.__dict__)
+            if key != "clean_graph_cache_dir"
+        }
+        runtime_resources["clean_graph_cache_dir"] = (
+            None
+            if controls.clean_graph_cache_dir is None
+            else str(Path(controls.clean_graph_cache_dir).expanduser().resolve())
+        )
+    return {
+        "issue61_parent": IMPLEMENTATION_BASE,
+        "scientific_payload_sha256": EXPECTED_SCIENTIFIC_PAYLOAD_SHA256,
+        "execution_contract_sha256": EXPECTED_EXECUTION_CONTRACT_SHA256,
+        "frozen_trainer_sha256": EXPECTED_TRAINER_SHA256,
+        "frozen_wrapper_sha256": EXPECTED_FROZEN_WRAPPER_SHA256,
+        "ls005_loss_adapter_sha256": EXPECTED_LS005_LOSS_ADAPTER_SHA256,
+        "candidate_config_sha256": _sha256(CANDIDATE_CONFIG_PATH),
+        "seed": 42,
+        "label_smoothing": LABEL_SMOOTHING,
+        "checkpoint_policy": "earliest_strict_max_validation_accuracy",
+        "runtime_resources": runtime_resources,
+        "test_access": False,
+        "issue60_artifacts_used": False,
+    }
 
 
 def _load_frozen_wrapper() -> ModuleType:
@@ -402,6 +449,8 @@ def run_validation_only(
     output_root: str | Path,
     controls: ResourceControls,
     *,
+    continuation_root: str | Path,
+    resume_capsule_root: str | Path | None = None,
     no_resume: bool = True,
     limit_epochs: int | None = None,
     limit_train_batches: int | None = None,
@@ -411,6 +460,8 @@ def run_validation_only(
 
     if not no_resume:
         raise RuntimeEquivalentError("Resume is forbidden")
+    if resume_capsule_root is not None:
+        reject_issue60_artifact_path(resume_capsule_root)
     registered_runtime = verify_registered_runtime()
     verify_candidate_config(config_path)
     reject_explicit_test_path(fer_csv, "fer_csv")
@@ -421,21 +472,27 @@ def run_validation_only(
         )
     guards = verify_frozen_guards()
     frozen_wrapper = _load_frozen_wrapper()
+    continuation_manager = EpochBoundaryContinuationManager(
+        continuation_root,
+        continuation_scientific_identity(controls),
+        resume_root=resume_capsule_root,
+    )
     original_execution = execution.sparse_cross_entropy
     original_evaluator = evaluator.sparse_cross_entropy
     with training_loss_binding() as binding_state:
-        frozen_marker = frozen_wrapper.run_validation_only(
-            CANDIDATE_CONFIG_PATH,
-            fer_csv,
-            prior_root,
-            output_root,
-            controls,
-            no_resume=True,
-            limit_epochs=limit_epochs,
-            limit_train_batches=limit_train_batches,
-            limit_val_batches=limit_val_batches,
-            limit_train_eval_batches=None,
-        )
+        with continuation_enabled_trainer(continuation_manager):
+            frozen_marker = frozen_wrapper.run_validation_only(
+                CANDIDATE_CONFIG_PATH,
+                fer_csv,
+                prior_root,
+                output_root,
+                controls,
+                no_resume=True,
+                limit_epochs=limit_epochs,
+                limit_train_batches=limit_train_batches,
+                limit_val_batches=limit_val_batches,
+                limit_train_eval_batches=None,
+            )
     if execution.sparse_cross_entropy is not original_execution:
         raise RuntimeEquivalentError("Training loss binding was not restored")
     if evaluator.sparse_cross_entropy is not original_evaluator:
@@ -448,6 +505,7 @@ def run_validation_only(
         "schema_version": 1,
         "status": "LS005_LEAN_VALIDATION_ONLY_COMPLETE",
         "implementation_status": IMPLEMENTATION_STATUS,
+        "continuation_implementation_status": CONTINUATION_IMPLEMENTATION_STATUS,
         "implementation_base": IMPLEMENTATION_BASE,
         "runtime_only_change": "per_epoch_clean_train_evaluation_removed",
         "per_epoch_clean_train_evaluations": 0,
@@ -463,6 +521,22 @@ def run_validation_only(
         ],
         "frozen_guards": guards,
         "registered_runtime": registered_runtime,
+        "continuation": {
+            "write_root": str(Path(continuation_root).expanduser().resolve()),
+            "resumed_from_capsule": resume_capsule_root is not None,
+            "resume_root": (
+                None
+                if resume_capsule_root is None
+                else str(Path(resume_capsule_root).expanduser().resolve())
+            ),
+            "latest": _json_object(
+                Path(continuation_root).expanduser().resolve() / "LATEST.json",
+                "continuation latest pointer",
+            ),
+            "exact_state_required": True,
+            "partial_epoch_resume_forbidden": True,
+            "issue60_artifacts_used": False,
+        },
         "candidate_config_sha256": _sha256(CANDIDATE_CONFIG_PATH),
         "candidate_config_semantic_diff": {
             key: {"before": before, "after": after}
@@ -500,6 +574,8 @@ def build_parser() -> argparse.ArgumentParser:
         for group in parser._action_groups:
             if action in group._group_actions:
                 group._group_actions.remove(action)
+    parser.add_argument("--continuation-root", required=True)
+    parser.add_argument("--resume-capsule-root", default=None)
     return parser
 
 
@@ -532,6 +608,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.prior_root,
             args.output_root,
             controls,
+            continuation_root=args.continuation_root,
+            resume_capsule_root=args.resume_capsule_root,
             no_resume=args.no_resume,
             limit_epochs=args.limit_epochs,
             limit_train_batches=args.limit_train_batches,
