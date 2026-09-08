@@ -129,7 +129,7 @@ isolation; and fresh absolute CLI import with `PYTHONPATH` removed from outside
 the repository.
 
 Combined accepted Generation-2 plus WS-HPG command covered CF-HPG v1.0-v1.3,
-RA-HPG v1.0, and this suite on the final source: **330 passed, 14 warnings**.
+RA-HPG v1.0, and this suite on the final source: **332 passed, 14 warnings**.
 
 Frozen package checksum verifier:
 
