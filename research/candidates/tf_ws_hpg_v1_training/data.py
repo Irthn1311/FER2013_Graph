@@ -181,22 +181,40 @@ def load_support_split(prior_root, split, images, labels):
     )
 
 
+def _training_records(images, supports, labels, *, seed=42):
+    """Match accepted CF/RA ordering: shuffle first, then enumerate positions."""
+
+    original_sample_indices = tf.range(tf.shape(images)[0])
+    records = tf.data.Dataset.from_tensor_slices(
+        (original_sample_indices, images, supports, labels)
+    )
+    return records.shuffle(
+        int(tf.shape(images)[0]), seed=seed, reshuffle_each_iteration=True
+    ).enumerate()
+
+
 def build_dataset(images, supports, labels: Iterable[int], *, training: bool, batch_size=64):
     from .augmentation import augment_example
 
-    indices = tf.range(tf.shape(images)[0])
-    dataset = tf.data.Dataset.from_tensor_slices((indices, images, supports, labels))
     if training:
-        dataset = dataset.shuffle(int(tf.shape(images)[0]), seed=42, reshuffle_each_iteration=True)
-        def map_train(index, image, field, label):
-            inputs, _, _ = augment_example(image, field, index)
+        dataset = _training_records(images, supports, labels)
+
+        def map_train(augmentation_index, record):
+            original_sample_index, image, field, label = record
+            del original_sample_index  # Identity already served cache/support alignment.
+            inputs, _, _ = augment_example(image, field, augmentation_index)
             return inputs, label
+
         dataset = dataset.map(
             map_train,
             num_parallel_calls=tf.data.AUTOTUNE,
             deterministic=True,
         )
     else:
+        indices = tf.range(tf.shape(images)[0])
+        dataset = tf.data.Dataset.from_tensor_slices(
+            (indices, images, supports, labels)
+        )
         dataset = dataset.map(
             lambda index, image, field, label: (
                 {"images": tf.cast(image, tf.float32) / 255.0, "support": tf.cast(field, tf.float32)},

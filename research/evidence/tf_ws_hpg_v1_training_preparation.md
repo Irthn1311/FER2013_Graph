@@ -6,7 +6,7 @@ Status: `WS_HPG_V1_TRAINING_PREPARATION_ONLY`
 
 - Issue: #67.
 - Exact implementation parent: `157c8a87f84e0aa53b4432393b99a3a560c0974e`.
-- Isolated implementation commit: `7d13f69d68be55e0be45c02b3e6d14915edaa19f`.
+- Reviewed pre-patch PR head: `c109457f714be39c3904269be9e2a13b9132fdd1`.
 - Branch: `codex/issue-67-ws-hpg-v1-training-prep`.
 - Accepted `model.py`: `177a782cd8d5c2178303c44d120dcdd22b0a2108a0b720c5091a19f3d7cbffe3`.
 - Accepted `support.py`: `b6ed2ddd20a4e82824208929709ff2d6bcb1c5557144d778ed0157fd4768aeee`.
@@ -41,12 +41,25 @@ direct support construction are bit-identical from the same coordinate array.
 
 ## Frozen augmentation and training configuration
 
-Sampling is stateless from seed 42 plus sample index/salt. The one affine vector
+The accepted CF/RA ordering is reproduced exactly: construct records with their
+original sample identity, deterministic seed-42 shuffle with
+`reshuffle_each_iteration=True`, then enumerate the shuffled positions. The
+original identity remains dedicated to cache/support/label/image alignment;
+augmentation sampling is stateless from seed 42 plus the post-shuffle enumerated
+position and salt. Thus a complete seed-42 replay has the same order and
+augmentation sequence, while successive epochs reassign the deterministic
+parameter sequence across samples rather than pinning one transform permanently
+to each sample. The one affine vector
 contains flip p=0.5, rotation uniform [-10,+10] degrees, and x/y translation
 uniform [-4,+4] pixels, and is passed identically to image and support. Support
 uses bilinear interpolation and one-valued fill. Contrast [0.85,1.15], normalized
 brightness [-0.10,+0.10], and random erase p=0.25 / area [0.02,0.10] / aspect
 [0.5,2.0] affect the image only. No MediaPipe rerun or support dropout exists.
+
+Before any FER CSV or prior-cache I/O, the future CLI SHA-checks the accepted
+`model.py` and `support.py` sources against the locks above. A source-only
+same-shape drift fails closed; parameter identity `707213 / 118 / 138` remains a
+separate runtime invariant when the model is constructed.
 
 The one registered lifecycle locks seed 42, AdamW, LR `3e-4`, weight decay
 `5e-4`, global clip norm 1.0, batch 64, max 100 epochs, five-epoch linear
@@ -73,16 +86,21 @@ replacement candidates; no automatic paper replacement is implemented.
 | File | SHA-256 |
 |---|---|
 | `__init__.py` | `b211b99534a7c3e9ff57ea5ac0b2a7f059307cb56d49f9f1e1214189e6402f43` |
-| `augmentation.py` | `766182e07f3fa0b53b49f0b7bb82401bcd8fd1ec62f9fb9fa94f2a68c9cb0244` |
-| `data.py` | `a8fe9757ab3faa6895cac5e09c5484fc86fd7ed1a961a9ddc90285b42810e524` |
-| `train_validation_only.py` | `4b7736f7b4e5a04ac6ecd791792c0ec96cb233a11d636df155c849dc9b9d44e2` |
-| focused test | `7a5f394e9413bc5814403d40fc7c13c1ced39525d8e6ca0d401b453b041f4737` |
+| `augmentation.py` | `cd89a727a2fb0037dad6a51da87227101f4d51f9e6a8945f5ccca223d66967cd` |
+| `data.py` | `c9a0310a2dcda5eab779366b7c2a9357961c273ea2279525ccfb6453f79823b7` |
+| `train_validation_only.py` | `5b84f29703bc53fbcf5941ec3abbd3af434c6b289156a56845541b35b9fadbe9` |
+| focused test | `f105e683a7f12290b0e668bf878bf74bc4da5c1cefe8b7b682a35f527de491e0` |
 
 ## Verification
 
-- Focused Issue #67: **31 passed, 14 warnings**.
+- Focused Issue #67: **37 passed, 14 warnings**.
 - Combined accepted CF-HPG v1.0-v1.3, RA-HPG, WS-HPG architecture, and
-  Issue #67 adapter: **366 passed, 14 warnings**.
+  Issue #67 adapter: **372 passed, 14 warnings**.
+- Seed-42 two-epoch augmentation replay: exact complete-run replay; successive
+  epoch sample order changed and representative sample parameter assignments
+  were not all identical; original image/support/label identities remained exact.
+- Same-shape source drift regressions for both model and support: fail closed
+  before FER/prior I/O.
 - `tf.function` synthetic training loss and all 118 gradients: finite.
 - One synthetic optimizer step changed weights.
 - `.keras` compile-false round trip: fixed-input logits identical.
@@ -90,6 +108,8 @@ replacement candidates; no automatic paper replacement is implemented.
   clean/normal/ones evaluation inventory exact; same selected object/weights.
 - Frozen checksum verifier: **PASS checked=267 failures=0**.
 - Git diff against the parent under accepted WS/LAP/CF/RA packages: empty.
+- Fresh absolute CLI from outside the repository with `PYTHONPATH` removed: PASS.
+- PyTorch runtime isolation: PASS (`torch` absent after import).
 - `git diff --check`: PASS.
 
 Synthetic TensorFlow 2.18.1 CPU benchmark, one post-warmup repeat (no accelerator

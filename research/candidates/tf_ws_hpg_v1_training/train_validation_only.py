@@ -13,7 +13,12 @@ import math
 import os
 from pathlib import Path
 import random
+import sys
 from typing import Mapping, Sequence
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 import numpy as np
 import tensorflow as tf
@@ -22,7 +27,7 @@ from sklearn.metrics import accuracy_score, f1_score
 from research.candidates.tf_ws_hpg_v1_weak_support.model import (
     build_ws_hpg_v1_weak_support,
 )
-from .data import (
+from research.candidates.tf_ws_hpg_v1_training.data import (
     TRAIN_SAMPLES,
     VALIDATION_SAMPLES,
     build_dataset,
@@ -37,6 +42,9 @@ SEED = 42
 EXPECTED_MODEL_SHA256 = "177a782cd8d5c2178303c44d120dcdd22b0a2108a0b720c5091a19f3d7cbffe3"
 EXPECTED_SUPPORT_SHA256 = "b6ed2ddd20a4e82824208929709ff2d6bcb1c5557144d778ed0157fd4768aeee"
 EXPECTED_IDENTITY = {"parameters": 707_213, "trainable_variables": 118, "keras_variables": 138}
+ACCEPTED_PACKAGE_ROOT = Path(__file__).resolve().parents[1] / "tf_ws_hpg_v1_weak_support"
+ACCEPTED_MODEL_PATH = ACCEPTED_PACKAGE_ROOT / "model.py"
+ACCEPTED_SUPPORT_PATH = ACCEPTED_PACKAGE_ROOT / "support.py"
 LAP_COMPARATOR = {
     "validation_accuracy": 0.6319308999721371,
     "validation_macro_f1": 0.5938407974340496,
@@ -127,6 +135,34 @@ def validate_model_identity(candidate):
     if observed != EXPECTED_IDENTITY:
         raise TrainingPreparationError(f"Accepted WS architecture identity drift: {observed}")
     return observed
+
+
+def _file_sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def verify_accepted_source_hashes(
+    model_path=ACCEPTED_MODEL_PATH, support_path=ACCEPTED_SUPPORT_PATH
+):
+    """Fail before FER I/O when either accepted scientific source has drifted."""
+
+    actual = {
+        "model.py": _file_sha256(model_path),
+        "support.py": _file_sha256(support_path),
+    }
+    expected = {
+        "model.py": EXPECTED_MODEL_SHA256,
+        "support.py": EXPECTED_SUPPORT_SHA256,
+    }
+    if actual != expected:
+        raise TrainingPreparationError(
+            f"Accepted WS scientific source identity drift: {actual}"
+        )
+    return actual
 
 
 def earliest_strict_max_epoch(values: Sequence[float]) -> int:
@@ -279,6 +315,7 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    verify_accepted_source_hashes()
     train_csv, val_csv = reject_test_path(args.train_csv), reject_test_path(args.val_csv)
     prior_root = reject_test_path(args.prior_root)
     train_images, train_labels = load_fer_csv(train_csv, TRAIN_SAMPLES)

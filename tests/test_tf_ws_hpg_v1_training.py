@@ -6,6 +6,7 @@ import builtins
 import hashlib
 import inspect
 from pathlib import Path
+import shutil
 
 import numpy as np
 import pytest
@@ -36,6 +37,50 @@ def test_accepted_sources_and_exact_model_identity_are_locked():
     assert training.validate_model_identity(candidate) == {
         "parameters": 707_213, "trainable_variables": 118, "keras_variables": 138
     }
+    assert training.verify_accepted_source_hashes() == {
+        "model.py": training.EXPECTED_MODEL_SHA256,
+        "support.py": training.EXPECTED_SUPPORT_SHA256,
+    }
+
+
+@pytest.mark.parametrize("drifted_name", ["model.py", "support.py"])
+def test_runtime_source_hash_guard_rejects_same_shape_source_drift(
+    tmp_path, drifted_name
+):
+    model_path = tmp_path / "model.py"
+    support_path = tmp_path / "support.py"
+    shutil.copy2(WS / "model.py", model_path)
+    shutil.copy2(WS / "support.py", support_path)
+    target = model_path if drifted_name == "model.py" else support_path
+    target.write_bytes(target.read_bytes() + b"\n# same-shape source drift\n")
+    with pytest.raises(training.TrainingPreparationError, match="source identity drift"):
+        training.verify_accepted_source_hashes(model_path, support_path)
+
+
+def test_cli_source_guard_runs_before_any_fer_or_prior_io(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        training,
+        "verify_accepted_source_hashes",
+        lambda: (_ for _ in ()).throw(
+            training.TrainingPreparationError("source identity drift")
+        ),
+    )
+    monkeypatch.setattr(
+        training,
+        "load_fer_csv",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("FER CSV was opened")
+        ),
+    )
+    with pytest.raises(training.TrainingPreparationError, match="source identity drift"):
+        training.main(
+            [
+                "--train-csv", str(tmp_path / "train.csv"),
+                "--val-csv", str(tmp_path / "val.csv"),
+                "--prior-root", str(tmp_path / "priors"),
+                "--output-root", str(tmp_path / "output"),
+            ]
+        )
 
 
 def test_direction_one_red_lines_and_post_pool_support_boundary_remain():
@@ -132,6 +177,61 @@ def test_stateless_augmentation_and_exact_geometry_coupling():
     np.testing.assert_array_equal(first[1]["image_transform"], first[1]["support_transform"])
     for key in first[2]:
         np.testing.assert_array_equal(first[2][key], second[2][key])
+
+
+def _augmentation_epochs(epoch_count=2):
+    sample_count = 16
+    images = np.stack(
+        [np.full((48, 48, 1), index, np.float32) for index in range(sample_count)]
+    )
+    supports = np.stack(
+        [np.full((48, 48, 1), index / sample_count, np.float32) for index in range(sample_count)]
+    )
+    labels = np.arange(sample_count, dtype=np.int32)
+    records = data._training_records(images, supports, labels)
+    epochs = []
+    for _ in range(epoch_count):
+        observed = []
+        for augmentation_index, record in records:
+            original_index, image, support, label = record
+            parameters = augmentation.sample_parameters(augmentation_index)
+            observed.append(
+                (
+                    int(original_index),
+                    int(label),
+                    float(image[0, 0, 0]),
+                    float(support[0, 0, 0]),
+                    tuple(
+                        np.asarray(parameters[key]).tobytes()
+                        for key in sorted(parameters)
+                    ),
+                )
+            )
+        epochs.append(observed)
+    return epochs
+
+
+def test_complete_seed42_replay_has_identical_order_and_augmentation_sequence():
+    assert _augmentation_epochs() == _augmentation_epochs()
+
+
+def test_successive_epochs_reassign_augmentation_while_preserving_sample_identity():
+    first, second = _augmentation_epochs()
+    assert [row[0] for row in first] != [row[0] for row in second]
+    first_by_sample = {row[0]: row[-1] for row in first}
+    second_by_sample = {row[0]: row[-1] for row in second}
+    assert any(first_by_sample[index] != second_by_sample[index] for index in first_by_sample)
+    for epoch in (first, second):
+        for original_index, label, image_identity, support_identity, _ in epoch:
+            assert label == original_index
+            assert image_identity == float(original_index)
+            assert support_identity == pytest.approx(original_index / 16.0)
+
+
+def test_augmentation_has_no_mediapipe_rerun_or_support_dropout():
+    source = inspect.getsource(augmentation) + inspect.getsource(data.build_dataset)
+    assert "mediapipe" not in source.casefold()
+    assert "support_dropout" not in source
 
 
 def test_photometric_and_erasing_do_not_modify_support(monkeypatch):
