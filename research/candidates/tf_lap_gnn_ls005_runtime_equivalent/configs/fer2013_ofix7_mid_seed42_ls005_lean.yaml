@@ -1,0 +1,4 @@
+extends: ../../tf_lap_gnn_ls005_rescue/configs/fer2013_ofix7_mid_seed42_ls005.yaml
+run_name: ofix7_mid_seed42_ls005_runtime_equivalent
+training:
+  eval_train_metrics: false
