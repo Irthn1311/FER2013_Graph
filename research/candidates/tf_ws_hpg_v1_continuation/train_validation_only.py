@@ -31,12 +31,15 @@ from research.candidates.tf_ws_hpg_v1_continuation import (  # noqa: E402
 from research.candidates.tf_ws_hpg_v1_continuation.continuation import (  # noqa: E402
     CAPSULE_CONTRACT_SHA256,
     EpochBoundaryContinuationManager,
+    IMMUTABLE_PLAN_NAME,
     canonical_sha256,
+    early_stopping_state,
     file_sha256,
+    restore_early_stopping,
 )
 from research.candidates.tf_ws_hpg_v1_continuation.data_order import (  # noqa: E402
     AcceptedShufflePlan,
-    build_epoch_training_dataset,
+    build_segment_training_dataset,
 )
 from research.candidates.tf_ws_hpg_v1_training import (  # noqa: E402
     train_validation_only as accepted,
@@ -172,6 +175,7 @@ def scientific_identity(order_plan: AcceptedShufflePlan, sample_count: int) -> d
             "seed": 42,
             "reshuffle_each_iteration": True,
             "enumerate": "after_shuffle",
+            "keras_3_15_training_shuffle_iterations": "one_based_odd_1_3_5_etc",
             "sample_count": int(sample_count),
             "epochs_materialized": int(len(order_plan.orders)),
             "plan_sha256": order_plan.sha256,
@@ -186,20 +190,68 @@ def scientific_identity(order_plan: AcceptedShufflePlan, sample_count: int) -> d
 def _load_persisted_order_plan(
     resume_root: str | Path, sample_count: int, *, max_epochs: int = MAX_EPOCHS
 ) -> AcceptedShufflePlan:
-    """Load the plan member; the continuation manager then verifies its hashes."""
+    """Load the single immutable plan; the manager then verifies both hashes."""
 
     root = Path(resume_root).expanduser().resolve()
     try:
-        latest = json.loads((root / "LATEST.json").read_text(encoding="utf-8"))
-        capsule_name = latest["capsule_directory"]
-        if Path(capsule_name).name != capsule_name:
-            raise ValueError("invalid capsule name")
-        with np.load(root / capsule_name / "explicit_state.npz", allow_pickle=False) as arrays:
-            plan = AcceptedShufflePlan.from_orders(arrays["accepted_shuffle_plan_orders"])
+        with np.load(root / IMMUTABLE_PLAN_NAME, allow_pickle=False) as arrays:
+            plan = AcceptedShufflePlan.from_orders(arrays["orders"])
         plan.verify(sample_count=sample_count, max_epochs=int(max_epochs) + 1)
         return plan
     except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
-        raise WSContinuationError("Cannot load the locked accepted shuffle plan from resume capsule") from exc
+        raise WSContinuationError("Cannot load the locked immutable accepted shuffle plan") from exc
+
+
+class _RestoreEarlyStoppingOnFitBegin(tf.keras.callbacks.Callback):
+    """Undo Keras' fit-boundary reset after a verified capsule restore."""
+
+    def __init__(self, callback, state):
+        super().__init__()
+        self.callback = callback
+        self.state = state
+
+    def on_train_begin(self, logs=None):
+        restore_early_stopping(self.callback, self.state)
+
+
+class _EpochBoundaryCapsuleCallback(tf.keras.callbacks.Callback):
+    """Persist only after accepted checkpoint/early-stop epoch bookkeeping."""
+
+    def __init__(self, *, manager, optimizer, early_stop, checkpoint, history, output_root):
+        super().__init__()
+        self.manager = manager
+        self.optimizer = optimizer
+        self.early_stop = early_stop
+        self.checkpoint = checkpoint
+        self.history = history
+        self.output_root = output_root
+        self.planned_pause = False
+
+    def on_epoch_end(self, epoch, logs=None):
+        values = dict(logs or {})
+        row = {"epoch": int(epoch) + 1}
+        required = {"loss", "accuracy", "val_loss", "val_accuracy"}
+        for key, value in values.items():
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                raise WSContinuationError(f"Non-finite epoch metric: {key}")
+            row[key] = numeric
+        if not required <= set(row):
+            raise WSContinuationError(f"Epoch history missing fields: {required - set(row)}")
+        self.history.append(row)
+        self.manager.persist_epoch_boundary(
+            completed_epoch=int(epoch) + 1,
+            model=self.model,
+            optimizer=self.optimizer,
+            early_stop=self.early_stop,
+            checkpoint_callback=self.checkpoint,
+            history=self.history,
+            output_root=self.output_root,
+        )
+        # Natural accepted early stopping has priority over the technical pause.
+        if not self.model.stop_training and int(epoch) + 1 == PLANNED_PAUSE_EPOCH:
+            self.planned_pause = True
+            self.model.stop_training = True
 
 
 class ContinuableEarliestStrictMaximumCheckpoint(accepted.EarliestStrictMaximumCheckpoint):
@@ -398,43 +450,45 @@ def run_continuable_lifecycle(
     if resume_capsule_root is not None and start_epoch < 2:
         raise WSContinuationError("Resume requires at least one verified fully completed epoch")
 
-    for epoch in range(start_epoch, MAX_EPOCHS + 1):
-        epoch_dataset = build_epoch_training_dataset(
-            train_images,
-            train_support,
-            train_labels,
-            plan=order_plan,
-            epoch_one_based=epoch,
-            batch_size=batch_size,
+    train_segment = build_segment_training_dataset(
+        train_images,
+        train_support,
+        train_labels,
+        plan=order_plan,
+        start_epoch=start_epoch,
+        end_epoch=MAX_EPOCHS,
+        batch_size=batch_size,
+    )
+    callbacks: list[tf.keras.callbacks.Callback] = [checkpoint, early_stop]
+    if resume_capsule_root is not None:
+        callbacks.append(
+            _RestoreEarlyStoppingOnFitBegin(
+                early_stop, early_stopping_state(early_stop)
+            )
         )
-        one_epoch = model.fit(
-            epoch_dataset,
-            validation_data=validation_dataset,
-            validation_freq=1,
-            initial_epoch=epoch - 1,
-            epochs=epoch,
-            callbacks=[],
-            verbose=verbose,
-        )
-        row = _history_row(epoch, one_epoch.history)
-        checkpoint.on_epoch_end(epoch - 1, row)
-        early_stop.on_epoch_end(epoch - 1, row)
-        history.append(row)
-        latest = manager.persist_epoch_boundary(
-            completed_epoch=epoch,
-            model=model,
-            optimizer=optimizer,
-            early_stop=early_stop,
-            checkpoint_callback=checkpoint,
-            history=history,
-            output_root=output_root,
-        )
-        if model.stop_training:
-            break
-        if epoch == PLANNED_PAUSE_EPOCH:
-            pause = _planned_pause_result(manager, epoch)
-            _atomic_json(output_root / "planned_pause.json", pause)
-            return pause
+    capsule_callback = _EpochBoundaryCapsuleCallback(
+        manager=manager,
+        optimizer=optimizer,
+        early_stop=early_stop,
+        checkpoint=checkpoint,
+        history=history,
+        output_root=output_root,
+    )
+    callbacks.append(capsule_callback)
+    model.fit(
+        train_segment,
+        validation_data=validation_dataset,
+        validation_freq=1,
+        initial_epoch=start_epoch - 1,
+        epochs=MAX_EPOCHS,
+        steps_per_epoch=math.ceil(sample_count / batch_size),
+        callbacks=callbacks,
+        verbose=verbose,
+    )
+    if capsule_callback.planned_pause:
+        pause = _planned_pause_result(manager, PLANNED_PAUSE_EPOCH)
+        _atomic_json(output_root / "planned_pause.json", pause)
+        return pause
 
     return _terminal_evaluation(
         output_root,

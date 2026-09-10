@@ -23,12 +23,12 @@ from research.candidates.tf_ws_hpg_v1_continuation import NOT_PROVEN_STATUS  # n
 from research.candidates.tf_ws_hpg_v1_continuation.continuation import (  # noqa: E402
     EpochBoundaryContinuationManager,
     canonical_sha256,
-    checkpoint_state,
     early_stopping_state,
+    restore_early_stopping,
 )
 from research.candidates.tf_ws_hpg_v1_continuation.data_order import (  # noqa: E402
     AcceptedShufflePlan,
-    build_epoch_training_dataset,
+    build_segment_training_dataset,
     next_epoch_stream,
 )
 from research.candidates.tf_ws_hpg_v1_continuation.train_validation_only import (  # noqa: E402
@@ -38,9 +38,11 @@ from research.candidates.tf_ws_hpg_v1_continuation.train_validation_only import 
     _variables_sha256,
 )
 from research.candidates.tf_ws_hpg_v1_training.data import build_dataset  # noqa: E402
+from research.candidates.tf_ws_hpg_v1_training import data as accepted_data  # noqa: E402
+from research.candidates.tf_ws_hpg_v1_training import train_validation_only as accepted  # noqa: E402
 
 
-SYNTHETIC_SAMPLES = 4
+SYNTHETIC_SAMPLES = 8
 SYNTHETIC_IDENTITY_BASE = {
     "contract": "ws_hpg_v1_synthetic_exact_continuation_v1",
     "seed": 42,
@@ -73,12 +75,34 @@ def _synthetic_data():
     yy, xx = np.mgrid[:48, :48]
     base_support = np.exp(-((xx - 23.5) ** 2 + (yy - 23.5) ** 2) / (2 * 12.0**2)).astype(np.float32)
     supports = np.stack([(0.25 + 0.75 * base_support)[..., None] for _ in range(SYNTHETIC_SAMPLES)])
-    labels = np.asarray([0, 1, 2, 3], dtype=np.int32)
+    labels = np.arange(SYNTHETIC_SAMPLES, dtype=np.int32) % 7
     return images, supports, labels
 
 
-def _snapshot(epoch, model, optimizer, early_stop, checkpoint, row, plan):
+def _snapshot(
+    epoch,
+    model,
+    optimizer,
+    early_stop,
+    checkpoint,
+    row,
+    plan,
+    *,
+    selected_weights_sha256=None,
+):
     stream = next_epoch_stream(plan, epoch)
+    checkpoint_payload = {
+        "best": float(checkpoint.best),
+        "selected_epoch_zero_based": (
+            None if checkpoint.selected_epoch is None else int(checkpoint.selected_epoch)
+        ),
+        "selected_weights_sha256": (
+            checkpoint.selected_weights_sha256
+            if selected_weights_sha256 is None
+            else selected_weights_sha256
+        ),
+        "selection_policy": "earliest_strict_max_val_accuracy",
+    }
     payload = {
         "epoch": int(epoch),
         "trainable_count": len(model.trainable_variables),
@@ -93,7 +117,7 @@ def _snapshot(epoch, model, optimizer, early_stop, checkpoint, row, plan):
         "current_learning_rate": float(optimizer.learning_rate.numpy()),
         "warmup_cosine_config": optimizer._learning_rate.get_config(),
         "early_stopping_state": early_stopping_state(early_stop),
-        "checkpoint_selection_state": checkpoint_state(checkpoint),
+        "checkpoint_selection_state": checkpoint_payload,
         "validation_metrics": {
             key: row[key] for key in ("val_loss", "val_accuracy")
         },
@@ -105,6 +129,119 @@ def _snapshot(epoch, model, optimizer, early_stop, checkpoint, row, plan):
     }
     payload["aggregate_state_sha256"] = canonical_sha256(payload)
     return payload
+
+
+class _AcceptedReadOnlySnapshot(tf.keras.callbacks.Callback):
+    """Observe accepted lifecycle state after its registered callbacks."""
+
+    def __init__(self, checkpoint, early_stop, plan):
+        super().__init__()
+        self.checkpoint = checkpoint
+        self.early_stop = early_stop
+        self.plan = plan
+        self.snapshots = []
+        self.selected_weights_sha256 = None
+
+    def on_epoch_end(self, epoch, logs=None):
+        row = _history_row(int(epoch) + 1, {
+            key: [float(value)] for key, value in dict(logs or {}).items()
+        })
+        if self.checkpoint.selected_epoch == int(epoch):
+            self.selected_weights_sha256 = _variables_sha256(self.model.variables)
+        self.snapshots.append(
+            _snapshot(
+                int(epoch) + 1,
+                self.model,
+                self.model.optimizer,
+                self.early_stop,
+                self.checkpoint,
+                row,
+                self.plan,
+                selected_weights_sha256=self.selected_weights_sha256,
+            )
+        )
+
+
+class _RestoreEarlyStoppingOnFitBegin(tf.keras.callbacks.Callback):
+    def __init__(self, early_stop, state):
+        super().__init__()
+        self.early_stop = early_stop
+        self.state = state
+
+    def on_train_begin(self, logs=None):
+        del logs
+        restore_early_stopping(self.early_stop, self.state)
+
+
+class _NewEpochObserver(_AcceptedReadOnlySnapshot):
+    def __init__(self, checkpoint, early_stop, plan, manager, history, output_root):
+        super().__init__(checkpoint, early_stop, plan)
+        self.manager = manager
+        self.history = history
+        self.output_root = output_root
+
+    def on_epoch_end(self, epoch, logs=None):
+        super().on_epoch_end(epoch, logs)
+        row = _history_row(int(epoch) + 1, {
+            key: [float(value)] for key, value in dict(logs or {}).items()
+        })
+        self.history.append(row)
+        if self.manager is not None:
+            self.manager.persist_epoch_boundary(
+                completed_epoch=int(epoch) + 1,
+                model=self.model,
+                optimizer=self.model.optimizer,
+                early_stop=self.early_stop,
+                checkpoint_callback=self.checkpoint,
+                history=self.history,
+                output_root=self.output_root,
+            )
+
+
+def _accepted_reference_order_plan(images, supports, labels):
+    records = accepted_data._training_records(images, supports, labels)
+    orders = []
+    for _ in range(10):
+        orders.append(
+            [int(record[0].numpy()) for _, record in records]
+        )
+    return AcceptedShufflePlan.from_orders(
+        np.asarray(orders, dtype=np.int64)[0::2][:5]
+    )
+
+
+def _run_accepted_lifecycle(output_root: Path):
+    """Run the exact accepted one-fit Issue #70 structure for four epochs."""
+
+    output_root.mkdir(parents=True, exist_ok=True)
+    images, supports, labels = _synthetic_data()
+    plan = _accepted_reference_order_plan(images, supports, labels)
+    train = accepted_data.build_dataset(
+        images, supports, labels, training=True, batch_size=4
+    )
+    validation = accepted_data.build_dataset(
+        images, supports, labels, training=False, batch_size=4
+    )
+    model, optimizer, _, _ = _build_runtime(output_root, steps_per_epoch=2)
+    checkpoint = accepted.EarliestStrictMaximumCheckpoint(output_root)
+    early_stop = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        patience=15,
+        min_delta=0.0,
+        restore_best_weights=False,
+    )
+    observer = _AcceptedReadOnlySnapshot(checkpoint, early_stop, plan)
+    model.fit(
+        train,
+        validation_data=validation,
+        validation_freq=1,
+        epochs=4,
+        callbacks=[checkpoint, early_stop, observer],
+        verbose=0,
+    )
+    if len(observer.snapshots) != 4:
+        raise RuntimeError("Accepted synthetic lifecycle did not complete four epochs")
+    return observer.snapshots
 
 
 def _run_epochs(
@@ -126,7 +263,7 @@ def _run_epochs(
         )
     )
     identity = dict(SYNTHETIC_IDENTITY_BASE, accepted_shuffle_plan_sha256=plan.sha256)
-    model, optimizer, checkpoint, early_stop = _build_runtime(output_root, steps_per_epoch=1)
+    model, optimizer, checkpoint, early_stop = _build_runtime(output_root, steps_per_epoch=2)
     validation = build_dataset(images, supports, labels, training=False, batch_size=4)
     history: list[dict[str, Any]] = []
     start_epoch = 1
@@ -145,40 +282,45 @@ def _run_epochs(
             checkpoint_callback=checkpoint,
             output_root=output_root,
         )
-    snapshots = []
-    for epoch in range(start_epoch, end_epoch + 1):
-        train = build_epoch_training_dataset(
-            images, supports, labels, plan=plan, epoch_one_based=epoch, batch_size=4
-        )
-        one_epoch = model.fit(
-            train,
-            validation_data=validation,
-            validation_freq=1,
-            initial_epoch=epoch - 1,
-            epochs=epoch,
-            callbacks=[],
-            verbose=0,
-        )
-        row = _history_row(epoch, one_epoch.history)
-        checkpoint.on_epoch_end(epoch - 1, row)
-        early_stop.on_epoch_end(epoch - 1, row)
-        history.append(row)
-        snapshots.append(_snapshot(epoch, model, optimizer, early_stop, checkpoint, row, plan))
-        if manager is not None:
-            manager.persist_epoch_boundary(
-                completed_epoch=epoch,
-                model=model,
-                optimizer=optimizer,
-                early_stop=early_stop,
-                checkpoint_callback=checkpoint,
-                history=history,
-                output_root=output_root,
+    train = build_segment_training_dataset(
+        images,
+        supports,
+        labels,
+        plan=plan,
+        start_epoch=start_epoch,
+        end_epoch=end_epoch,
+        batch_size=4,
+    )
+    observer = _NewEpochObserver(
+        checkpoint, early_stop, plan, manager, history, output_root
+    )
+    callbacks = [checkpoint, early_stop]
+    if continuation_resume_root is not None:
+        callbacks.append(
+            _RestoreEarlyStoppingOnFitBegin(
+                early_stop, early_stopping_state(early_stop)
             )
-    return snapshots
+        )
+    callbacks.append(observer)
+    model.fit(
+        train,
+        validation_data=validation,
+        validation_freq=1,
+        initial_epoch=start_epoch - 1,
+        epochs=end_epoch,
+        steps_per_epoch=2,
+        callbacks=callbacks,
+        verbose=0,
+    )
+    return observer.snapshots
 
 
 def run_worker(mode: str, root: Path, result_path: Path) -> None:
-    if mode == "uninterrupted":
+    if mode == "accepted":
+        snapshots = _run_accepted_lifecycle(root / "accepted")
+    elif mode == "new_non_resume":
+        snapshots = _run_epochs(output_root=root / "new-non-resume", end_epoch=4)
+    elif mode == "uninterrupted":
         snapshots = _run_epochs(output_root=root / "uninterrupted", end_epoch=4)
     elif mode == "save":
         snapshots = _run_epochs(
@@ -201,22 +343,20 @@ def run_worker(mode: str, root: Path, result_path: Path) -> None:
     )
 
 
-def prove_fresh_process_exact_continuation(
-    root: str | Path, python_executable: str = sys.executable
-) -> dict[str, Any]:
-    root = Path(root).expanduser().resolve()
-    root.mkdir(parents=True, exist_ok=True)
+def _proof_environment():
     environment = os.environ.copy()
     environment.pop("PYTHONPATH", None)
-    # The golden proof isolates continuation state from CPU thread scheduling.
-    # This does not call enable_op_determinism and is not used by the future T4
-    # scientific CLI; production resource/training semantics remain untouched.
     environment["TF_NUM_INTRAOP_THREADS"] = "1"
     environment["TF_NUM_INTEROP_THREADS"] = "1"
     environment["OMP_NUM_THREADS"] = "1"
+    return environment
+
+
+def _run_workers(root: Path, modes, python_executable):
     results = {}
     logs = {}
-    for mode in ("uninterrupted", "save", "restore"):
+    environment = _proof_environment()
+    for mode in modes:
         result_path = root / f"{mode}.json"
         completed = subprocess.run(
             [
@@ -232,16 +372,76 @@ def prove_fresh_process_exact_continuation(
             text=True,
             capture_output=True,
         )
-        logs[mode] = {"returncode": completed.returncode, "stderr_tail": completed.stderr[-2000:]}
+        logs[mode] = {
+            "returncode": completed.returncode,
+            "stderr_tail": completed.stderr[-2000:],
+        }
         if completed.returncode != 0:
-            return {
-                "schema_version": 1,
-                "status": NOT_PROVEN_STATUS,
-                "failed_worker": mode,
-                "workers": logs,
-                "scientific_run_authorized": False,
-            }
+            return None, logs, mode
         results[mode] = json.loads(result_path.read_text(encoding="utf-8"))
+    return results, logs, None
+
+
+def prove_accepted_lifecycle_equivalence(
+    root: str | Path, python_executable: str = sys.executable
+) -> dict[str, Any]:
+    root = Path(root).expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    results, logs, failed = _run_workers(
+        root, ("accepted", "new_non_resume"), python_executable
+    )
+    if failed is not None:
+        return {
+            "schema_version": 1,
+            "proof": "ACCEPTED_LIFECYCLE_EQUIVALENCE",
+            "status": NOT_PROVEN_STATUS,
+            "failed_worker": failed,
+            "workers": logs,
+        }
+    accepted_rows = {row["epoch"]: row for row in results["accepted"]["snapshots"]}
+    new_rows = {row["epoch"]: row for row in results["new_non_resume"]["snapshots"]}
+    compared = {epoch: accepted_rows[epoch] == new_rows[epoch] for epoch in range(1, 5)}
+    exact = all(compared.values())
+    return {
+        "schema_version": 1,
+        "proof": "ACCEPTED_LIFECYCLE_EQUIVALENCE",
+        "status": "PASS" if exact else NOT_PROVEN_STATUS,
+        "exact_equality": exact,
+        "floating_tolerance": 0.0,
+        "optimizer_batches_per_epoch": 2,
+        "full_model": True,
+        "per_epoch_exact": compared,
+        "aggregate_state_sha256": {
+            epoch: {
+                "accepted": accepted_rows[epoch]["aggregate_state_sha256"],
+                "new_non_resume": new_rows[epoch]["aggregate_state_sha256"],
+            }
+            for epoch in range(1, 5)
+        },
+        "worker_pids_distinct": results["accepted"]["pid"] != results["new_non_resume"]["pid"],
+        "tensorflow_op_determinism_enabled": False,
+        "fer2013_used": False,
+        "test_access": False,
+    }
+
+
+def prove_fresh_process_exact_continuation(
+    root: str | Path, python_executable: str = sys.executable
+) -> dict[str, Any]:
+    root = Path(root).expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    results, logs, failed = _run_workers(
+        root, ("uninterrupted", "save", "restore"), python_executable
+    )
+    if failed is not None:
+        return {
+            "schema_version": 1,
+            "proof": "FRESH_PROCESS_CONTINUATION_EQUIVALENCE",
+            "status": NOT_PROVEN_STATUS,
+            "failed_worker": failed,
+            "workers": logs,
+            "scientific_run_authorized": False,
+        }
     uninterrupted = {row["epoch"]: row for row in results["uninterrupted"]["snapshots"]}
     restored = {row["epoch"]: row for row in results["restore"]["snapshots"]}
     per_epoch = {epoch: uninterrupted[epoch] == restored[epoch] for epoch in (3, 4)}
@@ -249,6 +449,7 @@ def prove_fresh_process_exact_continuation(
     exact = distinct and all(per_epoch.values())
     return {
         "schema_version": 1,
+        "proof": "FRESH_PROCESS_CONTINUATION_EQUIVALENCE",
         "status": "PASS" if exact else NOT_PROVEN_STATUS,
         "fresh_process_workers": 3,
         "worker_pids_distinct": distinct,
@@ -291,10 +492,46 @@ def prove_fresh_process_exact_continuation(
     }
 
 
+def prove_both_equivalences(
+    root: str | Path, python_executable: str = sys.executable
+) -> dict[str, Any]:
+    """Run Proof 2 only after the independent accepted-lifecycle proof passes."""
+
+    root = Path(root).expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    proof1 = prove_accepted_lifecycle_equivalence(
+        root / "proof1-accepted-lifecycle", python_executable
+    )
+    if proof1["status"] != "PASS":
+        return {
+            "schema_version": 1,
+            "status": NOT_PROVEN_STATUS,
+            "proof1": proof1,
+            "proof2": {"status": "NOT_RUN_BECAUSE_PROOF1_FAILED"},
+            "both_proofs_pass": False,
+            "scientific_run_authorized": False,
+        }
+    proof2 = prove_fresh_process_exact_continuation(
+        root / "proof2-fresh-process-resume", python_executable
+    )
+    both_pass = proof2["status"] == "PASS"
+    return {
+        "schema_version": 1,
+        "status": "PASS" if both_pass else NOT_PROVEN_STATUS,
+        "proof1": proof1,
+        "proof2": proof2,
+        "both_proofs_pass": both_pass,
+        "scientific_run_authorized": False,
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Synthetic WS exact-continuation proof")
     parser.add_argument("--root", required=True)
-    parser.add_argument("--worker-mode", choices=("uninterrupted", "save", "restore"))
+    parser.add_argument(
+        "--worker-mode",
+        choices=("accepted", "new_non_resume", "uninterrupted", "save", "restore"),
+    )
     parser.add_argument("--result")
     return parser
 
@@ -306,7 +543,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise ValueError("--result is required for worker mode")
         run_worker(args.worker_mode, Path(args.root), Path(args.result))
         return 0
-    proof = prove_fresh_process_exact_continuation(args.root)
+    proof = prove_both_equivalences(args.root)
     print(json.dumps(proof, indent=2, sort_keys=True))
     return 0 if proof["status"] == "PASS" else 2
 

@@ -21,6 +21,7 @@ from research.candidates.tf_ws_hpg_v1_continuation import (
 )
 from research.candidates.tf_ws_hpg_v1_continuation import continuation
 from research.candidates.tf_ws_hpg_v1_continuation import continuation_equivalence
+from research.candidates.tf_ws_hpg_v1_continuation import capsule_benchmark
 from research.candidates.tf_ws_hpg_v1_continuation import data_order
 from research.candidates.tf_ws_hpg_v1_continuation import train_validation_only as runtime
 from research.candidates.tf_ws_hpg_v1_training import augmentation, data
@@ -44,16 +45,12 @@ def complete_capsules(tmp_path_factory):
 
 
 def _plan():
-    return data_order.AcceptedShufflePlan.materialize(4, 5)
+    return data_order.AcceptedShufflePlan.materialize(8, 5)
 
 
 def _manager(root: Path, *, identity=None):
-    latest = json.loads((root / "LATEST.json").read_text(encoding="utf-8"))
-    explicit = root / latest["capsule_directory"] / "explicit_state.npz"
-    with np.load(explicit, allow_pickle=False) as arrays:
-        plan = data_order.AcceptedShufflePlan.from_orders(
-            arrays["accepted_shuffle_plan_orders"]
-        )
+    with np.load(root / continuation.IMMUTABLE_PLAN_NAME, allow_pickle=False) as arrays:
+        plan = data_order.AcceptedShufflePlan.from_orders(arrays["orders"])
     identity = identity or dict(
         continuation_equivalence.SYNTHETIC_IDENTITY_BASE,
         accepted_shuffle_plan_sha256=plan.sha256,
@@ -88,6 +85,7 @@ def _resign_manifest(root: Path, capsule: Path) -> None:
         "completed_epoch": manifest["completed_epoch"],
         "parent_capsule_sha256": manifest["parent_capsule_sha256"],
         "scientific_identity_sha256": manifest["scientific_identity_sha256"],
+        "immutable_shuffle_plan_sha256": manifest["immutable_shuffle_plan_sha256"],
         "state_inventory": list(continuation.REQUIRED_STATE_INVENTORY),
         "members": manifest["members"],
     }
@@ -115,7 +113,7 @@ def test_locked_architecture_sources_identity_and_training_contract():
     assert accepted.TRAINING_CONFIG["max_epochs"] == 100
     assert accepted.TRAINING_CONFIG["training_label_smoothing"] == 0.05
     assert accepted.TRAINING_CONFIG["checkpoint"] == "earliest_strict_max_val_accuracy"
-    identity = runtime.scientific_identity(_plan(), 4)
+    identity = runtime.scientific_identity(_plan(), 8)
     assert set(identity["continuation_runtime_source_sha256"]) == {
         "__init__.py", "continuation.py", "data_order.py", "train_validation_only.py"
     }
@@ -132,8 +130,15 @@ def test_materialized_orders_equal_the_accepted_tf_data_stream_exactly():
         accepted_orders.append(
             [int(record[0].numpy()) for _, record in accepted_records]
         )
+    raw = data_order.materialize_raw_shuffle_iterations(count, epochs)
+    np.testing.assert_array_equal(raw, np.asarray(accepted_orders))
+
+
+def test_plan_locks_accepted_keras_315_odd_shuffle_iterator_epochs():
+    count, epochs = 12, 4
+    raw = data_order.materialize_raw_shuffle_iterations(count, 2 * epochs)
     plan = data_order.AcceptedShufflePlan.materialize(count, epochs)
-    np.testing.assert_array_equal(plan.orders, np.asarray(accepted_orders))
+    np.testing.assert_array_equal(plan.orders, raw[0::2])
 
 
 def test_replayed_epoch_preserves_original_ids_enumeration_and_parameters():
@@ -162,16 +167,22 @@ def test_capsule_contract_and_complete_state_inventory(complete_capsules):
     assert manifest["state_inventory"] == list(continuation.REQUIRED_STATE_INVENTORY)
     assert manifest["invalid_issue70_state_used"] is False
     assert manifest["member_count"] == len(manifest["members"])
+    assert (complete_capsules / continuation.IMMUTABLE_PLAN_NAME).is_file()
+    assert (complete_capsules / continuation.IMMUTABLE_PLAN_MANIFEST_NAME).is_file()
+    assert (complete_capsules / continuation.IMMUTABLE_AUGMENTATION_NAME).is_file()
     assert {"runtime_state.index", "explicit_state.npz", "state.json"} <= set(manifest["members"])
     for name in continuation.REQUIRED_SELECTED_CHECKPOINT_FILES:
         assert f"selected_checkpoint/{name}" in manifest["members"]
     state = json.loads((capsule / "state.json").read_text(encoding="utf-8"))
     assert state["model_variable_counts"] == {"trainable": 118, "non_trainable": 20, "keras_total": 138}
-    assert state["optimizer_iteration"] == 2
+    assert state["optimizer_iteration"] == 4
     assert state["next_epoch_stream"]["next_epoch"] == 3
-    assert state["warmup_cosine_state"]["position"] == 2
+    assert state["warmup_cosine_state"]["position"] == 4
     assert state["invalid_issue70_state_used"] is False
     assert state["test_access"] is False
+    with np.load(capsule / "explicit_state.npz", allow_pickle=False) as arrays:
+        assert "accepted_shuffle_plan_orders" not in arrays
+        assert "next_epoch_augmentation_parameters" not in arrays
 
 
 def test_fresh_process_four_epoch_equivalence_is_exact(tmp_path):
@@ -191,6 +202,62 @@ def test_fresh_process_four_epoch_equivalence_is_exact(tmp_path):
     )
     assert proof["variable_counts"] == {"trainable": 118, "non_trainable": 20, "keras": 138}
     assert proof["invalid_issue70_state_used"] is False
+
+
+def test_accepted_issue70_lifecycle_matches_new_non_resume_exactly(tmp_path):
+    proof = continuation_equivalence.prove_accepted_lifecycle_equivalence(
+        tmp_path, sys.executable
+    )
+    assert proof["status"] == "PASS", proof
+    assert proof["exact_equality"] is True
+    assert proof["floating_tolerance"] == 0.0
+    assert proof["optimizer_batches_per_epoch"] == 2
+    assert proof["full_model"] is True
+    assert proof["per_epoch_exact"] == {1: True, 2: True, 3: True, 4: True}
+    assert all(
+        values["accepted"] == values["new_non_resume"]
+        for values in proof["aggregate_state_sha256"].values()
+    )
+
+
+def test_missing_and_corrupt_immutable_plan_fail_closed(complete_capsules, tmp_path):
+    reference = _manager(complete_capsules)
+    missing = _copy_capsules(complete_capsules, tmp_path / "missing-plan")
+    (missing / continuation.IMMUTABLE_PLAN_NAME).unlink()
+    with pytest.raises(continuation.ExactContinuationError):
+        continuation.EpochBoundaryContinuationManager(
+            missing, reference.scientific_identity, reference.order_plan
+        ).verify_latest()
+    corrupt = _copy_capsules(complete_capsules, tmp_path / "corrupt-plan")
+    plan_path = corrupt / continuation.IMMUTABLE_PLAN_NAME
+    plan_path.write_bytes(plan_path.read_bytes() + b"corrupt")
+    with pytest.raises(continuation.ExactContinuationError, match="plan member hash"):
+        _manager(corrupt).verify_latest()
+
+
+def test_missing_and_corrupt_immutable_augmentation_fail_closed(complete_capsules, tmp_path):
+    reference = _manager(complete_capsules)
+    missing = _copy_capsules(complete_capsules, tmp_path / "missing-augmentation")
+    (missing / continuation.IMMUTABLE_AUGMENTATION_NAME).unlink()
+    with pytest.raises(continuation.ExactContinuationError, match="augmentation member missing"):
+        continuation.EpochBoundaryContinuationManager(
+            missing, reference.scientific_identity, reference.order_plan
+        ).verify_latest()
+    corrupt = _copy_capsules(complete_capsules, tmp_path / "corrupt-augmentation")
+    path = corrupt / continuation.IMMUTABLE_AUGMENTATION_NAME
+    path.write_bytes(path.read_bytes() + b"corrupt")
+    with pytest.raises(continuation.ExactContinuationError, match="augmentation member hash"):
+        _manager(corrupt).verify_latest()
+
+
+def test_production_dimension_benchmark_contract_is_locked():
+    assert capsule_benchmark.PRODUCTION_SAMPLE_COUNT == 28_709
+    assert capsule_benchmark.PRODUCTION_PLAN_EPOCHS == 101
+    assert capsule_benchmark.MEASURED_EPOCHS == (1, 30, 60)
+    source = inspect.getsource(capsule_benchmark.run_benchmark)
+    assert "optimizer_training_steps_executed" in source
+    assert '"training_executed": False' in source
+    assert '"test_access": False' in source
 
 
 def test_missing_and_corrupt_members_fail_closed(complete_capsules, tmp_path):
@@ -296,11 +363,15 @@ def test_planned_pause_requires_verified_epoch60_and_has_no_scientific_result(mo
 
 
 def test_epoch_bookkeeping_and_complete_capsule_precede_planned_pause():
-    source = inspect.getsource(runtime.run_continuable_lifecycle)
-    assert source.index("checkpoint.on_epoch_end") < source.index("persist_epoch_boundary")
-    assert source.index("early_stop.on_epoch_end") < source.index("persist_epoch_boundary")
-    assert source.index("persist_epoch_boundary") < source.index("_planned_pause_result")
-    assert source.index("if model.stop_training") < source.index("if epoch == PLANNED_PAUSE_EPOCH")
+    source = inspect.getsource(runtime._EpochBoundaryCapsuleCallback.on_epoch_end)
+    assert source.index("persist_epoch_boundary") < source.index("PLANNED_PAUSE_EPOCH")
+    assert source.index("not self.model.stop_training") < source.index("PLANNED_PAUSE_EPOCH")
+    lifecycle_source = inspect.getsource(runtime.run_continuable_lifecycle)
+    assert lifecycle_source.count("model.fit(") == 1
+    assert "build_segment_training_dataset" in lifecycle_source
+    assert lifecycle_source.index("[checkpoint, early_stop]") < lifecycle_source.index(
+        "callbacks.append(capsule_callback)"
+    )
     capsule_source = inspect.getsource(continuation.EpochBoundaryContinuationManager.persist_epoch_boundary)
     assert capsule_source.index("os.replace(staging, target)") < capsule_source.index("LATEST.json")
 

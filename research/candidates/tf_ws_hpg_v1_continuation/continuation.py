@@ -14,11 +14,18 @@ import uuid
 import numpy as np
 import tensorflow as tf
 
-from .data_order import AcceptedShufflePlan, next_epoch_stream
+from .data_order import (
+    AcceptedShufflePlan,
+    augmentation_parameter_matrix,
+    next_epoch_stream,
+)
 
 
-CAPSULE_SCHEMA_VERSION = 1
+CAPSULE_SCHEMA_VERSION = 2
 CAPSULE_STATUS = "COMPLETE_EPOCH_BOUNDARY"
+IMMUTABLE_PLAN_NAME = "accepted_shuffle_plan.npz"
+IMMUTABLE_PLAN_MANIFEST_NAME = "accepted_shuffle_plan.manifest.json"
+IMMUTABLE_AUGMENTATION_NAME = "accepted_augmentation_parameters.npz"
 REQUIRED_STATE_INVENTORY = (
     "all_118_trainable_model_variables",
     "all_20_non_trainable_model_variables_including_dropout_seed_generators",
@@ -53,6 +60,8 @@ CAPSULE_CONTRACT_DEFINITION = {
     "partial_epoch_resume": "forbidden",
     "stale_fallback": "forbidden",
     "lineage": "contiguous_parent_hash_chain",
+    "immutable_shuffle_plan": "single_root_asset_referenced_by_every_capsule",
+    "immutable_augmentation_parameters": "single_root_asset_referenced_by_every_capsule",
     "invalid_issue70_state_used": False,
 }
 
@@ -252,12 +261,111 @@ class EpochBoundaryContinuationManager:
         self.scientific_identity = json.loads(json.dumps(scientific_identity))
         self.scientific_identity_sha256 = canonical_sha256(self.scientific_identity)
         self.order_plan = order_plan
+        self._augmentation_parameters: np.ndarray | None = None
         self._prepared = False
 
     def _ensure_new_root(self) -> None:
         if self.write_root.exists() and any(self.write_root.iterdir()):
             raise ExactContinuationError("Epoch-0 continuation root must be absent or empty")
         self.write_root.mkdir(parents=True, exist_ok=True)
+
+    def _publish_immutable_plan(self) -> dict[str, Any]:
+        plan_path = self.write_root / IMMUTABLE_PLAN_NAME
+        augmentation_path = self.write_root / IMMUTABLE_AUGMENTATION_NAME
+        manifest_path = self.write_root / IMMUTABLE_PLAN_MANIFEST_NAME
+        if plan_path.exists() or augmentation_path.exists() or manifest_path.exists():
+            raise ExactContinuationError("Immutable shuffle plan already exists")
+        temporary = plan_path.with_name(f".{plan_path.name}.{uuid.uuid4().hex}.tmp")
+        with temporary.open("wb") as handle:
+            np.savez(handle, orders=np.asarray(self.order_plan.orders, dtype=np.int64))
+        os.replace(temporary, plan_path)
+        self._augmentation_parameters = augmentation_parameter_matrix(
+            self.order_plan.orders.shape[1]
+        )
+        augmentation_temporary = augmentation_path.with_name(
+            f".{augmentation_path.name}.{uuid.uuid4().hex}.tmp"
+        )
+        with augmentation_temporary.open("wb") as handle:
+            np.savez(handle, parameters=self._augmentation_parameters)
+        os.replace(augmentation_temporary, augmentation_path)
+        augmentation_sha256 = next_epoch_stream(
+            self.order_plan, 0,
+            augmentation_parameters=self._augmentation_parameters,
+        )["augmentation_parameters_sha256"]
+        manifest = {
+            "schema_version": CAPSULE_SCHEMA_VERSION,
+            "status": "COMPLETE_IMMUTABLE_SHUFFLE_PLAN",
+            "capsule_contract_sha256": CAPSULE_CONTRACT_SHA256,
+            "plan_file": IMMUTABLE_PLAN_NAME,
+            "plan_file_sha256": file_sha256(plan_path),
+            "plan_values_sha256": self.order_plan.sha256,
+            "augmentation_file": IMMUTABLE_AUGMENTATION_NAME,
+            "augmentation_file_sha256": file_sha256(augmentation_path),
+            "augmentation_values_sha256": augmentation_sha256,
+            "augmentation_shape": list(self._augmentation_parameters.shape),
+            "augmentation_dtype": "float32",
+            "shape": list(self.order_plan.orders.shape),
+            "dtype": "int64",
+            "seed": int(self.order_plan.seed),
+        }
+        _atomic_json(manifest_path, manifest)
+        return self.verify_immutable_plan(self.write_root)
+
+    def verify_immutable_plan(self, root: str | Path | None = None) -> dict[str, Any]:
+        target_root = self.write_root if root is None else Path(root).expanduser().resolve()
+        manifest_path = target_root / IMMUTABLE_PLAN_MANIFEST_NAME
+        manifest = _read_json(manifest_path, "immutable shuffle-plan manifest")
+        if (
+            manifest.get("schema_version") != CAPSULE_SCHEMA_VERSION
+            or manifest.get("status") != "COMPLETE_IMMUTABLE_SHUFFLE_PLAN"
+            or manifest.get("capsule_contract_sha256") != CAPSULE_CONTRACT_SHA256
+            or manifest.get("plan_file") != IMMUTABLE_PLAN_NAME
+        ):
+            raise ExactContinuationError("Immutable shuffle-plan contract drift")
+        plan_path = target_root / IMMUTABLE_PLAN_NAME
+        if not plan_path.is_file():
+            raise ExactContinuationError("Immutable shuffle-plan member missing")
+        if file_sha256(plan_path) != manifest.get("plan_file_sha256"):
+            raise ExactContinuationError("Immutable shuffle-plan member hash mismatch")
+        try:
+            with np.load(plan_path, allow_pickle=False) as arrays:
+                persisted = np.asarray(arrays["orders"], dtype=np.int64)
+        except (OSError, KeyError, ValueError) as exc:
+            raise ExactContinuationError("Unreadable immutable shuffle plan") from exc
+        if (
+            not np.array_equal(persisted, self.order_plan.orders)
+            or self.order_plan.sha256 != manifest.get("plan_values_sha256")
+            or list(persisted.shape) != manifest.get("shape")
+            or manifest.get("dtype") != "int64"
+            or manifest.get("seed") != int(self.order_plan.seed)
+        ):
+            raise ExactContinuationError("Immutable shuffle-plan values drift")
+        augmentation_path = target_root / IMMUTABLE_AUGMENTATION_NAME
+        if (
+            manifest.get("augmentation_file") != IMMUTABLE_AUGMENTATION_NAME
+            or not augmentation_path.is_file()
+        ):
+            raise ExactContinuationError("Immutable augmentation member missing")
+        if file_sha256(augmentation_path) != manifest.get("augmentation_file_sha256"):
+            raise ExactContinuationError("Immutable augmentation member hash mismatch")
+        try:
+            with np.load(augmentation_path, allow_pickle=False) as arrays:
+                parameters = np.asarray(arrays["parameters"], dtype=np.float32)
+        except (OSError, KeyError, ValueError) as exc:
+            raise ExactContinuationError("Unreadable immutable augmentation parameters") from exc
+        expected_shape = [self.order_plan.orders.shape[1], 9]
+        parameter_sha256 = next_epoch_stream(
+            self.order_plan, 0, augmentation_parameters=parameters
+        )["augmentation_parameters_sha256"]
+        if (
+            list(parameters.shape) != expected_shape
+            or list(parameters.shape) != manifest.get("augmentation_shape")
+            or manifest.get("augmentation_dtype") != "float32"
+            or parameter_sha256 != manifest.get("augmentation_values_sha256")
+        ):
+            raise ExactContinuationError("Immutable augmentation values drift")
+        self._augmentation_parameters = parameters
+        return manifest
 
     @staticmethod
     def _reject_staging(root: Path) -> None:
@@ -268,7 +376,9 @@ class EpochBoundaryContinuationManager:
         if incomplete:
             raise ExactContinuationError(f"Incomplete newer staging capsule exists: {incomplete}")
 
-    def verify_capsule(self, capsule_dir: Path) -> dict[str, Any]:
+    def verify_capsule(
+        self, capsule_dir: Path, *, verify_members: bool = True
+    ) -> dict[str, Any]:
         manifest = _read_json(capsule_dir / "manifest.json", "capsule manifest")
         if manifest.get("schema_version") != CAPSULE_SCHEMA_VERSION:
             raise ExactContinuationError("Capsule schema drift")
@@ -280,28 +390,32 @@ class EpochBoundaryContinuationManager:
             raise ExactContinuationError("Scientific/config/source identity drift")
         if manifest.get("invalid_issue70_state_used") is not False:
             raise ExactContinuationError("Invalid Issue #70 state exclusion not proven")
+        if manifest.get("immutable_shuffle_plan_sha256") != self.order_plan.sha256:
+            raise ExactContinuationError("Capsule immutable shuffle-plan reference drift")
         members = manifest.get("members")
         if not isinstance(members, dict) or not members:
             raise ExactContinuationError("Capsule member inventory missing")
-        actual = {
-            path.relative_to(capsule_dir).as_posix()
-            for path in capsule_dir.rglob("*")
-            if path.is_file() and path.name != "manifest.json"
-        }
-        if set(members) != actual:
-            raise ExactContinuationError("Capsule member inventory drift")
-        for relative, expected in members.items():
-            if file_sha256(capsule_dir / relative) != expected:
-                raise ExactContinuationError(f"Capsule member hash mismatch: {relative}")
-        state = _read_json(capsule_dir / "state.json", "capsule state")
-        if state.get("state_inventory") != list(REQUIRED_STATE_INVENTORY):
-            raise ExactContinuationError("Required continuation state inventory missing")
-        if state.get("accepted_shuffle_plan_sha256") != self.order_plan.sha256:
-            raise ExactContinuationError("Accepted shuffle plan identity drift")
+        if verify_members:
+            actual = {
+                path.relative_to(capsule_dir).as_posix()
+                for path in capsule_dir.rglob("*")
+                if path.is_file() and path.name != "manifest.json"
+            }
+            if set(members) != actual:
+                raise ExactContinuationError("Capsule member inventory drift")
+            for relative, expected in members.items():
+                if file_sha256(capsule_dir / relative) != expected:
+                    raise ExactContinuationError(f"Capsule member hash mismatch: {relative}")
+            state = _read_json(capsule_dir / "state.json", "capsule state")
+            if state.get("state_inventory") != list(REQUIRED_STATE_INVENTORY):
+                raise ExactContinuationError("Required continuation state inventory missing")
+            if state.get("accepted_shuffle_plan_sha256") != self.order_plan.sha256:
+                raise ExactContinuationError("Accepted shuffle plan identity drift")
         basis = {
             "completed_epoch": manifest.get("completed_epoch"),
             "parent_capsule_sha256": manifest.get("parent_capsule_sha256"),
             "scientific_identity_sha256": self.scientific_identity_sha256,
+            "immutable_shuffle_plan_sha256": self.order_plan.sha256,
             "state_inventory": list(REQUIRED_STATE_INVENTORY),
             "members": members,
         }
@@ -309,11 +423,17 @@ class EpochBoundaryContinuationManager:
             raise ExactContinuationError("Capsule aggregate hash mismatch")
         return manifest
 
-    def verify_latest(self, root: str | Path | None = None) -> tuple[Path, dict[str, Any]]:
+    def verify_latest(
+        self,
+        root: str | Path | None = None,
+        *,
+        full_lineage_members: bool = True,
+    ) -> tuple[Path, dict[str, Any]]:
         target_root = self.write_root if root is None else Path(root).expanduser().resolve()
         if not target_root.is_dir():
             raise ExactContinuationError(f"Continuation root is absent: {target_root}")
         self._reject_staging(target_root)
+        plan_manifest = self.verify_immutable_plan(target_root)
         latest = _read_json(target_root / "LATEST.json", "LATEST pointer")
         if (
             latest.get("status") != CAPSULE_STATUS
@@ -322,6 +442,13 @@ class EpochBoundaryContinuationManager:
             raise ExactContinuationError("LATEST status/contract drift")
         if latest.get("scientific_identity_sha256") != self.scientific_identity_sha256:
             raise ExactContinuationError("Scientific/config/source identity drift")
+        if (
+            latest.get("immutable_shuffle_plan_sha256") != self.order_plan.sha256
+            or latest.get("immutable_shuffle_plan_manifest_sha256")
+            != file_sha256(target_root / IMMUTABLE_PLAN_MANIFEST_NAME)
+            or plan_manifest.get("plan_values_sha256") != self.order_plan.sha256
+        ):
+            raise ExactContinuationError("LATEST immutable shuffle-plan identity drift")
         name = latest.get("capsule_directory")
         if not isinstance(name, str) or Path(name).name != name:
             raise ExactContinuationError("LATEST capsule path is invalid")
@@ -342,7 +469,13 @@ class EpochBoundaryContinuationManager:
             raise ExactContinuationError("Continuation lineage gap")
         parent = None
         for directory in directories:
-            item = self.verify_capsule(directory)
+            item = (
+                manifest
+                if directory == capsule_dir
+                else self.verify_capsule(
+                    directory, verify_members=full_lineage_members
+                )
+            )
             if item.get("parent_capsule_sha256") != parent:
                 raise ExactContinuationError("Continuation parent lineage mismatch")
             parent = item["capsule_sha256"]
@@ -354,6 +487,18 @@ class EpochBoundaryContinuationManager:
         if self.write_root == self.resume_root:
             return self.verify_latest()
         self._ensure_new_root()
+        shutil.copy2(
+            self.resume_root / IMMUTABLE_PLAN_NAME,
+            self.write_root / IMMUTABLE_PLAN_NAME,
+        )
+        shutil.copy2(
+            self.resume_root / IMMUTABLE_PLAN_MANIFEST_NAME,
+            self.write_root / IMMUTABLE_PLAN_MANIFEST_NAME,
+        )
+        shutil.copy2(
+            self.resume_root / IMMUTABLE_AUGMENTATION_NAME,
+            self.write_root / IMMUTABLE_AUGMENTATION_NAME,
+        )
         for source in sorted(self.resume_root.glob("epoch_*")):
             if source.is_dir():
                 shutil.copytree(source, self.write_root / source.name)
@@ -374,6 +519,7 @@ class EpochBoundaryContinuationManager:
         self._prepared = True
         if self.resume_root is None:
             self._ensure_new_root()
+            self._publish_immutable_plan()
             return 1, []
         capsule_dir, manifest = self._copy_resume_lineage()
         state = _read_json(capsule_dir / "state.json", "capsule state")
@@ -402,8 +548,6 @@ class EpochBoundaryContinuationManager:
             )
             expected_order = np.asarray(arrays["next_epoch_original_sample_order"], dtype=np.int64)
             expected_indices = np.asarray(arrays["next_epoch_enumeration_indices"], dtype=np.int64)
-            expected_parameters = np.asarray(arrays["next_epoch_augmentation_parameters"], dtype=np.float32)
-            persisted_plan = np.asarray(arrays["accepted_shuffle_plan_orders"], dtype=np.int64)
             numpy_keys = np.asarray(arrays["numpy_rng_keys"], dtype=np.uint32)
             tensorflow_state = np.asarray(arrays["tensorflow_global_rng_state"])
 
@@ -412,20 +556,25 @@ class EpochBoundaryContinuationManager:
         current_lr = float(optimizer.learning_rate.numpy())
         if current_lr != float(state["current_learning_rate"]):
             raise ExactContinuationError("WarmupCosine position/current LR mismatch")
-        if not np.array_equal(persisted_plan, self.order_plan.orders):
-            raise ExactContinuationError("Persisted accepted shuffle plan mismatch")
         restore_early_stopping(early_stop, state["early_stopping_state"])
         selected = state["checkpoint_selection_state"]
         checkpoint_callback.best = float(selected["best"])
         checkpoint_callback.selected_epoch = selected["selected_epoch_zero_based"]
         checkpoint_callback.selected_weights_sha256 = selected["selected_weights_sha256"]
 
-        stream = next_epoch_stream(self.order_plan, completed)
+        stream = next_epoch_stream(
+            self.order_plan,
+            completed,
+            augmentation_parameters=self._augmentation_parameters,
+        )
         if not np.array_equal(stream["original_sample_order"], expected_order):
             raise ExactContinuationError("Next-epoch original sample order mismatch")
         if not np.array_equal(stream["enumeration_indices"], expected_indices):
             raise ExactContinuationError("Post-shuffle enumeration index mismatch")
-        if not np.array_equal(stream["augmentation_parameters"], expected_parameters):
+        if (
+            state.get("next_epoch_stream", {}).get("augmentation_parameters_sha256")
+            != stream["augmentation_parameters_sha256"]
+        ):
             raise ExactContinuationError("Next-epoch augmentation sequence mismatch")
 
         random.setstate(_restore_tuple(state["python_rng_state"]))
@@ -466,7 +615,7 @@ class EpochBoundaryContinuationManager:
             raise ExactContinuationError(f"Capsule already exists: {target}")
         previous = None
         if epoch > 1:
-            _, previous_manifest = self.verify_latest()
+            _, previous_manifest = self.verify_latest(full_lineage_members=False)
             if int(previous_manifest["completed_epoch"]) != epoch - 1:
                 raise ExactContinuationError("Cannot publish a lineage gap")
             previous = previous_manifest["capsule_sha256"]
@@ -481,13 +630,13 @@ class EpochBoundaryContinuationManager:
             arrays.update(trainable_arrays)
             arrays.update(non_trainable_arrays)
             arrays.update(optimizer_arrays)
-            stream = next_epoch_stream(self.order_plan, epoch)
+            stream = next_epoch_stream(
+                self.order_plan,
+                epoch,
+                augmentation_parameters=self._augmentation_parameters,
+            )
             arrays["next_epoch_original_sample_order"] = stream["original_sample_order"]
             arrays["next_epoch_enumeration_indices"] = stream["enumeration_indices"]
-            arrays["next_epoch_augmentation_parameters"] = stream["augmentation_parameters"]
-            arrays["accepted_shuffle_plan_orders"] = np.asarray(
-                self.order_plan.orders, dtype=np.int64
-            )
             numpy_state, numpy_keys = _numpy_rng_state()
             tensorflow_metadata, tensorflow_state = _tensorflow_rng_state()
             arrays["numpy_rng_keys"] = numpy_keys
@@ -548,6 +697,7 @@ class EpochBoundaryContinuationManager:
                 "completed_epoch": epoch,
                 "parent_capsule_sha256": previous,
                 "scientific_identity_sha256": self.scientific_identity_sha256,
+                "immutable_shuffle_plan_sha256": self.order_plan.sha256,
                 "state_inventory": list(REQUIRED_STATE_INVENTORY),
                 "members": members,
             }
@@ -559,6 +709,7 @@ class EpochBoundaryContinuationManager:
                 "capsule_contract_sha256": CAPSULE_CONTRACT_SHA256,
                 "scientific_identity": self.scientific_identity,
                 "scientific_identity_sha256": self.scientific_identity_sha256,
+                "immutable_shuffle_plan_sha256": self.order_plan.sha256,
                 "state_inventory": list(REQUIRED_STATE_INVENTORY),
                 "members": members,
                 "member_count": len(members),
@@ -575,12 +726,16 @@ class EpochBoundaryContinuationManager:
                 "capsule_directory": target.name,
                 "capsule_contract_sha256": CAPSULE_CONTRACT_SHA256,
                 "scientific_identity_sha256": self.scientific_identity_sha256,
+                "immutable_shuffle_plan_sha256": self.order_plan.sha256,
+                "immutable_shuffle_plan_manifest_sha256": file_sha256(
+                    self.write_root / IMMUTABLE_PLAN_MANIFEST_NAME
+                ),
                 "capsule_sha256": manifest["capsule_sha256"],
                 "manifest_sha256": file_sha256(target / "manifest.json"),
                 "invalid_issue70_state_used": False,
             }
             _atomic_json(self.write_root / "LATEST.json", latest)
-            self.verify_latest()
+            self.verify_latest(full_lineage_members=False)
             return latest
         except Exception:
             # Retain the staging directory as an unmistakable incomplete marker.
