@@ -11,7 +11,7 @@ execution, test-split access, or Issue #70 state restoration occurred.
 - exact scientific parent: `ab7c7a49e923764b6192d9e774352fddf8f1df8b`
 - reviewed blocker head: `675b7387fe2a11e827e4776294d97572815964cf`
 - implementation commit before this evidence-only update:
-  `322bed121ba8d4e879ec59cf4336617072920ed3`
+  `b0fae58429746b384127987c2cc4ca2dd59f32e1`
 - accepted model SHA-256:
   `177a782cd8d5c2178303c44d120dcdd22b0a2108a0b720c5091a19f3d7cbffe3`
 - accepted support SHA-256:
@@ -30,11 +30,21 @@ Accepted training sources remain byte-identical:
 
 ## Scientific-trajectory-preserving lifecycle
 
-The accepted reference path is unmodified: accepted
-`build_dataset(..., training=True)`, one four-epoch `model.fit`, accepted full
-WS model, AdamW/WarmupCosine, LS0.05 loss, validation semantics, earliest
-strict-max checkpoint callback, and EarlyStopping. A read-only observer runs
-after those callbacks.
+Proof-1 Path A reproduces the accepted Issue #70 construction directly and
+does not call continuation `_build_runtime()`: `random.seed(42)`,
+`np.random.seed(42)`, `tf.keras.utils.set_random_seed(42)`, full WS model
+construction, then compile with accepted `build_optimizer`, LS0.05 loss and
+sparse accuracy. It does not eagerly call `optimizer.build()` and does not set
+the TensorFlow global Generator. It uses accepted
+`build_dataset(..., training=True)`, one four-epoch `model.fit`, accepted
+earliest-strict-max callback, and Keras EarlyStopping. Only a read-only
+observer follows the accepted callbacks.
+
+Proof-1 Path B uses the actual continuation production components: new
+`_build_runtime`, immutable materialized segment dataset, continuation manager,
+accepted checkpoint/EarlyStopping ordering, and production
+`_EpochBoundaryCapsuleCallback`. It is a non-resume run but writes and verifies
+the real production capsules.
 
 Keras 3.15's finite-dataset iterator constructs a replacement iterator at an
 epoch boundary and another at the next epoch start when `steps_per_epoch` is
@@ -42,9 +52,11 @@ unset. The accepted one-fit path therefore consumes TensorFlow shuffle
 iterations 1, 3, 5, 7, and so on. The continuation plan is derived directly
 from successive traversals of the accepted
 `tf.data.Dataset.shuffle(seed=42, reshuffle_each_iteration=True)` object and
-selects those one-based odd traversals. Enumeration remains after shuffle.
-Regression compares multiple raw successive traversals exactly; NumPy or a
-replacement RNG is not used.
+selects those one-based odd traversals. A dedicated fresh process constructs
+this plan from the accepted `_training_records()` dataset before either proof
+worker starts, preventing pytest-parent TensorFlow state leakage. Enumeration
+remains after shuffle. Regression compares multiple raw successive traversals
+exactly; NumPy or a replacement RNG is not used.
 
 The production continuation path now preserves the accepted one-`model.fit`
 segment structure. A fresh run supplies the full materialized epoch stream to
@@ -62,19 +74,28 @@ epoch, full 707,213-parameter model, separate processes, floating tolerance
 `0.0`, TensorFlow op determinism disabled.
 
 - epoch 1 accepted/new:
-  `e0478df875b49d210bfee7bd7111116d8d2c63fa48163862ebf11b14d4a9ead5`
+  `ec4ca67b2ef295fcb2b1286bfad0e128932c34452f68b20f3fc6e26821d0b1a0`
 - epoch 2 accepted/new:
-  `fda28fd5e93bfc80829ce157606c8496fd1ef7edcc0a9ca4d17258e83121abaf`
+  `1c8721b7499d0f77c94857b950e32e0a76c9d9a0ac7f9ae3ebfa0fe016b3f020`
 - epoch 3 accepted/new:
-  `06bdf56c91af5d5ca968277c2acac6b7f07588d1446236c72b0d995b4584f56f`
+  `ab1fd2989147b95fdf056cc1d4b7ebb7c8a109860e3f2720d99ab3fbe6803e33`
 - epoch 4 accepted/new:
-  `4cdd838454aa90be846f5976bedcdb318645abc5e0c2773a49bb05cf3a5b3a7c`
+  `db78caa53e96af2762d495444b09f3841462b91cfea36910b39c6a4009b2ae40`
 
 Every pair is exactly equal for all 118 trainable variables, all 20
 non-trainable variables/all 138 Keras variables and Dropout SeedGenerators,
 all AdamW state, iteration/LR/schedule, callbacks, checkpoint identity,
 training/validation metrics, original order, enumeration, augmentation
-parameters, and Python/NumPy/TensorFlow RNG state.
+parameters, and Python/NumPy state.
+
+The accepted-path audit observes TensorFlow's global Generator module slot
+without creating it: it is absent before accepted dataset/initialization and
+still absent after four accepted epochs. Therefore the accepted scientific
+path does not consume that Generator. Proof 1 classifies it as audited
+technical state and excludes only that unused object from the aggregate.
+All 20 Keras Dropout SeedGenerator states remain included and exactly equal.
+The continuation capsules still capture/restore the TF global Generator, and
+Proof 2 includes its exact equality because both sides use the new runtime.
 
 ## Proof 2: fresh-process continuation equivalence
 
@@ -155,7 +176,7 @@ scientific run must start at epoch 0.
 
 ## Verification
 
-- focused Issue #71 suite: `27 passed`;
+- focused Issue #71 suite: `28 passed`;
 - combined CF v1.0-v1.3 / RA / accepted WS suites: `372 passed`;
 - LAP runtime-equivalent/exact-continuation suites: `44 passed`;
 - frozen TensorFlow checksums: `PASS checked=267 failures=0`;
@@ -169,11 +190,11 @@ scientific run must start at epoch 0.
 
 - `__init__.py`: `ec9eb3646b209b94f97b20c7caa49f41d12c7fac1f6aa6597367806cd29e69b3`
 - `continuation.py`: `0d363cee78779461929fe177cb6b61443716c820254910e5056ca67e431cf4a1`
-- `continuation_equivalence.py`: `287fcce3b28930e1b6d254a3163a9e8bc5ec9bd37c8691d9d085b26b66a32fd9`
+- `continuation_equivalence.py`: `b9eab5aee62ca9b3e4c860ada08c8e73cfbc9b7e14e46c15621e7c4f78dd42c7`
 - `data_order.py`: `43b3b409186c8982fef7c2b205a226ae772cb32e2ea418512ab0b763b1b72765`
 - `train_validation_only.py`: `fcd6c790c510a5bd9ea3fbfc562dc5b4a46c26de8a4ee381572b3147945dba16`
 - `capsule_benchmark.py`: `d2244d8a4c8d717d7151dc2853bd6f385a09e0544016b51e4c4c4c81ddc2c3aa`
-- focused test: `369d028a41ed5253af2799c0881156248e20e62e2aa023658ad3866eb845a7a4`
+- focused test: `74bbae669a7849c55be554d8283ce6c60a528680db6fb3a29a03a0490dc57f6d`
 
 Scientific interpretation remains null. This implementation does not
 authorize a FER2013 or Kaggle run.
