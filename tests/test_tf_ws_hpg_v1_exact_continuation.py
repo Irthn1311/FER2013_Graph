@@ -40,6 +40,7 @@ def sha(path: Path) -> str:
 @pytest.fixture(scope="module")
 def complete_capsules(tmp_path_factory):
     root = tmp_path_factory.mktemp("ws-complete-capsules")
+    continuation_equivalence.run_worker("plan", root, root / "plan.json")
     continuation_equivalence.run_worker("save", root, root / "save.json")
     return root / "source-capsules"
 
@@ -213,11 +214,61 @@ def test_accepted_issue70_lifecycle_matches_new_non_resume_exactly(tmp_path):
     assert proof["floating_tolerance"] == 0.0
     assert proof["optimizer_batches_per_epoch"] == 2
     assert proof["full_model"] is True
+    assert proof["path_a_initialization"] == {
+        "new_build_runtime_called": False,
+        "optimizer_eager_build_called": False,
+        "tensorflow_global_generator_explicitly_set": False,
+    }
+    assert proof["path_b_initialization"] == {
+        "new_build_runtime_called": True,
+        "optimizer_eager_build_called": True,
+        "tensorflow_global_generator_explicitly_set": True,
+    }
+    assert proof["tensorflow_global_generator_audit"] == {
+        "absent_before_accepted_initialization": True,
+        "absent_after_four_accepted_epochs": True,
+        "scientifically_consumed": False,
+    }
+    assert proof["tensorflow_global_generator_excluded_from_accepted_vs_new_aggregate"] is True
+    assert proof["keras_dropout_seed_generators_included_in_aggregate"] is True
+    assert proof["accepted_plan_worker"]["accepted_training_records_used"] is True
+    assert proof["accepted_plan_worker"]["raw_successive_traversals"] == 10
+    assert proof["accepted_plan_worker"]["keras_one_based_odd_traversals_selected"] == [
+        1, 3, 5, 7, 9
+    ]
     assert proof["per_epoch_exact"] == {1: True, 2: True, 3: True, 4: True}
     assert all(
         values["accepted"] == values["new_non_resume"]
         for values in proof["aggregate_state_sha256"].values()
     )
+
+
+def test_proof1_path_a_is_exact_accepted_initialization_and_path_b_is_production():
+    accepted_source = inspect.getsource(
+        continuation_equivalence._run_accepted_lifecycle
+    )
+    assert "_build_runtime(" not in accepted_source
+    assert "optimizer.build(" not in accepted_source
+    assert "set_global_generator(" not in accepted_source
+    assert accepted_source.index("random.seed(42)") < accepted_source.index(
+        "build_ws_hpg_v1_weak_support()"
+    )
+    assert accepted_source.index("np.random.seed(42)") < accepted_source.index(
+        "build_ws_hpg_v1_weak_support()"
+    )
+    assert accepted_source.index("tf.keras.utils.set_random_seed(42)") < accepted_source.index(
+        "build_ws_hpg_v1_weak_support()"
+    )
+    assert "optimizer=accepted.build_optimizer(2)" in accepted_source
+    assert "loss=accepted.training_loss" in accepted_source
+    assert "accepted.EarliestStrictMaximumCheckpoint" in accepted_source
+    assert "accepted_data.build_dataset" in accepted_source
+    assert accepted_source.count("model.fit(") == 1
+    production_source = inspect.getsource(continuation_equivalence._run_epochs)
+    assert "_build_runtime" in production_source
+    assert "EpochBoundaryContinuationManager" in production_source
+    assert "_EpochBoundaryCapsuleCallback" in production_source
+    assert "build_segment_training_dataset" in production_source
 
 
 def test_missing_and_corrupt_immutable_plan_fail_closed(complete_capsules, tmp_path):
