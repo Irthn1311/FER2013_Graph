@@ -1,0 +1,20 @@
+# Pure-GNN v3.1 Research Screen Configuration (Scaffold Only - Scientific Training NOT Authorized)
+meta:
+  purpose: "scaffold_only"
+  authorized: false
+  note: "Scientific training is NOT authorized in technical preflight task"
+
+experiment:
+  conditions: ["G0", "G0.5", "G1", "G2", "G3"]
+  seeds: [42, 43, 44]
+  epochs: 60
+  batch_size: 32
+  learning_rate: 3.0e-4
+  weight_decay: 1.0e-4
+  mixed_precision: true
+  early_stopping_patience: 12
+  monitor_metric: "val_accuracy"
+  data:
+    train_csv: "data/train.csv"
+    research_split_seed: 42
+    research_split_ratio: 0.15

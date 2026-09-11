@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-09-11 14:57:43",
+  "tensorflow_version": "2.18.1",
+  "devices": [
+    "/physical_device:CPU:0"
+  ],
+  "gpus": [],
+  "checks": {
+    "g1_forward_shape": "PASS",
+    "forbidden_ops_audit": "PASS",
+    "parameter_budget": "PASS",
+    "gate_initialization": "PASS",
+    "g05_g1_functional_matching": "PASS",
+    "g2_content_masking": "PASS",
+    "g3_coarsening_control": "PASS",
+    "gradient_flow": "PASS",
+    "tiny_overfit": "PASS",
+    "diagnostics_run": "PASS"
+  },
+  "status": "PASS",
+  "parameter_info": {
+    "total_trainable_parameters": 859031,
+    "coarse_gate_mlp_parameters": 2602,
+    "local_gate_mlp_parameters": 12678,
+    "coarse_gate_parameter_share": 0.0030289942970626207
+  },
+  "gate_init_info": {
+    "local_gate_mean_at_init": 1.0,
+    "local_gate_std_at_init": 0.0,
+    "coarse_entropy_at_init": 3.555346965789795,
+    "coarse_effective_neighbor_count_at_init": 34.999961853027344
+  },
+  "g05_parameters": {
+    "total_trainable_parameters": 856429,
+    "coarse_gate_mlp_parameters": 0,
+    "local_gate_mlp_parameters": 12678,
+    "coarse_gate_parameter_share": 0.0
+  },
+  "shift_diagnostics": {
+    "shift_1px_cosine_stability": 0.9065655469894409,
+    "shift_2px_cosine_stability": 0.9669751524925232
+  }
+}

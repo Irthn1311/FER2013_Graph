@@ -1,0 +1,23 @@
+model:
+  name: "pure_gnn_v31"
+  condition: "G1"
+  image_size: 48
+  channels:
+    stage1: 32
+    stage2: 64
+    stage3: 96
+    stage4: 128
+  blocks_per_stage: [2, 2, 2, 2]
+  local_gate_hidden_dim: 16
+  coarse_gate_hidden_dim: 4
+  ffn_expansion: 4
+  dropout: 0.1
+  num_classes: 7
+
+preflight:
+  batch_sizes: [16, 32, 64]
+  tolerance_dense_sparse: 1.0e-5
+  gate_init_tolerance: 1.0e-5
+  max_gate_parameter_share: 0.005
+  synthetic_overfit_steps: 15
+  synthetic_overfit_lr: 1.0e-3

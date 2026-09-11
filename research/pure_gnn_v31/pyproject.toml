@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pure_gnn_v31"
+version = "0.1.0"
+description = "Pure-GNN v3.1: Raw Pixel Graph FER Research Line"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "tensorflow>=2.15.0",
+    "numpy>=1.24.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
