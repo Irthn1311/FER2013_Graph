@@ -109,23 +109,21 @@ class LocalAdaptiveRelationBlock(tf.keras.layers.Layer):
         dir_id = graph["direction_id"]
         degrees = graph["degrees"]
 
-        # Pre-norm on node states
-        h_norm = self.norm1(h)
-
-        # Gather sender and receiver node states
-        # Shape: (B, E, C)
-        h_j = tf.gather(h_norm, src, axis=1)
-        h_i = tf.gather(h_norm, dst, axis=1)
-        r_ij = h_j - h_i
-        r_ij_norm = self.norm_diff(r_ij)
+        # Keep the authorized value and gate paths separate.  Message values use
+        # raw states; LayerNorm is applied only to copies consumed by the gate.
+        raw_h_j = tf.gather(h, src, axis=1)
+        raw_h_i = tf.gather(h, dst, axis=1)
+        raw_r_ij = raw_h_j - raw_h_i
+        h_i_norm = self.norm1(raw_h_i)
+        r_ij_norm = self.norm_diff(raw_r_ij)
 
         # Content inputs for local gate
         if self.mask_content:
             # G2 condition: mask content inputs to exact zeros
-            h_i_gate = tf.zeros_like(h_i)
+            h_i_gate = tf.zeros_like(h_i_norm)
             r_ij_gate = tf.zeros_like(r_ij_norm)
         else:
-            h_i_gate = h_i
+            h_i_gate = h_i_norm
             r_ij_gate = r_ij_norm
 
         # Broadcast dx, dy to batch: (B, E, 1)
@@ -141,9 +139,9 @@ class LocalAdaptiveRelationBlock(tf.keras.layers.Layer):
         # Directional weights for each edge: (E, C, C)
         edge_w_dir = tf.gather(self.w_dir, dir_id)
         # Message direction term: einsum over channel dimension
-        # h_j is (B, E, C), edge_w_dir is (E, C, C) -> (B, E, C)
-        dir_term = tf.einsum("bec,ecd->bed", h_j, edge_w_dir)
-        rel_term = self.w_rel(r_ij)
+        # raw_h_j is (B, E, C), edge_w_dir is (E, C, C) -> (B, E, C)
+        dir_term = tf.einsum("bec,ecd->bed", raw_h_j, edge_w_dir)
+        rel_term = self.w_rel(raw_r_ij)
 
         m_ij = g_ij * (dir_term + rel_term)  # (B, E, C)
 
@@ -172,6 +170,8 @@ class LocalAdaptiveRelationBlock(tf.keras.layers.Layer):
                 "gate_std": tf.math.reduce_std(g_flat),
                 "gate_near_min": tf.reduce_mean(tf.cast(g_flat < 0.1, tf.float32)),
                 "gate_near_max": tf.reduce_mean(tf.cast(g_flat > 1.9, tf.float32)),
+                "gate_input_content": tf.concat([h_i_gate, r_ij_gate], axis=-1),
+                "gate_values": g_ij,
             }
             return h_out, diag
 

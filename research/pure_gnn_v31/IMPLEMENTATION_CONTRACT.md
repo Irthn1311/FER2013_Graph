@@ -52,14 +52,15 @@ The `pure_gnn_v31` package and all experimental conditions strictly exclude:
 
 ### 3.2 Local Adaptive Relation Block
 For receiver node $i$ and neighbor sender $j \in \mathcal{N}(i)$:
-- Difference vector: $r_{ij} = h_j - h_i$
+- Raw difference vector: $r_{ij} = h_j - h_i$
 - Directional coordinate deltas: $\Delta x \in \{-1, 0, 1\}$, $\Delta y \in \{-1, 0, 1\}$, direction ID $d \in \{0 \dots 7\}$.
 - Local gate logit:
   $$s_{ij} = \text{MLP}_{\text{local\_gate}}\left([\text{LN}(h_i), \text{LN}(r_{ij}), \Delta x, \Delta y]\right)$$
 - Scalar gate:
   $$g_{ij} = 1 + \tanh(s_{ij}) \in (0, 2)$$
 - **Zero-Initialization**: The final linear projection of $\text{MLP}_{\text{local\_gate}}$ is initialized with weights $= 0$ and bias $= 0$, ensuring $s_{ij} = 0 \implies g_{ij} = 1.0$ at initialization.
-- Directional message:
+- Directional message (the value path uses raw $h_j$ and raw $r_{ij}$; only
+  gate copies are normalized):
   $$m_{ij} = g_{ij} \cdot \left( W_{\text{direction}}[d] \, h_j + W_{\text{relation}} \, (h_j - h_i) \right)$$
 - Real-degree aggregation:
   $$m_i = \frac{1}{|\mathcal{N}(i)|} \sum_{j \in \mathcal{N}(i)} m_{ij}$$
@@ -101,7 +102,9 @@ For receiver node $i$ and neighbor sender $j \in \mathcal{N}(i)$:
 
 ### 4.1 G0.5 / G1 Functional Matching Contract
 Between G0.5 and G1:
-- Value function $V(h_j - h_i)$ is identical in architecture and parameter count.
+- Value function $V(h_j - h_i)$ uses the raw receiver-relative difference and
+  is identical in architecture and parameter count. Normalized copies are used
+  only by the G1 gate.
 - Update function $U$ and pointwise FFN are identical in architecture and parameter count.
 - Edge inventory is identical: complete directed graph without self-loops ($36 \times 35 = 1260$ directed edges).
 - Aggregation formula:
@@ -111,7 +114,7 @@ Between G0.5 and G1:
 
 ### 4.2 Gate Parameter Share Constraint
 $$\frac{\text{Params}(\text{G1 coarse gate MLP})}{\text{Params}(\text{Total G1 Model})} \le 0.5\% \quad (0.005)$$
-Gate hidden dimension is set to $8$ to guarantee this strict inequality.
+Gate hidden dimension is fixed at $4$ and must satisfy this strict inequality.
 
 ---
 
@@ -121,7 +124,7 @@ Gate hidden dimension is set to $8$ to guarantee this strict inequality.
 - Permutation-invariant pooling:
   $$z = [\text{mean}_{i}(h_i) \mathbin{\Vert} \text{max}_{i}(h_i)] \in \mathbb{R}^{256}$$
 - Pointwise classification head:
-  $$\text{Dense}(128, \text{relu}) \to \text{Dropout}(0.2) \to \text{Dense}(7)$$
+  $$\text{Dense}(128, \text{relu}) \to \text{Dropout}(0.1) \to \text{Dense}(7)$$
 - Strictly no multi-scale or intermediate bypass to logits.
 
 ---
@@ -129,6 +132,26 @@ Gate hidden dimension is set to $8$ to guarantee this strict inequality.
 ## 6. Data Governance Rules
 
 1. **Test Isolation**: Official `test.csv` must NEVER be read, opened, evaluated, or hashed during development, testing, or technical preflight.
-2. **Validation Isolation**: Official `val.csv` must NOT be used for model selection or exploratory iterations.
-3. **Research Split**: Scientific development will derive `ResearchTrain` and `ResearchDev` splits strictly from official `train.csv` (28,709 rows). Split manifests record dataset SHA-256, random seed, and class distributions.
+2. **Validation Isolation**: Official `val.csv` must not be accessed during technical preflight.
+3. **Research Split**: No split is registered in this snapshot. Any future
+   `ResearchTrain`/`ResearchDev` split requires an explicit seed and dev ratio
+   in a later scientific registration.
 4. **Notebook Default**: `RUN_RESEARCH_SCREEN` in orchestration notebooks must default to `False`.
+
+---
+
+## 7. Opt-in Technical Diagnostics
+
+Diagnostics are disabled in the ordinary forward call. When explicitly
+requested, every one of the six local blocks and two coarse blocks exposes
+feature variance, feature norm, and effective rank. A separate technical
+GradientTape helper records a gradient norm for every graph-block boundary.
+Local blocks additionally report gate mean, standard deviation, and fractions
+near the low/high bounds. Coarse blocks report normalized-weight entropy,
+effective neighbor count, and minimum/maximum weight. These quantities are
+technical observations only and are not model-selection criteria.
+
+The coarsening shift probe operates directly on
+`FixedAntiAliasedCoarsening`: a two-pixel input translation is aligned by one
+coarse output cell and measured on the interior, while a one-pixel shift is
+reported only as sensitivity. It does not claim perfect shift invariance.

@@ -1,5 +1,7 @@
 """Formal contract definitions and assertion utilities for Pure-GNN v3.1."""
 
+import ast
+from pathlib import Path
 from typing import Dict, List, Tuple
 import numpy as np
 import tensorflow as tf
@@ -55,14 +57,103 @@ def verify_parameter_budget(model: tf.keras.Model, max_share: float = 0.005) -> 
 
 
 def audit_forbidden_layers(model: tf.keras.Model) -> List[str]:
-    """Audits model layers for any prohibited primitives (Conv2D, Attention, Landmarks, etc.)."""
+    """Recursively audit every nested Keras layer in the instantiated model."""
     violations = []
-    for layer in model.layers:
+    if hasattr(model, "_flatten_layers"):
+        layers = model._flatten_layers(include_self=False, recursive=True)
+    else:  # pragma: no cover - compatibility fallback for older Keras
+        layers = model.layers
+    seen = set()
+    for layer in layers:
+        if id(layer) in seen:
+            continue
+        seen.add(id(layer))
         layer_cls = layer.__class__.__name__.lower()
         layer_name = layer.name.lower()
         for forbidden in FORBIDDEN_LAYER_STRINGS:
             if forbidden in layer_cls or forbidden in layer_name:
                 violations.append(f"Layer '{layer.name}' ({layer.__class__.__name__}) matches forbidden token '{forbidden}'")
+    return violations
+
+
+FORBIDDEN_EXECUTABLE_IDENTIFIERS = {
+    "conv1d",
+    "conv2d",
+    "conv3d",
+    "convolution1d",
+    "convolution2d",
+    "convolution3d",
+    "multiheadattention",
+    "attention",
+    "additiveattention",
+    "roialign",
+    "mediapipe",
+    "landmark",
+    "landmarks",
+    "transformer",
+    "knn",
+    "kneighbors",
+}
+
+
+def audit_forbidden_source(source_root: Path) -> List[str]:
+    """Audit executable Python AST nodes, while ignoring prose/docstrings."""
+    violations: List[str] = []
+    for path in sorted(Path(source_root).rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            identifiers: List[str] = []
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                if isinstance(node, ast.Import):
+                    identifiers.extend(alias.name for alias in node.names)
+                elif node.module:
+                    identifiers.append(node.module)
+            elif isinstance(node, ast.Call):
+                target = node.func
+                if isinstance(target, ast.Name):
+                    identifiers.append(target.id)
+                elif isinstance(target, ast.Attribute):
+                    identifiers.append(target.attr)
+            for identifier in identifiers:
+                components = {part.lower() for part in identifier.replace("-", "_").split(".")}
+                hits = components & FORBIDDEN_EXECUTABLE_IDENTIFIERS
+                for hit in sorted(hits):
+                    violations.append(f"{path}:{getattr(node, 'lineno', 0)} invokes/imports {hit}")
+    return violations
+
+
+def audit_sparse_local_source(source_root: Path) -> List[str]:
+    """Check the production local path retains gather/segment sparse aggregation."""
+    local_path = Path(source_root) / "local_relation.py"
+    source = local_path.read_text(encoding="utf-8")
+    required = ("tf.gather", "tf.math.unsorted_segment_sum")
+    missing = [token for token in required if token not in source]
+    forbidden_dense_literals = ("2304 * 2304", "(2304, 2304)", "[2304, 2304]")
+    present = [token for token in forbidden_dense_literals if token in source]
+    return [f"missing sparse primitive: {token}" for token in missing] + [
+        f"forbidden full-resolution dense construction: {token}" for token in present
+    ]
+
+
+def audit_no_absolute_node_coordinates(source_root: Path) -> List[str]:
+    """Audit that the model's initial node projection consumes pixel state only.
+
+    Relative geometry remains permitted inside gate functions. This narrowly
+    proves that ``model.py`` does not feed an x/y tensor to ``input_proj``.
+    """
+    model_path = Path(source_root) / "model.py"
+    tree = ast.parse(model_path.read_text(encoding="utf-8"), filename=str(model_path))
+    calls = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr == "input_proj":
+            calls.append(node)
+    violations = []
+    if len(calls) != 1:
+        violations.append(f"expected exactly one input_proj call, found {len(calls)}")
+    elif len(calls[0].args) != 1 or not isinstance(calls[0].args[0], ast.Name) or calls[0].args[0].id != "h":
+        violations.append("input_proj must consume only the one-channel pixel-state tensor h")
     return violations
 
 

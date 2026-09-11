@@ -18,5 +18,6 @@ The primary scientific comparison is **G1 versus G0.5**.
 ## Research Governance
 
 - Off-limits: Official test set (`test.csv`) and official validation set (`val.csv`) during architecture design and preflight.
-- Research splits derived strictly from the 28,709-row official `train.csv`.
+- Technical preflight validates only the 28,709-row official `train.csv`.
+- No ResearchTrain/ResearchDev split seed or ratio is registered in this snapshot.
 - Scientific training is disabled by default in preflight orchestrator notebooks.

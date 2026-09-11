@@ -1,7 +1,8 @@
 # Pure-GNN v3.1 Validation Assets
 
-This directory contains technical validation artifacts, preflight reports, and reference data for the Pure-GNN v3.1 research line.
+This directory documents runtime-generated technical evidence for the Pure-GNN v3.1 research line.
 
-- `preflight_report.json`: Output of the technical preflight runner.
-- `benchmark_report.json`: Output of runtime throughput and latency benchmarking.
-- `research_split_manifest.json`: Deterministic manifest of ResearchTrain and ResearchDev derived strictly from official `train.csv`.
+Runtime reports such as `preflight_report.json`, `benchmark_report.json`, and
+`train_input_report.json` must be written to an external output directory and
+must not be committed by default. No research split is registered or generated
+by this technical-preflight snapshot.

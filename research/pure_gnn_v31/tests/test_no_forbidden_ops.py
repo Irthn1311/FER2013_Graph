@@ -3,7 +3,14 @@
 import pytest
 import tensorflow as tf
 from pure_gnn_v31.model import PureGNNv31
-from pure_gnn_v31.contracts import audit_forbidden_layers
+from pathlib import Path
+
+from pure_gnn_v31.contracts import (
+    audit_forbidden_layers,
+    audit_forbidden_source,
+    audit_no_absolute_node_coordinates,
+    audit_sparse_local_source,
+)
 
 
 @pytest.mark.parametrize("condition", ["G0", "G0.5", "G1", "G2", "G3"])
@@ -23,3 +30,18 @@ def test_no_absolute_coordinates_in_node_features():
     _ = model(dummy, training=False)
     # input projection must take 1 feature channel -> C
     assert model.input_proj.weights[0].shape[0] == 1
+
+
+def test_executable_source_ast_has_no_forbidden_architecture_primitive():
+    source_root = Path(__file__).resolve().parents[1] / "src" / "pure_gnn_v31"
+    assert audit_forbidden_source(source_root) == []
+
+
+def test_local_production_source_is_sparse_and_has_no_full_grid_dense_adjacency():
+    source_root = Path(__file__).resolve().parents[1] / "src" / "pure_gnn_v31"
+    assert audit_sparse_local_source(source_root) == []
+
+
+def test_model_source_projects_only_pixel_state_without_absolute_coordinates():
+    source_root = Path(__file__).resolve().parents[1] / "src" / "pure_gnn_v31"
+    assert audit_no_absolute_node_coordinates(source_root) == []

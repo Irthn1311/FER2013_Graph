@@ -10,6 +10,7 @@ from pure_gnn_v31.graph_index import (
 from pure_gnn_v31.local_relation import LocalAdaptiveRelationBlock
 from pure_gnn_v31.coarsening import FixedAntiAliasedCoarsening
 from pure_gnn_v31.coarse_conditions import CoarseBlock
+from pure_gnn_v31.diagnostics import tensor_feature_diagnostics
 
 
 class PureGNNv31(tf.keras.Model):
@@ -195,12 +196,21 @@ class PureGNNv31(tf.keras.Model):
 
         diagnostics = {}
 
+        def record_block(prefix, values, features):
+            for key, value in values.items():
+                if value.shape.rank == 0:
+                    diagnostics[f"{prefix}_{key}"] = value
+            for key, value in tensor_feature_diagnostics(features).items():
+                diagnostics[f"{prefix}_{key}"] = value
+
         # Stage 1: 48x48
         for i, block in enumerate(self.stage1_blocks):
-            if return_diagnostics and i == 0:
+            if return_diagnostics:
                 h, diag = block(h, graph=self.graph_s1, training=training, return_diagnostics=True)
-                for k, v in diag.items():
-                    diagnostics[f"stage1_{k}"] = v
+                record_block(f"stage1_block{i}", diag, h)
+                if i == 0:
+                    for key in ("gate_mean", "gate_std", "gate_near_min", "gate_near_max"):
+                        diagnostics[f"stage1_{key}"] = diag[key]
             else:
                 h = block(h, graph=self.graph_s1, training=training)
 
@@ -209,24 +219,40 @@ class PureGNNv31(tf.keras.Model):
 
         # Stage 2: 24x24
         for i, block in enumerate(self.stage2_blocks):
-            h = block(h, graph=self.graph_s2, training=training)
+            if return_diagnostics:
+                h, diag = block(h, graph=self.graph_s2, training=training, return_diagnostics=True)
+                record_block(f"stage2_block{i}", diag, h)
+            else:
+                h = block(h, graph=self.graph_s2, training=training)
 
         # Coarsen 2: 24x24 -> 12x12
         h = self.coarsen2(h)  # (B, 144, 96)
 
         # Stage 3: 12x12
         for i, block in enumerate(self.stage3_blocks):
-            h = block(h, graph=self.graph_s3, training=training)
+            if return_diagnostics:
+                h, diag = block(h, graph=self.graph_s3, training=training, return_diagnostics=True)
+                record_block(f"stage3_block{i}", diag, h)
+            else:
+                h = block(h, graph=self.graph_s3, training=training)
 
         # Coarsen 3: 12x12 -> 6x6
         h = self.coarsen3(h)  # (B, 36, 128)
 
         # Stage 4: 6x6 Coarse relational
         for i, block in enumerate(self.stage4_blocks):
-            if return_diagnostics and i == 0:
+            if return_diagnostics:
                 h, diag = block(h, coarse_graph=self.graph_coarse, training=training, return_diagnostics=True)
-                for k, v in diag.items():
-                    diagnostics[f"coarse_{k}"] = v
+                record_block(f"coarse_block{i}", diag, h)
+                if i == 0:
+                    for key in (
+                        "coarse_weight_entropy",
+                        "effective_neighbor_count",
+                        "coarse_weight_min",
+                        "coarse_weight_max",
+                    ):
+                        if key in diag:
+                            diagnostics[f"coarse_{key}"] = diag[key]
             else:
                 h = block(h, coarse_graph=self.graph_coarse, training=training)
 

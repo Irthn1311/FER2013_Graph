@@ -1,20 +1,17 @@
-# Pure-GNN v3.1 Research Screen Configuration (Scaffold Only - Scientific Training NOT Authorized)
+# Pure-GNN v3.1 locked registration scaffold. No scientific defaults.
 meta:
-  purpose: "scaffold_only"
+  purpose: "registration_required_before_scientific_execution"
   authorized: false
-  note: "Scientific training is NOT authorized in technical preflight task"
+  note: "All null fields require an explicit later preregistration."
 
-experiment:
-  conditions: ["G0", "G0.5", "G1", "G2", "G3"]
-  seeds: [42, 43, 44]
-  epochs: 60
-  batch_size: 32
-  learning_rate: 3.0e-4
-  weight_decay: 1.0e-4
-  mixed_precision: true
-  early_stopping_patience: 12
-  monitor_metric: "val_accuracy"
-  data:
-    train_csv: "data/train.csv"
-    research_split_seed: 42
-    research_split_ratio: 0.15
+registration:
+  research_split_seed: null
+  research_dev_ratio: null
+  scientific_seeds: null
+  epochs: null
+  optimizer: null
+  learning_rate: null
+  weight_decay: null
+  early_stopping: null
+  augmentation: null
+  loss: null

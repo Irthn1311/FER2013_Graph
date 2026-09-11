@@ -116,16 +116,15 @@ class CoarseBlock(tf.keras.layers.Layer):
         dst = coarse_graph["dst_indices"]      # 1260
         p_ij = coarse_graph["p_ij"]            # (1260, 3)
 
-        h_norm = self.norm1(h)  # (B, 36, C)
-
-        # Gather receiver i and sender j
-        h_i = tf.gather(h_norm, dst, axis=1)  # (B, 1260, C)
-        h_j = tf.gather(h_norm, src, axis=1)  # (B, 1260, C)
-
-        # Receiver-relative difference
-        diff_ij = h_j - h_i
-        # Pair value: q_ij = V(h_j - h_i)
-        q_ij = self.v_proj(diff_ij)  # (B, 1260, C)
+        # The pair value is defined on raw receiver-relative state.  Normalized
+        # copies exist only for the learned gate.
+        raw_h_i = tf.gather(h, dst, axis=1)  # (B, E, C)
+        raw_h_j = tf.gather(h, src, axis=1)  # (B, E, C)
+        raw_diff_ij = raw_h_j - raw_h_i
+        q_ij = self.v_proj(raw_diff_ij)  # (B, E, C)
+        # This shared normalization is built in both G0.5 and G1.  It affects
+        # only the G1 gate input and never the pair value q_ij.
+        h_i_norm = self.norm1(raw_h_i)
 
         diagnostics = {}
 
@@ -143,14 +142,21 @@ class CoarseBlock(tf.keras.layers.Layer):
             if return_diagnostics:
                 diagnostics["coarse_weight_entropy"] = tf.constant(3.555348, dtype=tf.float32)
                 diagnostics["effective_neighbor_count"] = tf.constant(35.0, dtype=tf.float32)
+                diagnostics["coarse_weight_min"] = uniform_weight
+                diagnostics["coarse_weight_max"] = uniform_weight
+                diagnostics["receiver_weight_sums"] = tf.ones(
+                    [tf.shape(h)[0], num_nodes, 1], dtype=q_ij.dtype
+                )
+                diagnostics["pair_weights"] = tf.ones_like(q_ij[..., :1]) * uniform_weight
+                diagnostics["pair_values"] = q_ij
 
         else:
             # G1, G2, G3: Learned pair-specific gate
-            diff_ij_norm = self.coarse_gate_norm_diff(diff_ij)
+            diff_ij_norm = self.coarse_gate_norm_diff(raw_diff_ij)
             b_size = tf.shape(h)[0]
             p_ij_b = tf.broadcast_to(p_ij[None, :, :], [b_size, tf.shape(p_ij)[0], 3])
 
-            gate_input = tf.concat([h_i, diff_ij_norm, p_ij_b], axis=-1)  # (B, 1260, 2*C + 3)
+            gate_input = tf.concat([h_i_norm, diff_ij_norm, p_ij_b], axis=-1)  # (B, E, 2*C + 3)
             s_ij = self.coarse_gate_dense2(self.coarse_gate_dense1(gate_input))  # (B, 1260, 1)
             a_ij = tf.sigmoid(s_ij)  # (B, 1260, 1)
 
@@ -185,6 +191,17 @@ class CoarseBlock(tf.keras.layers.Layer):
                 diagnostics["effective_neighbor_count"] = tf.exp(mean_ent)
                 diagnostics["coarse_weight_min"] = tf.reduce_min(a_bar_ij)
                 diagnostics["coarse_weight_max"] = tf.reduce_max(a_bar_ij)
+                diagnostics["receiver_weight_sums"] = tf.transpose(
+                    tf.math.unsorted_segment_sum(
+                        tf.transpose(a_bar_ij, [1, 0, 2]), dst, num_segments=num_nodes
+                    ),
+                    [1, 0, 2],
+                )
+                diagnostics["pair_weights"] = a_bar_ij
+                diagnostics["pair_values"] = q_ij
+                diagnostics["gate_input_content"] = tf.concat(
+                    [h_i_norm, diff_ij_norm], axis=-1
+                )
 
         # Pre-norm residual update
         h_mid = h + m_i

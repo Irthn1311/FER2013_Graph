@@ -1,6 +1,6 @@
 """Unit tests for Local Adaptive Relation Block and gate contracts in Pure-GNN v3.1."""
 
-import pytest
+import numpy as np
 import tensorflow as tf
 from pure_gnn_v31.graph_index import build_grid_8neighbor_graph
 from pure_gnn_v31.local_relation import LocalAdaptiveRelationBlock
@@ -37,4 +37,26 @@ def test_local_gate_g2_content_masking():
     _, d1 = block_g2(h1, graph=graph, training=False, return_diagnostics=True)
     _, d2 = block_g2(h2, graph=graph, training=False, return_diagnostics=True)
 
-    assert abs(float(d1["gate_mean"].numpy()) - float(d2["gate_mean"].numpy())) < 1e-6
+    np.testing.assert_array_equal(d1["gate_input_content"].numpy(), 0.0)
+    np.testing.assert_array_equal(d2["gate_input_content"].numpy(), 0.0)
+
+
+def test_local_raw_message_value_is_not_layer_normalized():
+    block = LocalAdaptiveRelationBlock(channels=4, gate_hidden_dim=3)
+    graph = build_grid_8neighbor_graph(4, 4)
+    h = tf.random.stateless_normal([1, 16, 4], seed=[90, 91]) * 3.0 + 7.0
+    _ = block(h, graph=graph, training=False)
+    raw_sender = tf.gather(h, graph["src_indices"], axis=1)
+    raw_receiver = tf.gather(h, graph["dst_indices"], axis=1)
+    expected_direction = tf.einsum(
+        "bec,ecd->bed", raw_sender, tf.gather(block.w_dir, graph["direction_id"])
+    )
+    expected_relation = block.w_rel(raw_sender - raw_receiver)
+    normalized_sender = block.norm1(raw_sender)
+    normalized_direction = tf.einsum(
+        "bec,ecd->bed", normalized_sender, tf.gather(block.w_dir, graph["direction_id"])
+    )
+    assert not np.allclose(
+        (expected_direction + expected_relation).numpy(),
+        normalized_direction.numpy(),
+    )

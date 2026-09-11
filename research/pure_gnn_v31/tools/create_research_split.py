@@ -9,8 +9,8 @@ from pure_gnn_v31.data import create_research_split_manifest, assert_not_test_ac
 def main():
     parser = argparse.ArgumentParser(description="Create ResearchTrain / ResearchDev split manifest")
     parser.add_argument("--train-csv", type=str, required=True, help="Path to official train.csv")
-    parser.add_argument("--seed", type=int, default=42, help="Split random seed")
-    parser.add_argument("--dev-ratio", type=float, default=0.15, help="Ratio for dev split")
+    parser.add_argument("--seed", type=int, required=True, help="Explicitly registered split seed")
+    parser.add_argument("--dev-ratio", type=float, required=True, help="Explicitly registered dev ratio")
     parser.add_argument("--output", type=str, required=True, help="Output manifest JSON path")
     args = parser.parse_args()
 

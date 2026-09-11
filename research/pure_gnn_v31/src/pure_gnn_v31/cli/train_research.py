@@ -5,7 +5,36 @@ This CLI exists strictly for pipeline scaffolding and preflight integration.
 """
 
 import argparse
-import sys
+from pathlib import Path
+
+import yaml
+
+
+REQUIRED_REGISTRATION_FIELDS = (
+    "research_split_seed",
+    "research_dev_ratio",
+    "scientific_seeds",
+    "epochs",
+    "optimizer",
+    "learning_rate",
+    "weight_decay",
+    "early_stopping",
+    "augmentation",
+    "loss",
+)
+
+
+def validate_scientific_registration(config_path: str) -> dict:
+    """Fail closed unless a future reviewed config is explicit and authorized."""
+    config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8")) or {}
+    registration = config.get("registration") or {}
+    missing = [field for field in REQUIRED_REGISTRATION_FIELDS if registration.get(field) is None]
+    if config.get("meta", {}).get("authorized") is not True or missing:
+        raise PermissionError(
+            "Scientific training is NOT authorized; registration is locked or incomplete. "
+            f"Missing explicit fields: {missing}"
+        )
+    return config
 
 
 def main():
@@ -15,16 +44,10 @@ def main():
     parser.add_argument("--execute-scientific-training", action="store_true", default=False)
     args = parser.parse_args()
 
-    if not args.execute_scientific_training:
-        print("[pure_gnn_v31] Training scaffold invoked in preflight mode.")
-        print("[pure_gnn_v31] Scientific training is NOT authorized in this task.")
-        print("[pure_gnn_v31] Pipeline configuration parsed successfully.")
-        sys.exit(0)
-    else:
-        raise PermissionError(
-            "Scientific training is NOT authorized. "
-            "Pure-GNN v3.1 is currently in implementation and technical preflight phase only."
-        )
+    validate_scientific_registration(args.config)
+    raise PermissionError(
+        "Scientific training execution is intentionally unavailable in this technical snapshot."
+    )
 
 
 if __name__ == "__main__":
