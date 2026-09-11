@@ -17,7 +17,7 @@ def _notebook_text() -> tuple[dict, str]:
 
 def test_notebook_uses_immutable_tag_and_locked_scientific_switch():
     notebook, text = _notebook_text()
-    assert "SOURCE_TAG = 'pure-gnn-v31-preflight-v2'" in text
+    assert "SOURCE_TAG = 'pure-gnn-v31-preflight-v3'" in text
     assert "RUN_RESEARCH_SCREEN = False" in text
     assert "REPO_BRANCH" not in text
     assert "checkout', '--detach', SOURCE_TAG" in text
@@ -28,8 +28,8 @@ def test_notebook_uses_immutable_tag_and_locked_scientific_switch():
 def test_notebook_has_only_bounded_train_candidates_and_no_split_creation():
     _, text = _notebook_text()
     assert "doduyquynii/fer13-split" in text
-    assert "/kaggle/input/fer13-split/fer13-split/train.csv" in text
-    assert "/kaggle/input/fer13-split/train.csv" in text
+    assert "/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv" in text
+    assert "/kaggle/input/fer13-split/train.csv" not in text
     assert "create_research_split_manifest" not in text
     assert ".glob(" not in text
     assert ".rglob('*')" in text  # package source manifest only, never Kaggle input discovery
