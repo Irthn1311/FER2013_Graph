@@ -133,7 +133,7 @@ def test_validation_two_tuple_dataset_rejected():
     )).batch(256)
 
     with pytest.raises(DataGovernanceError) as exc:
-        evaluator.evaluate_split(two_tuple_ds, split_role="validation", assert_full_validation_count=True)
+        evaluator.evaluate_split(two_tuple_ds, split_role="validation")
     assert "Missing source index is strictly prohibited" in str(exc.value)
 
 
@@ -154,7 +154,7 @@ def test_validation_duplicate_indices_rejected():
     )).batch(256)
 
     with pytest.raises(DataGovernanceError) as exc:
-        evaluator.evaluate_split(dup_ds, split_role="validation", assert_full_validation_count=True)
+        evaluator.evaluate_split(dup_ds, split_role="validation")
     assert "Duplicate validation indices detected" in str(exc.value)
 
 
@@ -175,7 +175,7 @@ def test_validation_index_gap_rejected():
     )).batch(256)
 
     with pytest.raises(DataGovernanceError) as exc:
-        evaluator.evaluate_split(gap_ds, split_role="validation", assert_full_validation_count=True)
+        evaluator.evaluate_split(gap_ds, split_role="validation")
     assert "Validation index set is incomplete" in str(exc.value)
 
 
@@ -197,7 +197,7 @@ def test_validation_reordered_indices_accepted():
     )).batch(256)
 
     metrics, records = evaluator.evaluate_split(
-        reordered_ds, split_role="validation", assert_full_validation_count=True
+        reordered_ds, split_role="validation"
     )
     assert len(records["source_row_index"]) == 3589
     np.testing.assert_array_equal(records["source_row_index"], reordered_indices)

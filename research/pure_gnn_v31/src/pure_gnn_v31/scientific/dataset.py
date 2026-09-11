@@ -4,10 +4,11 @@ import csv
 import hashlib
 import math
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 import tensorflow as tf
 
+from pure_gnn_v31.scientific.augmentation import augment_image_stateless
 from pure_gnn_v31.scientific.governance import (
     assert_not_test_access,
     validate_dataset_path,
@@ -107,9 +108,11 @@ def validate_and_hash_fer_csv(
 def load_fer_csv_split(
     csv_path: Union[str, Path],
     role: str,
-    validate_row_count: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, str]:
-    """Loads a FER2013 split (train or validation only) with strict governance assertions.
+    """Production scientific loader for official FER2013 CSV splits.
+
+    ALWAYS enforces exact row count (Train=28,709, Val=3,589).
+    NO bypass argument exists in the production API.
 
     Returns:
         images: (N, 48, 48, 1) float32 in [0, 1]
@@ -168,9 +171,54 @@ def load_fer_csv_split(
             indices.append(count)
             count += 1
 
-    if validate_row_count:
-        expected = 28709 if role.lower() == "train" else 3589
-        validate_split_row_counts(role, count, expected)
+    expected = 28709 if role.lower() == "train" else 3589
+    validate_split_row_counts(role, count, expected)
+
+    return (
+        np.array(images, dtype=np.float32),
+        np.array(labels, dtype=np.int32),
+        np.array(indices, dtype=np.int32),
+        true_sha256,
+    )
+
+
+def _load_synthetic_fer_csv_for_testing(
+    csv_path: Union[str, Path],
+    role: str,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, str]:
+    """Internal test fixture loader that does not enforce official full-dataset row counts."""
+    validate_dataset_path(csv_path, expected_role=role)
+    p = Path(csv_path)
+    if not p.is_file():
+        raise FileNotFoundError(f"Dataset file not found: {p}")
+
+    true_sha256 = compute_file_sha256(p)
+    images: List[np.ndarray] = []
+    labels: List[int] = []
+    indices: List[int] = []
+
+    with p.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.reader(f)
+        try:
+            raw_header = next(reader)
+        except StopIteration:
+            raise ValueError(f"CSV file is empty: {p}")
+
+        header = [col.strip().lower() for col in raw_header]
+        emo_idx = header.index("emotion")
+        pix_idx = header.index("pixels")
+
+        count = 0
+        for row in reader:
+            if not row:
+                continue
+            emotion = int(row[emo_idx])
+            pixel_vals = [float(px) for px in row[pix_idx].split()]
+            img = np.array(pixel_vals, dtype=np.float32).reshape(48, 48, 1) / 255.0
+            images.append(img)
+            labels.append(emotion)
+            indices.append(count)
+            count += 1
 
     return (
         np.array(images, dtype=np.float32),
@@ -188,10 +236,7 @@ def create_paired_dataset(
     shuffle: bool,
     indices: Optional[np.ndarray] = None,
 ) -> tf.data.Dataset:
-    """Creates a tf.data.Dataset yielding identical sample ordering across paired conditions.
-
-    NO default arguments for batch_size, seed, or shuffle!
-    """
+    """Creates a tf.data.Dataset yielding identical sample ordering across paired conditions."""
     if batch_size is None or not isinstance(batch_size, int) or batch_size <= 0:
         raise ValueError(f"Explicit positive integer batch_size is required, got: {batch_size}")
     if seed is None or not isinstance(seed, int):
@@ -205,6 +250,53 @@ def create_paired_dataset(
     ds = tf.data.Dataset.from_tensor_slices((images, labels, indices))
     if shuffle:
         ds = ds.shuffle(buffer_size=len(images), seed=seed, reshuffle_each_iteration=True)
+    ds = ds.batch(batch_size, drop_remainder=False)
+    ds = ds.prefetch(tf.data.AUTOTUNE)
+    return ds
+
+
+def create_epoch_paired_training_dataset(
+    images: np.ndarray,
+    labels: np.ndarray,
+    indices: np.ndarray,
+    batch_size: int,
+    base_seed: int,
+    epoch: int,
+    augment: bool,
+) -> tf.data.Dataset:
+    """Creates an epoch-specific training dataset yielding exact paired order and augmentation.
+
+    Guarantees:
+    - Base seed and epoch deterministically control shuffle order.
+    - If augment=True, applies stateless Gen2/Gen3 image augmentation conditioned only
+      on base_seed, epoch, and post-shuffle order index.
+    - Different conditions (G0, G0.5, G1) passed the same base_seed and epoch produce
+      bit-for-bit identical batches.
+    """
+    if batch_size is None or not isinstance(batch_size, int) or batch_size <= 0:
+        raise ValueError(f"Explicit positive integer batch_size is required, got: {batch_size}")
+    if base_seed is None or not isinstance(base_seed, int):
+        raise ValueError(f"Explicit integer base_seed is required, got: {base_seed}")
+    if epoch is None or not isinstance(epoch, int) or epoch < 0:
+        raise ValueError(f"Explicit non-negative integer epoch is required, got: {epoch}")
+
+    # Derive deterministic epoch shuffle seed
+    epoch_shuffle_seed = (base_seed * 10007 + epoch * 997) % (2**31 - 1)
+
+    ds = tf.data.Dataset.from_tensor_slices((images, labels, indices))
+    # Reshuffle deterministically per epoch
+    ds = ds.shuffle(buffer_size=len(images), seed=epoch_shuffle_seed, reshuffle_each_iteration=False)
+
+    # Attach post-shuffle enumeration index (0..N-1) for deterministic stateless augmentation
+    ds = ds.enumerate()
+
+    def _map_fn(post_shuffle_idx, item):
+        img, lbl, src_idx = item
+        if augment:
+            img = augment_image_stateless(img, base_seed=base_seed, epoch=epoch, item_index=post_shuffle_idx)
+        return img, lbl, src_idx
+
+    ds = ds.map(_map_fn, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
     ds = ds.batch(batch_size, drop_remainder=False)
     ds = ds.prefetch(tf.data.AUTOTUNE)
     return ds

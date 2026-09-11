@@ -68,14 +68,22 @@ def generate_scientific_audit_manifest(
             hashes[rel] = "MISSING"
 
     # Derive governance_status from actual reviewed config
-    if config_obj.scientific_execution_authorized and not config_obj.has_unresolved_hyperparameters:
+    if (
+        config_obj.scientific_execution_authorized
+        and not config_obj.has_unresolved_hyperparameters
+        and not config_obj.test_access_authorized
+    ):
         gov_status = "AUTHORIZED"
     else:
         gov_status = "LOCKED_DISABLED"
 
     # Derive paired_augmentation_status from config
     aug_spec = config_obj.hyperparameters.get("augmentation_policy", {})
-    if isinstance(aug_spec, dict) and aug_spec.get("status") == "SOURCE_CONFIRMED" and aug_spec.get("value") is not None:
+    if (
+        isinstance(aug_spec, dict)
+        and aug_spec.get("status") in ("SOURCE_CONFIRMED", "PREREGISTERED_DECISION")
+        and aug_spec.get("value") == "gen2_gen3_stateless_image_v1"
+    ):
         paired_aug_status = "CONFIGURED"
     else:
         paired_aug_status = "BLOCKED_ON_AUGMENTATION_POLICY"

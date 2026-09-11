@@ -136,7 +136,8 @@ def test_true_binary_sha256_with_crlf_fixture():
     assert val_info["sha256"] == expected_sha
     assert val_info["sha256"] == hashlib.sha256(crlf_csv_path.read_bytes()).hexdigest()
 
-    # 2. load_fer_csv_split must return exact whole-file binary hash
-    _, _, _, load_sha = load_fer_csv_split(crlf_csv_path, role="train", validate_row_count=False)
+    # 2. _load_synthetic_fer_csv_for_testing must return exact whole-file binary hash
+    from pure_gnn_v31.scientific.dataset import _load_synthetic_fer_csv_for_testing
+    _, _, _, load_sha = _load_synthetic_fer_csv_for_testing(crlf_csv_path, role="train")
     assert load_sha == expected_sha
     assert load_sha == hashlib.sha256(crlf_csv_path.read_bytes()).hexdigest()

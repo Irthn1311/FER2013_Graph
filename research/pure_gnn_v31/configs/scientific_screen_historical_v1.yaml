@@ -3,8 +3,8 @@
 
 meta:
   version: "historical_v1"
-  status: "REQUIRES_INDEPENDENT_REVIEW"
-  description: "Scaffolded scientific screen configuration for Pure-GNN v3.1"
+  status: "PREREGISTERED_FROZEN"
+  description: "Preregistered historical scientific screen configuration for Pure-GNN v3.1"
 
 # HARD EXECUTION GATE: Must remain false until independent reviewer authorizes
 scientific_execution_authorized: false
@@ -29,7 +29,7 @@ conditions:
   primary_comparison: "G1 - G0.5"
   g2_g3_scheduled: false
 
-# Shared & Divergent Hyperparameters
+# Shared & Preregistered Hyperparameters
 hyperparameters:
   optimizer_type:
     value: "AdamW"
@@ -103,52 +103,50 @@ hyperparameters:
       - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:71"
     status: "SOURCE_CONFIRMED"
 
-  # Divergent parameters requiring independent reviewer resolution
+  # Preregistered compatibility decisions: latest repeated project convention shared by Gen2 and Gen3
   batch_size:
-    value: null
+    value: 64
     provenance:
-      - "LAP: batch_size=16 (baseline.yaml:11)"
-      - "Gen2/Gen3: batch_size=64 (train_validation_only.py:45,66)"
-    status: "REQUIRES_REVIEW"
+      - "Pre-outcome compatibility decision: latest repeated project convention shared by Gen2 and Gen3 (Gen2: tf_cf_hpg_v1_1_resolution/train_validation_only.py:45; Gen3: tf_ws_hpg_v1_training/train_validation_only.py:66)."
+    status: "PREREGISTERED_DECISION"
 
   lr_scheduler:
-    value: null
+    value:
+      type: "WarmupCosine"
+      warmup_epochs: 5
+      initial_learning_rate: 0.0003
+      final_learning_rate: 0.000001
+      max_epochs: 100
     provenance:
-      - "LAP: ReduceLROnPlateau (baseline.yaml:190-196)"
-      - "Gen2/Gen3: WarmupCosine 5/100 (train_validation_only.py:47,68)"
-    status: "REQUIRES_REVIEW"
+      - "Pre-outcome compatibility decision: latest repeated project convention shared by Gen2 and Gen3 (Gen2: tf_cf_hpg_v1_1_resolution/train_validation_only.py:47-48; Gen3: tf_ws_hpg_v1_training/train_validation_only.py:68-69)."
+    status: "PREREGISTERED_DECISION"
 
   weight_decay:
-    value: null
+    value: 0.0005
     provenance:
-      - "LAP: 0.001 (baseline.yaml:163)"
-      - "Gen2/Gen3: 0.0005 (train_validation_only.py:43,64)"
-    status: "REQUIRES_REVIEW"
+      - "Pre-outcome compatibility decision: latest repeated project convention shared by Gen2 and Gen3 (Gen2: tf_cf_hpg_v1_1_resolution/train_validation_only.py:43; Gen3: tf_ws_hpg_v1_training/train_validation_only.py:64)."
+    status: "PREREGISTERED_DECISION"
 
   max_epochs:
-    value: null
+    value: 100
     provenance:
-      - "LAP: 90 (baseline.yaml:156)"
-      - "Gen2/Gen3: 100 (train_validation_only.py:46,67)"
-    status: "REQUIRES_REVIEW"
+      - "Pre-outcome compatibility decision: latest repeated project convention shared by Gen2 and Gen3 (Gen2: tf_cf_hpg_v1_1_resolution/train_validation_only.py:46; Gen3: tf_ws_hpg_v1_training/train_validation_only.py:67)."
+    status: "PREREGISTERED_DECISION"
 
   label_smoothing:
-    value: null
+    value: 0.05
     provenance:
-      - "LAP: 0.0 (baseline.yaml:148)"
-      - "Gen2/Gen3: 0.05 (train_validation_only.py:50,70)"
-    status: "REQUIRES_REVIEW"
+      - "Pre-outcome compatibility decision: latest repeated project convention shared by Gen2 and Gen3 (Gen2: tf_cf_hpg_v1_1_resolution/train_validation_only.py:50; Gen3: tf_ws_hpg_v1_training/train_validation_only.py:70)."
+    status: "PREREGISTERED_DECISION"
 
   global_clipnorm:
-    value: null
+    value: 1.0
     provenance:
-      - "LAP: null (baseline.yaml:170)"
-      - "Gen2/Gen3: 1.0 (train_validation_only.py:44,65)"
-    status: "REQUIRES_REVIEW"
+      - "Pre-outcome compatibility decision: latest repeated project convention shared by Gen2 and Gen3 (Gen2: tf_cf_hpg_v1_1_resolution/train_validation_only.py:44; Gen3: tf_ws_hpg_v1_training/train_validation_only.py:65)."
+    status: "PREREGISTERED_DECISION"
 
   augmentation_policy:
-    value: null
+    value: "gen2_gen3_stateless_image_v1"
     provenance:
-      - "LAP: image augmentation UNKNOWN; structural prior corruption confirmed (baseline.yaml:58-77)"
-      - "Gen2/Gen3: stateless flip+rot+trans+contrast+erase (augmentation.py)"
-    status: "REQUIRES_REVIEW"
+      - "Pre-outcome compatibility decision: latest repeated project convention shared by Gen2 and Gen3 (Gen2: tf_cf_hpg_v1_1_resolution/data.py:51-78; Gen3: tf_ws_hpg_v1_training/augmentation.py:21-42)."
+    status: "PREREGISTERED_DECISION"
