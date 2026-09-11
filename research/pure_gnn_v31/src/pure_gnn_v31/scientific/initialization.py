@@ -1,41 +1,97 @@
 """Weight synchronization and initialization pairing utilities for G0, G0.5, and G1."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Set, Tuple
 import numpy as np
 import tensorflow as tf
 
 from pure_gnn_v31.model import PureGNNv31
 
 
-def synchronize_shared_parameters(source_model: PureGNNv31, target_model: PureGNNv31) -> int:
-    """Synchronizes all shared parameters between source and target PureGNN models.
-    
-    Specifically used between G0.5 and G1:
-    - Input projection: shared
-    - Stage 1, 2, 3 local blocks: shared
-    - Coarsen 1, 2, 3 layers: shared
-    - Stage 4 coarse blocks shared parameters:
-        * norm1, norm2, ffn_dense1, ffn_dense2, v_proj
-    - Readout and classifier head: shared
-    - G1 coarse gate parameters (coarse_gate_*) exist only in G1 and remain at their zero-init.
-    
-    Returns the number of synchronized variables.
-    """
-    target_vars = {
+def get_variable_map(model: PureGNNv31) -> Dict[str, tf.Variable]:
+    """Builds a mapping from canonical variable path to tf.Variable."""
+    return {
         f"{getattr(v, 'path', '')}::{getattr(v, 'name', '')}": v
-        for v in target_model.trainable_variables
+        for v in model.trainable_variables
     }
 
-    synced_count = 0
-    for src_v in source_model.trainable_variables:
-        key = f"{getattr(src_v, 'path', '')}::{getattr(src_v, 'name', '')}"
-        if key in target_vars:
-            tgt_v = target_vars[key]
-            if tgt_v.shape == src_v.shape:
-                tgt_v.assign(src_v)
-                synced_count += 1
 
-    return synced_count
+def audit_and_synchronize_shared_parameters(
+    source_model: PureGNNv31,
+    target_model: PureGNNv31,
+) -> Dict[str, object]:
+    """Strictly audits and synchronizes shared parameters between G0.5 and G1.
+    
+    Verifies:
+    - Identifies exact trainable variable paths in source (G0.5)
+    - Identifies target (G1) shared non-gate paths
+    - Asserts shared set equality
+    - Copies every shared value
+    - Asserts every copied tensor equals exactly (max copy error == 0.0)
+    - Asserts G1 coarse gate final projections remain zero-initialized
+    """
+    src_map = get_variable_map(source_model)
+    tgt_map = get_variable_map(target_model)
+
+    # Coarse gate variables in G1
+    gate_vars = {k: v for k, v in tgt_map.items() if "coarse_gate" in k.lower()}
+    # Target shared non-gate variables
+    tgt_shared = {k: v for k, v in tgt_map.items() if "coarse_gate" not in k.lower()}
+
+    # Source should have exact same shared set as target shared
+    src_keys = set(src_map.keys())
+    tgt_shared_keys = set(tgt_shared.keys())
+
+    if src_keys != tgt_shared_keys:
+        missing_in_tgt = src_keys - tgt_shared_keys
+        missing_in_src = tgt_shared_keys - src_keys
+        raise AssertionError(
+            f"Shared parameter mismatch between source and target! "
+            f"Missing in target: {missing_in_tgt}, Missing in source: {missing_in_src}"
+        )
+
+    # Perform exact copy and assert zero copy error
+    max_copy_error = 0.0
+    shared_param_count = 0
+    copied_tensors = 0
+
+    for key in sorted(src_keys):
+        src_v = src_map[key]
+        tgt_v = tgt_shared[key]
+
+        if src_v.shape != tgt_v.shape:
+            raise AssertionError(f"Shape mismatch on {key}: {src_v.shape} != {tgt_v.shape}")
+
+        tgt_v.assign(src_v)
+        err = float(tf.reduce_max(tf.abs(src_v - tgt_v)).numpy())
+        if err > max_copy_error:
+            max_copy_error = err
+        shared_param_count += int(np.prod(src_v.shape))
+        copied_tensors += 1
+
+    if max_copy_error > 0.0:
+        raise AssertionError(f"Non-zero copy error during synchronization: {max_copy_error}")
+
+    # Assert G1 coarse gate final projection remains zero initialized
+    for k, v in gate_vars.items():
+        if "coarse_gate_dense2" in k.lower():
+            gate2_err = float(tf.reduce_max(tf.abs(v)).numpy())
+            if gate2_err > 0.0:
+                raise AssertionError(f"G1 coarse gate dense2 is not zero-initialized: {gate2_err} in {k}")
+
+    return {
+        "source_condition": getattr(source_model, "condition", "UNKNOWN"),
+        "target_condition": getattr(target_model, "condition", "UNKNOWN"),
+        "exact_shared_tensor_count": copied_tensors,
+        "shared_parameter_count": shared_param_count,
+        "unmatched_g1_gate_variables": len(gate_vars),
+        "max_parameter_copy_error": max_copy_error,
+    }
+
+
+def synchronize_shared_parameters(source_model: PureGNNv31, target_model: PureGNNv31) -> int:
+    """Wrapper that synchronizes shared parameters and returns tensor count."""
+    audit = audit_and_synchronize_shared_parameters(source_model, target_model)
+    return int(audit["exact_shared_tensor_count"])
 
 
 def verify_initialization_equivalence(
@@ -44,11 +100,7 @@ def verify_initialization_equivalence(
     sample_input: tf.Tensor,
     tolerance: float = 1e-5,
 ) -> Tuple[bool, float]:
-    """Tests that after parameter synchronization, G0.5 and G1 produce identical logits within tolerance.
-    
-    Because G1 coarse gate is zero-initialized (giving uniform 1/35 weights),
-    its mathematical computation on sample_input is identical to G0.5.
-    """
+    """Tests that after parameter synchronization, G0.5 and G1 produce identical logits within tolerance."""
     logits_g05 = model_g05(sample_input, training=False)
     logits_g1 = model_g1(sample_input, training=False)
 

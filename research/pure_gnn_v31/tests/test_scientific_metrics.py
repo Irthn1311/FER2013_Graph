@@ -1,4 +1,4 @@
-"""Tests verifying that scientific metrics (Macro-F1, etc.) match toy reference implementations."""
+"""Tests verifying that scientific metrics reject invalid inputs and match toy reference."""
 
 import numpy as np
 import pytest
@@ -21,3 +21,29 @@ def test_macro_f1_matches_independent_toy_reference():
     assert len(metrics.recall_per_class) == 7
     assert len(metrics.f1_per_class) == 7
     assert len(metrics.confusion_matrix) == 7
+
+
+def test_metrics_reject_empty_arrays():
+    with pytest.raises(ValueError) as exc:
+        compute_scientific_metrics(np.array([]), np.array([]))
+    assert "Cannot compute metrics on empty arrays" in str(exc.value)
+
+
+def test_metrics_reject_mismatched_lengths():
+    with pytest.raises(ValueError) as exc:
+        compute_scientific_metrics(np.array([0, 1, 2]), np.array([0, 1]))
+    assert "Length mismatch" in str(exc.value)
+
+
+def test_metrics_reject_labels_out_of_range():
+    # True label 7 is out of 0..6
+    with pytest.raises(ValueError) as exc:
+        compute_scientific_metrics(np.array([0, 7]), np.array([0, 1]))
+    assert "labels outside range [0, 6]" in str(exc.value)
+
+
+def test_metrics_reject_predictions_out_of_range():
+    # Prediction -1 is out of 0..6
+    with pytest.raises(ValueError) as exc:
+        compute_scientific_metrics(np.array([0, 1]), np.array([0, -1]))
+    assert "predictions outside range [0, 6]" in str(exc.value)

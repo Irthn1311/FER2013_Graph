@@ -45,3 +45,6 @@ def test_scientific_notebook_contracts():
     assert "RUN_SCIENTIFIC_SCREEN = False" in all_code
     assert "raise PermissionError" in all_code
     assert "REVIEWED_SOURCE_TAG = None" in all_code
+
+    # 5. Assert fail-closed behavior on missing data
+    assert "raise FileNotFoundError" in all_code

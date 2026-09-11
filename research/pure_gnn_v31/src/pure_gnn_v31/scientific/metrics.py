@@ -34,9 +34,29 @@ def compute_scientific_metrics(
     y_pred: np.ndarray,
     num_classes: int = 7,
 ) -> ScientificMetrics:
-    """Computes full evaluation metrics on validation predictions."""
+    """Computes full evaluation metrics on validation predictions with strict input validation."""
     y_true = np.asarray(y_true, dtype=np.int32).ravel()
     y_pred = np.asarray(y_pred, dtype=np.int32).ravel()
+
+    # 1. Reject empty arrays
+    if len(y_true) == 0 or len(y_pred) == 0:
+        raise ValueError("Cannot compute metrics on empty arrays.")
+
+    # 2. Reject mismatched lengths
+    if len(y_true) != len(y_pred):
+        raise ValueError(
+            f"Length mismatch: y_true has {len(y_true)} elements, y_pred has {len(y_pred)} elements."
+        )
+
+    # 3. Reject labels outside [0, num_classes - 1]
+    if np.any(y_true < 0) or np.any(y_true >= num_classes):
+        invalid_labels = y_true[(y_true < 0) | (y_true >= num_classes)]
+        raise ValueError(f"Found y_true labels outside range [0, {num_classes - 1}]: {invalid_labels[:5]}")
+
+    # 4. Reject predictions outside [0, num_classes - 1]
+    if np.any(y_pred < 0) or np.any(y_pred >= num_classes):
+        invalid_preds = y_pred[(y_pred < 0) | (y_pred >= num_classes)]
+        raise ValueError(f"Found y_pred predictions outside range [0, {num_classes - 1}]: {invalid_preds[:5]}")
 
     accuracy = float(np.mean(y_true == y_pred))
 
@@ -46,8 +66,7 @@ def compute_scientific_metrics(
     cm = np.zeros((num_classes, num_classes), dtype=np.int32)
 
     for t, p in zip(y_true, y_pred):
-        if 0 <= t < num_classes and 0 <= p < num_classes:
-            cm[t, p] += 1
+        cm[t, p] += 1
 
     for c in range(num_classes):
         tp = int(cm[c, c])

@@ -29,13 +29,32 @@ def assert_not_test_access(path: Union[str, Path]) -> None:
 
 
 def validate_dataset_path(path: Union[str, Path], expected_role: str) -> Path:
-    """Validates allowed dataset paths based on expected split role ('train' or 'validation')."""
-    if expected_role.lower() not in ("train", "validation"):
+    """Validates allowed dataset paths based on expected split role ('train' or 'validation').
+
+    Enforces strict basename match BEFORE file access:
+    - role='train': basename must be exactly 'train.csv'
+    - role='validation': basename must be exactly 'val.csv'
+    """
+    role = expected_role.strip().lower()
+    if role not in ("train", "validation"):
         raise DataGovernanceError(
             f"Invalid dataset role '{expected_role}'. Only 'train' and 'validation' are authorized."
         )
+
     assert_not_test_access(path)
     p = Path(path)
+    basename = p.name.lower()
+
+    if role == "train" and basename != "train.csv":
+        raise DataGovernanceError(
+            f"Role-path mismatch: expected 'train.csv' for role='train', got '{p.name}'."
+        )
+
+    if role == "validation" and basename != "val.csv":
+        raise DataGovernanceError(
+            f"Role-path mismatch: expected 'val.csv' for role='validation', got '{p.name}'."
+        )
+
     return p
 
 

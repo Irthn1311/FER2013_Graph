@@ -17,7 +17,11 @@ data_protocol:
   internal_train_split: false
   research_dev_split: false
   test_access_authorized: false
-  pixel_normalization: "raw_div_255"
+  pixel_normalization:
+    value: "raw_div_255"
+    provenance:
+      - "Pure-GNN specific input contract (research/pure_gnn_v31/src/pure_gnn_v31/scientific/dataset.py:46)"
+    status: "PURE_GNN_SPECIFIC_INPUT_CONTRACT"
 
 # Conditions for scientific screen
 conditions:
@@ -145,6 +149,6 @@ hyperparameters:
   augmentation_policy:
     value: null
     provenance:
-      - "LAP: prior corruption + spatial (baseline.yaml:58-77)"
+      - "LAP: image augmentation UNKNOWN; structural prior corruption confirmed (baseline.yaml:58-77)"
       - "Gen2/Gen3: stateless flip+rot+trans+contrast+erase (augmentation.py)"
     status: "REQUIRES_REVIEW"

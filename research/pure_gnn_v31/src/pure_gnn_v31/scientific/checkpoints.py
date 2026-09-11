@@ -22,7 +22,8 @@ class CheckpointSelector:
 
         self.output_dir = Path(output_dir) if output_dir else None
         self.best_value = -float("inf") if self.mode == "max" else float("inf")
-        self.selected_epoch: Optional[int] = None
+        self.selected_epoch_index_zero_based: Optional[int] = None
+        self.selected_epoch_number_one_based: Optional[int] = None
         self.history: List[float] = []
 
     def is_better(self, value: float) -> bool:
@@ -31,8 +32,13 @@ class CheckpointSelector:
         else:
             return value < self.best_value
 
-    def update(self, epoch: int, metrics: Dict[str, float], model: Optional[tf.keras.Model] = None) -> bool:
-        """Evaluates epoch metric and updates best checkpoint if strict improvement is achieved."""
+    def update(
+        self,
+        epoch_zero_based: int,
+        metrics: Dict[str, float],
+        model: Optional[tf.keras.Model] = None,
+    ) -> bool:
+        """Evaluates epoch metric and updates best weights checkpoint if strict improvement is achieved."""
         if self.monitor not in metrics:
             raise KeyError(f"Monitored metric '{self.monitor}' not found in provided metrics: {list(metrics.keys())}")
 
@@ -45,11 +51,13 @@ class CheckpointSelector:
 
         if improved:
             self.best_value = val
-            self.selected_epoch = epoch
+            self.selected_epoch_index_zero_based = epoch_zero_based
+            self.selected_epoch_number_one_based = epoch_zero_based + 1
             if self.output_dir and model:
-                ckpt_path = self.output_dir / f"best_{self.monitor}.keras"
+                ckpt_path = self.output_dir / f"best_{self.monitor}.weights.h5"
                 ckpt_path.parent.mkdir(parents=True, exist_ok=True)
-                model.save(ckpt_path)
+                # Use reliable weights-only saving
+                model.save_weights(str(ckpt_path))
 
         return improved
 

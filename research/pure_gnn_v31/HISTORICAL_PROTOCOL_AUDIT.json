@@ -31,12 +31,17 @@
       "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:264"]
     },
     "pixel_normalization": {
-      "value": "raw / 255.0 in [0, 1]",
+      "value": "image / 255.0 if image.max() > 1.0 else image",
       "confidence": "DIRECT_SOURCE",
-      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/src/lap_gnn_tf/data/fer2013.py:42"]
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/src/lap_gnn_tf/graph/builder.py:569"]
     },
-    "augmentation": {
-      "value": "prior_corruption + crop/flip",
+    "image_augmentation": {
+      "value": "UNKNOWN",
+      "confidence": "UNKNOWN",
+      "evidence": ["no executable crop or flip found in lap_gnn_tf"]
+    },
+    "structural_prior_corruption": {
+      "value": "attenuate_prior, shuffle_prior, zero_prior, forced_fallback",
       "confidence": "DIRECT_SOURCE",
       "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:58-77"]
     },
@@ -173,14 +178,19 @@
       "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:27"]
     },
     "pixel_normalization": {
-      "value": "raw / 255.0 in [0, 1]",
+      "value": "raw [0, 255] -> [-1, 1] via images / 127.5 - 1.0",
       "confidence": "DIRECT_SOURCE",
-      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/data.py:33"]
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/model.py:patchify_and_scale", "research/candidates/tf_cf_hpg_v1_1_resolution/data.py"]
     },
-    "augmentation": {
+    "image_augmentation": {
       "value": "horizontal_flip + rotation + translation + contrast + brightness + erase",
       "confidence": "DIRECT_SOURCE",
       "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/data.py:51-78"]
+    },
+    "structural_prior_corruption": {
+      "value": "none",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/model.py"]
     },
     "optimizer": {
       "value": "AdamW",
@@ -317,12 +327,17 @@
     "pixel_normalization": {
       "value": "raw / 255.0 in [0, 1]",
       "confidence": "DIRECT_SOURCE",
-      "evidence": ["research/candidates/tf_ws_hpg_v1_training/data.py:35"]
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/data.py:35", "research/candidates/tf_ws_hpg_v1_training/augmentation.py:59"]
     },
-    "augmentation": {
+    "image_augmentation": {
       "value": "paired_stateless_flip_rotation_translation_contrast_brightness_erase",
       "confidence": "DIRECT_SOURCE",
       "evidence": ["research/candidates/tf_ws_hpg_v1_training/augmentation.py:21-42"]
+    },
+    "structural_prior_corruption": {
+      "value": "none",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py"]
     },
     "optimizer": {
       "value": "AdamW",
@@ -423,6 +438,14 @@
       "value": false,
       "confidence": "DIRECT_SOURCE",
       "evidence": ["research/candidates/tf_ws_hpg_v1_training/data.py:21-24"]
+    }
+  },
+  "PureGNN_v31_Input_Contract": {
+    "pixel_normalization": {
+      "value": "raw / 255.0 in [0, 1]",
+      "confidence": "DIRECT_SOURCE",
+      "status": "PURE_GNN_SPECIFIC_INPUT_CONTRACT",
+      "evidence": ["research/pure_gnn_v31/src/pure_gnn_v31/scientific/dataset.py:46"]
     }
   }
 }

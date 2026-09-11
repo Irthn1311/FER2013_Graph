@@ -3,6 +3,6 @@ lap_gnn_ofix7_mid,LAP,28709,3589,0,42,1061192,,0.631931,0.593841,,historical_lap
 cf_hpg_v1_0,Gen2_CF,28709,3589,0,42,,,0.528281,0.462696,,historical_cf_v1_0,ARTIFACT_CONFIRMED
 cf_hpg_v1_1_resolution,Gen2_CF,28709,3589,0,42,411527,,0.580663,0.523898,,historical_cf_v1_1,ARTIFACT_CONFIRMED
 ws_hpg_v1_weak_support,Gen3_WS,28709,3589,0,42,707213,,,,historical_ws_v1,PREPARATION_ONLY
-pure_gnn_v31_g0,Pure-GNN,28709,3589,0,42,856429,,,,pure_gnn_v31_historical_v1,PENDING_REVIEW
+pure_gnn_v31_g0,Pure-GNN,28709,3589,0,42,823149,,,,pure_gnn_v31_historical_v1,PENDING_REVIEW
 pure_gnn_v31_g05,Pure-GNN,28709,3589,0,42,856429,,,,pure_gnn_v31_historical_v1,PENDING_REVIEW
 pure_gnn_v31_g1,Pure-GNN,28709,3589,0,42,859031,,,,pure_gnn_v31_historical_v1,PENDING_REVIEW
