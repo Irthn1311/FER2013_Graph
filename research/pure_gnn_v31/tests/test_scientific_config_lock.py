@@ -74,6 +74,80 @@ hyperparameters:
     assert "Missing required field in data_protocol: 'train_rows'" in str(exc.value)
 
 
+def test_strict_hyperparameter_schema_enforcement():
+    """P0-3: Tests that missing hyperparameter keys, scalar specs, or malformed specs raise ConfigurationError."""
+    import tempfile
+    from pure_gnn_v31.scientific.config import load_scientific_config
+
+    base_yaml = """
+scientific_execution_authorized: false
+data_protocol:
+  train_rows: 28709
+  val_rows: 3589
+  test_access_authorized: false
+conditions:
+  active: ["G0", "G0.5", "G1"]
+  primary_comparison: "G1 - G0.5"
+hyperparameters:
+  optimizer_type: {value: "AdamW", status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  learning_rate: {value: 0.0003, status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  seed: {value: 42, status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  checkpoint_monitor: {value: "val_accuracy", status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  checkpoint_mode: {value: "max", status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  checkpoint_tie_break: {value: "earliest", status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  early_stopping_monitor: {value: "val_loss", status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  early_stopping_patience: {value: 15, status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  validation_frequency_epochs: {value: 1, status: "SOURCE_CONFIRMED", provenance: ["ref"]}
+  batch_size: {value: null, status: "REQUIRES_REVIEW", provenance: ["ref"]}
+  lr_scheduler: {value: null, status: "REQUIRES_REVIEW", provenance: ["ref"]}
+  weight_decay: {value: null, status: "REQUIRES_REVIEW", provenance: ["ref"]}
+  max_epochs: {value: null, status: "REQUIRES_REVIEW", provenance: ["ref"]}
+  label_smoothing: {value: null, status: "REQUIRES_REVIEW", provenance: ["ref"]}
+  global_clipnorm: {value: null, status: "REQUIRES_REVIEW", provenance: ["ref"]}
+  augmentation_policy: {value: null, status: "REQUIRES_REVIEW", provenance: ["ref"]}
+"""
+    # 1. Valid full schema loads successfully
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf_file:
+        tf_file.write(base_yaml)
+        valid_path = tf_file.name
+    cfg = load_scientific_config(valid_path)
+    assert cfg.train_rows == 28709
+
+    # 2. Missing a required hyperparameter key (e.g. augmentation_policy)
+    bad_yaml_missing_key = base_yaml.replace("augmentation_policy:", "# augmentation_policy:")
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf_file:
+        tf_file.write(bad_yaml_missing_key)
+        bad_path1 = tf_file.name
+    with pytest.raises(ConfigurationError) as exc1:
+        load_scientific_config(bad_path1)
+    assert "Missing required hyperparameter key" in str(exc1.value)
+
+    # 3. Scalar spec instead of mapping (e.g. batch_size: 64 instead of dict)
+    bad_yaml_scalar = base_yaml.replace(
+        'batch_size: {value: null, status: "REQUIRES_REVIEW", provenance: ["ref"]}',
+        "batch_size: 64",
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf_file:
+        tf_file.write(bad_yaml_scalar)
+        bad_path2 = tf_file.name
+    with pytest.raises(ConfigurationError) as exc2:
+        load_scientific_config(bad_path2)
+    assert "must be a mapping" in str(exc2.value)
+
+    # 4. Malformed spec missing 'status'
+    bad_yaml_malformed = base_yaml.replace(
+        'status: "REQUIRES_REVIEW"',
+        'invalid_key: "test"',
+        1,
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as tf_file:
+        tf_file.write(bad_yaml_malformed)
+        bad_path3 = tf_file.name
+    with pytest.raises(ConfigurationError) as exc3:
+        load_scientific_config(bad_path3)
+    assert "missing required spec field" in str(exc3.value)
+
+
 def test_trainer_fails_closed_before_execution():
     trainer = ScientificTrainer()
     with pytest.raises(PermissionError) as exc:

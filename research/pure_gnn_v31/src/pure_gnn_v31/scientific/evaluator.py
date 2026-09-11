@@ -49,12 +49,14 @@ class ScientificEvaluator:
         all_indices = []
 
         for batch in dataset:
-            # batch can be (x, y) or (x, y, idx)
-            if len(batch) == 3:
-                batch_x, batch_y, batch_idx = batch
-                all_indices.append(batch_idx.numpy())
-            else:
-                batch_x, batch_y = batch
+            # P0-2: Scientific validation datasets must yield exactly 3 elements: (image, label, source_row_index)
+            if not isinstance(batch, (tuple, list)) or len(batch) != 3:
+                raise DataGovernanceError(
+                    "Scientific validation datasets must yield exactly 3 elements: "
+                    "(image, label, source_row_index). Missing source index is strictly prohibited!"
+                )
+            batch_x, batch_y, batch_idx = batch
+            all_indices.append(batch_idx.numpy())
 
             logits = self.model(batch_x, training=False)
             preds = tf.argmax(logits, axis=-1, output_type=tf.int32)
@@ -66,11 +68,7 @@ class ScientificEvaluator:
         y_pred = np.concatenate(all_preds, axis=0)
         y_true = np.concatenate(all_labels, axis=0)
         logits_arr = np.concatenate(all_logits, axis=0)
-
-        if all_indices:
-            idx_arr = np.concatenate(all_indices, axis=0)
-        else:
-            idx_arr = np.arange(len(y_true), dtype=np.int32)
+        idx_arr = np.concatenate(all_indices, axis=0)
 
         # Detailed validation assertions if evaluating full validation split
         if assert_full_validation_count:
@@ -85,7 +83,7 @@ class ScientificEvaluator:
                 )
             if not np.array_equal(np.sort(unique_indices), np.arange(3589)):
                 raise DataGovernanceError(
-                    "Validation index set is incomplete or does not cover 0..3588 exactly."
+                    "Validation index set is incomplete, contains gaps, or does not equal 0..3588 exactly."
                 )
 
         metrics = compute_scientific_metrics(y_true, y_pred)

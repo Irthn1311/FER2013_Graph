@@ -16,17 +16,30 @@ from pure_gnn_v31.scientific.governance import (
 )
 
 
+def compute_file_sha256(path: Union[str, Path], chunk_size: int = 1024 * 1024) -> str:
+    """Computes exact raw binary SHA256 of a file using chunked streaming."""
+    hasher = hashlib.sha256()
+    with open(path, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
 def validate_and_hash_fer_csv(
     csv_path: Union[str, Path],
     expected_role: str,
     expected_rows: Optional[int] = None,
 ) -> Dict[str, Union[str, int]]:
-    """Performs streaming validation and SHA256 computation of a FER2013 CSV without loading entire file into RAM."""
+    """Performs streaming validation and raw binary SHA256 computation of a FER2013 CSV."""
     p = validate_dataset_path(csv_path, expected_role=expected_role)
     if not p.is_file():
         raise FileNotFoundError(f"Dataset file not found: {p}")
 
-    hasher = hashlib.sha256()
+    # Compute TRUE raw binary whole-file SHA256
+    true_sha256 = compute_file_sha256(p)
     row_count = 0
 
     with p.open("r", encoding="utf-8", newline="") as f:
@@ -42,13 +55,9 @@ def validate_and_hash_fer_csv(
         emo_idx = header.index("emotion")
         pix_idx = header.index("pixels")
 
-        # Update hash with header line
-        hasher.update((",".join(raw_header) + "\n").encode("utf-8"))
-
         for row in reader:
             if not row:
                 continue
-            hasher.update((",".join(row) + "\n").encode("utf-8"))
 
             if len(row) <= max(emo_idx, pix_idx):
                 raise ValueError(f"Malformed row {row_count} in {p}: incomplete columns.")
@@ -91,14 +100,14 @@ def validate_and_hash_fer_csv(
         "file_path": str(p),
         "role": expected_role,
         "row_count": row_count,
-        "sha256": hasher.hexdigest(),
+        "sha256": true_sha256,
     }
 
 
 def load_fer_csv_split(
     csv_path: Union[str, Path],
     role: str,
-    max_rows: Optional[int] = None,
+    validate_row_count: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, str]:
     """Loads a FER2013 split (train or validation only) with strict governance assertions.
 
@@ -106,22 +115,26 @@ def load_fer_csv_split(
         images: (N, 48, 48, 1) float32 in [0, 1]
         labels: (N,) int32
         source_row_indices: (N,) int32 (0-indexed position from original CSV)
-        sha256: file SHA256
+        sha256: exact raw binary file SHA256
     """
     validate_dataset_path(csv_path, expected_role=role)
     p = Path(csv_path)
     if not p.is_file():
         raise FileNotFoundError(f"Dataset file not found: {p}")
 
-    hasher = hashlib.sha256()
+    # Compute true raw binary whole-file SHA256
+    true_sha256 = compute_file_sha256(p)
+
     images: List[np.ndarray] = []
     labels: List[int] = []
     indices: List[int] = []
 
     with p.open("r", encoding="utf-8", newline="") as f:
         reader = csv.reader(f)
-        raw_header = next(reader)
-        hasher.update((",".join(raw_header) + "\n").encode("utf-8"))
+        try:
+            raw_header = next(reader)
+        except StopIteration:
+            raise ValueError(f"CSV file is empty: {p}")
 
         header = [col.strip().lower() for col in raw_header]
         if "emotion" not in header or "pixels" not in header:
@@ -133,7 +146,6 @@ def load_fer_csv_split(
         for row in reader:
             if not row:
                 continue
-            hasher.update((",".join(row) + "\n").encode("utf-8"))
 
             emotion = int(row[emo_idx])
             if not (0 <= emotion <= 6):
@@ -155,11 +167,8 @@ def load_fer_csv_split(
             labels.append(emotion)
             indices.append(count)
             count += 1
-            if max_rows is not None and count >= max_rows:
-                break
 
-    # If full split loaded, validate exact row count
-    if max_rows is None:
+    if validate_row_count:
         expected = 28709 if role.lower() == "train" else 3589
         validate_split_row_counts(role, count, expected)
 
@@ -167,7 +176,7 @@ def load_fer_csv_split(
         np.array(images, dtype=np.float32),
         np.array(labels, dtype=np.int32),
         np.array(indices, dtype=np.int32),
-        hasher.hexdigest(),
+        true_sha256,
     )
 
 
@@ -176,17 +185,19 @@ def create_paired_dataset(
     labels: np.ndarray,
     batch_size: int,
     seed: int,
+    shuffle: bool,
     indices: Optional[np.ndarray] = None,
-    shuffle: bool = True,
 ) -> tf.data.Dataset:
     """Creates a tf.data.Dataset yielding identical sample ordering across paired conditions.
 
-    NO default arguments for batch_size or seed!
+    NO default arguments for batch_size, seed, or shuffle!
     """
     if batch_size is None or not isinstance(batch_size, int) or batch_size <= 0:
         raise ValueError(f"Explicit positive integer batch_size is required, got: {batch_size}")
     if seed is None or not isinstance(seed, int):
         raise ValueError(f"Explicit integer seed is required, got: {seed}")
+    if shuffle is None or not isinstance(shuffle, bool):
+        raise ValueError(f"Explicit boolean shuffle is required, got: {shuffle}")
 
     if indices is None:
         indices = np.arange(len(images), dtype=np.int32)

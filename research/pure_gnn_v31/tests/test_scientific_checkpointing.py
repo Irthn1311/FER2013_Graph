@@ -39,7 +39,10 @@ def test_checkpoint_weights_roundtrip(condition):
 
 
 def test_epoch_number_semantics():
-    """Verifies that both 0-based index and 1-based epoch number are tracked accurately."""
+    """Verifies that both 0-based index and 1-based epoch number are tracked accurately.
+
+    Requires explicit monitor and mode (no defaults).
+    """
     selector = CheckpointSelector(monitor="val_accuracy", mode="max")
 
     # Epoch 0 (0-based) is Epoch 1 (1-based)
@@ -56,3 +59,11 @@ def test_epoch_number_semantics():
     assert selector.update(epoch_zero_based=2, metrics={"val_accuracy": 0.58}) is True
     assert selector.selected_epoch_index_zero_based == 2
     assert selector.selected_epoch_number_one_based == 3
+
+
+def test_checkpoint_selector_requires_explicit_monitor_and_mode():
+    """Asserts that CheckpointSelector raises error when monitor or mode is missing/empty."""
+    with pytest.raises(ValueError):
+        CheckpointSelector(monitor="", mode="max")
+    with pytest.raises(ValueError):
+        CheckpointSelector(monitor="val_accuracy", mode="")

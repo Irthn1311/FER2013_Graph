@@ -111,3 +111,32 @@ def test_role_and_path_mismatch_governance():
 
     with pytest.raises(DataGovernanceError):
         assert_not_test_access("data/test.csv")
+
+
+def test_true_binary_sha256_with_crlf_fixture():
+    """P0-1: Verifies that hashing uses exact raw binary chunk streaming and preserves CRLF bytes."""
+    import hashlib
+    import tempfile
+    from pure_gnn_v31.scientific.dataset import validate_and_hash_fer_csv, load_fer_csv_split
+
+    tmp_dir = tempfile.mkdtemp()
+    crlf_csv_path = Path(tmp_dir) / "train.csv"
+
+    # Construct explicit CRLF bytes
+    row1 = "0," + " ".join(["100.0"] * 2304) + "\r\n"
+    header = "emotion,pixels\r\n"
+    raw_content = (header + row1).encode("utf-8")
+    crlf_csv_path.write_bytes(raw_content)
+
+    expected_sha = hashlib.sha256(raw_content).hexdigest()
+    assert crlf_csv_path.read_bytes() == raw_content
+
+    # 1. validate_and_hash_fer_csv must return exact binary hash
+    val_info = validate_and_hash_fer_csv(crlf_csv_path, expected_role="train", expected_rows=1)
+    assert val_info["sha256"] == expected_sha
+    assert val_info["sha256"] == hashlib.sha256(crlf_csv_path.read_bytes()).hexdigest()
+
+    # 2. load_fer_csv_split must return exact whole-file binary hash
+    _, _, _, load_sha = load_fer_csv_split(crlf_csv_path, role="train", validate_row_count=False)
+    assert load_sha == expected_sha
+    assert load_sha == hashlib.sha256(crlf_csv_path.read_bytes()).hexdigest()

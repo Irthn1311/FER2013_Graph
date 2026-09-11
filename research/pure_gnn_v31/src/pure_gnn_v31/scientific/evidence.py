@@ -34,7 +34,8 @@ def generate_scientific_audit_manifest(
     """Generates an evidence manifest capturing git commit, reviewed configuration status, and protected hashes.
 
     Reads the actual reviewed configuration state from scientific_screen_historical_v1.yaml.
-    Strictly records NO test SHA.
+    Derives governance_status and paired_augmentation_status dynamically from config.
+    Strictly records NO test SHA under any state.
     """
     if package_root is None:
         package_root = str(Path(__file__).resolve().parents[3])
@@ -66,6 +67,19 @@ def generate_scientific_audit_manifest(
         else:
             hashes[rel] = "MISSING"
 
+    # Derive governance_status from actual reviewed config
+    if config_obj.scientific_execution_authorized and not config_obj.has_unresolved_hyperparameters:
+        gov_status = "AUTHORIZED"
+    else:
+        gov_status = "LOCKED_DISABLED"
+
+    # Derive paired_augmentation_status from config
+    aug_spec = config_obj.hyperparameters.get("augmentation_policy", {})
+    if isinstance(aug_spec, dict) and aug_spec.get("status") == "SOURCE_CONFIRMED" and aug_spec.get("value") is not None:
+        paired_aug_status = "CONFIGURED"
+    else:
+        paired_aug_status = "BLOCKED_ON_AUGMENTATION_POLICY"
+
     manifest = {
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
         "lineage": "Pure-GNN v3.1 Scientific Line",
@@ -74,11 +88,11 @@ def generate_scientific_audit_manifest(
         "source_commit": get_git_commit_sha(repo_root),
         "train_sha256": train_sha256,
         "val_sha256": val_sha256,
-        # Strictly NO test_sha256 field
-        "paired_augmentation_status": "BLOCKED_ON_AUGMENTATION_POLICY",
+        # Strictly NO test_sha256 field under any state
+        "paired_augmentation_status": paired_aug_status,
         "protected_hashes": hashes,
         "unresolved_hyperparameters": config_obj.get_unresolved_fields(),
-        "governance_status": "LOCKED_DISABLED",
+        "governance_status": gov_status,
     }
 
     if output_path:

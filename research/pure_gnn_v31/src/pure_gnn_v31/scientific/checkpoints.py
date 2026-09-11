@@ -11,10 +11,15 @@ class CheckpointSelector:
 
     def __init__(
         self,
-        monitor: str = "val_accuracy",
-        mode: str = "max",
+        monitor: str,
+        mode: str,
         output_dir: Optional[Union[str, Path]] = None,
     ):
+        if not monitor or not isinstance(monitor, str):
+            raise ValueError(f"Explicit monitor metric string is required, got: {monitor}")
+        if not mode or not isinstance(mode, str):
+            raise ValueError(f"Explicit mode string ('max' or 'min') is required, got: {mode}")
+
         self.monitor = monitor
         self.mode = mode.lower()
         if self.mode not in ("max", "min"):
@@ -56,7 +61,6 @@ class CheckpointSelector:
             if self.output_dir and model:
                 ckpt_path = self.output_dir / f"best_{self.monitor}.weights.h5"
                 ckpt_path.parent.mkdir(parents=True, exist_ok=True)
-                # Use reliable weights-only saving
                 model.save_weights(str(ckpt_path))
 
         return improved
@@ -68,8 +72,8 @@ class EarliestStrictCheckpoint(tf.keras.callbacks.Callback):
     def __init__(
         self,
         output_dir: Union[str, Path],
-        monitor: str = "val_accuracy",
-        mode: str = "max",
+        monitor: str,
+        mode: str,
     ):
         super().__init__()
         self.selector = CheckpointSelector(monitor=monitor, mode=mode, output_dir=output_dir)

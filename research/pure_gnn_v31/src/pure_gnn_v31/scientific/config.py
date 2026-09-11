@@ -10,6 +10,26 @@ class ConfigurationError(ValueError):
     """Raised when scientific configuration schema or requirements are violated."""
 
 
+REQUIRED_HYPERPARAMETER_KEYS = [
+    "optimizer_type",
+    "learning_rate",
+    "seed",
+    "checkpoint_monitor",
+    "checkpoint_mode",
+    "checkpoint_tie_break",
+    "early_stopping_monitor",
+    "early_stopping_patience",
+    "validation_frequency_epochs",
+    "batch_size",
+    "lr_scheduler",
+    "weight_decay",
+    "max_epochs",
+    "label_smoothing",
+    "global_clipnorm",
+    "augmentation_policy",
+]
+
+
 @dataclass
 class ScientificConfig:
     raw_config: Dict[str, Any]
@@ -24,21 +44,21 @@ class ScientificConfig:
 
     @property
     def has_unresolved_hyperparameters(self) -> bool:
-        """Returns True if any hyperparameter is marked REQUIRES_REVIEW or is None."""
-        for name, spec in self.hyperparameters.items():
+        """Returns True if any hyperparameter is marked REQUIRES_REVIEW or has null value."""
+        for key in REQUIRED_HYPERPARAMETER_KEYS:
+            spec = self.hyperparameters.get(key)
             if not isinstance(spec, dict):
-                continue
+                return True
             if spec.get("status") == "REQUIRES_REVIEW" or spec.get("value") is None:
                 return True
         return False
 
     def get_unresolved_fields(self) -> List[str]:
         unresolved = []
-        for name, spec in self.hyperparameters.items():
-            if not isinstance(spec, dict):
-                continue
-            if spec.get("status") == "REQUIRES_REVIEW" or spec.get("value") is None:
-                unresolved.append(name)
+        for key in REQUIRED_HYPERPARAMETER_KEYS:
+            spec = self.hyperparameters.get(key)
+            if not isinstance(spec, dict) or spec.get("status") == "REQUIRES_REVIEW" or spec.get("value") is None:
+                unresolved.append(key)
         return unresolved
 
     def assert_ready_for_execution(self) -> None:
@@ -128,14 +148,34 @@ def load_scientific_config(config_path: Optional[str] = None) -> ScientificConfi
         raise ConfigurationError("Missing required dictionary: 'hyperparameters'.")
     hyperparams = data["hyperparameters"]
 
-    # Seed may be None if unresolved, but must be represented
-    seed_val: Optional[int] = None
-    if "seed" in hyperparams and isinstance(hyperparams["seed"], dict):
-        val = hyperparams["seed"].get("value")
-        if val is not None:
-            if not isinstance(val, int):
-                raise ConfigurationError("'seed' value must be an integer or null.")
-            seed_val = val
+    # P0-3 STRICT CONFIG SCHEMA: Validate every required hyperparameter key
+    for req_key in REQUIRED_HYPERPARAMETER_KEYS:
+        if req_key not in hyperparams:
+            raise ConfigurationError(f"Missing required hyperparameter key: '{req_key}'.")
+
+        spec = hyperparams[req_key]
+        if not isinstance(spec, dict):
+            raise ConfigurationError(
+                f"Hyperparameter '{req_key}' must be a mapping with value, status, and provenance. "
+                f"Got scalar or non-dict: {spec}"
+            )
+
+        for req_field in ("value", "status", "provenance"):
+            if req_field not in spec:
+                raise ConfigurationError(
+                    f"Hyperparameter '{req_key}' missing required spec field '{req_field}'."
+                )
+
+        if not isinstance(spec["provenance"], list):
+            raise ConfigurationError(
+                f"Hyperparameter '{req_key}' provenance must be a list. Got: {type(spec['provenance'])}"
+            )
+
+    # Seed key must explicitly exist even when value is null
+    seed_spec = hyperparams["seed"]
+    seed_val = seed_spec["value"]
+    if seed_val is not None and not isinstance(seed_val, int):
+        raise ConfigurationError("'seed' value must be an integer or null.")
 
     return ScientificConfig(
         raw_config=data,
