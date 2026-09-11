@@ -1,0 +1,150 @@
+# Pure-GNN v3.1 Historical Scientific Screen Configuration
+# STATUS: SOURCE REVIEW REQUIRED - SCIENTIFIC TRAINING DISABLED
+
+meta:
+  version: "historical_v1"
+  status: "REQUIRES_INDEPENDENT_REVIEW"
+  description: "Scaffolded scientific screen configuration for Pure-GNN v3.1"
+
+# HARD EXECUTION GATE: Must remain false until independent reviewer authorizes
+scientific_execution_authorized: false
+
+data_protocol:
+  train_source: "train.csv"
+  train_rows: 28709
+  val_source: "val.csv"
+  val_rows: 3589
+  internal_train_split: false
+  research_dev_split: false
+  test_access_authorized: false
+  pixel_normalization: "raw_div_255"
+
+# Conditions for scientific screen
+conditions:
+  active: ["G0", "G0.5", "G1"]
+  primary_comparison: "G1 - G0.5"
+  g2_g3_scheduled: false
+
+# Shared & Divergent Hyperparameters
+hyperparameters:
+  optimizer_type:
+    value: "AdamW"
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:165"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:41"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:62"
+    status: "SOURCE_CONFIRMED"
+
+  learning_rate:
+    value: 0.0003
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:162"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:42"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:63"
+    status: "SOURCE_CONFIRMED"
+
+  seed:
+    value: 42
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:3"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:40"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:61"
+    status: "SOURCE_CONFIRMED"
+
+  checkpoint_monitor:
+    value: "val_accuracy"
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:174"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:51"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:72"
+    status: "SOURCE_CONFIRMED"
+
+  checkpoint_mode:
+    value: "max"
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:175"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:51"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:72"
+    status: "SOURCE_CONFIRMED"
+
+  checkpoint_tie_break:
+    value: "earliest_strict_max_val_accuracy"
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:204"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:51"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:72"
+    status: "SOURCE_CONFIRMED"
+
+  early_stopping_monitor:
+    value: "val_loss"
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:187"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:52"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:73"
+    status: "SOURCE_CONFIRMED"
+
+  early_stopping_patience:
+    value: 15
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:186"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:53"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:74"
+    status: "SOURCE_CONFIRMED"
+
+  validation_frequency_epochs:
+    value: 1
+    provenance:
+      - "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:171"
+      - "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:175"
+      - "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:71"
+    status: "SOURCE_CONFIRMED"
+
+  # Divergent parameters requiring independent reviewer resolution
+  batch_size:
+    value: null
+    provenance:
+      - "LAP: batch_size=16 (baseline.yaml:11)"
+      - "Gen2/Gen3: batch_size=64 (train_validation_only.py:45,66)"
+    status: "REQUIRES_REVIEW"
+
+  lr_scheduler:
+    value: null
+    provenance:
+      - "LAP: ReduceLROnPlateau (baseline.yaml:190-196)"
+      - "Gen2/Gen3: WarmupCosine 5/100 (train_validation_only.py:47,68)"
+    status: "REQUIRES_REVIEW"
+
+  weight_decay:
+    value: null
+    provenance:
+      - "LAP: 0.001 (baseline.yaml:163)"
+      - "Gen2/Gen3: 0.0005 (train_validation_only.py:43,64)"
+    status: "REQUIRES_REVIEW"
+
+  max_epochs:
+    value: null
+    provenance:
+      - "LAP: 90 (baseline.yaml:156)"
+      - "Gen2/Gen3: 100 (train_validation_only.py:46,67)"
+    status: "REQUIRES_REVIEW"
+
+  label_smoothing:
+    value: null
+    provenance:
+      - "LAP: 0.0 (baseline.yaml:148)"
+      - "Gen2/Gen3: 0.05 (train_validation_only.py:50,70)"
+    status: "REQUIRES_REVIEW"
+
+  global_clipnorm:
+    value: null
+    provenance:
+      - "LAP: null (baseline.yaml:170)"
+      - "Gen2/Gen3: 1.0 (train_validation_only.py:44,65)"
+    status: "REQUIRES_REVIEW"
+
+  augmentation_policy:
+    value: null
+    provenance:
+      - "LAP: prior corruption + spatial (baseline.yaml:58-77)"
+      - "Gen2/Gen3: stateless flip+rot+trans+contrast+erase (augmentation.py)"
+    status: "REQUIRES_REVIEW"

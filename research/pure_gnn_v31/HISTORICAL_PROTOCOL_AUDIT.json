@@ -1,0 +1,428 @@
+{
+  "LAP": {
+    "train_source": {
+      "value": "train.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:264"]
+    },
+    "val_source": {
+      "value": "val.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:264"]
+    },
+    "test_source": {
+      "value": "test.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:264"]
+    },
+    "train_row_count": {
+      "value": 28709,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:264"]
+    },
+    "val_row_count": {
+      "value": 3589,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:264"]
+    },
+    "test_row_count": {
+      "value": 3589,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:264"]
+    },
+    "pixel_normalization": {
+      "value": "raw / 255.0 in [0, 1]",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/src/lap_gnn_tf/data/fer2013.py:42"]
+    },
+    "augmentation": {
+      "value": "prior_corruption + crop/flip",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:58-77"]
+    },
+    "optimizer": {
+      "value": "AdamW",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:165"]
+    },
+    "initial_learning_rate": {
+      "value": 0.0003,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:162"]
+    },
+    "weight_decay": {
+      "value": 0.001,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:163"]
+    },
+    "batch_size": {
+      "value": 16,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:11", "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:157"]
+    },
+    "max_epochs": {
+      "value": 90,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:156"]
+    },
+    "lr_scheduler": {
+      "value": "plateau",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:190-196"]
+    },
+    "early_stopping_monitor": {
+      "value": "val_loss",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:187"]
+    },
+    "early_stopping_patience": {
+      "value": 15,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:186"]
+    },
+    "validation_frequency": {
+      "value": "every_epoch",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:171"]
+    },
+    "monitored_checkpoint_metric": {
+      "value": "val_accuracy",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:174"]
+    },
+    "checkpoint_mode": {
+      "value": "max",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:175", "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:203"]
+    },
+    "save_best_only": {
+      "value": true,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:172"]
+    },
+    "restore_best": {
+      "value": true,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:173"]
+    },
+    "model_selection_rule": {
+      "value": "earliest_epoch_strict_improvement",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:204"]
+    },
+    "random_seed_policy": {
+      "value": 42,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:3", "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:150"]
+    },
+    "loss": {
+      "value": "ce_only",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:144"]
+    },
+    "class_weighting": {
+      "value": "none",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:146"]
+    },
+    "label_smoothing": {
+      "value": 0.0,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:148"]
+    },
+    "reported_metrics": {
+      "value": ["val_accuracy", "val_macro_f1", "val_loss", "train_accuracy", "train_macro_f1"],
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:206-224"]
+    },
+    "test_accessed_during_model_selection": {
+      "value": false,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_baseline.yaml:173"]
+    }
+  },
+  "Gen2_CF_RA": {
+    "train_source": {
+      "value": "train.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:27", "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:29"]
+    },
+    "val_source": {
+      "value": "val.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:27", "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:30"]
+    },
+    "test_source": {
+      "value": "test.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:27"]
+    },
+    "train_row_count": {
+      "value": 28709,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:29"]
+    },
+    "val_row_count": {
+      "value": 3589,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:30"]
+    },
+    "test_row_count": {
+      "value": 3589,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:27"]
+    },
+    "pixel_normalization": {
+      "value": "raw / 255.0 in [0, 1]",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/data.py:33"]
+    },
+    "augmentation": {
+      "value": "horizontal_flip + rotation + translation + contrast + brightness + erase",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/data.py:51-78"]
+    },
+    "optimizer": {
+      "value": "AdamW",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:41"]
+    },
+    "initial_learning_rate": {
+      "value": 0.0003,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:42"]
+    },
+    "weight_decay": {
+      "value": 0.0005,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:43"]
+    },
+    "batch_size": {
+      "value": 64,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:45"]
+    },
+    "max_epochs": {
+      "value": 100,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:46"]
+    },
+    "lr_scheduler": {
+      "value": "WarmupCosine",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:47-48", "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:63-100"]
+    },
+    "early_stopping_monitor": {
+      "value": "val_loss",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:52"]
+    },
+    "early_stopping_patience": {
+      "value": 15,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:53"]
+    },
+    "validation_frequency": {
+      "value": "every_epoch",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:175"]
+    },
+    "monitored_checkpoint_metric": {
+      "value": "val_accuracy",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:51"]
+    },
+    "checkpoint_mode": {
+      "value": "max",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:51"]
+    },
+    "save_best_only": {
+      "value": true,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:180-192"]
+    },
+    "restore_best": {
+      "value": true,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:202"]
+    },
+    "model_selection_rule": {
+      "value": "earliest_strict_max_val_accuracy",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:51", "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:115-125"]
+    },
+    "random_seed_policy": {
+      "value": 42,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:28", "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:40"]
+    },
+    "loss": {
+      "value": "categorical_crossentropy_from_logits",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:49", "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:104-112"]
+    },
+    "class_weighting": {
+      "value": "none",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:104-112"]
+    },
+    "label_smoothing": {
+      "value": 0.05,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:50", "research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:111"]
+    },
+    "reported_metrics": {
+      "value": ["validation_accuracy", "validation_macro_f1", "clean_train_accuracy", "clean_train_macro_f1"],
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/train_validation_only.py:34-37"]
+    },
+    "test_accessed_during_model_selection": {
+      "value": false,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_cf_hpg_v1_1_resolution/data.py:21-26"]
+    }
+  },
+  "Gen3_WS_HPG": {
+    "train_source": {
+      "value": "train.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:31"]
+    },
+    "val_source": {
+      "value": "val.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:32"]
+    },
+    "test_source": {
+      "value": "test.csv",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/data.py:19-24"]
+    },
+    "train_row_count": {
+      "value": 28709,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:31"]
+    },
+    "val_row_count": {
+      "value": 3589,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:32"]
+    },
+    "test_row_count": {
+      "value": 3589,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/data.py:20"]
+    },
+    "pixel_normalization": {
+      "value": "raw / 255.0 in [0, 1]",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/data.py:35"]
+    },
+    "augmentation": {
+      "value": "paired_stateless_flip_rotation_translation_contrast_brightness_erase",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/augmentation.py:21-42"]
+    },
+    "optimizer": {
+      "value": "AdamW",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:62", "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:122"]
+    },
+    "initial_learning_rate": {
+      "value": 0.0003,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:63", "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:89"]
+    },
+    "weight_decay": {
+      "value": 0.0005,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:64", "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:124"]
+    },
+    "batch_size": {
+      "value": 64,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:66"]
+    },
+    "max_epochs": {
+      "value": 100,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:67", "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:95"]
+    },
+    "lr_scheduler": {
+      "value": "WarmupCosine",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:68-69", "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:88-108"]
+    },
+    "early_stopping_monitor": {
+      "value": "val_loss",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:73"]
+    },
+    "early_stopping_patience": {
+      "value": 15,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:74"]
+    },
+    "validation_frequency": {
+      "value": "every_epoch",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:71"]
+    },
+    "monitored_checkpoint_metric": {
+      "value": "val_accuracy",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:72"]
+    },
+    "checkpoint_mode": {
+      "value": "max",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:72"]
+    },
+    "save_best_only": {
+      "value": true,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:174-191"]
+    },
+    "restore_best": {
+      "value": true,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:188-190"]
+    },
+    "model_selection_rule": {
+      "value": "earliest_strict_max_val_accuracy",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:72", "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:168-172"]
+    },
+    "random_seed_policy": {
+      "value": 42,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:41", "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:61"]
+    },
+    "loss": {
+      "value": "categorical_crossentropy_from_logits",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:111-114"]
+    },
+    "class_weighting": {
+      "value": "none",
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:111-114"]
+    },
+    "label_smoothing": {
+      "value": 0.05,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:70", "research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:113"]
+    },
+    "reported_metrics": {
+      "value": ["validation_accuracy", "validation_macro_f1", "clean_train_macro_f1", "macro_gap_pp"],
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/train_validation_only.py:48-59"]
+    },
+    "test_accessed_during_model_selection": {
+      "value": false,
+      "confidence": "DIRECT_SOURCE",
+      "evidence": ["research/candidates/tf_ws_hpg_v1_training/data.py:21-24"]
+    }
+  }
+}
