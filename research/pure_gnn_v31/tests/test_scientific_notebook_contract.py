@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 
-AUTHORIZED_TAG = "pure-gnn-v31-scientific-screen-v2"
+AUTHORIZED_TAG = "pure-gnn-v31-scientific-screen-v3"
 
 
 def test_scientific_notebook_contracts():
