@@ -2,6 +2,7 @@
 
 import hashlib
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 import pytest
 import yaml
@@ -42,9 +43,12 @@ def test_scientific_config_crlf_raw_byte_sha():
     assert cfg.train_rows == 28709
 
 
-def test_scientific_execution_defaults_false_and_zero_unresolved():
-    """In the preregistered configuration, all required hyperparameters are registered, but execution remains false."""
-    config = load_scientific_config()
+def test_scientific_execution_fails_closed_when_explicitly_unauthorized():
+    """The fail-closed mechanism is independent of the canonical authorization state."""
+    config = replace(
+        load_scientific_config(),
+        scientific_execution_authorized=False,
+    )
     assert config.scientific_execution_authorized is False
     assert config.has_unresolved_hyperparameters is False
     assert config.get_unresolved_fields() == []
@@ -208,7 +212,11 @@ def test_lr_scheduler_nested_mutations_fail():
 
 
 def test_trainer_fails_closed_before_execution():
-    trainer = ScientificTrainer()
+    preauth_config = replace(
+        load_scientific_config(),
+        scientific_execution_authorized=False,
+    )
+    trainer = ScientificTrainer(config=preauth_config)
     with pytest.raises(PermissionError) as exc:
         trainer.train_condition(
             condition="G1",

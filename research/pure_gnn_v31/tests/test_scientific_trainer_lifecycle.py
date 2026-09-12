@@ -3,6 +3,7 @@
 import json
 import math
 import tempfile
+from dataclasses import replace
 from pathlib import Path
 import numpy as np
 import pytest
@@ -193,7 +194,10 @@ def test_one_epoch_lifecycle_and_history_logging():
 
 def test_canonical_production_orchestration_contract():
     """Section 13: Tests canonical production screen orchestration contracts with mock runner."""
-    cfg = load_scientific_config()
+    cfg = replace(
+        load_scientific_config(),
+        scientific_execution_authorized=False,
+    )
 
     with pytest.raises(PermissionError) as exc:
         run_production_scientific_screen(
