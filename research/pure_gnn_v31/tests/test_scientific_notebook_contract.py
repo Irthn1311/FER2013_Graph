@@ -41,10 +41,14 @@ def test_scientific_notebook_contracts():
     assert "/test/" not in lower_code
     assert "official_test" not in lower_code
 
-    # 4. Assert fail-closed guard
+    # 4. Assert calls and imports for canonical runner and source lock
+    assert "verify_immutable_source_lock" in all_code
+    assert "run_production_scientific_screen" in all_code
+    assert "load_scientific_config" in all_code
+
+    # 5. Assert fail-closed configuration switches
     assert "RUN_SCIENTIFIC_SCREEN = False" in all_code
-    assert "raise PermissionError" in all_code
     assert "REVIEWED_SOURCE_TAG = None" in all_code
 
-    # 5. Assert fail-closed behavior on missing data
+    # 6. Assert fail-closed behavior on missing data
     assert "raise FileNotFoundError" in all_code

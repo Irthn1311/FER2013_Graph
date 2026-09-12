@@ -148,5 +148,5 @@ hyperparameters:
   augmentation_policy:
     value: "gen2_gen3_stateless_image_v1"
     provenance:
-      - "Pre-outcome compatibility decision: latest repeated project convention shared by Gen2 and Gen3 (Gen2: tf_cf_hpg_v1_1_resolution/data.py:51-78; Gen3: tf_ws_hpg_v1_training/augmentation.py:21-42)."
+      - "Gen2/Gen3-shared augmentation parameter ranges; Pure-GNN uses Gen3-style CONSTANT-fill combined flip+affine geometry, adapted to Pure-GNN [0,1] input."
     status: "PREREGISTERED_DECISION"

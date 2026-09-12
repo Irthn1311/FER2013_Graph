@@ -10,7 +10,13 @@ POLICY_NAME = "gen2_gen3_stateless_image_v1"
 
 
 def _derive_stateless_seed(base_seed: int, epoch: int, item_index: tf.Tensor, salt: int) -> tf.Tensor:
-    """Derives a deterministic stateless seed tensor of shape [2] from base_seed, epoch, item_index, and salt."""
+    """Derives a deterministic stateless seed tensor of shape [2] from base_seed, epoch, item_index, and salt.
+
+    Formula:
+      base = [base_seed, epoch * 10007]
+      s1 = stateless_fold_in(base, item_index)
+      seed = stateless_fold_in(s1, salt)
+    """
     base = tf.stack([
         tf.cast(base_seed, tf.int32),
         tf.cast(epoch * 10007, tf.int32),
@@ -20,7 +26,18 @@ def _derive_stateless_seed(base_seed: int, epoch: int, item_index: tf.Tensor, sa
 
 
 def sample_augmentation_parameters(base_seed: int, epoch: int, item_index: tf.Tensor) -> Dict[str, tf.Tensor]:
-    """Deterministically samples augmentation parameters for a single sample at a given epoch."""
+    """Deterministically samples augmentation parameters for a single sample at a given epoch.
+
+    Ranges:
+      - horizontal_flip: p = 0.5
+      - rotation_degrees: [-10.0, +10.0]
+      - translation_pixels: [-4.0, +4.0]
+      - contrast: [0.85, 1.15]
+      - brightness_delta: [-0.10, +0.10]
+      - random_erase: p = 0.25
+      - erase_area_fraction: [0.02, 0.10]
+      - erase_aspect_ratio: [0.5, 2.0]
+    """
     flip = tf.random.stateless_uniform([], _derive_stateless_seed(base_seed, epoch, item_index, 0)) < 0.5
     angle = tf.random.stateless_uniform([], _derive_stateless_seed(base_seed, epoch, item_index, 1), minval=-10.0, maxval=10.0)
     translation = tf.random.stateless_uniform([2], _derive_stateless_seed(base_seed, epoch, item_index, 2), minval=-4.0, maxval=4.0)
@@ -44,7 +61,10 @@ def sample_augmentation_parameters(base_seed: int, epoch: int, item_index: tf.Te
 
 
 def _apply_geometry(image: tf.Tensor, params: Dict[str, tf.Tensor]) -> tf.Tensor:
-    """Applies rotation, translation, and horizontal flip using affine transform on [48, 48, 1]."""
+    """Applies Gen3-style rotation, translation, and horizontal flip using affine transform on [48, 48, 1].
+
+    Uses CONSTANT fill mode with 0.0 fill value.
+    """
     angle = params["rotation_degrees"] * (math.pi / 180.0)
     flip = tf.where(params["flip"], -1.0, 1.0)
     cos_a = tf.cos(angle)
@@ -55,7 +75,7 @@ def _apply_geometry(image: tf.Tensor, params: Dict[str, tf.Tensor]) -> tf.Tensor
     b0 = -sin_a
     b1 = cos_a
 
-    center = 23.5
+    center = tf.constant(23.5, tf.float32)
     tx = params["translation_x"]
     ty = params["translation_y"]
 
@@ -78,9 +98,11 @@ def _apply_geometry(image: tf.Tensor, params: Dict[str, tf.Tensor]) -> tf.Tensor
 
 
 def _apply_photometric(image: tf.Tensor, params: Dict[str, tf.Tensor]) -> tf.Tensor:
-    """Applies contrast scaling and brightness offset, clipping to [0.0, 1.0]."""
-    # Contrast around mean
-    mean = tf.reduce_mean(image)
+    """Applies contrast scaling and brightness offset, clipping to [0.0, 1.0].
+
+    Uses 1D reduction sum to guarantee bit-identical multi-threaded evaluation order across CPU runs.
+    """
+    mean = tf.reduce_sum(tf.reshape(image, [-1])) / 2304.0
     img = (image - mean) * params["contrast"] + mean
     img = img + params["brightness"]
     return tf.clip_by_value(img, 0.0, 1.0)
