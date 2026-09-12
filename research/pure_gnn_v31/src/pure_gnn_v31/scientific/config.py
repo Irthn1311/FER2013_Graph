@@ -172,19 +172,21 @@ def _validate_semantic_hyperparameter_value(key: str, val: Any) -> None:
         max_ep = val.get("max_epochs")
         if not isinstance(warmup, int) or warmup <= 0:
             raise ConfigurationError(f"lr_scheduler.warmup_epochs must be positive int, got: {warmup}")
-            try:
-                init_lr_f = float(init_lr)
-            except (ValueError, TypeError):
-                raise ConfigurationError(f"lr_scheduler.initial_learning_rate must be float, got: {init_lr}")
-            if not math.isfinite(init_lr_f) or init_lr_f <= 0:
-                raise ConfigurationError(f"lr_scheduler.initial_learning_rate must be positive float, got: {init_lr}")
 
-            try:
-                fin_lr_f = float(fin_lr)
-            except (ValueError, TypeError):
-                raise ConfigurationError(f"lr_scheduler.final_learning_rate must be float, got: {fin_lr}")
-            if not math.isfinite(fin_lr_f) or fin_lr_f < 0:
-                raise ConfigurationError(f"lr_scheduler.final_learning_rate must be non-negative float, got: {fin_lr}")
+        try:
+            init_lr_f = float(init_lr)
+        except (ValueError, TypeError):
+            raise ConfigurationError(f"lr_scheduler.initial_learning_rate must be float, got: {init_lr}")
+        if not math.isfinite(init_lr_f) or init_lr_f <= 0:
+            raise ConfigurationError(f"lr_scheduler.initial_learning_rate must be positive float, got: {init_lr}")
+
+        try:
+            fin_lr_f = float(fin_lr)
+        except (ValueError, TypeError):
+            raise ConfigurationError(f"lr_scheduler.final_learning_rate must be float, got: {fin_lr}")
+        if not math.isfinite(fin_lr_f) or fin_lr_f < 0:
+            raise ConfigurationError(f"lr_scheduler.final_learning_rate must be non-negative float, got: {fin_lr}")
+
         if not isinstance(max_ep, int) or max_ep <= 0:
             raise ConfigurationError(f"lr_scheduler.max_epochs must be positive int, got: {max_ep}")
 
@@ -223,33 +225,52 @@ def load_scientific_config(config_path: Optional[str] = None) -> ScientificConfi
     if "train_rows" not in data_proto:
         raise ConfigurationError("Missing required field in data_protocol: 'train_rows'.")
     train_rows = data_proto["train_rows"]
-    if not isinstance(train_rows, int) or train_rows <= 0:
-        raise ConfigurationError("'train_rows' must be a positive integer.")
+    if not isinstance(train_rows, int) or train_rows != 28709:
+        raise ConfigurationError(f"Protocol invariant violation: train_rows must be 28709, got: {train_rows}")
 
     if "val_rows" not in data_proto:
         raise ConfigurationError("Missing required field in data_protocol: 'val_rows'.")
     val_rows = data_proto["val_rows"]
-    if not isinstance(val_rows, int) or val_rows <= 0:
-        raise ConfigurationError("'val_rows' must be a positive integer.")
+    if not isinstance(val_rows, int) or val_rows != 3589:
+        raise ConfigurationError(f"Protocol invariant violation: val_rows must be 3589, got: {val_rows}")
+
+    if data_proto.get("internal_train_split") is not False:
+        raise ConfigurationError("Protocol invariant violation: internal_train_split must be False")
+
+    if data_proto.get("research_dev_split") is not False:
+        raise ConfigurationError("Protocol invariant violation: research_dev_split must be False")
 
     if "test_access_authorized" not in data_proto:
         raise ConfigurationError("Missing required field in data_protocol: 'test_access_authorized'.")
     test_auth = data_proto["test_access_authorized"]
-    if not isinstance(test_auth, bool):
-        raise ConfigurationError("'test_access_authorized' must be a boolean.")
+    if not isinstance(test_auth, bool) or test_auth is not False:
+        raise ConfigurationError("Protocol invariant violation: test_access_authorized must be False")
+
+    pix_norm = data_proto.get("pixel_normalization")
+    if not isinstance(pix_norm, dict) or pix_norm.get("value") != "raw_div_255":
+        raise ConfigurationError(
+            f"Protocol invariant violation: pixel_normalization.value must be 'raw_div_255', got: {pix_norm}"
+        )
 
     # 3. Enforcement: 'conditions' MUST be explicitly provided
     if "conditions" not in data or not isinstance(data["conditions"], dict):
         raise ConfigurationError("Missing required dictionary: 'conditions'.")
     cond_dict = data["conditions"]
 
-    if "active" not in cond_dict or not isinstance(cond_dict["active"], list) or not cond_dict["active"]:
-        raise ConfigurationError("Missing or empty required list in conditions: 'active'.")
-    active_conditions = cond_dict["active"]
+    active_conditions = cond_dict.get("active")
+    if active_conditions != ["G0", "G0.5", "G1"]:
+        raise ConfigurationError(
+            f"Protocol invariant violation: conditions.active must be ['G0', 'G0.5', 'G1'], got: {active_conditions}"
+        )
 
-    if "primary_comparison" not in cond_dict or not isinstance(cond_dict["primary_comparison"], str):
-        raise ConfigurationError("Missing required string in conditions: 'primary_comparison'.")
-    primary_comparison = cond_dict["primary_comparison"]
+    primary_comparison = cond_dict.get("primary_comparison")
+    if primary_comparison != "G1 - G0.5":
+        raise ConfigurationError(
+            f"Protocol invariant violation: primary_comparison must be 'G1 - G0.5', got: '{primary_comparison}'"
+        )
+
+    if cond_dict.get("g2_g3_scheduled") is not False:
+        raise ConfigurationError("Protocol invariant violation: conditions.g2_g3_scheduled must be False")
 
     # 4. Enforcement: 'hyperparameters' MUST be explicitly provided
     if "hyperparameters" not in data or not isinstance(data["hyperparameters"], dict):
@@ -294,9 +315,27 @@ def load_scientific_config(config_path: Optional[str] = None) -> ScientificConfi
     seed_spec = hyperparams["seed"]
     seed_val = seed_spec["value"]
 
+    # Cross-field consistency
+    init_lr_val = hyperparams["learning_rate"]["value"]
+    sched_val = hyperparams["lr_scheduler"]["value"]
+    if isinstance(sched_val, dict):
+        sched_init_lr = float(sched_val.get("initial_learning_rate", 0.0))
+        if abs(float(init_lr_val) - sched_init_lr) > 1e-12:
+            raise ConfigurationError(
+                f"Cross-field consistency violation: hyperparameters.learning_rate ({init_lr_val}) "
+                f"!= lr_scheduler.initial_learning_rate ({sched_init_lr})"
+            )
+
+        max_ep_val = hyperparams["max_epochs"]["value"]
+        sched_max_ep = int(sched_val.get("max_epochs", 0))
+        if int(max_ep_val) != sched_max_ep:
+            raise ConfigurationError(
+                f"Cross-field consistency violation: hyperparameters.max_epochs ({max_ep_val}) "
+                f"!= lr_scheduler.max_epochs ({sched_max_ep})"
+            )
+
     # Extract WarmupCosineConfig
     warmup_cfg = None
-    sched_val = hyperparams["lr_scheduler"]["value"]
     if isinstance(sched_val, dict) and sched_val.get("type") == "WarmupCosine":
         warmup_cfg = WarmupCosineConfig(
             type="WarmupCosine",

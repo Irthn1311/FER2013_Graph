@@ -30,10 +30,15 @@ scientific_execution_authorized: true
 data_protocol:
   train_rows: 28709
   val_rows: 3589
+  internal_train_split: false
+  research_dev_split: false
   test_access_authorized: false
+  pixel_normalization:
+    value: "raw_div_255"
 conditions:
   active: ["G0", "G0.5", "G1"]
   primary_comparison: "G1 - G0.5"
+  g2_g3_scheduled: false
 hyperparameters:
   optimizer_type: {value: "AdamW", status: "SOURCE_CONFIRMED", provenance: ["ref"]}
   learning_rate: {value: 0.0003, status: "SOURCE_CONFIRMED", provenance: ["ref"]}
@@ -94,10 +99,15 @@ scientific_execution_authorized: false
 data_protocol:
   train_rows: 28709
   val_rows: 3589
+  internal_train_split: false
+  research_dev_split: false
   test_access_authorized: false
+  pixel_normalization:
+    value: "raw_div_255"
 conditions:
   active: ["G0", "G0.5", "G1"]
   primary_comparison: "G1 - G0.5"
+  g2_g3_scheduled: false
 hyperparameters:
   optimizer_type: {value: "AdamW", status: "SOURCE_CONFIRMED", provenance: ["ref"]}
   learning_rate: {value: 0.0003, status: "SOURCE_CONFIRMED", provenance: ["ref"]}
@@ -109,7 +119,7 @@ hyperparameters:
   early_stopping_patience: {value: 15, status: "SOURCE_CONFIRMED", provenance: ["ref"]}
   validation_frequency_epochs: {value: 1, status: "SOURCE_CONFIRMED", provenance: ["ref"]}
   batch_size: {value: 64, status: "PREREGISTERED_DECISION", provenance: ["ref"]}
-  lr_scheduler: {value: {type: "WarmupCosine", warmup_epochs: 5, initial_learning_rate: 3e-4, final_learning_rate: 1e-6, max_epochs: 100}, status: "PREREGISTERED_DECISION", provenance: ["ref"]}
+  lr_scheduler: {value: {type: "WarmupCosine", warmup_epochs: 5, initial_learning_rate: 0.0003, final_learning_rate: 0.000001, max_epochs: 100}, status: "PREREGISTERED_DECISION", provenance: ["ref"]}
   weight_decay: {value: 0.0005, status: "PREREGISTERED_DECISION", provenance: ["ref"]}
   max_epochs: {value: 100, status: "PREREGISTERED_DECISION", provenance: ["ref"]}
   label_smoothing: {value: 0.05, status: "PREREGISTERED_DECISION", provenance: ["ref"]}
@@ -147,5 +157,10 @@ hyperparameters:
 def test_trainer_fails_closed_before_execution():
     trainer = ScientificTrainer()
     with pytest.raises(PermissionError) as exc:
-        trainer.train_condition("G1")
+        trainer.train_condition(
+            condition="G1",
+            train_csv_path="path/to/train.csv",
+            val_csv_path="path/to/val.csv",
+            output_dir="outputs/test_run",
+        )
     assert "SCIENTIFIC EXECUTION BLOCKED" in str(exc.value)

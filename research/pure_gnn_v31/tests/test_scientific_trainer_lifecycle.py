@@ -80,6 +80,9 @@ def test_adamw_optimizer_configuration_and_finite_update():
     opt = build_scientific_optimizer(
         steps_per_epoch=10,
         initial_learning_rate=3e-4,
+        final_learning_rate=1e-6,
+        warmup_epochs=5,
+        max_epochs=100,
         weight_decay=5e-4,
         global_clipnorm=1.0,
     )

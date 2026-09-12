@@ -293,10 +293,13 @@ def create_epoch_paired_training_dataset(
     def _map_fn(post_shuffle_idx, item):
         img, lbl, src_idx = item
         if augment:
-            img = augment_image_stateless(img, base_seed=base_seed, epoch=epoch, item_index=post_shuffle_idx)
+            def _py_aug(im, idx):
+                return augment_image_stateless(im, base_seed=base_seed, epoch=epoch, item_index=idx)
+            img = tf.py_function(_py_aug, [img, post_shuffle_idx], tf.float32)
+            img.set_shape([48, 48, 1])
         return img, lbl, src_idx
 
-    ds = ds.map(_map_fn, num_parallel_calls=tf.data.AUTOTUNE, deterministic=True)
+    ds = ds.map(_map_fn, num_parallel_calls=None)
     ds = ds.batch(batch_size, drop_remainder=False)
     ds = ds.prefetch(tf.data.AUTOTUNE)
     return ds
