@@ -29,14 +29,17 @@ def test_scientific_config_raw_byte_sha_and_path():
 
 
 def test_scientific_config_crlf_raw_byte_sha():
-    """Requirement 1: Proves raw-byte SHA matches even on CRLF newlines without text normalization."""
-    raw_content = b"scientific_execution_authorized: false\r\ndata_protocol:\r\n  train_rows: 28709\r\n"
+    """Requirement 1: Proves raw-byte SHA matches even on CRLF newlines without text normalization, exercising load_scientific_config."""
+    crlf_yaml_bytes = (CANONICAL_TEST_YAML.strip().replace("\n", "\r\n") + "\r\n").encode("utf-8")
     with tempfile.NamedTemporaryFile("wb", suffix=".yaml", delete=False) as tf_file:
-        tf_file.write(raw_content)
+        tf_file.write(crlf_yaml_bytes)
         p = tf_file.name
 
-    expected_sha = hashlib.sha256(raw_content).hexdigest()
+    expected_sha = hashlib.sha256(crlf_yaml_bytes).hexdigest()
+    cfg = load_scientific_config(p)
+    assert cfg.source_config_sha256 == expected_sha
     assert hashlib.sha256(Path(p).read_bytes()).hexdigest() == expected_sha
+    assert cfg.train_rows == 28709
 
 
 def test_scientific_execution_defaults_false_and_zero_unresolved():

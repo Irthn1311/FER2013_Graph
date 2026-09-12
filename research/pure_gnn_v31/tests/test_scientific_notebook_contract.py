@@ -55,13 +55,26 @@ def test_scientific_notebook_contracts():
     assert package_src_idx != -1 and first_import_idx != -1
     assert package_src_idx < first_import_idx, "sys.path.insert must appear before first pure_gnn_v31 import"
 
-    # 6. Assert no pip install -e in notebook
+    # 6. Assert PACKAGE_PATH is assigned before its first use (.is_dir() and / "tests")
+    assert "PACKAGE_PATH =" in all_code
+    package_path_assign_idx = all_code.find("PACKAGE_PATH =")
+    first_isdir_idx = all_code.find("PACKAGE_PATH.is_dir()")
+    first_tests_idx = all_code.find('PACKAGE_PATH / "tests"')
+    assert package_path_assign_idx != -1
+    assert first_isdir_idx != -1 and package_path_assign_idx < first_isdir_idx, (
+        "PACKAGE_PATH assignment must appear before PACKAGE_PATH.is_dir()"
+    )
+    assert first_tests_idx != -1 and package_path_assign_idx < first_tests_idx, (
+        "PACKAGE_PATH assignment must appear before PACKAGE_PATH / 'tests'"
+    )
+
+    # 7. Assert no pip install -e in notebook
     assert "pip install -e" not in all_code
     assert "pip install" not in all_code
 
-    # 7. Assert fail-closed configuration switches
+    # 8. Assert fail-closed configuration switches
     assert "RUN_SCIENTIFIC_SCREEN = False" in all_code
     assert "REVIEWED_SOURCE_TAG = None" in all_code
 
-    # 8. Assert fail-closed behavior on missing data
+    # 9. Assert fail-closed behavior on missing data
     assert "raise FileNotFoundError" in all_code
