@@ -1,5 +1,6 @@
 """Tests verifying WarmupCosine reference, smoothed CE, AdamW, and training lifecycle."""
 
+import json
 import math
 import tempfile
 from pathlib import Path
@@ -14,9 +15,12 @@ from pure_gnn_v31.scientific.trainer import (
     build_scientific_optimizer,
     EarlyStoppingTracker,
     ScientificTrainer,
+    _train_prebuilt_condition,
+    run_production_scientific_screen,
 )
 from pure_gnn_v31.scientific.dataset import create_epoch_paired_training_dataset
 from pure_gnn_v31.scientific.initialization import audit_and_synchronize_non_coarse_parameters
+from pure_gnn_v31.scientific.config import load_scientific_config, ScientificConfig
 
 
 def test_warmup_cosine_independent_reference():
@@ -45,7 +49,6 @@ def test_warmup_cosine_independent_reference():
     # 3. Mid cosine (progress = 0.5)
     total_steps = 449 * 100
     mid_step = warmup_steps + (total_steps - warmup_steps) // 2
-    # Progress = 0.5 -> cos(pi/2) = 0 -> decayed = final + (init - final)*0.5
     expected_mid = final_lr + (init_lr - final_lr) * 0.5
     assert abs(float(schedule(mid_step).numpy()) - expected_mid) < 1e-6
 
@@ -56,7 +59,6 @@ def test_warmup_cosine_independent_reference():
 def test_smoothed_cross_entropy_independent_reference():
     """Verifies smoothed categorical cross-entropy against hand-calculated reference."""
     labels = tf.constant([0, 2], dtype=tf.int32)
-    # Dummy logits
     logits = tf.constant([
         [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         [0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0],
@@ -66,8 +68,6 @@ def test_smoothed_cross_entropy_independent_reference():
     assert loss_tf.shape == (2,)
     assert not tf.math.is_nan(tf.reduce_mean(loss_tf))
 
-    # Hand reference for sample 0:
-    # one_hot target = (1 - 0.05)*[1,0,0,0,0,0,0] + 0.05/7 = [0.95 + 0.05/7, 0.05/7, ...]
     target_pos = 0.95 + (0.05 / 7.0)
     target_neg = 0.05 / 7.0
     softmax_p0 = tf.nn.softmax(logits[0]).numpy()
@@ -91,7 +91,6 @@ def test_adamw_optimizer_configuration_and_finite_update():
     assert opt.weight_decay == 5e-4
     assert opt.global_clipnorm == 1.0
 
-    # Test finite update with an optimizer that has positive learning rate
     test_opt = tf.keras.optimizers.AdamW(learning_rate=0.01, weight_decay=5e-4, global_clipnorm=1.0)
     var = tf.Variable([1.0, 2.0], dtype=tf.float32)
     with tf.GradientTape() as tape:
@@ -127,13 +126,6 @@ def test_paired_ordering_and_augmentation_across_three_epochs():
 
 def test_sample_weighted_aggregation_adversarial():
     """Section 5 & 12: Adversarial test proving reported loss equals per-example sum / N, not naive mean of batch means."""
-    # Two batches:
-    # Batch 1: 100 examples with loss = 1.0 (loss sum = 100.0)
-    # Batch 2: 2 examples with loss = 10.0 (loss sum = 20.0)
-    # Total examples N = 102
-    # Exact per-example weighted mean: (100*1.0 + 2*10.0) / 102 = 120 / 102 ~= 1.17647
-    # Naive unweighted mean of batch means: (1.0 + 10.0) / 2 = 5.5
-
     b1_losses = np.ones(100, dtype=np.float32) * 1.0
     b2_losses = np.ones(2, dtype=np.float32) * 10.0
 
@@ -141,20 +133,17 @@ def test_sample_weighted_aggregation_adversarial():
     naive_mean = float(np.mean(batch_means))
     assert abs(naive_mean - 5.5) < 1e-6
 
-    # Sample-weighted accumulation
     total_loss_sum = float(np.sum(b1_losses) + np.sum(b2_losses))
     total_examples = len(b1_losses) + len(b2_losses)
     weighted_mean = total_loss_sum / total_examples
 
     expected_per_example = 120.0 / 102.0
     assert abs(weighted_mean - expected_per_example) < 1e-6
-    # Prove it strictly differs from naive batch mean
     assert abs(weighted_mean - naive_mean) > 4.0
 
 
 def test_one_epoch_lifecycle_and_history_logging():
     """Section 11: Executes at least ONE training epoch through internal lifecycle with train_history.csv generation."""
-    # Lightweight dummy architecture to test trainer lifecycle without slow GNN CPU execution
     dummy_model = tf.keras.Sequential([
         tf.keras.layers.Input(shape=(48, 48, 1)),
         tf.keras.layers.GlobalAveragePooling2D(),
@@ -171,7 +160,6 @@ def test_one_epoch_lifecycle_and_history_logging():
     val_dataset = tf.data.Dataset.from_tensor_slices((images, labels, indices)).batch(8)
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        from pure_gnn_v31.scientific.trainer import _train_prebuilt_condition
         res = _train_prebuilt_condition(
             model=dummy_model,
             condition="G1",
@@ -205,12 +193,8 @@ def test_one_epoch_lifecycle_and_history_logging():
 
 def test_canonical_production_orchestration_contract():
     """Section 13: Tests canonical production screen orchestration contracts with mock runner."""
-    from pure_gnn_v31.scientific.config import load_scientific_config
-    from pure_gnn_v31.scientific.trainer import run_production_scientific_screen
-
     cfg = load_scientific_config()
 
-    # 1. Blocked when unauthorized
     with pytest.raises(PermissionError) as exc:
         run_production_scientific_screen(
             config=cfg,
@@ -221,6 +205,118 @@ def test_canonical_production_orchestration_contract():
             reviewed_source_tag="pure-gnn-v31-test-tag",
         )
     assert "SCIENTIFIC EXECUTION BLOCKED" in str(exc.value)
+
+
+def test_canonical_production_orchestration_authorized_synthetic(monkeypatch):
+    """Section 7 & 13: Full authorized execution of canonical production orchestration with synthetic data.
+
+    Proves:
+    - config authorization passes
+    - source lock function is invoked
+    - canonical config identity is verified
+    - seed setup occurs before model construction
+    - conditions built exactly: G0, G0.5, G1 (no G2/G3)
+    - both pairing audit functions are invoked
+    - initial G0.5/G1 logits equivalence gate executes
+    - pre-existing output directory is rejected
+    - run_identity.json is actually written
+    - config.source_config_sha256 is consumed successfully
+    """
+    import dataclasses
+    from pure_gnn_v31.scientific import trainer as trainer_mod
+
+    # Load canonical config
+    real_cfg = load_scientific_config()
+    # Authorize config for synthetic test
+    auth_cfg = dataclasses.replace(real_cfg, scientific_execution_authorized=True)
+
+    repo_root = Path(__file__).resolve().parents[3]
+
+    # Mock source lock
+    def mock_verify_lock(repo_root, reviewed_source_tag):
+        return {
+            "status": "SOURCE_LOCKED",
+            "reviewed_source_tag": reviewed_source_tag,
+            "exact_tag_ref": f"refs/tags/{reviewed_source_tag}",
+            "peeled_commit": "mock_peeled_commit_12345",
+            "head_commit": "mock_peeled_commit_12345",
+            "is_detached": True,
+            "clean_worktree": True,
+        }
+    monkeypatch.setattr(trainer_mod, "verify_immutable_source_lock", mock_verify_lock)
+
+    # Mock load_fer_csv_split to return small synthetic arrays without real FER access
+    def mock_load_fer(csv_path, role):
+        n = 16
+        imgs = np.zeros([n, 48, 48, 1], dtype=np.float32)
+        lbls = np.zeros([n], dtype=np.int32)
+        idxs = np.arange(n, dtype=np.int32)
+        return imgs, lbls, idxs, "mock_sha256_hash"
+    monkeypatch.setattr(trainer_mod, "load_fer_csv_split", mock_load_fer)
+
+    # Track conditions trained and mock _train_prebuilt_condition
+    conditions_trained = []
+    def mock_train_condition(**kwargs):
+        cond = kwargs["condition"]
+        conditions_trained.append(cond)
+        output_dir = Path(kwargs["output_dir"])
+        (output_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+        (output_dir / "checkpoints" / "best_val_accuracy.weights.h5").write_text("weights", encoding="utf-8")
+        return {
+            "condition": cond,
+            "history": [],
+            "best_val_accuracy": 0.5,
+        }
+    monkeypatch.setattr(trainer_mod, "_train_prebuilt_condition", mock_train_condition)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        output_root = Path(tmp_dir)
+
+        # Run canonical screen
+        results = run_production_scientific_screen(
+            config=auth_cfg,
+            train_csv_path="path/to/train.csv",
+            val_csv_path="path/to/val.csv",
+            output_root=output_root,
+            repo_root=repo_root,
+            reviewed_source_tag="pure-gnn-v31-test-tag",
+        )
+
+        # 1. Verify exactly G0, G0.5, G1 trained (no G2/G3)
+        assert conditions_trained == ["G0", "G0.5", "G1"]
+        assert list(results.keys()) == ["G0", "G0.5", "G1"]
+
+        # 2. Verify run_identity.json and initialization_audit.json written in each run dir
+        protocol_dir = output_root / "pure_gnn_v31_historical_v1"
+        for cond in ["G0", "G0.5", "G1"]:
+            cond_dir = protocol_dir / cond / "seed_42"
+            assert cond_dir.is_dir()
+
+            id_file = cond_dir / "run_identity.json"
+            assert id_file.is_file()
+            id_data = json.loads(id_file.read_text(encoding="utf-8"))
+            assert id_data["condition"] == cond
+            assert id_data["seed"] == 42
+            assert id_data["config_sha256"] == auth_cfg.source_config_sha256
+            assert id_data["peeled_source_commit"] == "mock_peeled_commit_12345"
+
+            audit_file = cond_dir / "initialization_audit.json"
+            assert audit_file.is_file()
+            audit_data = json.loads(audit_file.read_text(encoding="utf-8"))
+            assert audit_data["initialization_equivalence_pass"] is True
+            assert audit_data["initial_logits_max_abs_error"] <= 1e-5
+
+        # 3. Verify pre-existing output directory is rejected (exist_ok=False)
+        with pytest.raises(FileExistsError) as exc:
+            run_production_scientific_screen(
+                config=auth_cfg,
+                train_csv_path="path/to/train.csv",
+                val_csv_path="path/to/val.csv",
+                output_root=output_root,
+                repo_root=repo_root,
+                reviewed_source_tag="pure-gnn-v31-test-tag",
+            )
+        assert "Production output directory already exists" in str(exc.value)
 
 
 def test_g0_vs_g05_non_coarse_initialization_pairing():

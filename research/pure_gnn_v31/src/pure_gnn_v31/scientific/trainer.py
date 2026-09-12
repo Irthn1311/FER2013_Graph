@@ -16,7 +16,7 @@ import tensorflow as tf
 
 from pure_gnn_v31.model import PureGNNv31
 from pure_gnn_v31.contracts import count_parameters
-from pure_gnn_v31.scientific.config import ScientificConfig, load_scientific_config
+from pure_gnn_v31.scientific.config import ScientificConfig, load_scientific_config, ConfigurationError
 from pure_gnn_v31.scientific.governance import assert_not_test_access, DataGovernanceError
 from pure_gnn_v31.scientific.randomness import set_scientific_seed
 from pure_gnn_v31.scientific.dataset import (
@@ -403,6 +403,26 @@ def run_production_scientific_screen(
         repo_root=repo_root,
         reviewed_source_tag=reviewed_source_tag,
     )
+
+    # 3. Canonical Config Verification: ensure config comes strictly from tagged repo
+    canonical_config_path = (
+        Path(repo_root) / "research/pure_gnn_v31/configs/scientific_screen_historical_v1.yaml"
+    ).resolve()
+    if not canonical_config_path.is_file():
+        raise FileNotFoundError(f"Canonical config not found in tagged repo: {canonical_config_path}")
+
+    if Path(config.source_config_path).resolve() != canonical_config_path:
+        raise ConfigurationError(
+            f"IMMUTABLE CONFIG GOVERNANCE FAILED: Config path '{config.source_config_path}' "
+            f"does not match canonical tagged config path '{canonical_config_path}'."
+        )
+
+    canonical_raw_sha256 = hashlib.sha256(canonical_config_path.read_bytes()).hexdigest()
+    if config.source_config_sha256 != canonical_raw_sha256:
+        raise ConfigurationError(
+            f"IMMUTABLE CONFIG GOVERNANCE FAILED: Config SHA256 '{config.source_config_sha256}' "
+            f"does not match canonical file SHA256 '{canonical_raw_sha256}'."
+        )
 
     protocol_id = "pure_gnn_v31_historical_v1"
     seed = int(config.seed)

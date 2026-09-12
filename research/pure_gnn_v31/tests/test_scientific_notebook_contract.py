@@ -45,10 +45,23 @@ def test_scientific_notebook_contracts():
     assert "verify_immutable_source_lock" in all_code
     assert "run_production_scientific_screen" in all_code
     assert "load_scientific_config" in all_code
+    assert "CONFIG_PATH" in all_code
 
-    # 5. Assert fail-closed configuration switches
+    # 5. Assert fresh-kernel bootstrap order: PACKAGE_SRC and sys.path before pure_gnn_v31 import
+    assert "PACKAGE_SRC" in all_code
+    assert "sys.path.insert" in all_code
+    package_src_idx = all_code.find("sys.path.insert")
+    first_import_idx = all_code.find("import pure_gnn_v31")
+    assert package_src_idx != -1 and first_import_idx != -1
+    assert package_src_idx < first_import_idx, "sys.path.insert must appear before first pure_gnn_v31 import"
+
+    # 6. Assert no pip install -e in notebook
+    assert "pip install -e" not in all_code
+    assert "pip install" not in all_code
+
+    # 7. Assert fail-closed configuration switches
     assert "RUN_SCIENTIFIC_SCREEN = False" in all_code
     assert "REVIEWED_SOURCE_TAG = None" in all_code
 
-    # 6. Assert fail-closed behavior on missing data
+    # 8. Assert fail-closed behavior on missing data
     assert "raise FileNotFoundError" in all_code

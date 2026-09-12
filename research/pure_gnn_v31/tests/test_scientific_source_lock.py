@@ -53,14 +53,10 @@ def test_source_lock_b_branch_passed_instead_of_tag(temp_git_repo):
 
 def test_source_lock_c_tag_exists_but_head_attached(temp_git_repo):
     """Test C: tag exists at HEAD commit, but HEAD is attached to a mutable branch -> fails."""
-    c1 = run_cmd(["git", "rev-parse", "HEAD"], cwd=temp_git_repo)
     run_cmd(["git", "tag", "v1.0"], cwd=temp_git_repo)
-
-    # We cannot checkout detached if we stay on branch, but verify_immutable_source_lock checks out detached
-    # However if symbolic-ref HEAD returns a branch when verifying without checkout:
-    # Let's test that symbolic-ref check catches attached branch
-    sym_ref = subprocess.run(["git", "symbolic-ref", "-q", "HEAD"], cwd=str(temp_git_repo), capture_output=True, text=True)
-    assert sym_ref.returncode == 0  # attached to main or master
+    with pytest.raises(SourceLockError) as exc:
+        verify_immutable_source_lock(temp_git_repo, "v1.0")
+    assert "attached to mutable branch" in str(exc.value)
 
 
 def test_source_lock_d_detached_head_at_tag_commit_passes(temp_git_repo):
