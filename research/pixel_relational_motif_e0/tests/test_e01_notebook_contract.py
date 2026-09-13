@@ -53,6 +53,7 @@ def test_e01_kaggle_notebook_contract():
     assert "run_e01" in all_code
     assert "run_occurrence_calibration" in all_code
     assert "heartbeat" in all_code
+    assert "e01_occurrence_counts.npz" in all_code
 
     assert "pip install" not in all_code.lower()
     assert 'private_test_read' in all_code

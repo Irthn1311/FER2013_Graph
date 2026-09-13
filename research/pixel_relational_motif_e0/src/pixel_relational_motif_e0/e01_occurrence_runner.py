@@ -172,6 +172,19 @@ def run_occurrence_calibration(
         raise ValueError("Train SHA256 does not match E0.1 dictionary provenance")
 
     if len(artifact.stable_components) == 0:
+        counts_path = out_dir / "e01_occurrence_counts.npz"
+        np.savez_compressed(
+            counts_path,
+            status=np.asarray("NO_STABLE_COMPONENTS"),
+            train_sha256=np.asarray(train.sha256),
+            stable_components=np.empty(0, dtype=np.int32),
+            tau_star=np.empty(0, dtype=np.float64),
+            final_node_counts=np.empty(0, dtype=np.int32),
+            threshold_counts=np.empty(0, dtype=np.int32),
+            candidate_counts=np.empty(0, dtype=np.int32),
+            cap_flags=np.empty(0, dtype=np.bool_),
+            fallback_flags=np.empty(0, dtype=np.bool_),
+        )
         summary = {
             "experiment": "PGM_E0.1_occurrence_calibration",
             "issue": ISSUE_NUMBER,
@@ -184,6 +197,7 @@ def run_occurrence_calibration(
             "status": "NO_STABLE_COMPONENTS",
             "tau_star": None,
             "diagnostics": None,
+            "counts_artifact": counts_path.name,
         }
         (out_dir / "e01_occurrence_summary.json").write_text(
             json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"

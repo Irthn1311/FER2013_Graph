@@ -484,6 +484,18 @@ def _within_one_se_candidates(ll_by_k: dict[int, np.ndarray]) -> tuple[list[int]
     return candidates, stats
 
 
+def diagonal_gmm_bic(model: DiagonalGaussianMixture, x: np.ndarray) -> float:
+    """Report the conventional diagonal-GMM BIC without using it for selection."""
+    data = np.asarray(x, dtype=np.float64)
+    if data.ndim != 2 or len(data) == 0:
+        raise ValueError("BIC requires a non-empty 2D descriptor matrix")
+    k = int(model.n_components)
+    d = int(data.shape[1])
+    parameter_count = (k - 1) + k * d + k * d
+    log_likelihood = float(np.sum(model.score_samples(data)))
+    return float(-2.0 * log_likelihood + parameter_count * np.log(len(data)))
+
+
 def _json_array(x: np.ndarray) -> list:
     return np.asarray(x).tolist()
 
@@ -525,6 +537,7 @@ def run_e01(train_csv: str | Path, output_dir: str | Path, *, config: E01Config 
 
     _log("fitting K candidates on the same fixed pool")
     selection_models: dict[int, DiagonalGaussianMixture] = {}
+    bic_by_k: dict[int, float] = {}
     for k in config.k_candidates:
         _log(f"fit K={k}")
         selection_models[k] = DiagonalGaussianMixture(
@@ -536,6 +549,7 @@ def run_e01(train_csv: str | Path, output_dir: str | Path, *, config: E01Config 
             random_state=config.seed,
             batch_size=config.gmm_batch_size,
         ).fit(pool_r)
+        bic_by_k[k] = diagonal_gmm_bic(selection_models[k], pool_r)
 
     _log("scoring image-level Train_heldout log-likelihood for all K in one pass")
     heldout_ll = image_log_likelihoods(
@@ -545,6 +559,8 @@ def run_e01(train_csv: str | Path, output_dir: str | Path, *, config: E01Config 
         transform,
     )
     one_se, k_stats = _within_one_se_candidates(heldout_ll)
+    for k, bic in bic_by_k.items():
+        k_stats[k]["bic_report_only"] = bic
     _log(f"1-SE candidate K values: {one_se}")
 
     stability_by_k: dict[int, StabilityResult] = {}

@@ -3,10 +3,13 @@ import pytest
 
 from pixel_relational_motif_e0.descriptor import DescriptorTransform, extract_raw_relations, VALID_LOCATIONS
 from pixel_relational_motif_e0.e01_runner import (
+    E01Config,
+    _fit_bootstrap_models,
     _null_jaccard_from_sizes,
     _reject_private_path,
     _within_one_se_candidates,
     compute_exact_decile_edges,
+    diagonal_gmm_bic,
     sample_fixed_stratified_pool,
     stream_anchor_stability,
 )
@@ -75,6 +78,52 @@ def test_one_se_candidates_use_image_level_ll():
     assert 64 in candidates
     assert 96 not in candidates
     assert all("mean" in stats[k] and "se" in stats[k] for k in stats)
+
+
+def test_diagonal_gmm_bic_uses_full_pool_likelihood_and_is_report_only():
+    class FakeModel:
+        n_components = 3
+
+        @staticmethod
+        def score_samples(x):
+            return np.full(len(x), -2.5, dtype=np.float64)
+
+    x = np.zeros((10, 4), dtype=np.float64)
+    parameter_count = (3 - 1) + 3 * 4 + 3 * 4
+    expected = -2.0 * (10 * -2.5) + parameter_count * np.log(10)
+    assert np.isclose(diagonal_gmm_bic(FakeModel(), x), expected)
+
+
+def test_bootstrap_multiplicity_is_constant_per_image(monkeypatch):
+    captured = []
+
+    class FakeGMM:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def fit(self, x, sample_weight=None):
+            captured.append(np.asarray(sample_weight).copy())
+            return self
+
+    monkeypatch.setattr(
+        "pixel_relational_motif_e0.e01_runner.DiagonalGaussianMixture", FakeGMM
+    )
+    pool_image_ids = np.array([2, 2, 5, 5, 5, 9], dtype=np.int64)
+    fit_image_ids = np.array([2, 5, 9], dtype=np.int64)
+    config = E01Config(bootstraps=3)
+    _fit_bootstrap_models(
+        np.zeros((len(pool_image_ids), 2)),
+        pool_image_ids,
+        fit_image_ids,
+        k=2,
+        variance_floor=np.ones(2),
+        config=config,
+    )
+    assert len(captured) == 3
+    for weights in captured:
+        for image_id in fit_image_ids:
+            image_weights = weights[pool_image_ids == image_id]
+            assert np.all(image_weights == image_weights[0])
 
 
 class _FakeModel:

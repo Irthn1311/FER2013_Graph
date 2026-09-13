@@ -5,6 +5,7 @@ from pixel_relational_motif_e0.e01_occurrence_runner import (
     FrozenDescriptorTransform,
     calibrate_tau_from_scores,
     occurrence_count_diagnostics,
+    run_occurrence_calibration,
 )
 from pixel_relational_motif_e0.occurrence import Occurrence, apply_occurrence_policy, choose_tau_for_budget
 
@@ -70,3 +71,33 @@ def test_frozen_descriptor_transform_matches_pca_formula():
     expected_z = (l - 0.25) / 1.5
     expected = np.concatenate([expected_p, expected_z[:, None]], axis=1)
     assert np.allclose(got, expected)
+
+
+def test_no_stable_components_still_writes_required_counts_artifact(tmp_path, monkeypatch):
+    from pixel_relational_motif_e0.e01_occurrence_runner import DictionaryArtifact
+    from pixel_relational_motif_e0.diag_gmm import DiagonalGaussianMixture
+    from pixel_relational_motif_e0.e01_runner import TrainData, TRAIN_ROWS
+
+    transform = FrozenDescriptorTransform(
+        np.zeros(24), np.zeros((11, 24)), log_sigma_mean=0.0, log_sigma_std=1.0
+    )
+    artifact = DictionaryArtifact(
+        "train-sha", transform, DiagonalGaussianMixture(2, 1e-6), np.empty(0, dtype=np.int64), 2
+    )
+    train = TrainData(np.empty((TRAIN_ROWS, 0), dtype=np.uint8), "train-sha")
+    monkeypatch.setattr(
+        "pixel_relational_motif_e0.e01_occurrence_runner.load_dictionary_artifact",
+        lambda _: artifact,
+    )
+    monkeypatch.setattr(
+        "pixel_relational_motif_e0.e01_occurrence_runner.load_official_train_images",
+        lambda _: train,
+    )
+
+    summary = run_occurrence_calibration("train.csv", "dictionary.npz", tmp_path)
+    counts_path = tmp_path / "e01_occurrence_counts.npz"
+    assert summary["status"] == "NO_STABLE_COMPONENTS"
+    assert summary["counts_artifact"] == counts_path.name
+    with np.load(counts_path, allow_pickle=False) as counts:
+        assert str(counts["status"].item()) == "NO_STABLE_COMPONENTS"
+        assert counts["final_node_counts"].size == 0
