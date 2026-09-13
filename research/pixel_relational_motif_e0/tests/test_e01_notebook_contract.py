@@ -50,6 +50,8 @@ def test_e01_kaggle_notebook_contract():
     assert "RUN_E01 = True" in all_code
     assert "RUN_OCCURRENCE = True" in all_code
     assert "pytest" in all_code
+    assert 'test_env["PYTHONPATH"]' in all_code
+    assert "env=test_env" in all_code
     assert "run_e01" in all_code
     assert "run_occurrence_calibration" in all_code
     assert "heartbeat" in all_code
