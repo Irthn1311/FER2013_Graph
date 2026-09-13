@@ -18,3 +18,4 @@ def test_small_bootstrap_stability_and_canonical_pipeline_runs():
     can = fit_canonical_dictionary(x, variance_floor=floor, stability=st, nondegenerate=nd, n_init=2, seed=5, gmm_max_iter=30, gmm_batch_size=128)
     assert can.model.means_.shape == (2,2)
     assert np.all((can.stable_components >= 0) & (can.stable_components < 2))
+    assert len(can.stable_components) == int(np.sum(st.stable_mask & nd))
