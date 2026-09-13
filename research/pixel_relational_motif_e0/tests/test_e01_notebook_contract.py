@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 
-SOURCE_SHA = "3f0954ba6d977c0fee9cde07306b142bcd898cfb"
+SOURCE_SHA = "02ba8623e24880881678e33817d257a6bb1b22b6"
 
 
 def test_e01_kaggle_notebook_contract():
