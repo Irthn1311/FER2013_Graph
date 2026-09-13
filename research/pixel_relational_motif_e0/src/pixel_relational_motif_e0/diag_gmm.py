@@ -54,6 +54,14 @@ class DiagonalGaussianMixture:
         maha = (np.square(x[:, None, :] - means[None, :, :]) / vars_[None, :, :]).sum(axis=2)
         return -0.5 * (d * math.log(2.0 * math.pi) + log_det[None, :] + maha)
 
+    @staticmethod
+    def _weighted_global_var(x: np.ndarray, sample_weight: np.ndarray, floor: np.ndarray) -> np.ndarray:
+        total = float(sample_weight.sum())
+        mean = (sample_weight @ x) / total
+        second = (sample_weight @ np.square(x)) / total
+        var = np.maximum(second - np.square(mean), 0.0)
+        return np.maximum(var, floor)
+
     def _initialize(self, x: np.ndarray, rng: np.random.Generator, floor: np.ndarray, sample_weight: np.ndarray):
         n, d = x.shape
         if self.n_components > n:
@@ -64,7 +72,7 @@ class DiagonalGaussianMixture:
             raise ValueError("fewer positive-weight samples than components")
         ids = rng.choice(n, size=self.n_components, replace=False, p=prob)
         means = x[ids].copy()
-        global_var = np.maximum(x.var(axis=0, ddof=0), floor)
+        global_var = self._weighted_global_var(x, sample_weight, floor)
         vars_ = np.repeat(global_var[None, :], self.n_components, axis=0)
         weights = np.full(self.n_components, 1.0 / self.n_components)
         return weights, means, vars_
@@ -75,6 +83,8 @@ class DiagonalGaussianMixture:
         prev = -np.inf
         n, d = x.shape
         total_weight = float(sample_weight.sum())
+        reseed_prob = sample_weight / total_weight
+        weighted_global_var = self._weighted_global_var(x, sample_weight, floor)
         for it in range(1, self.max_iter + 1):
             nk = np.zeros(self.n_components, dtype=np.float64)
             sx = np.zeros((self.n_components, d), dtype=np.float64)
@@ -99,10 +109,10 @@ class DiagonalGaussianMixture:
             new_weights = safe_nk / safe_nk.sum()
             if np.any(dead):
                 for k in np.flatnonzero(dead):
-                    idx = int(rng.integers(0, n))
+                    idx = int(rng.choice(n, p=reseed_prob))
                     new_means[k] = x[idx]
-                    new_vars[k] = np.maximum(x.var(axis=0, ddof=0), floor)
-                    new_weights[k] = 1.0 / n
+                    new_vars[k] = weighted_global_var
+                    new_weights[k] = 1.0 / total_weight
                 new_weights /= new_weights.sum()
             mean_ll = total_ll / total_weight
             weights, means, vars_ = new_weights, new_means, new_vars
