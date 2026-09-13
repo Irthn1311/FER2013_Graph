@@ -8,6 +8,23 @@ Implementation of GitHub Issue #74. This package implements **E0 only** for the 
 
 It is deliberately isolated from `research/pure_gnn_v31/`. It does not implement the downstream M0 GNN and it has no API that accepts or reads the FER2013 PrivateTest split.
 
+## E0.2 local relational necessity
+
+`pixel_relational_motif_e0.e02_runner` implements Issue #78 only. It compares
+the immutable E0.1-v533 K=128 dictionary against five independently fitted
+relation-destroyed controls (seeds 42--46). Each descriptor permutation is a
+stateless SplitMix64 ordering keyed by control seed, global canonical image ID,
+valid-center pixel index, and relation coordinate, so traversal and batching
+cannot alter the control. The exact v533 500k physical descriptor sample is
+reconstructed from its frozen fit IDs, decile edges, and priority sampler.
+
+All conditions use the mean dense posterior histogram over all 128 components
+and the unchanged fixed saga probe. Dictionary fitting and feature extraction
+are label-inaccessible; official Train/Public labels are loaded only after that
+stage for Train-supervised/Public-development evaluation. PrivateTest and
+`test.csv` are rejected before any file access. E0.2 does not run occurrences,
+E0.3, or M0 and does not alter the immutable E0.1/E0.1b evidence.
+
 The implementation uses valid 5x5 windows (44x44 centers), a deterministic 24D center-relative descriptor, frozen Train-fit PCA (24->11, no whitening), an explicit log-local-contrast coordinate, a custom diagonal GMM with variance floors, bootstrap stability with motif-specific support-matched nulls, and deterministic occurrence/geometry controls.
 
 ## E0.1 official-Train runner
