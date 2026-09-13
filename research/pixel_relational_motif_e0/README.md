@@ -22,4 +22,17 @@ python -m pixel_relational_motif_e0.e01_runner \
   --output-dir /path/to/e01_artifacts
 ```
 
-The runner writes `e01_summary.json` plus `e01_dictionary.npz`. The summary records source-data SHA256, partition sizes, exact log-sigma decile edges, fixed-pool counts, PCA provenance, per-K image-level heldout likelihood statistics, 1-SE candidates, BH-stability evidence, non-degeneracy evidence, and the final canonical stable-component mapping. A successful implementation run is not itself evidence that motifs exist; the scientific decision is made only from those generated E0.1 artifacts.
+The runner writes `e01_summary.json` plus `e01_dictionary.npz`. The summary records source-data SHA256, partition sizes, exact log-sigma decile edges, fixed-pool counts, PCA provenance, per-K image-level heldout likelihood statistics, 1-SE candidates, BH-stability evidence, non-degeneracy evidence, and the final canonical stable-component mapping.
+
+Occurrence calibration is a second Train-only phase using that frozen dictionary:
+
+```bash
+python -m pixel_relational_motif_e0.e01_occurrence_runner \
+  --train-csv /path/to/train.csv \
+  --dictionary-npz /path/to/e01_artifacts/e01_dictionary.npz \
+  --output-dir /path/to/e01_artifacts
+```
+
+It uses the original canonical posterior probabilities without renormalizing over stable motifs, then 3x3 spatial local maxima, radius-2 NMS, the lowest `tau*` with median Train nodes/image <=64, cap 80, and top-2 fallback. It writes `e01_occurrence_summary.json` and compact count diagnostics. If the canonical dictionary contains no stable components, this phase records `NO_STABLE_COMPONENTS` rather than fabricating fallback motifs.
+
+A successful implementation run is not itself evidence that motifs exist; the scientific decision is made only from the generated E0.1 artifacts.
