@@ -19,6 +19,7 @@ from .e01_runner import load_official_train_images
 PUBLIC_ROWS = 3_589
 E01_V533_SCIENTIFIC_SHA = "5fda000413c4dcfe810917f07e37bcafb1c8d394"
 E01_V533_DICTIONARY_SHA256 = "68154a054f712bb07692146904bcba57f10e079c7efc92723aa0bccba9f6273b"
+E01_V533_SELECTED_K = 128
 E01B_NULL_REPLICATES = 2_000
 E01B_SEED = 42
 
@@ -99,6 +100,8 @@ def locked_candidate_components(dictionary_npz: str | Path) -> np.ndarray:
         stable = np.asarray(z["medoid_stable_mask"], dtype=bool).reshape(-1)
         mapping = np.asarray(z["medoid_to_canonical"], dtype=np.int64).reshape(-1)
         selected_k = int(np.asarray(z["selected_k"]).reshape(()))
+    if selected_k != E01_V533_SELECTED_K:
+        raise ValueError(f"v533 dictionary must have K={E01_V533_SELECTED_K}, got {selected_k}")
     if stable.shape != (selected_k,) or mapping.shape != (selected_k,):
         raise ValueError("v533 stability/mapping shape mismatch")
     if sorted(mapping.tolist()) != list(range(selected_k)):
@@ -318,9 +321,9 @@ def run_e01b(
 
     stability_effect = {
         "candidate_count": int(len(components)),
-        "jaccard_min": float(candidate_jaccard.min(initial=np.nan)),
+        "jaccard_min": float(np.min(candidate_jaccard)) if len(candidate_jaccard) else None,
         "jaccard_median": float(np.median(candidate_jaccard)) if len(candidate_jaccard) else None,
-        "jaccard_max": float(candidate_jaccard.max(initial=np.nan)),
+        "jaccard_max": float(np.max(candidate_jaccard)) if len(candidate_jaccard) else None,
         "count_ge_0_1": int(np.sum(candidate_jaccard >= 0.1)),
         "count_ge_0_2": int(np.sum(candidate_jaccard >= 0.2)),
         "count_ge_0_3": int(np.sum(candidate_jaccard >= 0.3)),
@@ -375,7 +378,7 @@ def run_e01b(
         anchor_conditional_pass=anchor_pass,
         public_conditional_pass=public_pass,
     )
-    (out / "e01b_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+    (out / "e01b_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
     print(
         f"[PGM-E0.1b] candidates={len(components)} anchor_conditional_pass={int(anchor_pass[components].sum())} "
         f"public_conditional_pass={int(public_pass[components].sum())} spearman_prevalence={spearman_prev:.4f}",
