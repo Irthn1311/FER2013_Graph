@@ -21,7 +21,8 @@ class DiagonalGaussianMixture:
     """Small deterministic diagonal-GMM EM with vector variance floors.
 
     E-steps are chunked, so the locked 500k x <=128 E0 fit need not materialize
-    a full responsibility matrix in memory.
+    a full responsibility matrix in memory. The Gaussian quadratic form is
+    evaluated with 2D matrix products rather than a (batch,K,D) broadcast.
     """
 
     n_components: int
@@ -49,9 +50,21 @@ class DiagonalGaussianMixture:
 
     @staticmethod
     def _log_prob(x: np.ndarray, means: np.ndarray, vars_: np.ndarray) -> np.ndarray:
-        d = x.shape[1]
-        log_det = np.log(vars_).sum(axis=1)
-        maha = (np.square(x[:, None, :] - means[None, :, :]) / vars_[None, :, :]).sum(axis=2)
+        """Diagonal Gaussian log density using BLAS-friendly quadratic expansion."""
+        data = np.asarray(x, dtype=np.float64)
+        mu = np.asarray(means, dtype=np.float64)
+        var = np.asarray(vars_, dtype=np.float64)
+        d = data.shape[1]
+        inv = 1.0 / var
+        # sum_d (x_d-mu_d)^2 / var_d, expanded to avoid (B,K,D).
+        maha = (
+            np.square(data) @ inv.T
+            - 2.0 * (data @ (mu * inv).T)
+            + np.sum(np.square(mu) * inv, axis=1)[None, :]
+        )
+        # Roundoff from the quadratic expansion can produce tiny negative values.
+        maha = np.maximum(maha, 0.0)
+        log_det = np.log(var).sum(axis=1)
         return -0.5 * (d * math.log(2.0 * math.pi) + log_det[None, :] + maha)
 
     @staticmethod
