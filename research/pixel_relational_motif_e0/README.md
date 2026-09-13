@@ -25,6 +25,22 @@ stage for Train-supervised/Public-development evaluation. PrivateTest and
 `test.csv` are rejected before any file access. E0.2 does not run occurrences,
 E0.3, or M0 and does not alter the immutable E0.1/E0.1b evidence.
 
+## E0.R relational component qualification
+
+`pixel_relational_motif_e0.e0r_runner` implements the separately preregistered
+Issue #80. It reuses the six frozen E0.2-v535 transforms and K=128 dictionaries
+without PCA/GMM refitting. R1 extracts full-vocabulary argmax/max-posterior
+relational-component occurrences, calibrates one label-blind Train-only tau per
+condition, applies cap 80 with no fallback, and evaluates 128D occurrence
+histograms with the unchanged fixed probe and a prospective joint-CI rule.
+
+R2 is fully implemented in the same pre-result source but is sequentially gated
+on registered R1 support. It reuses the exact actual-A R1 occurrences, computes
+the distance split from retained Train pairs only, and compares sparse nested
+`[O || G]` features against 20 canonical-image-ID-keyed geometry-bin shuffles.
+E0.R is not registered E0.3, does not rescue E0.1, never calls the frozen
+dictionary fitting paths, and does not implement M0.
+
 The implementation uses valid 5x5 windows (44x44 centers), a deterministic 24D center-relative descriptor, frozen Train-fit PCA (24->11, no whitening), an explicit log-local-contrast coordinate, a custom diagonal GMM with variance floors, bootstrap stability with motif-specific support-matched nulls, and deterministic occurrence/geometry controls.
 
 ## E0.1 official-Train runner
