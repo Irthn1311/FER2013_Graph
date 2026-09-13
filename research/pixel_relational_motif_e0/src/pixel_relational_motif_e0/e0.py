@@ -114,7 +114,13 @@ def nondegenerate_mask(counts_by_component_image: np.ndarray, *, percentile: flo
 
 
 def fit_canonical_dictionary(pool_r: np.ndarray, *, variance_floor: np.ndarray, stability: StabilityResult, nondegenerate: np.ndarray, n_init: int = 5, seed: int = 42, gmm_max_iter: int = 100, gmm_tol: float = 1e-3, gmm_batch_size: int = 16_384) -> CanonicalDictionary:
-    """Fit production canonical GMM and map validated medoid motif IDs into it."""
+    """Fit the separate canonical GMM and map every validated medoid motif into it.
+
+    Canonical matching is a relabeling/provenance step, not an additional motif
+    selection test. E0.1 motif validity is defined by the registered BH-stability
+    and image-level non-degeneracy criteria; canonical match distances are kept
+    for diagnostics but do not silently discard an otherwise validated motif.
+    """
     ref = stability.models[stability.medoid_index]
     k = ref.n_components
     canonical = DiagonalGaussianMixture(k, variance_floor, max_iter=gmm_max_iter, tol=gmm_tol, n_init=n_init, random_state=seed, batch_size=gmm_batch_size).fit(pool_r)
@@ -125,9 +131,5 @@ def fit_canonical_dictionary(pool_r: np.ndarray, *, variance_floor: np.ndarray, 
     mapping[rows] = cols
     cd[rows] = vals
     candidate = stability.stable_mask & np.asarray(nondegenerate, dtype=bool)
-    keep = []
-    for comp in np.flatnonzero(candidate):
-        empirical_max = float(np.max(stability.match_distances[comp]))
-        if cd[comp] <= empirical_max + 1e-12:
-            keep.append(int(mapping[comp]))
-    return CanonicalDictionary(canonical, np.asarray(sorted(set(keep)), dtype=np.int64), mapping, cd)
+    keep = np.asarray(sorted(mapping[np.flatnonzero(candidate)].tolist()), dtype=np.int64)
+    return CanonicalDictionary(canonical, keep, mapping, cd)
