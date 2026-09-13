@@ -98,8 +98,12 @@ def calibrate_tau_from_scores(
 ) -> float:
     """Exact lowest observed confidence threshold with median count <= budget.
 
-    This is equivalent to scanning all unique occurrence confidences as in
-    `choose_tau_for_budget`, but uses only compact per-image confidence arrays.
+    Official FER2013 Train has 28,709 images (odd), so its sample median is the
+    center order statistic. For that locked case, each image contributes only
+    the (budget+1)-th confidence as a sufficient statistic for deciding when
+    its count drops to the budget. This is exactly equivalent to scanning all
+    unique confidences as `choose_tau_for_budget` does, without an O(N*T)
+    threshold scan over all images.
     """
     if not score_arrays:
         raise ValueError("need at least one image")
@@ -107,6 +111,8 @@ def calibrate_tau_from_scores(
         raise ValueError("median_budget must be non-negative")
     arrays = [np.asarray(x, dtype=np.float64).reshape(-1) for x in score_arrays]
     n = len(arrays)
+    if n % 2 == 0:
+        raise ValueError("exact fast median calibration requires an odd image count")
     total_counts = np.asarray([len(x) for x in arrays], dtype=np.int64)
     if float(np.median(total_counts)) <= median_budget:
         return 0.0
@@ -192,7 +198,7 @@ def run_occurrence_calibration(
         posterior = artifact.model.predict_proba(r)
         score_map, motif_map = stable_score_map(posterior, artifact.stable_components)
         candidates = local_max_nms(score_map, motif_map, radius=NMS_RADIUS)
-        score_arrays.append(np.asarray([o.confidence for o in candidates], dtype=np.float32))
+        score_arrays.append(np.asarray([o.confidence for o in candidates], dtype=np.float64))
         if (image_id + 1) % 1000 == 0 or image_id + 1 == TRAIN_ROWS:
             print(
                 f"[PGM-E0.1-occurrence] processed {image_id + 1}/{TRAIN_ROWS} Train images",
