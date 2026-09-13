@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from pixel_relational_motif_e0.diag_gmm import DiagonalGaussianMixture, variance_floor_from_data
 
@@ -13,6 +14,24 @@ def test_gmm_floor_posteriors_and_likelihood_are_valid():
     assert np.allclose(p.sum(axis=1), 1.0, atol=1e-10)
     assert np.all(np.isfinite(g.score_samples(x[:40])))
     assert np.isfinite(g.score(x))
+
+
+def test_fast_log_prob_matches_direct_diagonal_formula():
+    rng = np.random.default_rng(8)
+    x = rng.normal(size=(17, 5))
+    means = rng.normal(size=(7, 5))
+    variances = np.exp(rng.normal(size=(7, 5)))
+    fast = DiagonalGaussianMixture._log_prob(x, means, variances)
+    d = x.shape[1]
+    direct_maha = (
+        np.square(x[:, None, :] - means[None, :, :]) / variances[None, :, :]
+    ).sum(axis=2)
+    direct = -0.5 * (
+        d * math.log(2.0 * math.pi)
+        + np.log(variances).sum(axis=1)[None, :]
+        + direct_maha
+    )
+    assert np.allclose(fast, direct, rtol=1e-11, atol=1e-11)
 
 
 def test_weighted_fit_never_reseeds_or_scales_from_zero_weight_rows():
