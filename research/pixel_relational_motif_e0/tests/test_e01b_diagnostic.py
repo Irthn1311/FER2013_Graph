@@ -1,10 +1,13 @@
 import csv
+import json
 from pathlib import Path
 
 import numpy as np
 
 from pixel_relational_motif_e0.e01b_diagnostic import (
+    _reject_private_path,
     concentration_metrics,
+    finite_spearman,
     load_public_images_label_blind,
     support_conditioned_neff_null,
 )
@@ -65,3 +68,17 @@ def test_public_loader_ignores_label_values(tmp_path: Path):
     assert data.images_uint8.shape == (2, 48, 48)
     assert data.images_uint8.dtype == np.uint8
     assert len(data.sha256) == 64
+
+
+def test_public_loader_rejects_dataset_private_test_basename(tmp_path: Path):
+    private_path = tmp_path / "test.csv"
+    private_path.write_text("pixels\n", encoding="utf-8")
+    with np.testing.assert_raises(ValueError):
+        _reject_private_path(private_path)
+
+
+def test_spearman_is_json_safe_when_undefined():
+    assert finite_spearman(np.ones(4), np.arange(4)) is None
+    assert finite_spearman(np.array([1.0]), np.array([1.0])) is None
+    assert np.isclose(finite_spearman(np.arange(4), np.arange(4)), 1.0)
+    assert json.dumps({"rho": finite_spearman(np.ones(4), np.arange(4))}, allow_nan=False)

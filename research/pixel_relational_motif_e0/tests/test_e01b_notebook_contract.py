@@ -28,6 +28,8 @@ def test_e01b_kaggle_notebook_contract():
     assert "RUN_TESTS = True" in code
     assert "RUN_E01B = True" in code
     assert "PYTHONPATH" in code
+    assert "platform.platform()" in code
+    assert "sklearn.__version__" in code
     assert "run_e01b" in code
     assert "e01_dictionary.npz" in code
     assert "val.csv" in code

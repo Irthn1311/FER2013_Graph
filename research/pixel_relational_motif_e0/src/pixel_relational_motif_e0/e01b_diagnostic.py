@@ -44,7 +44,12 @@ def _sha256(path: Path, chunk_size: int = 1 << 20) -> str:
 def _reject_private_path(path: Path) -> None:
     text = str(path).lower().replace("-", "_").replace(" ", "_")
     compact = text.replace("_", "")
-    if "privatetest" in compact or "private_test" in text or "final_test" in text:
+    if (
+        "privatetest" in compact
+        or "private_test" in text
+        or "final_test" in text
+        or path.name.lower() == "test.csv"
+    ):
         raise ValueError("E0.1b must not read FER2013 PrivateTest/final-test data")
 
 
@@ -241,6 +246,20 @@ def conditional_nondominance(
     return passed, p05, lower_p
 
 
+def finite_spearman(x: np.ndarray, y: np.ndarray) -> float | None:
+    """Return a JSON-safe Spearman statistic, or None when undefined."""
+    a = np.asarray(x, dtype=np.float64).reshape(-1)
+    b = np.asarray(y, dtype=np.float64).reshape(-1)
+    if len(a) != len(b) or len(a) < 2:
+        return None
+    if not (np.all(np.isfinite(a)) and np.all(np.isfinite(b))):
+        return None
+    if np.all(a == a[0]) or np.all(b == b[0]):
+        return None
+    statistic = float(spearmanr(a, b).statistic)
+    return statistic if np.isfinite(statistic) else None
+
+
 def _metric_rows(components: np.ndarray, metrics: dict[str, np.ndarray], p05: np.ndarray, passed: np.ndarray) -> list[dict]:
     rows: list[dict] = []
     for comp in np.asarray(components, dtype=np.int64):
@@ -316,8 +335,8 @@ def run_e01b(
     prev_public = public_metrics["prevalence"][components]
     support_train = anchor_metrics["support_rate"][components]
     support_public = public_metrics["support_rate"][components]
-    spearman_prev = spearmanr(prev_train, prev_public).statistic if len(components) > 1 else float("nan")
-    spearman_support = spearmanr(support_train, support_public).statistic if len(components) > 1 else float("nan")
+    spearman_prev = finite_spearman(prev_train, prev_public)
+    spearman_support = finite_spearman(support_train, support_public)
 
     stability_effect = {
         "candidate_count": int(len(components)),
@@ -352,8 +371,8 @@ def run_e01b(
         "anchor_conditional_nondominance_pass_count": int(anchor_pass[components].sum()),
         "public_conditional_nondominance_pass_count": int(public_pass[components].sum()),
         "cross_set": {
-            "spearman_prevalence": float(spearman_prev),
-            "spearman_support_rate": float(spearman_support),
+            "spearman_prevalence": spearman_prev,
+            "spearman_support_rate": spearman_support,
             "median_support_rate_train_anchor": float(np.median(support_train)),
             "median_support_rate_public": float(np.median(support_public)),
             "median_prevalence_train_anchor": float(np.median(prev_train)),
@@ -379,9 +398,10 @@ def run_e01b(
         public_conditional_pass=public_pass,
     )
     (out / "e01b_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
+    spearman_text = "undefined" if spearman_prev is None else f"{spearman_prev:.4f}"
     print(
         f"[PGM-E0.1b] candidates={len(components)} anchor_conditional_pass={int(anchor_pass[components].sum())} "
-        f"public_conditional_pass={int(public_pass[components].sum())} spearman_prevalence={spearman_prev:.4f}",
+        f"public_conditional_pass={int(public_pass[components].sum())} spearman_prevalence={spearman_text}",
         flush=True,
     )
     return summary
