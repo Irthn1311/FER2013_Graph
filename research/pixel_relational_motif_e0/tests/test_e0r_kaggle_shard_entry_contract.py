@@ -18,7 +18,7 @@ def test_kaggle_shard_entry_is_source_locked_and_predata_tested():
         }
     }
     assert constants["SCIENTIFIC_SHA"] == "671e3c2f69607778f08a923026e76744561e13b2"
-    assert constants["CONTINUATION_WRAPPER_SHA"] == "326eed067431936972b1d47de5957cad53485c7c"
+    assert constants["CONTINUATION_WRAPPER_SHA"] == "4abcdeaefb95d73038d9dab5299407dcb6c534fa"
     assert constants["R1_OCCURRENCES_SHA256"] == "30f1a5b642af2ecdfc29ae73960fb01f90c391964db845bd4b33cf3c017f7fa9"
     assert constants["R1_RESULTS_SHA256"] == "b6675ce694f5a607cfea07abb3ed1065753f42ee848f7595d1cb8e682361a0ed"
     assert source.index("pytest") < source.index("train_csv =")
