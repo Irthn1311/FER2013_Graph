@@ -19,6 +19,7 @@ import time
 
 REPO_URL = "https://github.com/Irthn1311/FER2013_Graph.git"
 SCIENTIFIC_SHA = "671e3c2f69607778f08a923026e76744561e13b2"
+CONTINUATION_WRAPPER_SHA = "326eed067431936972b1d47de5957cad53485c7c"
 TRAIN_SHA256 = "deb82c4b4e01b90776a718c34934666b0bdde6696ca1d0149f8fe807a8ff4ba8"
 PUBLIC_SHA256 = "412036d077c6ec203047b2935ab14bc858d8136ee26e8db3e23023f1fc9dee08"
 R1_OCCURRENCES_SHA256 = "30f1a5b642af2ecdfc29ae73960fb01f90c391964db845bd4b33cf3c017f7fa9"
@@ -30,6 +31,10 @@ PROTECTED_SCIENTIFIC_PATHS = (
     "research/pixel_relational_motif_e0/src/pixel_relational_motif_e0/e0r_geometry.py",
     "research/pixel_relational_motif_e0/src/pixel_relational_motif_e0/e0r_runner.py",
     "research/pixel_relational_motif_e0/src/pixel_relational_motif_e0/probe.py",
+)
+CONTINUATION_PATHS = (
+    "research/pixel_relational_motif_e0/src/pixel_relational_motif_e0/e0r_continuation.py",
+    "research/pixel_relational_motif_e0/src/pixel_relational_motif_e0/e0r_aggregate.py",
 )
 
 
@@ -107,6 +112,15 @@ def execute_shard(shard_name: str) -> dict:
     ).strip()
     if protected_diff:
         raise RuntimeError(f"protected scientific files changed: {protected_diff}")
+    continuation_diff = subprocess.check_output(
+        [
+            "git", "-C", str(wrapper_project), "diff", "--name-only",
+            CONTINUATION_WRAPPER_SHA, wrapper_sha, "--", *CONTINUATION_PATHS,
+        ],
+        text=True,
+    ).strip()
+    if continuation_diff:
+        raise RuntimeError(f"continuation wrapper changed after its locked commit: {continuation_diff}")
 
     package = wrapper_project / "research/pixel_relational_motif_e0"
     test_env = os.environ.copy()
@@ -131,7 +145,17 @@ def execute_shard(shard_name: str) -> dict:
     fer_root = Path("/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split")
     train_csv = fer_root / "train.csv"
     public_csv = fer_root / "val.csv"
-    r1_root = Path("/kaggle/input/pgm-e0r-v538-r1-frozen")
+    r1_candidates = (
+        Path("/kaggle/input/pgm-e0r-v538-r1-frozen"),
+        Path("/kaggle/input/pgm-e0-r-v538-r1-frozen"),
+        Path("/kaggle/input/datasets/irthn1311/pgm-e0r-v538-r1-frozen"),
+        Path("/kaggle/input/datasets/irthn1311/pgm-e0-r-v538-r1-frozen"),
+    )
+    r1_matches = [root for root in r1_candidates if (root / "e0r_occurrences_actual.npz").is_file()]
+    if len(r1_matches) != 1:
+        raise RuntimeError(f"need exactly one frozen R1 dataset mount; matches={r1_matches}")
+    r1_root = r1_matches[0]
+    print(f"Resolved frozen R1 dataset root: {r1_root}", flush=True)
     occurrences_path = r1_root / "e0r_occurrences_actual.npz"
     diagnostics_path = r1_root / "e0r_r1_occurrence_diagnostics.npz"
     results_path = r1_root / "e0r_r1_results.npz"
@@ -166,7 +190,8 @@ def execute_shard(shard_name: str) -> dict:
         "scipy": scipy.__version__,
         "sklearn": sklearn.__version__,
         "scientific_sha": SCIENTIFIC_SHA,
-        "execution_wrapper_sha": wrapper_sha,
+        "execution_wrapper_sha": CONTINUATION_WRAPPER_SHA,
+        "orchestration_sha": wrapper_sha,
         "shard_name": shard_name,
     }
     environment_path = output_dir / "environment.json"
@@ -176,7 +201,9 @@ def execute_shard(shard_name: str) -> dict:
         "classification": "execution-only continuation/checkpoint wrapper",
         "scientific_sha": SCIENTIFIC_SHA,
         "scientific_head": science_head,
-        "execution_wrapper_sha": wrapper_sha,
+        "execution_wrapper_sha": CONTINUATION_WRAPPER_SHA,
+        "orchestration_sha": wrapper_sha,
+        "continuation_wrapper_diff_empty": True,
         "protected_scientific_diff_empty": True,
         "shard_name": shard_name,
         "run_actual": bool(plan["actual"]),
@@ -191,7 +218,7 @@ def execute_shard(shard_name: str) -> dict:
             occurrences_path,
             results_path,
             output_dir,
-            execution_wrapper_sha=wrapper_sha,
+            execution_wrapper_sha=CONTINUATION_WRAPPER_SHA,
             shard_name=shard_name,
             run_actual=bool(plan["actual"]),
             seeds=tuple(plan["seeds"]),
