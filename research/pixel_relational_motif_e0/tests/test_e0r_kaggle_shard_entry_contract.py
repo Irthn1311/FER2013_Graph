@@ -25,6 +25,7 @@ def test_kaggle_shard_entry_is_source_locked_and_predata_tested():
     assert "protected_scientific_diff_empty" in source
     assert "continuation_wrapper_diff_empty" in source
     assert "need exactly one frozen R1 dataset mount" in source
+    assert "/kaggle/input/datasets/nuyntai/pgm-e0r-v538-r1-frozen" in source
     assert "No PrivateTest path" in source
     assert "run_r2_shard(" in source
     assert "scientific_verdict_written" in source

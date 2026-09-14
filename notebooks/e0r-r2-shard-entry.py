@@ -150,6 +150,8 @@ def execute_shard(shard_name: str) -> dict:
         Path("/kaggle/input/pgm-e0-r-v538-r1-frozen"),
         Path("/kaggle/input/datasets/irthn1311/pgm-e0r-v538-r1-frozen"),
         Path("/kaggle/input/datasets/irthn1311/pgm-e0-r-v538-r1-frozen"),
+        Path("/kaggle/input/datasets/nuyntai/pgm-e0r-v538-r1-frozen"),
+        Path("/kaggle/input/datasets/nuyntai/pgm-e0-r-v538-r1-frozen"),
     )
     r1_matches = [root for root in r1_candidates if (root / "e0r_occurrences_actual.npz").is_file()]
     if len(r1_matches) != 1:
