@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 
-ORCHESTRATION_SHA = "45389dbbf3b7d64d30f2bae07896a0a709e20b17"
+ORCHESTRATION_SHA = "e62230daef2ca916007f2b478d32b9deb2575f7f"
 
 
 def test_all_four_shard_notebooks_lock_exact_predeclared_schedule():
