@@ -9,7 +9,7 @@ WRAPPER_SHA = "4b0349be2600c2797fc8fc61a8a6a48ffbabdb37"
 
 def test_all_map_notebooks_have_kernel_and_exact_wrapper_lock():
     paths = sorted((ROOT / "notebooks").glob("pixel-relational-motif-m0-*-kaggle.ipynb"))
-    assert len(paths) == 9
+    assert len(paths) == 10
     for path in paths:
         notebook = json.loads(path.read_text(encoding="utf-8"))
         assert notebook["metadata"]["kernelspec"]["name"] == "python3"
