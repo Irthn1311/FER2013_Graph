@@ -2,6 +2,12 @@ extends: fer2013_ofix7_mid_tensorflow_baseline.yaml
 run_name: ofix7_mid_kaggle_2gpu_seed42
 seed: 42
 
+paths:
+  fer_csv: /kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv
+  prior_root: /kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-best-retry-rescue/outputs/d16_mediapipe_pixel_priors_best_retry_rescue
+  graph_cache_dir: /kaggle/input/datasets/irthn1311/ofix7-mid-seed42-records
+  output_root: /kaggle/working/outputs/lap_gnn_kaggle_2gpu
+
 data:
   batch_size: 32 # Global batch size scaled for 2x GPU (16 per GPU)
   num_workers: 4
