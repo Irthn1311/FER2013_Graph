@@ -102,6 +102,50 @@ def resolve_path(cli_val: str | None, cfg_val: str | None, auto_patterns: list[s
     raise FileNotFoundError(f"Cannot resolve path for {name}. Checked auto-patterns: {auto_patterns}")
 
 
+def resolve_prior_root(cli_val: str | None, cfg_val: str | None, auto_patterns: list[str]) -> Path:
+    print("[RESOLVE] Locating MediaPipe Prior Root (requires 'train' split)...", flush=True)
+
+    candidates = []
+    if cli_val:
+        candidates.append(Path(cli_val))
+    if cfg_val:
+        candidates.append(Path(cfg_val))
+        path_str = str(cfg_val).replace("\\", "/")
+        if "/kaggle/input/datasets/" in path_str:
+            parts = [part for part in path_str.split("/") if part]
+            try:
+                ds_idx = parts.index("datasets")
+                if len(parts) > ds_idx + 2:
+                    normalized_parts = parts[:ds_idx] + parts[ds_idx + 2:]
+                    candidates.append(Path("/" + "/".join(normalized_parts)))
+            except ValueError:
+                pass
+
+    for c in candidates:
+        if c.exists():
+            if (c / "train").is_dir():
+                print(f"[-] Verified prior root (found 'train' split): {c.resolve()}", flush=True)
+                return c.resolve()
+            splits = [d.name for d in c.iterdir() if d.is_dir()]
+            print(f"[WARN] Prior candidate {c.resolve()} lacks 'train/' split! (Found subdirs: {splits})", flush=True)
+
+    # Fast search /kaggle/input for any folder with a 'train' split containing .npz files
+    kaggle_input = Path("/kaggle/input")
+    if kaggle_input.exists():
+        print("[SEARCH] Scanning /kaggle/input for any dataset containing 'train' prior .npz files...", flush=True)
+        search_dirs = sorted(glob.glob("/kaggle/input/*") + glob.glob("/kaggle/input/*/*") + glob.glob("/kaggle/input/*/*/*"))
+        for sub in search_dirs:
+            sub_path = Path(sub)
+            if sub_path.is_dir() and (sub_path / "train").is_dir():
+                npzs = list((sub_path / "train").glob("*.npz"))
+                if npzs:
+                    print(f"[AUTO-DETECT] Found valid prior root with {len(npzs)} train .npz files: {sub_path.resolve()}", flush=True)
+                    return sub_path.resolve()
+
+    # Fallback to general resolve_path
+    return resolve_path(cli_val, cfg_val, auto_patterns, "MediaPipe Prior Root")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run LAP-GNN training with YAML config on Kaggle or local GPU.")
     parser.add_argument(
@@ -146,7 +190,7 @@ def main() -> None:
         "FER CSV",
     )
 
-    prior_root = resolve_path(
+    prior_root = resolve_prior_root(
         args.prior_root,
         paths_cfg.get("prior_root"),
         [
@@ -154,7 +198,6 @@ def main() -> None:
             "/kaggle/input/**/d16_mediapipe_pixel_priors*",
             "priors/**",
         ],
-        "MediaPipe Prior Root",
     )
 
     cache_root = None
