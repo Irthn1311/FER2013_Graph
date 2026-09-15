@@ -51,15 +51,21 @@ def _lock_and_test() -> tuple[Path, str]:
 
 
 def _substrate_root() -> Path:
-    candidates = (
+    parents = (
         Path("/kaggle/input/pgm-m0-frozen-substrate"),
         Path("/kaggle/input/datasets/irthn1311/pgm-m0-frozen-substrate"),
         Path("/kaggle/input/datasets/trngthngcnhi/pgm-m0-frozen-substrate"),
         Path("/kaggle/input/datasets/thanhhhgng/pgm-m0-frozen-substrate"),
+        Path("/kaggle/input/datasets/nuyntai/pgm-m0-frozen-substrate"),
     )
-    matches = [root for root in candidates if (root / "m0_substrate_manifest.json").is_file()]
+    matches = [root for root in parents if (root / "m0_substrate_manifest.json").is_file()]
+    for parent in parents:
+        if parent.is_dir():
+            matches.extend(path.parent for path in parent.glob("versions/*/m0_substrate_manifest.json"))
+    matches = sorted(set(matches))
     if len(matches) != 1:
         raise RuntimeError(f"need exactly one frozen M0 substrate mount: {matches}")
+    print(f"Resolved frozen M0 substrate root: {matches[0]}", flush=True)
     return matches[0]
 
 
