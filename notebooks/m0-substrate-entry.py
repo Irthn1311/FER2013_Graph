@@ -61,6 +61,8 @@ def _source_lock() -> tuple[Path, str]:
 
 def _r1_root() -> Path:
     candidates = (
+        Path("/kaggle/input/pgm-e0r-v538-r1-for-m0"),
+        Path("/kaggle/input/datasets/trngthngcnhi/pgm-e0r-v538-r1-for-m0"),
         Path("/kaggle/input/pgm-e0r-v538-r1-frozen"),
         Path("/kaggle/input/datasets/irthn1311/pgm-e0r-v538-r1-frozen"),
         Path("/kaggle/input/datasets/nuyntai/pgm-e0r-v538-r1-frozen"),
