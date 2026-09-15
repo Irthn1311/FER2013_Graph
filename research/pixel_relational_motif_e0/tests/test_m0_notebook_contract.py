@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[3]
-WRAPPER_SHA = "d7a1cb1434ccb95ba6e3fb1373c19c79844f5d6a"
+WRAPPER_SHA = "4b0349be2600c2797fc8fc61a8a6a48ffbabdb37"
 
 
 def test_all_map_notebooks_have_kernel_and_exact_wrapper_lock():
