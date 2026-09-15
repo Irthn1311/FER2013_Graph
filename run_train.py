@@ -95,11 +95,12 @@ def resolve_path(cli_val: str | None, cfg_val: str | None, auto_patterns: list[s
         print(f"[AUTO-DETECT] Found {name}: {found}", flush=True)
         return found.resolve()
 
-    if cfg_val:
-        return Path(cfg_val)
-    if cli_val:
-        return Path(cli_val)
-    raise FileNotFoundError(f"Cannot resolve path for {name}. Checked auto-patterns: {auto_patterns}")
+    raise FileNotFoundError(
+        f"Cannot resolve existing path for {name}.\n"
+        f"  CLI value: {cli_val}\n"
+        f"  Config value: {cfg_val}\n"
+        f"  Checked patterns: {auto_patterns}"
+    )
 
 
 def resolve_prior_root(cli_val: str | None, cfg_val: str | None, auto_patterns: list[str]) -> Path:
@@ -142,8 +143,19 @@ def resolve_prior_root(cli_val: str | None, cfg_val: str | None, auto_patterns: 
                     print(f"[AUTO-DETECT] Found valid prior root with {len(npzs)} train .npz files: {sub_path.resolve()}", flush=True)
                     return sub_path.resolve()
 
-    # Fallback to general resolve_path
-    return resolve_path(cli_val, cfg_val, auto_patterns, "MediaPipe Prior Root")
+        # Check if we found ANY prior dataset (even if it only has 'val')
+        for sub in search_dirs:
+            sub_path = Path(sub)
+            if sub_path.is_dir() and (sub_path / "val").is_dir():
+                val_npzs = list((sub_path / "val").glob("*.npz"))
+                if val_npzs:
+                    print(f"[WARN] Found prior folder at {sub_path.resolve()}, but it ONLY has 'val' ({len(val_npzs)} files) and NO 'train' split!", flush=True)
+
+    raise FileNotFoundError(
+        "Could not find MediaPipe priors for the 'train' split in /kaggle/input.\n"
+        "Full LAP-GNN training requires the 28,709 train .npz files.\n"
+        "Please check your attached Kaggle datasets or ensure the train priors dataset is added."
+    )
 
 
 def main() -> None:
@@ -176,6 +188,21 @@ def main() -> None:
     print(f"LAP-GNN Training Runner | Run Name: {config.get('run_name', 'unnamed')}")
     print(f"Config: {config_path}")
     print("=" * 70)
+
+    # Diagnostic: list attached datasets in /kaggle/input if on Kaggle
+    kaggle_input = Path("/kaggle/input")
+    if kaggle_input.exists():
+        print("[-] Attached datasets in /kaggle/input:")
+        for item in sorted(kaggle_input.iterdir()):
+            if item.is_dir():
+                try:
+                    children = [c.name for c in item.iterdir()][:6]
+                    print(f"    * {item.name}/ -> {children}")
+                except Exception:
+                    print(f"    * {item.name}/")
+            else:
+                print(f"    * {item.name}")
+        print("-" * 70)
 
     # 1. Resolve paths
     fer_csv = resolve_path(
