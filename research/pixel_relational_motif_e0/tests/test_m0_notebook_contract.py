@@ -4,7 +4,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[3]
-WRAPPER_SHA = "4b0349be2600c2797fc8fc61a8a6a48ffbabdb37"
+FIT_WRAPPER_SHA = "4b0349be2600c2797fc8fc61a8a6a48ffbabdb37"
+AGGREGATE_WRAPPER_SHA = "46a423dafe4668f2b7258a85879457f5acd1b456"
 
 
 def test_all_map_notebooks_have_kernel_and_exact_wrapper_lock():
@@ -14,7 +15,8 @@ def test_all_map_notebooks_have_kernel_and_exact_wrapper_lock():
         notebook = json.loads(path.read_text(encoding="utf-8"))
         assert notebook["metadata"]["kernelspec"]["name"] == "python3"
         source = "".join(part for cell in notebook["cells"] if cell["cell_type"] == "code" for part in cell.get("source", []))
-        assert WRAPPER_SHA in source
+        expected_sha = AGGREGATE_WRAPPER_SHA if "aggregate" in path.name else FIT_WRAPPER_SHA
+        assert expected_sha in source
         assert "PrivateTest" not in source and "test.csv" not in source
         for cell in notebook["cells"]:
             if cell["cell_type"] == "code":
