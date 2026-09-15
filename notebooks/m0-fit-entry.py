@@ -15,6 +15,7 @@ import sys
 
 REPO_URL = "https://github.com/Irthn1311/FER2013_Graph.git"
 SCIENTIFIC_SHA = "8910e9757210674a1504837c5b8bc66e2da9208d"
+CANONICAL_FIT_WRAPPER_SHA = "0b0306327ec3b7066f99334b9dcd344d95f9b49b"
 SEEDS = (42, 43, 44, 45, 46)
 
 
@@ -69,10 +70,12 @@ def _substrate_root() -> Path:
     return matches[0]
 
 
-def _update_manifest(output: Path, job: str, fits: list[dict], wrapper_sha: str, account: str) -> None:
+def _update_manifest(output: Path, job: str, fits: list[dict], orchestration_sha: str, account: str) -> None:
     payload = {
         "experiment": "PGM_M0_INCREMENTAL_GRAPH_STRUCTURED_PROCESSING", "issue": 82,
-        "scientific_sha": SCIENTIFIC_SHA, "execution_wrapper_sha": wrapper_sha,
+        "scientific_sha": SCIENTIFIC_SHA,
+        "execution_wrapper_sha": CANONICAL_FIT_WRAPPER_SHA,
+        "orchestration_sha": orchestration_sha,
         "job": job, "account": account, "fits": fits, "public_labels_read": False,
         "public_metrics_calculated": False, "private_test_read": False,
     }
@@ -89,7 +92,7 @@ def main() -> int:
         raise ValueError("L does not accept seeds")
     if args.family != "L" and (not args.seeds or any(seed not in SEEDS for seed in args.seeds) or len(set(args.seeds)) != len(args.seeds)):
         raise ValueError("M/G seeds must be distinct registered seeds")
-    _science, wrapper_sha = _lock_and_test()
+    _science, orchestration_sha = _lock_and_test()
     from pixel_relational_motif_e0.m0_substrate import load_substrate
     from pixel_relational_motif_e0.m0_train import environment_record, fit_l, train_seed
 
@@ -98,18 +101,20 @@ def main() -> int:
     output.mkdir(parents=True, exist_ok=True)
     job = f"{args.family}_{'_'.join(map(str,args.seeds)) or 'fixed'}"
     fits: list[dict] = []
-    _update_manifest(output, job, fits, wrapper_sha, args.account)
+    _update_manifest(output, job, fits, orchestration_sha, args.account)
     if args.family == "L":
-        fits.append(fit_l(substrate, output, scientific_sha=SCIENTIFIC_SHA, wrapper_sha=wrapper_sha, account=args.account))
-        _update_manifest(output, job, fits, wrapper_sha, args.account)
+        fits.append(fit_l(substrate, output, scientific_sha=SCIENTIFIC_SHA, wrapper_sha=CANONICAL_FIT_WRAPPER_SHA, account=args.account))
+        _update_manifest(output, job, fits, orchestration_sha, args.account)
     else:
         for seed in args.seeds:
-            fits.append(train_seed(substrate, args.family, seed, output, scientific_sha=SCIENTIFIC_SHA, wrapper_sha=wrapper_sha, account=args.account))
-            _update_manifest(output, job, fits, wrapper_sha, args.account)
+            fits.append(train_seed(substrate, args.family, seed, output, scientific_sha=SCIENTIFIC_SHA, wrapper_sha=CANONICAL_FIT_WRAPPER_SHA, account=args.account))
+            _update_manifest(output, job, fits, orchestration_sha, args.account)
             print(f"[PGM-M0] checkpointed {args.family}{seed} sha256={fits[-1]['sha256']}", flush=True)
     (output / "environment.json").write_text(json.dumps(environment_record(), indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
     (output / "source_lock_provenance.json").write_text(json.dumps({
-        "issue": 82, "scientific_sha": SCIENTIFIC_SHA, "execution_wrapper_sha": wrapper_sha,
+        "issue": 82, "scientific_sha": SCIENTIFIC_SHA,
+        "execution_wrapper_sha": CANONICAL_FIT_WRAPPER_SHA,
+        "orchestration_sha": orchestration_sha,
         "account": args.account, "family": args.family, "seeds": args.seeds,
         "public_labels_read": False, "private_test_read": False,
     }, indent=2, sort_keys=True, allow_nan=False), encoding="utf-8")
