@@ -128,7 +128,7 @@ must be verified on Kaggle; no two-GPU runtime was executed locally.
 ## Run on Kaggle
 
 First upload/copy this edited repository to Kaggle, including both standalone
-directories and `run_pixel_gnn.py`. These local changes are not yet pushed to GitHub.
+directories, `train.py` and `run_pixel_gnn.py`.
 Enable a GPU accelerator. Run commands from the repository root.
 Use `--gpus 2` to require both GPUs, or `--gpus 1` for the single-device path.
 Automatic mode uses up to two visible GPUs. CPU/GPU utilization depends on
@@ -154,11 +154,19 @@ Or check architecture/gradients explicitly using synthetic data:
 !python -u run_pixel_gnn.py --gpus 2 --smoke --synthetic
 ```
 
-Run the fast configuration (batch32):
+Run using the YAML configuration (batch32):
 
 ```python
-!python -u run_pixel_gnn.py --gpus 2 --batch-size 32 --fer-csv /kaggle/input/YOUR_DATASET/fer13-split/train.csv
+!python -u train.py --config standalone/pixel_gnn_only/configs/fer2013_pixel_gnn_only_kaggle_fast_seed42.yaml
 ```
+
+`train.py` delegates to the same Pixel-GNN runner; it does not start the full
+LAP-GNN model. No training logic is duplicated. Edit the YAML's `paths.fer_csv`
+to match your attached Kaggle dataset and `paths.output_root` for outputs.
+`runtime.gpus: auto` uses up to two visible GPUs; set it to `2` to require both.
+To change batch size entirely in YAML, set `data.batch_size`,
+`training.batch_size` and `resources.batch_size` to the same number.
+The supplied fast YAML has all three set to 32.
 
 For a larger throughput run use `--batch-size 64` (32 graphs/GPU). Its T4
 memory requirements have not been measured; batch32 is the supplied default.
@@ -199,6 +207,7 @@ prediction probabilities, per-class metrics and confusion matrix.
 ## Files created
 
 ```text
+train.py
 run_pixel_gnn.py
 standalone/pixel_gnn_only/README.md
 standalone/pixel_gnn_only/requirements-kaggle.txt
