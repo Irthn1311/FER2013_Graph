@@ -83,6 +83,10 @@ Accepted data layouts:
 
 1. A directory containing `train.csv`, exactly one of `val.csv` / `validation.csv`,
    and `test.csv`, with `emotion,pixels` columns. Pass its `train.csv`.
+   These files may retain a `Usage` column. Named split files take precedence;
+   their rows are not filtered again by `Usage`. The loader logs the selected
+   file and parsing progress. A single CSV with `Usage` and no sibling split
+   files still uses the official Usage groups.
 2. Original `fer2013.csv` with `emotion,pixels,Usage`, using `Training`,
    `PublicTest`, `PrivateTest` as train, validation, test respectively.
 
@@ -156,9 +160,12 @@ standalone/pixel_gnn_only/pixel_gnn_only/model.py
 standalone/pixel_gnn_only/pixel_gnn_only/protocol.py
 standalone/pixel_gnn_only/pixel_gnn_only/smoke.py
 standalone/pixel_gnn_only/pixel_gnn_only/trainer.py
+standalone/pixel_gnn_only/tests/test_dataset_splits.py
 ```
 
-No existing tracked files were modified. Per the user's instruction, no local
+The initial ablation left full-model files unchanged. The subsequent split-loader
+fix changes only this ablation's dataset loader, this README and adds synthetic
+CSV regression tests. Per the user's instruction, no local
 tests, smoke, installation or training were run for this implementation.
 Kaggle runtime, checkpoint roundtrip and accuracy remain unverified until run.
 This implementation is not a parity claim for the changed architecture.
