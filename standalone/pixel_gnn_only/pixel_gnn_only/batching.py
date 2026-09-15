@@ -28,16 +28,19 @@ class GraphBatchGenerator:
         telemetry=None,
         graph_workers: int = 1,
         clean_graph_cache_dir: str | Path | None = None,
+        dataset: PixelDataset | None = None,
     ):
         if clean_graph_cache_dir is not None:
             raise ValueError("Pixel-GNN cannot use a landmark/full-model graph cache")
-        self.dataset = PixelDataset(fer_csv, split)
+        self.dataset = dataset if dataset is not None else PixelDataset(fer_csv, split)
+        if self.dataset.split != split:
+            raise ValueError("Shared pixel dataset must match the requested split")
         self.split = split
         self.batch_size = int(batch_size)
         self.seed = int(seed)
         self.shuffle = bool(shuffle)
         self.cache_size = max(int(graph_cache_size), 0)
-        self.cache: OrderedDict[tuple[int, int], object] = OrderedDict()
+        self.cache: OrderedDict[int, object] = OrderedDict()
         self.telemetry = telemetry
         self.graph_workers = max(int(graph_workers), 1)
         self._cache_lock = threading.Lock()
@@ -53,7 +56,8 @@ class GraphBatchGenerator:
         return order
 
     def _graph(self, index: int, epoch: int):
-        key = (int(epoch), int(index)) if self.split == "train" else (0, int(index))
+        # PixelDataset is deterministic and has no augmentation/prior corruption.
+        key = int(index)
         with self._cache_lock:
             if key in self.cache:
                 graph = self.cache.pop(key)
@@ -97,7 +101,9 @@ class GraphBatchGenerator:
                             indices,
                         )
                     )
-                batch = collate_pixel_graphs(graphs)
+                # Host tensors are sharded by whole graph before GPU transfer.
+                with tf.device("/CPU:0"):
+                    batch = collate_pixel_graphs(graphs)
                 if self.telemetry is not None:
                     self.telemetry.batch_construction_sec.append(
                         time.perf_counter() - started
@@ -134,6 +140,8 @@ class GraphBatchGenerator:
         )
         options = tf.data.Options()
         options.experimental_deterministic = True
+        options.threading.private_threadpool_size = self.graph_workers
+        options.threading.max_intra_op_parallelism = 1
         dataset = dataset.with_options(options)
         if int(prefetch) > 0:
             dataset = dataset.prefetch(int(prefetch))

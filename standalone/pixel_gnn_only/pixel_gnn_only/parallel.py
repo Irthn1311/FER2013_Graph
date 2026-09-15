@@ -14,6 +14,10 @@ from pixel_gnn_only.execution import validate_gradient_contract
 from pixel_gnn_only.model import PixelGNNOnly
 
 
+def variable_devices(model):
+    return sorted({variable.handle.device for variable in model.trainable_variables})
+
+
 def shard_graph_batch(batch, graph_start, graph_end):
     """Slice complete, contiguous graphs and rebase edge/node graph indices."""
     with tf.device("/CPU:0"):
@@ -54,7 +58,12 @@ def create_replica(primary, example_batch, gpu_count):
         replica = PixelGNNOnly()
         replica(shard_graph_batch(example_batch, 0, 1), training=False)
     sync_replica(primary, replica)
-    print("[PARALLEL] GPU:0 + GPU:1; global batch 16 = 8 + 8; one global optimizer update", flush=True)
+    if any("GPU:0" not in device for device in variable_devices(primary)):
+        raise RuntimeError("Primary model variables were not placed on GPU:0")
+    if any("GPU:1" not in device for device in variable_devices(replica)):
+        raise RuntimeError("Replica model variables were not placed on GPU:1")
+    count = int(example_batch["labels"].shape[0])
+    print(f"[PARALLEL] GPU:0 + GPU:1; example batch {count} = {(count + 1) // 2} + {count // 2}; weight replica ready", flush=True)
     return replica
 
 
@@ -75,10 +84,10 @@ def replica_gradients(model, batch, optimizer, total_examples, training=True):
     return loss, gradients
 
 
-def build_parallel_train_step(primary, replica, optimizer):
+def build_parallel_train_step(primary, replica, optimizer, training=True):
     if replica is None:
         from pixel_gnn_only.execution import build_restricted_graph_train_step
-        return build_restricted_graph_train_step(primary, optimizer, GraphBatchGenerator.output_signature())
+        return build_restricted_graph_train_step(primary, optimizer, GraphBatchGenerator.output_signature(), training=training)
 
     @tf.function(autograph=False, jit_compile=False,
                  input_signature=[GraphBatchGenerator.output_signature()], reduce_retracing=True)
@@ -89,7 +98,7 @@ def build_parallel_train_step(primary, replica, optimizer):
 
         def single_graph():
             with tf.device("/GPU:0"):
-                return replica_gradients(primary, batch, optimizer, count)
+                return replica_gradients(primary, batch, optimizer, count, training=training)
 
         def two_devices():
             with tf.device("/CPU:0"):
@@ -97,9 +106,9 @@ def build_parallel_train_step(primary, replica, optimizer):
                 left = shard_graph_batch(batch, 0, midpoint)
                 right = shard_graph_batch(batch, midpoint, count)
             with tf.device("/GPU:0"):
-                loss_left, gradients_left = replica_gradients(primary, left, optimizer, count)
+                loss_left, gradients_left = replica_gradients(primary, left, optimizer, count, training=training)
             with tf.device("/GPU:1"):
-                loss_right, gradients_right = replica_gradients(replica, right, optimizer, count)
+                loss_right, gradients_right = replica_gradients(replica, right, optimizer, count, training=training)
             with tf.device("/GPU:0"):
                 return loss_left + loss_right, [a + b for a, b in zip(gradients_left, gradients_right)]
 

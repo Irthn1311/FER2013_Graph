@@ -16,7 +16,7 @@ import tensorflow as tf
 import yaml
 
 from lap_gnn_tf.config import canonical_config_hash, load_config
-from pixel_gnn_only.protocol import validate_pixel_config, write_pixel_provenance
+from pixel_gnn_only.protocol import validate_pixel_config, write_pixel_provenance, apply_batch_size_override
 from pixel_gnn_only.smoke import describe_model
 from lap_gnn_tf.compat import keras_version
 from pixel_gnn_only.batching import GraphBatchGenerator
@@ -32,18 +32,17 @@ from lap_gnn_tf.training.artifacts import (
 )
 from lap_gnn_tf.training.early_stopping import ValidationLossEarlyStopping
 from pixel_gnn_only.evaluator import (
-    build_compiled_evaluation_step,
     evaluate_batches,
 )
 from pixel_gnn_only.execution import (
     MAX_REGISTERED_TRAIN_STEP_TRACES,
     apply_gradients_eager_exact,
     build_compiled_gradient_function,
-    build_restricted_graph_train_step,
     validate_execution_config,
 )
 from pixel_gnn_only.artifacts import write_predictions, write_training_curves
-from lap_gnn_tf.training.optimizer import build_optimizer
+from pixel_gnn_only.parallel import create_replica, build_parallel_train_step, build_parallel_evaluation_step
+from pixel_gnn_only.runtime import available_cpu_count
 from lap_gnn_tf.training.plateau import TorchCompatibleReduceLROnPlateau
 
 
@@ -143,20 +142,33 @@ def run_training(
     limit_train_eval_batches: int | None = None,
     limit_test_batches: int | None = None,
     limit_epochs: int | None = None,
+    gpu_count: int = 1,
+    batch_size_override: int | None = None,
+    resources_initialized: bool = False,
 ):
     if not no_resume:
         raise ValueError("TensorFlow candidate resume is disabled by default and must not be enabled for seed42")
     config = load_config(config_path)
+    apply_batch_size_override(config, batch_size_override)
     validate_pixel_config(config)
     execution_state = validate_execution_config(config["training"])
     config["data"]["prior_dir"] = None
     if controls.batch_size != config["training"]["batch_size"]:
-        raise ValueError("Batch size must remain equal to the frozen baseline")
+        raise ValueError("Resource batch size must match the resolved config")
+    if gpu_count not in (1, 2):
+        raise ValueError("Only one or two GPUs are supported")
+    if gpu_count == 2 and execution_state["optimizer_execution_mode"] != "restricted_tf_function":
+        raise ValueError("Two-GPU execution requires restricted_tf_function")
     if controls.clean_graph_cache_dir is not None:
         raise ValueError("Full-model/prior caches are forbidden")
     config["data"]["fer_csv"] = str(Path(fer_csv).resolve())
     config["training"]["batch_size"] = int(controls.batch_size)
     config["resources"].update(controls.__dict__)
+    config.setdefault("runtime", {})["resolved_gpus"] = gpu_count
+    config["runtime"]["allocated_cpu_count"] = available_cpu_count()
+    execution_state["data_parallel"] = "explicit_two_device_gradients" if gpu_count == 2 else "single_device"
+    execution_state["global_gradient_clipping"] = "once after replica gradient summation"
+    execution_state["bitwise_single_gpu_parity"] = "UNVERIFIED; replica RNG/reduction order can differ"
     output_dir = Path(output_root)
     if output_dir.exists() and any(output_dir.iterdir()):
         raise FileExistsError(f"Fresh TensorFlow output must be absent or empty: {output_dir}")
@@ -167,7 +179,8 @@ def run_training(
     _atomic_json(output_dir / "resolved_config.json", config)
     seed = int(config["seed"])
     seed_everything(seed)
-    controls.apply()
+    if not resources_initialized:
+        controls.apply()
     telemetry = RuntimeTelemetry()
     train_data = GraphBatchGenerator(
         fer_csv, "train", config, controls.batch_size, seed, True,
@@ -188,22 +201,27 @@ def run_training(
             fer_csv, "train", eval_config, controls.eval_batch_size, seed, False,
             controls.graph_cache_size, telemetry, graph_workers=controls.graph_workers,
             clean_graph_cache_dir=controls.clean_graph_cache_dir,
+            dataset=train_data.dataset,
         )
+        # Shared immutable pixels and a bounded graph LRU; no second train CSV read.
+        train_eval_data.cache = train_data.cache
+        train_eval_data._cache_lock = train_data._cache_lock
+        print("[DATA] train-eval: reusing loaded train pixels and bounded graph cache", flush=True)
     first_batch = next(iter(train_data.as_dataset(1, limit_batches=1)))
-    model = PixelGNNOnly()
-    model(first_batch, training=False)
+    with tf.device("/GPU:0"):
+        model = PixelGNNOnly()
+        model(first_batch, training=False)
     describe_model(model, first_batch, output_dir)
-    eval_step = build_compiled_evaluation_step(model)
-    optimizer = build_optimizer(config)
-    optimizer.build(model.trainable_variables)
-    model.compile(optimizer=optimizer, run_eagerly=False)
+    replica = create_replica(model, first_batch, gpu_count)
+    eval_step = build_parallel_evaluation_step(model, replica)
+    from lap_gnn_tf.training.optimizer import build_optimizer
+    with tf.device("/GPU:0"):
+        optimizer = build_optimizer(config)
+        optimizer.build(model.trainable_variables)
+        model.compile(optimizer=optimizer, run_eagerly=False)
     optimizer_mode = execution_state["optimizer_execution_mode"]
     if optimizer_mode == "restricted_tf_function":
-        execute_train_step = build_restricted_graph_train_step(
-            model,
-            optimizer,
-            input_signature=GraphBatchGenerator.output_signature(),
-        )
+        execute_train_step = build_parallel_train_step(model, replica, optimizer)
     else:
         if hasattr(optimizer, "inner_optimizer"):
             raise RuntimeError(
@@ -478,14 +496,18 @@ def run_training(
     selected_checkpoint, selected_epoch = resolve_final_checkpoint(config, policy)
     selected_stem = Path(selected_checkpoint).stem
     primary = output_dir / "checkpoints" / selected_checkpoint
-    selected_model = tf.keras.models.load_model(primary, compile=False)
+    with tf.device("/GPU:0"):
+        selected_model = tf.keras.models.load_model(primary, compile=False)
     test_data = GraphBatchGenerator(
         fer_csv, "test", config, controls.eval_batch_size, seed, False,
         controls.graph_cache_size, telemetry, graph_workers=controls.graph_workers,
         clean_graph_cache_dir=controls.clean_graph_cache_dir,
     )
     write_pixel_provenance(output_dir, [train_data.dataset, val_data.dataset, test_data.dataset])
-    test_eval_step = build_compiled_evaluation_step(selected_model)
+    # Only now construct final-test batches; no test input is used for selection.
+    test_example = next(iter(test_data.as_dataset(0, limit_batches=1)))
+    test_replica = create_replica(selected_model, test_example, gpu_count)
+    test_eval_step = build_parallel_evaluation_step(selected_model, test_replica)
     print(
         f"[TEST] evaluating selected checkpoint "
         f"{selected_checkpoint} from epoch {selected_epoch}",
@@ -529,6 +551,9 @@ def run_training(
     )
     artifact_paths.extend([confusion_csv, confusion_png])
     run_summary = {
+        "gpu_count": gpu_count,
+        "effective_global_batch_size": controls.batch_size,
+        "authorized_training_changes": config["ablation_provenance"]["authorized_training_changes"],
         "selected_checkpoint": selected_checkpoint,
         "best_epoch": int(selected_epoch),
         "best_macro_epoch": int(policy.best_macro_epoch),

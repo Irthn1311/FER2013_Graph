@@ -13,11 +13,37 @@ REFERENCE_CONFIG = REFERENCE_ROOT / "configs/fer2013_ofix7_mid_tensorflow_seed42
 EXPECTED_PARAMETER_COUNT = 189319
 
 
+def apply_batch_size_override(config, batch_size):
+    if batch_size is None:
+        return
+    if not config.get("runtime", {}).get("allow_batch_size_override", False):
+        raise ValueError("Batch override is allowed only in the separate Kaggle fast configuration")
+    if not isinstance(batch_size, int) or isinstance(batch_size, bool) or batch_size < 1:
+        raise ValueError("Batch size must be a positive integer")
+    previous_batch = config["training"]["batch_size"]
+    for section in ["data", "training", "resources"]:
+        config[section]["batch_size"] = batch_size
+    config["run_name"] = f"pixel_gnn_only_fast_bs{batch_size}_seed{config['seed']}"
+    if config.get("paths", {}).get("output_root"):
+        config["paths"]["output_root"] = config["paths"]["output_root"].replace(
+            f"_bs{previous_batch}_", f"_bs{batch_size}_")
+
+
 def validate_pixel_config(config):
     baseline = load_config(REFERENCE_CONFIG)
     for key in ["training", "loss", "seed", "from_scratch", "init_checkpoint"]:
-        if config.get(key) != baseline.get(key):
+        actual = config.get(key)
+        expected = baseline.get(key)
+        if key == "training" and config.get("runtime", {}).get("allow_batch_size_override", False):
+            actual = {k: v for k, v in actual.items() if k != "batch_size"}
+            expected = {k: v for k, v in expected.items() if k != "batch_size"}
+        if actual != expected:
             raise ValueError(f"Pixel-GNN training protocol drift: {key}")
+    batch_size = config["training"]["batch_size"]
+    if not isinstance(batch_size, int) or isinstance(batch_size, bool) or batch_size < 1:
+        raise ValueError("Training batch size must be a positive integer")
+    if any(config[section]["batch_size"] != batch_size for section in ["data", "resources"]):
+        raise ValueError("data/training/resources batch sizes must agree")
     graph, model, data = config["graph"], config["model"], config["data"]
     checks = {
         "no_mediapipe": data.get("use_mediapipe_priors") is False,
@@ -61,7 +87,12 @@ def validate_pixel_config(config):
     }
     config["ablation_provenance"] = {"base_commit": BASE_COMMIT,
         "baseline_config": str(REFERENCE_CONFIG), "baseline_config_hash": canonical_config_hash(baseline),
-        "training_protocol_equal": True, "prior_operations": "absent; baseline corruption affects priors only",
+        "training_protocol_equal": config["training"] == baseline["training"],
+        "baseline_global_batch_size": baseline["training"]["batch_size"],
+        "effective_global_batch_size": batch_size,
+        "authorized_training_changes": [] if batch_size == baseline["training"]["batch_size"] else ["batch_size"],
+        "architecture_only_comparison": batch_size == baseline["training"]["batch_size"],
+        "prior_operations": "absent; baseline corruption affects priors only",
         "image_augmentation": "none in the frozen TensorFlow loader; raw grayscale retained"}
     return checks
 
@@ -70,6 +101,7 @@ def source_checksum():
     digest = hashlib.sha256()
     root = Path(__file__).resolve().parents[1]
     paths = sorted(root.rglob("*.py")) + sorted((REFERENCE_ROOT / "src/lap_gnn_tf").rglob("*.py"))
+    paths += sorted(root.rglob("*.yaml")) + [root.parent.parent / "run_pixel_gnn.py"]
     paths += [REFERENCE_CONFIG, REFERENCE_ROOT / "configs/fer2013_ofix7_mid_tensorflow_baseline.yaml"]
     for path in paths:
         digest.update(path.name.encode())

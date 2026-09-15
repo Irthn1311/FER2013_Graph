@@ -7,9 +7,7 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 
-from lap_gnn_tf.training.losses import sparse_cross_entropy
-from lap_gnn_tf.training.optimizer import build_optimizer
-from pixel_gnn_only.execution import build_restricted_graph_train_step, validate_gradient_contract
+from pixel_gnn_only.execution import validate_gradient_contract
 from pixel_gnn_only.model import PixelGNNOnly
 from pixel_gnn_only.protocol import EXPECTED_PARAMETER_COUNT
 
@@ -45,33 +43,55 @@ def describe_model(model, batch, output_dir):
     return report
 
 
-def run_smoke(batch, config, output_dir, input_kind):
+def run_smoke(batch, config, output_dir, input_kind, gpu_count=1):
     directory = Path(output_dir)
     if directory.exists() and any(directory.iterdir()):
         raise FileExistsError(f"Smoke output must be fresh: {directory}")
-    model = PixelGNNOnly()
+    with tf.device("/GPU:0"):
+        model = PixelGNNOnly()
     report = describe_model(model, batch, directory)
-    with tf.GradientTape() as tape:
-        output = model(batch, training=True)
-        loss = sparse_cross_entropy(batch["labels"], output["logits"])
-    gradients = tape.gradient(loss, model.trainable_variables)
+    from pixel_gnn_only.parallel import (create_replica, build_parallel_train_step,
+                                         replica_gradients, shard_graph_batch, variable_devices)
+    replica = create_replica(model, batch, gpu_count)
+    count = int(batch["labels"].shape[0])
+    if replica is not None and count > 1:
+        midpoint = (count + 1) // 2
+        left = shard_graph_batch(batch, 0, midpoint)
+        right = shard_graph_batch(batch, midpoint, count)
+        with tf.device("/GPU:0"):
+            loss_left, gradients_left = replica_gradients(model, left, None, count)
+        with tf.device("/GPU:1"):
+            loss_right, gradients_right = replica_gradients(replica, right, None, count)
+        with tf.device("/GPU:0"):
+            loss = loss_left + loss_right
+            gradients = [a + b for a, b in zip(gradients_left, gradients_right)]
+    else:
+        with tf.device("/GPU:0"):
+            loss, gradients = replica_gradients(model, batch, None, count)
     validate_gradient_contract(gradients, model.trainable_variables)
     if not bool(tf.math.is_finite(loss)) or not all(bool(tf.reduce_all(tf.math.is_finite(g))) for g in gradients):
         raise FloatingPointError("Non-finite loss or gradients")
-    optimizer = build_optimizer(config)
-    optimizer.build(model.trainable_variables)
+    from lap_gnn_tf.training.optimizer import build_optimizer
+    with tf.device("/GPU:0"):
+        optimizer = build_optimizer(config)
+        optimizer.build(model.trainable_variables)
     # Also exercise the same compiled, mixed-precision optimizer path as training.
-    from pixel_gnn_only.batching import GraphBatchGenerator
-    step = build_restricted_graph_train_step(model, optimizer, GraphBatchGenerator.output_signature())
+    step = build_parallel_train_step(model, replica, optimizer)
     before = [v.numpy().copy() for v in model.trainable_variables]
     step_loss = step(batch)
     changed = any(not np.array_equal(a, v.numpy()) for a, v in zip(before, model.trainable_variables))
     if not changed or int(optimizer.iterations.numpy()) != 1:
         raise RuntimeError("The compiled optimizer step did not update parameters")
+    if replica is not None and not all(np.array_equal(a.numpy(), b.numpy()) for a, b in
+                                      zip(model.trainable_variables, replica.trainable_variables)):
+        raise RuntimeError("GPU replica weights were not synchronized")
     report.update({"input_kind": input_kind, "batch_size": int(batch["labels"].shape[0]),
                    "forward_backward": "PASS", "compiled_optimizer_update": "PASS",
                    "loss": float(loss.numpy()), "compiled_loss": float(step_loss.numpy()),
                    "gradient_variable_count": len(gradients),
+                   "gpu_count": gpu_count, "replica_weights_synced": replica is not None,
+                   "primary_variable_devices": variable_devices(model),
+                   "replica_variable_devices": variable_devices(replica) if replica is not None else [],
                    "scientific_accuracy": "UNKNOWN; this is only a smoke test"})
     (directory / "smoke_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2), flush=True)

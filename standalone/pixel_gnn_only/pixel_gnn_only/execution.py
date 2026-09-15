@@ -135,6 +135,7 @@ def build_restricted_graph_train_step(
     model,
     optimizer,
     input_signature: dict[str, tf.TensorSpec] | None = None,
+    training: bool = True,
 ):
     """Build the selected G1-A full compute/update training function."""
 
@@ -148,7 +149,7 @@ def build_restricted_graph_train_step(
     )
     def train_step(batch):
         with tf.GradientTape() as tape:
-            output = model(batch, training=True)
+            output = model(batch, training=training)
             loss = sparse_cross_entropy(batch["labels"], output["logits"])
             if hasattr(optimizer, "scale_loss"):
                 scaled_loss = optimizer.scale_loss(loss)
