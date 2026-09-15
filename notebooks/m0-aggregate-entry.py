@@ -47,6 +47,7 @@ def main() -> int:
     sys.path.insert(0, str(package / "src"))
     from pixel_relational_motif_e0.m0_aggregate import aggregate, independent_recompute
     from pixel_relational_motif_e0.m0_substrate import load_substrate
+    from pixel_relational_motif_e0.m0_train import validate_fit_artifact
     if sha256(args.r1_results) != R1_RESULTS_SHA256:
         raise RuntimeError("canonical R1 result hash mismatch")
     substrate = load_substrate(args.substrate_root)
@@ -59,6 +60,11 @@ def main() -> int:
     expected = {"m0_L_prediction.npz", *(f"m0_M_seed_{s}.npz" for s in range(42,47)), *(f"m0_G_seed_{s}.npz" for s in range(42,47))}
     if set(found) != expected or any(len(paths) != 1 for paths in found.values()):
         raise RuntimeError(f"prediction set mismatch: {sorted(found)}")
+    validate_fit_artifact(found["m0_L_prediction.npz"][0], substrate, family="L", seed=None, scientific_sha=SCIENTIFIC_SHA, wrapper_sha=CANONICAL_FIT_WRAPPER_SHA)
+    for family in ("M", "G"):
+        for seed in range(42, 47):
+            validate_fit_artifact(found[f"m0_{family}_seed_{seed}.npz"][0], substrate, family=family, seed=seed, scientific_sha=SCIENTIFIC_SHA, wrapper_sha=CANONICAL_FIT_WRAPPER_SHA)
+    print("All 11 prediction artifacts verified before Public labels are loaded.", flush=True)
     with __import__("numpy").load(args.r1_results, allow_pickle=False) as result:
         public_ids = __import__("numpy").asarray(result["public_ids"]).copy()
         public_labels = __import__("numpy").asarray(result["public_labels"]).copy()

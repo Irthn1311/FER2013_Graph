@@ -22,4 +22,5 @@ def test_aggregate_is_only_entry_that_reads_public_labels():
     aggregate = (ROOT / "notebooks/m0-aggregate-entry.py").read_text(encoding="utf-8")
     assert 'result["public_labels"]' in aggregate
     assert "independent_recompute(" in aggregate
+    assert aggregate.index("validate_fit_artifact(") < aggregate.index('result["public_labels"]')
     assert 'CANONICAL_FIT_WRAPPER_SHA = "0b030632db66ba7e8fe47c1240f1a27e412b9ef4"' in aggregate
