@@ -1,0 +1,33 @@
+extends: fer2013_ofix7_mid_tensorflow_baseline.yaml
+run_name: ofix7_mid_kaggle_2gpu_seed42
+seed: 42
+
+data:
+  batch_size: 32 # Global batch size scaled for 2x GPU (16 per GPU)
+  num_workers: 4
+  prefetch_factor: 4
+
+graph:
+  prior_corruption:
+    seed: 7741
+
+training:
+  seed: 42
+  batch_size: 32
+  eval_train_every_n_epochs: 5
+  final_test_checkpoint: best_val_accuracy
+
+resources:
+  device: "gpu"
+  multi_gpu: true
+  num_gpus: 2
+  batch_size: 32
+  eval_batch_size: 64
+  graph_workers: 4
+  tf_data_prefetch: 4
+  memory_growth: true
+  mixed_precision: true
+
+logging:
+  wandb:
+    enabled: false

@@ -1,131 +1,61 @@
-# FER-D5: Class-Level Pixel Motif Graph Retrieval
+# LAP-GNN: Landmark-Aware Pixel Graph Neural Network for FER2013
 
-Clean D5 project for FER-2013. It builds full 48x48 pixel graphs, learns class-level node/edge motif prototypes, retrieves soft class subgraphs, and classifies by graph matching scores.
+This repository contains the standalone TensorFlow/Keras implementation of **LAP-GNN OFIX7-mid**, designed for Facial Expression Recognition on the FER2013 dataset.
 
-## D5A Idea
+## Core Package
 
-Pipeline:
+The self-contained, frozen reference package is located at:
+`standalone/lap_gnn_tensorflow_ofix7_mid_candidate/`
 
-```text
-FER-2013 CSV -> graph_repo -> full graph dataloader
--> class-level pixel motif prototypes T_0..T_6
--> soft retrieved subgraph S_i,c per class
--> graph matching logits [B, 7]
--> CE + motif regularization
--> evaluation + motif mask visualization
-```
+### Model Specifications
+- **Input**: FER2013 48x48 pixel images with MediaPipe landmark priors.
+  - 2,304 pixel nodes with 37 node channels (intensity, spatial gradient/detail, 32 MediaPipe prior channels).
+  - ~17,860 edges with 8 edge attributes (relative deltas, distance, gradient/intensity differences, part similarities).
+- **Architecture**:
+  - `PixelEncoder`: Pointwise Dense (37 -> 96).
+  - `EdgeContextEncoder`: 3 Gated Edge-Context Message Passing layers (hidden size 96).
+  - `part_pool` & `MicroMotifSupportReadout`: 5 anatomical facial parts (Mouth, Eye, Brow, Nose/Cheek, Global) with 20 micro-motif tokens producing a 480-dimensional image representation.
+  - `Classifier`: Dense (480 -> 7 classes).
+  - **Trainable Parameters**: Exactly 1,061,192.
 
-No CNN, no 41D descriptor motif, no candidate attention dataset, no pixel motif v2, no legacy motif bank, and no greedy top-K.
+## Kaggle Execution (2x GPU)
 
-## Data Contract
+The repository provides configurations and notebooks for running on Kaggle with 2x Tesla T4 GPUs:
 
-Batch keys:
+- **2-GPU Configuration**:
+  `standalone/lap_gnn_tensorflow_ofix7_mid_candidate/configs/fer2013_ofix7_mid_tensorflow_kaggle_2gpu.yaml`
+  - Global batch size: 32 (16 per GPU).
+  - `mixed_precision: true`, `memory_growth: true`.
+  - Multi-worker prefetching (`graph_workers: 4`, `tf_data_prefetch: 4`).
+- **Main Kaggle Notebook**:
+  `notebooks/kaggle-end-to-end.ipynb`
+- **Validation Notebook**:
+  `notebooks/kaggle-issue7-validation-only.ipynb`
 
-- `x` / `node_features`: `[B, 2304, 7]`
-- `edge_index`: `[2, 17860]`
-- `edge_attr`: `[B, 17860, 5]`
-- `node_mask`: `[B, 2304]`
-- `y` / `label`: `[B]`
-- `graph_id`: `[B]`
+### Kaggle Input Datasets
+1. FER2013 split CSVs (`train.csv`, `val.csv`, `test.csv`):
+   `/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split`
+2. Verified D16 MediaPipe priors:
+   `/kaggle/input/datasets/irthn1311/d16-mediapipe-pixel-priors-best-retry-rescue/outputs/d16_mediapipe_pixel_priors_best_retry_rescue`
+3. Clean graph cache:
+   `/kaggle/input/datasets/irthn1311/ofix7-mid-seed42-records`
 
-Model outputs:
+## Local Validation & Testing
 
-- `logits`: `[B, 7]`
-- `node_attn`: `[B, 7, 2304]`
-- `edge_attn`: `[B, 7, 17860]`
-- `class_node_gate`: `[7, 2304]`
-- `class_edge_gate`: `[7, 17860]`
-- diagnostics dict
-
-## Install
-
-```bash
-cd fer_d5
-pip install -r requirements.txt
-```
-
-## Config Layout
-
-- `configs/base.yaml`: shared defaults and `local`/`kaggle` path profiles.
-- `configs/d5a.yaml`: the D5A experiment config to edit for model, loss, optimizer, scheduler, training limits, and default environment.
-
-## Local Commands
-
-Build graph repository:
+Run commands from the package directory:
 
 ```bash
-python scripts/build_graph_repo.py --config configs/d5a.yaml --environment local
+cd standalone/lap_gnn_tensorflow_ofix7_mid_candidate
+
+# Inspect environment
+python -m lap_gnn_tf.cli.inspect_environment
+
+# Compare golden weights and parity
+python -m lap_gnn_tf.cli.compare_golden --package-root .
+
+# Validate baseline configuration
+python -m lap_gnn_tf.cli.validate --config configs/fer2013_ofix7_mid_tensorflow_baseline.yaml --golden
+
+# Run test suite
+pytest -q
 ```
-
-Inspect:
-
-```bash
-python scripts/inspect_graph_repo.py --config configs/d5a.yaml --environment local
-```
-
-Debug one batch:
-
-```bash
-python scripts/debug_d5a_batch.py --config configs/d5a.yaml --environment local --batch_size 2
-```
-
-Smoke run:
-
-```bash
-python scripts/run_experiment.py --config configs/d5a.yaml --environment local --mode smoke --max_train_batches 3 --max_val_batches 2 --max_test_batches 2 --batch_size 2
-```
-
-Train:
-
-```bash
-python scripts/train_d5a.py --config configs/d5a.yaml --environment local
-```
-
-Evaluate:
-
-```bash
-python scripts/evaluate_d5a.py --config configs/d5a.yaml --environment local --checkpoint outputs_local/checkpoints/best.pth
-```
-
-Visualize:
-
-```bash
-python scripts/visualize_d5.py --config configs/d5a.yaml --environment local --checkpoint outputs_local/checkpoints/best.pth --max_samples 16
-```
-
-## Kaggle Usage
-
-Use `notebooks/kaggle_d5_end_to_end.ipynb`.
-
-1. Add a Kaggle input dataset containing `train.csv`, `val.csv`, and `test.csv`.
-2. Clone or upload this repo.
-3. In the notebook config cell, start with `MODE = "smoke"`.
-4. For a full run, use `MODE = "build_and_train"`.
-
-Recommended first run:
-
-```bash
-python scripts/run_experiment.py --config configs/d5a.yaml --environment kaggle --mode smoke --max_train_batches 3 --max_val_batches 2
-```
-
-Full run:
-
-```bash
-python scripts/run_experiment.py --config configs/d5a.yaml --environment kaggle --mode build_and_train
-```
-
-## Expected Outputs
-
-- `outputs/checkpoints/best.pth`
-- `outputs/evaluation/confusion_matrix.png`
-- `outputs/evaluation/predictions.csv`
-- `outputs/figures/d5a_class_gates/*.png`
-- `outputs/figures/d5a_attention/**/*.png`
-
-## Intentionally Not Included
-
-- candidate motif bank
-- descriptor 41D pipeline
-- D3.1 candidate slots
-- D4A generic slot pooling classifier
-- CNN classifier branches
