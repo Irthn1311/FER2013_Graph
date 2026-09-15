@@ -1,0 +1,13 @@
+# Runtime acceleration only. Training/loss/seed are inherited unchanged.
+extends: fer2013_pixel_gnn_only_seed42.yaml
+resources:
+  graph_workers: 0  # auto: available CPU affinity/quota, bounded by batch size
+  intra_op_threads: 0  # auto: available CPU affinity/quota
+  inter_op_threads: 2
+  tf_data_prefetch: 4
+  graph_cache_size: 256
+runtime:
+  gpus: auto  # use both T4s when available; --gpus 2 requires two
+paths:
+  fer_csv: /kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv
+  output_root: /kaggle/working/outputs/pixel_gnn_only_fast_seed42
