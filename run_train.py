@@ -15,6 +15,12 @@ import sys
 import time
 from pathlib import Path
 
+# Force line buffering for stdout/stderr so logs appear immediately
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(line_buffering=True)
+
 # Add standalone package to PYTHONPATH
 REPO_ROOT = Path(__file__).resolve().parent
 STANDALONE_SRC = REPO_ROOT / "standalone" / "lap_gnn_tensorflow_ofix7_mid_candidate" / "src"
@@ -32,27 +38,61 @@ DEFAULT_CONFIG = (
 
 def find_first_match(patterns: list[str]) -> Path | None:
     for pattern in patterns:
-        matches = sorted(glob.glob(pattern, recursive=True))
-        if matches:
-            return Path(matches[0])
+        if "**" in pattern:
+            prefix, _, suffix = pattern.partition("**")
+            prefix = prefix.rstrip("/\\")
+            suffix = suffix.lstrip("/\\")
+            base = Path(prefix)
+            if base.exists():
+                for level in [
+                    f"{prefix}/{suffix}",
+                    f"{prefix}/*/{suffix}",
+                    f"{prefix}/*/*/{suffix}",
+                    f"{prefix}/*/*/*/{suffix}",
+                ]:
+                    matches = sorted(glob.glob(level))
+                    if matches:
+                        return Path(matches[0]).resolve()
+        else:
+            matches = sorted(glob.glob(pattern))
+            if matches:
+                return Path(matches[0]).resolve()
     return None
 
 
 def resolve_path(cli_val: str | None, cfg_val: str | None, auto_patterns: list[str], name: str) -> Path:
+    print(f"[RESOLVE] Locating {name}...", flush=True)
     if cli_val:
         p = Path(cli_val).resolve()
         if p.exists():
+            print(f"[-] Using CLI path for {name}: {p}", flush=True)
             return p
-        print(f"[WARN] CLI path for {name} does not exist: {p}")
+        print(f"[WARN] CLI path for {name} does not exist: {p}", flush=True)
 
     if cfg_val:
         p = Path(cfg_val)
         if p.exists():
+            print(f"[-] Found {name} from config: {p.resolve()}", flush=True)
             return p.resolve()
+
+        # Handle common Kaggle mistake: /kaggle/input/datasets/<username>/<slug>/... -> /kaggle/input/<slug>/...
+        path_str = str(cfg_val).replace("\\", "/")
+        if "/kaggle/input/datasets/" in path_str:
+            parts = [part for part in path_str.split("/") if part]
+            try:
+                ds_idx = parts.index("datasets")
+                if len(parts) > ds_idx + 2:
+                    normalized_parts = parts[:ds_idx] + parts[ds_idx + 2:]
+                    normalized = Path("/" + "/".join(normalized_parts))
+                    if normalized.exists():
+                        print(f"[AUTO-DETECT] Normalized Kaggle path for {name}: {normalized.resolve()}", flush=True)
+                        return normalized.resolve()
+            except ValueError:
+                pass
 
     found = find_first_match(auto_patterns)
     if found and found.exists():
-        print(f"[AUTO-DETECT] Found {name}: {found}")
+        print(f"[AUTO-DETECT] Found {name}: {found}", flush=True)
         return found.resolve()
 
     if cfg_val:
