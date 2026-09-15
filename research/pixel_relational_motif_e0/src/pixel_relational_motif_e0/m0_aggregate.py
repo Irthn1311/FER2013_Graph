@@ -145,7 +145,7 @@ def aggregate(
     with results.open("wb") as stream:
         np.savez_compressed(
             stream, experiment=np.asarray(EXPERIMENT_ID), issue=np.asarray(ISSUE_NUMBER, np.int32),
-            scientific_sha=np.asarray(scientific_sha), substrate_sha256=np.asarray(substrate_sha),
+            scientific_sha=np.asarray(scientific_sha), wrapper_sha=np.asarray(wrapper_sha), substrate_sha256=np.asarray(substrate_sha),
             public_ids=ids, public_labels=labels, seeds=np.asarray(SEEDS, np.int32),
             l_prediction=l_prediction, m_predictions=m_predictions, g_predictions=g_predictions,
             l_metrics=l_metric, m_metrics=m_metrics, g_metrics=g_metrics,
@@ -154,7 +154,7 @@ def aggregate(
             registered_verdict=np.asarray(verdict),
         )
     summary = {
-        "experiment": EXPERIMENT_ID, "issue": ISSUE_NUMBER, "scientific_sha": scientific_sha,
+        "experiment": EXPERIMENT_ID, "issue": ISSUE_NUMBER, "scientific_sha": scientific_sha, "wrapper_sha": wrapper_sha,
         "substrate_sha256": substrate_sha, "public_status": "PublicTest developmental evidence only",
         "historical_e0r2_descriptive": {"accuracy": 0.42017275006965726, "macro_f1": 0.41720028899607875},
         "L": {"accuracy": l_metric[0], "macro_f1": l_metric[1], "artifact": l_record},

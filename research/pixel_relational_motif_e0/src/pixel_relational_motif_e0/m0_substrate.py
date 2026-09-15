@@ -173,7 +173,9 @@ def _canonical_ids(role: str) -> np.ndarray:
     return np.arange(TRAIN_ROWS, dtype=np.int32) if role == "train" else np.arange(TRAIN_ROWS, TRAIN_ROWS + PUBLIC_ROWS, dtype=np.int32)
 
 
-def build_substrate(occurrences_path: str | Path, r1_results_path: str | Path, output_dir: str | Path) -> dict:
+def build_substrate(occurrences_path: str | Path, r1_results_path: str | Path, output_dir: str | Path, *, m0_scientific_sha: str) -> dict:
+    if len(m0_scientific_sha) != 40:
+        raise ValueError("M0 scientific SHA must be a full commit")
     occurrences_path, r1_results_path = Path(occurrences_path), Path(r1_results_path)
     if sha256_file(occurrences_path) != OCCURRENCES_SHA256 or sha256_file(r1_results_path) != R1_RESULTS_SHA256:
         raise ValueError("frozen E0.R input SHA mismatch")
@@ -236,6 +238,7 @@ def build_substrate(occurrences_path: str | Path, r1_results_path: str | Path, o
     manifest = {
         "experiment": EXPERIMENT_ID,
         "issue": ISSUE_NUMBER,
+        "m0_scientific_sha": m0_scientific_sha,
         "e0r_scientific_sha": E0R_SCIENTIFIC_SHA,
         "occurrences_sha256": OCCURRENCES_SHA256,
         "r1_results_sha256": R1_RESULTS_SHA256,
@@ -311,4 +314,3 @@ def load_substrate(root: str | Path) -> LoadedM0Substrate:
         train_graph=graph("train_graphs.npz"),
         public_graph=graph("public_graphs.npz"),
     )
-
