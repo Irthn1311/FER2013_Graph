@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 
-SOURCE_SHA = "194876ccb5a723255f6e6ffaf3105f8cc3f1fc9e"
+SOURCE_SHA = "f2ff796ce01a92b1d4a010113d0c5160f1dc2c3d"
 EXPECTED_DICTIONARY_SHA256 = "68154a054f712bb07692146904bcba57f10e079c7efc92723aa0bccba9f6273b"
 
 
