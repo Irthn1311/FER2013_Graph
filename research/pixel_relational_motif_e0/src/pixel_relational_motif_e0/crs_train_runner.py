@@ -13,6 +13,7 @@ import numpy as np
 import scipy
 import sklearn
 from numpy.lib.format import open_memmap
+from scipy import sparse
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score
 
@@ -37,11 +38,17 @@ from .crs_stage import (
     SphericalKMeansResult,
     composition_descriptors,
     crs_image_feature,
+    descriptors_to_csr,
     p_image_feature,
     permute_cell_blocks,
 )
 from .e01_runner import TRAIN_ROWS
-from .e02_runner import TRAIN_SHA256, load_labels_downstream, load_pixels_only, sha256_file
+from .e02_runner import (
+    TRAIN_SHA256,
+    load_labels_downstream,
+    load_pixels_only,
+    sha256_file,
+)
 
 
 SOURCE_BASE_SHA = "49e65e1032f1af13fd615a2e6f7a64f20760684b"
@@ -51,17 +58,17 @@ SKM_N_INIT = 3
 SKM_MAX_ITER = 50
 SKM_TOL = 1e-6
 SKM_BATCH_SIZE = 8192
+SPARSE_POOL_CHUNK_IMAGES = 256
 
 LOGREG_C = 1.0
 LOGREG_SOLVER = "lbfgs"
 LOGREG_CLASS_WEIGHT = "balanced"
 LOGREG_MAX_ITER = 5000
-# Explicitly fix sklearn's long-standing lbfgs default tolerance. This is an
+# Explicitly fix sklearn's longstanding lbfgs default tolerance. This is an
 # implementation clarification before PublicTest access, not a tuned value.
 LOGREG_TOL = 1e-4
 
 FEATURE_DT = np.float32
-POOL_DT = np.float32
 PRIMITIVE_DT = np.int16
 
 
@@ -90,7 +97,9 @@ def _environment_manifest() -> dict[str, str]:
     }
 
 
-def _fit_registered_skm(pool: np.ndarray, *, arm: str) -> SphericalKMeansResult:
+def _fit_registered_skm(
+    pool: np.ndarray | sparse.spmatrix, *, arm: str
+) -> SphericalKMeansResult:
     result = SphericalKMeans(
         n_clusters=CRS_K,
         n_init=SKM_N_INIT,
@@ -179,17 +188,54 @@ def _fit_fixed_probe(x: np.ndarray, y: np.ndarray, *, arm: str) -> ProbeState:
         n_iter=n_iter,
         train_accuracy=float(accuracy_score(labels, pred)),
         train_macro_f1=float(
-            f1_score(labels, pred, labels=np.arange(7), average="macro", zero_division=0)
+            f1_score(
+                labels,
+                pred,
+                labels=np.arange(7),
+                average="macro",
+                zero_division=0,
+            )
         ),
         converged=converged,
     )
 
 
 def probe_predict(state: ProbeState, x: np.ndarray) -> np.ndarray:
-    """Version-light inference from the stored multinomial linear parameters."""
+    """Version-light inference from stored multinomial linear parameters."""
     data = np.asarray(x)
     logits = data @ state.coef.T + state.intercept[None, :]
     return state.classes[np.argmax(logits, axis=1)]
+
+
+def _save_sparse_pool_chunk(
+    blocks: list[sparse.csr_matrix], *, path: Path
+) -> None:
+    if not blocks:
+        raise ValueError("cannot save empty sparse-pool chunk")
+    matrix = sparse.vstack(blocks, format="csr", dtype=np.float32)
+    matrix.eliminate_zeros()
+    matrix.sort_indices()
+    if matrix.shape[1] != CRS_DESCRIPTOR_DIM:
+        raise AssertionError("sparse-pool descriptor dimension invariant violated")
+    sparse.save_npz(path, matrix, compressed=True)
+
+
+def _load_sparse_pool_chunks(paths: list[Path]) -> sparse.csr_matrix:
+    if not paths:
+        raise ValueError("no sparse-pool chunks")
+    matrices = [sparse.load_npz(path).astype(np.float32) for path in paths]
+    pool = sparse.vstack(matrices, format="csr", dtype=np.float32)
+    pool.eliminate_zeros()
+    pool.sort_indices()
+    expected = TRAIN_ROWS * DICTIONARY_SAMPLES_PER_IMAGE
+    if pool.shape != (expected, CRS_DESCRIPTOR_DIM):
+        raise AssertionError(f"sparse dictionary-pool shape mismatch: {pool.shape}")
+    return pool
+
+
+def _unlink_all(paths: list[Path]) -> None:
+    for path in paths:
+        path.unlink(missing_ok=True)
 
 
 def _create_training_intermediates(
@@ -197,17 +243,18 @@ def _create_training_intermediates(
     substrate,
     *,
     work_dir: Path,
-) -> tuple[Path, Path, Path, dict[str, str]]:
-    """Build one primitive cache plus matched sampled M/C dictionary pools.
+) -> tuple[Path, list[Path], list[Path], dict[str, str]]:
+    """Build primitive cache plus matched sparse M/C dictionary-pool chunks.
 
-    Labels are not accepted by this function. The sampled pools are exactly
-    24 rows/image; the primitive cache is reused later for dense extraction so
-    the expensive frozen-GMM assignment is not recomputed.
+    Labels are not accepted by this function. Exactly 24 rows/image enter the
+    dictionary pools. Sparse serialization is an exact engineering encoding of
+    the registered 1152D vectors, not a scientific change.
     """
-    n_rows = TRAIN_ROWS * DICTIONARY_SAMPLES_PER_IMAGE
     primitive_path = work_dir / "train_primitive_maps.npy"
-    m_path = work_dir / "crs_m_pool.npy"
-    c_path = work_dir / "crs_c_pool.npy"
+    m_chunk_dir = work_dir / "m_pool_chunks"
+    c_chunk_dir = work_dir / "c_pool_chunks"
+    m_chunk_dir.mkdir()
+    c_chunk_dir.mkdir()
 
     primitive_maps = open_memmap(
         primitive_path,
@@ -215,25 +262,40 @@ def _create_training_intermediates(
         dtype=PRIMITIVE_DT,
         shape=(TRAIN_ROWS, PRIMITIVE_SIDE, PRIMITIVE_SIDE),
     )
-    m_pool = open_memmap(
-        m_path, mode="w+", dtype=POOL_DT, shape=(n_rows, CRS_DESCRIPTOR_DIM)
-    )
-    c_pool = open_memmap(
-        c_path, mode="w+", dtype=POOL_DT, shape=(n_rows, CRS_DESCRIPTOR_DIM)
-    )
 
     h_primitive = hashlib.sha256()
     h_sample_identity = hashlib.sha256()
     h_m = hashlib.sha256()
     h_c = hashlib.sha256()
+    m_paths: list[Path] = []
+    c_paths: list[Path] = []
+    m_blocks: list[sparse.csr_matrix] = []
+    c_blocks: list[sparse.csr_matrix] = []
+    chunk_index = 0
+    row_count = 0
 
-    row = 0
+    def flush_chunk() -> None:
+        nonlocal m_blocks, c_blocks, chunk_index
+        if not m_blocks:
+            return
+        m_path = m_chunk_dir / f"m_{chunk_index:04d}.npz"
+        c_path = c_chunk_dir / f"c_{chunk_index:04d}.npz"
+        _save_sparse_pool_chunk(m_blocks, path=m_path)
+        _save_sparse_pool_chunk(c_blocks, path=c_path)
+        m_paths.append(m_path)
+        c_paths.append(c_path)
+        m_blocks = []
+        c_blocks = []
+        chunk_index += 1
+
     for image_id in range(TRAIN_ROWS):
         primitive = primitive_map_from_uint8(images_uint8[image_id], substrate)
         if primitive.shape != (PRIMITIVE_SIDE, PRIMITIVE_SIDE):
             raise AssertionError("primitive-cache shape invariant violated")
         primitive_maps[image_id] = primitive
-        h_primitive.update(np.ascontiguousarray(primitive, dtype=PRIMITIVE_DT).tobytes())
+        h_primitive.update(
+            np.ascontiguousarray(primitive, dtype=PRIMITIVE_DT).tobytes()
+        )
 
         centers, m, c = sampled_training_descriptors(
             primitive, image_id=image_id, master_seed=MASTER_SEED
@@ -242,25 +304,29 @@ def _create_training_intermediates(
             raise AssertionError("registered 24-patch sampling invariant violated")
         h_sample_identity.update(np.asarray([image_id], dtype=np.int32).tobytes())
         h_sample_identity.update(np.asarray(centers, dtype=np.int32).tobytes())
-
-        sl = slice(row, row + DICTIONARY_SAMPLES_PER_IMAGE)
-        m_pool[sl] = m
-        c_pool[sl] = c
         h_m.update(np.ascontiguousarray(m).tobytes())
         h_c.update(np.ascontiguousarray(c).tobytes())
-        row += DICTIONARY_SAMPLES_PER_IMAGE
+        m_blocks.append(descriptors_to_csr(m))
+        c_blocks.append(descriptors_to_csr(c))
+        row_count += DICTIONARY_SAMPLES_PER_IMAGE
 
+        if (
+            (image_id + 1) % SPARSE_POOL_CHUNK_IMAGES == 0
+            or image_id + 1 == TRAIN_ROWS
+        ):
+            flush_chunk()
         if (image_id + 1) % 250 == 0 or image_id + 1 == TRAIN_ROWS:
             _log(f"primitive/sample pool {image_id + 1}/{TRAIN_ROWS} images")
 
-    if row != n_rows:
+    expected_rows = TRAIN_ROWS * DICTIONARY_SAMPLES_PER_IMAGE
+    if row_count != expected_rows:
         raise AssertionError("dictionary pool row-count invariant violated")
+    if len(m_paths) != len(c_paths) or not m_paths:
+        raise AssertionError("matched sparse-pool chunk invariant violated")
 
     primitive_maps.flush()
-    m_pool.flush()
-    c_pool.flush()
-    del primitive_maps, m_pool, c_pool
-    return primitive_path, m_path, c_path, {
+    del primitive_maps
+    return primitive_path, m_paths, c_paths, {
         "primitive_maps": h_primitive.hexdigest(),
         "sample_identity": h_sample_identity.hexdigest(),
         "M_pool": h_m.hexdigest(),
@@ -282,9 +348,15 @@ def _build_dense_features(
     p_path = work_dir / "train_P.npy"
     m_path = work_dir / "train_M.npy"
     c_path = work_dir / "train_C.npy"
-    p_features = open_memmap(p_path, mode="w+", dtype=FEATURE_DT, shape=(TRAIN_ROWS, P_DIM))
-    m_features = open_memmap(m_path, mode="w+", dtype=FEATURE_DT, shape=(TRAIN_ROWS, M_DIM))
-    c_features = open_memmap(c_path, mode="w+", dtype=FEATURE_DT, shape=(TRAIN_ROWS, C_DIM))
+    p_features = open_memmap(
+        p_path, mode="w+", dtype=FEATURE_DT, shape=(TRAIN_ROWS, P_DIM)
+    )
+    m_features = open_memmap(
+        m_path, mode="w+", dtype=FEATURE_DT, shape=(TRAIN_ROWS, M_DIM)
+    )
+    c_features = open_memmap(
+        c_path, mode="w+", dtype=FEATURE_DT, shape=(TRAIN_ROWS, C_DIM)
+    )
     hp = hashlib.sha256()
     hm = hashlib.sha256()
     hc = hashlib.sha256()
@@ -297,7 +369,7 @@ def _build_dense_features(
         m_desc = composition_descriptors(primitive, normalize=True)
         if m_desc.shape != (CRS_VALID_POSITIONS, CRS_DESCRIPTOR_DIM):
             raise AssertionError("dense M descriptor shape invariant violated")
-        m_ids = m_dict.predict(m_desc)
+        m_ids = m_dict.predict(descriptors_to_csr(m_desc))
         if m_ids.shape != (CRS_VALID_POSITIONS,):
             raise AssertionError("dense M assignment count invariant violated")
         m = crs_image_feature(m_ids)
@@ -309,7 +381,7 @@ def _build_dense_features(
             center_indices=dense_indices,
             master_seed=MASTER_SEED,
         )
-        c_ids = c_dict.predict(c_desc)
+        c_ids = c_dict.predict(descriptors_to_csr(c_desc))
         if c_ids.shape != (CRS_VALID_POSITIONS,):
             raise AssertionError("dense C assignment count invariant violated")
         c = crs_image_feature(c_ids)
@@ -409,29 +481,46 @@ def run_train_stage(
     existing = [str(path) for path in final_paths if path.exists()]
     if existing:
         raise FileExistsError(
-            "refusing to overwrite registered Train-stage outputs: " + ", ".join(existing)
+            "refusing to overwrite registered Train-stage outputs: "
+            + ", ".join(existing)
         )
 
+    # Exact CSR pools have at most 81 non-zero entries/descriptor. Reserve their
+    # uncompressed upper bound plus dense final features, primitive cache, and a
+    # two-GiB safety margin. The on-disk NPZ chunks are compressed in practice.
     n_pool_rows = TRAIN_ROWS * DICTIONARY_SAMPLES_PER_IMAGE
-    pool_bytes = 2 * n_pool_rows * CRS_DESCRIPTOR_DIM * np.dtype(POOL_DT).itemsize
-    primitive_bytes = (
-        TRAIN_ROWS * PRIMITIVE_SIDE * PRIMITIVE_SIDE * np.dtype(PRIMITIVE_DT).itemsize
+    sparse_pool_upper = 2 * (
+        n_pool_rows * 81 * (np.dtype(np.float32).itemsize + np.dtype(np.int32).itemsize)
+        + (n_pool_rows + 1) * np.dtype(np.int32).itemsize
     )
-    feature_bytes = TRAIN_ROWS * (P_DIM + M_DIM + C_DIM) * np.dtype(FEATURE_DT).itemsize
-    required_bytes = int(pool_bytes + primitive_bytes + feature_bytes + (1 << 30))
+    primitive_bytes = (
+        TRAIN_ROWS
+        * PRIMITIVE_SIDE
+        * PRIMITIVE_SIDE
+        * np.dtype(PRIMITIVE_DT).itemsize
+    )
+    feature_bytes = (
+        TRAIN_ROWS
+        * (P_DIM + M_DIM + C_DIM)
+        * np.dtype(FEATURE_DT).itemsize
+    )
+    required_bytes = int(
+        sparse_pool_upper + primitive_bytes + feature_bytes + (2 << 30)
+    )
     free_bytes = shutil.disk_usage(out_dir).free
     if free_bytes < required_bytes:
         raise RuntimeError(
-            f"insufficient free disk for registered Train stage: need at least "
-            f"{required_bytes / (1 << 30):.2f} GiB, have {free_bytes / (1 << 30):.2f} GiB"
+            "insufficient free disk for registered Train stage: need at least "
+            f"{required_bytes / (1 << 30):.2f} GiB, "
+            f"have {free_bytes / (1 << 30):.2f} GiB"
         )
 
     dictionary_path = Path(dictionary_npz)
     dictionary_sha = sha256_file(dictionary_path)
     if dictionary_sha != E01_V533_DICTIONARY_SHA256:
         raise ValueError(
-            f"CRS stage requires v533 dictionary SHA256 {E01_V533_DICTIONARY_SHA256}, "
-            f"got {dictionary_sha}"
+            f"CRS stage requires v533 dictionary SHA256 "
+            f"{E01_V533_DICTIONARY_SHA256}, got {dictionary_sha}"
         )
 
     substrate = load_frozen_primitive_substrate(dictionary_path)
@@ -444,28 +533,30 @@ def run_train_stage(
     work_dir = Path(tempfile.mkdtemp(prefix="crs_train_", dir=out_dir))
     _log(f"temporary work dir: {work_dir}")
     try:
-        primitive_path, m_pool_path, c_pool_path, intermediate_hashes = (
+        primitive_path, m_chunk_paths, c_chunk_paths, intermediate_hashes = (
             _create_training_intermediates(
                 train.images_uint8, substrate, work_dir=work_dir
             )
         )
         _log(f"sample identity sha256={intermediate_hashes['sample_identity']}")
+        _log(
+            f"sparse dictionary pool chunks: M={len(m_chunk_paths)} "
+            f"C={len(c_chunk_paths)}"
+        )
 
-        m_pool = _load_memmap(m_pool_path)
+        m_pool = _load_sparse_pool_chunks(m_chunk_paths)
         m_dict = _fit_registered_skm(m_pool, arm="M")
         m_diag = _cluster_diagnostics(m_dict.labels_)
         del m_pool
+        if not keep_work:
+            _unlink_all(m_chunk_paths)
 
-        c_pool = _load_memmap(c_pool_path)
+        c_pool = _load_sparse_pool_chunks(c_chunk_paths)
         c_dict = _fit_registered_skm(c_pool, arm="C")
         c_diag = _cluster_diagnostics(c_dict.labels_)
         del c_pool
-
-        # Pools are construction intermediates. The hashes and learned centers
-        # are retained; the ~6 GiB sampled pool files need not be scientific outputs.
         if not keep_work:
-            m_pool_path.unlink(missing_ok=True)
-            c_pool_path.unlink(missing_ok=True)
+            _unlink_all(c_chunk_paths)
 
         p_path, m_path, c_path, feature_hashes = _build_dense_features(
             primitive_path, m_dict, c_dict, work_dir=work_dir
@@ -486,12 +577,12 @@ def run_train_stage(
             "C": _fit_fixed_probe(_load_memmap(c_path), y, arm="C"),
         }
 
-        # Verify that stored linear parameters reproduce a valid class prediction
-        # path independently of sklearn estimator serialization.
         for arm, path in (("P", p_path), ("M", m_path), ("C", c_path)):
             pred = probe_predict(probes[arm], _load_memmap(path)[:16])
             if pred.shape != (16,) or np.any((pred < 0) | (pred > 6)):
-                raise AssertionError(f"{arm} stored-probe inference invariant violated")
+                raise AssertionError(
+                    f"{arm} stored-probe inference invariant violated"
+                )
 
         artifact_path = out_dir / "crs_train_model.npz"
         _save_model_artifact(
@@ -531,6 +622,8 @@ def run_train_stage(
                     "max_iter": SKM_MAX_ITER,
                     "tol": SKM_TOL,
                     "batch_size": SKM_BATCH_SIZE,
+                    "exact_sparse_cosine": True,
+                    "pool_chunk_images": SPARSE_POOL_CHUNK_IMAGES,
                 },
                 "p_dim": P_DIM,
                 "m_dim": M_DIM,
@@ -578,7 +671,8 @@ def run_train_stage(
         }
         summary_path = out_dir / "crs_train_summary.json"
         summary_path.write_text(
-            json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            json.dumps(summary, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
         )
         _log(f"Train-only CRS stage complete: {summary_path}")
         _log("PublicTest remains locked; this runner has no PublicTest input.")
@@ -590,7 +684,10 @@ def run_train_stage(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Registered Train-only P/M/C CRS fitting stage. PublicTest is inaccessible."
+        description=(
+            "Registered Train-only P/M/C CRS fitting stage. "
+            "PublicTest is inaccessible."
+        )
     )
     parser.add_argument("--train-csv", required=True)
     parser.add_argument("--dictionary-npz", required=True)
