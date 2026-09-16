@@ -11,6 +11,7 @@ import numpy as np
 import tensorflow as tf
 
 from pixel_gnn.dataset import FERPixelDataset
+from pixel_gnn.augmentation import augment_batch
 
 
 def collate_samples(samples: list[dict]) -> dict[str, tf.Tensor]:
@@ -38,6 +39,10 @@ class PixelBatchGenerator:
         cache_size: int = 512,
         workers: int = 2,
         dataset: FERPixelDataset | None = None,
+        augment: bool = False,
+        flip_prob: float = 0.5,
+        brightness_delta: float = 0.08,
+        contrast_range: tuple[float, float] = (0.9, 1.1),
     ):
         self.dataset = dataset if dataset is not None else FERPixelDataset(fer_csv, split)
         self.split = split
@@ -48,6 +53,10 @@ class PixelBatchGenerator:
         self.cache: OrderedDict[int, dict] = OrderedDict()
         self.workers = max(int(workers), 1)
         self._cache_lock = threading.Lock()
+        self.augment = bool(augment)
+        self.flip_prob = float(flip_prob)
+        self.brightness_delta = float(brightness_delta)
+        self.contrast_range = tuple(contrast_range)
 
     def __len__(self):
         return (len(self.dataset) + self.batch_size - 1) // self.batch_size
@@ -87,7 +96,15 @@ class PixelBatchGenerator:
                     samples = [self._get_sample(idx) for idx in indices]
                 else:
                     samples = list(executor.map(self._get_sample, indices))
-                yield collate_samples(samples)
+                batch = collate_samples(samples)
+                if self.augment:
+                    batch = augment_batch(
+                        batch,
+                        flip_prob=self.flip_prob,
+                        brightness_delta=self.brightness_delta,
+                        contrast_range=self.contrast_range,
+                    )
+                yield batch
         finally:
             if executor is not None:
                 executor.shutdown(wait=True)
@@ -121,6 +138,16 @@ class PixelBatchGenerator:
                     reshuffle_each_iteration=True,
                 )
             dataset = dataset.batch(self.batch_size, drop_remainder=False)
+            if self.augment:
+                dataset = dataset.map(
+                    lambda b: augment_batch(
+                        b,
+                        flip_prob=self.flip_prob,
+                        brightness_delta=self.brightness_delta,
+                        contrast_range=self.contrast_range,
+                    ),
+                    num_parallel_calls=tf.data.AUTOTUNE,
+                )
             if limit_batches is not None:
                 dataset = dataset.take(int(limit_batches))
             dataset = dataset.prefetch(tf.data.AUTOTUNE)

@@ -167,9 +167,43 @@ def test_visualization_synthetic():
     print("[TEST] test_visualization_synthetic passed!")
 
 
+def test_augmentation_module():
+    from pixel_gnn.augmentation import augment_batch, compute_image_gradients
+
+    dummy_batch = {
+        "image_48": tf.random.uniform((4, 48, 48), 0.0, 1.0),
+        "labels": tf.constant([0, 1, 2, 3], dtype=tf.int64),
+        "sample_ids": tf.constant([10, 20, 30, 40], dtype=tf.int64),
+        "node_features": tf.zeros((4, 2304, 5)),
+    }
+
+    aug = augment_batch(
+        dummy_batch,
+        flip_prob=1.0,
+        brightness_delta=0.08,
+        contrast_range=(0.9, 1.1),
+    )
+
+    assert aug["node_features"].shape == (4, 2304, 5)
+    assert aug["image_48"].shape == (4, 48, 48)
+    assert tf.reduce_all(tf.math.is_finite(aug["node_features"])), "NaN in augmented features!"
+    assert tf.reduce_all(aug["image_48"] >= 0.0) and tf.reduce_all(aug["image_48"] <= 1.0), "Augmented image out of [0, 1] bounds!"
+
+    # Verify gradient computation against np.gradient
+    img_np = aug["image_48"].numpy()
+    gy_np, gx_np = np.gradient(img_np, axis=(1, 2))
+    gy_tf, gx_tf = compute_image_gradients(aug["image_48"])
+
+    np.testing.assert_allclose(gy_np, gy_tf.numpy(), atol=1e-5)
+    np.testing.assert_allclose(gx_np, gx_tf.numpy(), atol=1e-5)
+
+    print("[TEST] test_augmentation_module passed!")
+
+
 if __name__ == "__main__":
     test_registry()
     test_motif_graph_configurations()
     test_models_forward_and_backward()
     test_visualization_synthetic()
+    test_augmentation_module()
     print("ALL TESTS IN pixel_gnn PASSED!")

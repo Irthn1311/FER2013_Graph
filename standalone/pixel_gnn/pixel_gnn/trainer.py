@@ -51,18 +51,48 @@ def run_training(
     lambda_diversity = float(loss_cfg.get("lambda_motif_diversity", 0.0))
     lambda_spatial_coherence = float(loss_cfg.get("lambda_spatial_coherence", 0.0))
 
+    # Augmentation config (only active for train split)
+    aug_cfg = config.get("augmentation", {})
+    augment_train = bool(aug_cfg.get("enabled", False))
+    flip_prob = float(aug_cfg.get("horizontal_flip_prob", 0.5))
+    brightness_delta = float(aug_cfg.get("brightness_delta", 0.08))
+    contrast_range = tuple(aug_cfg.get("contrast_range", [0.9, 1.1]))
+
     print("=" * 80)
     print(f"[INIT] Pixel GNN Universal Trainer | Model: {model_name}")
     print(f"       batch_size={batch_size} | max_epochs={max_epochs} | seed={seed}")
     print(f"       output_dir={output_dir}")
+    if augment_train:
+        print(f"       augmentation=ENABLED (flip_p={flip_prob}, brightness=±{brightness_delta}, contrast={contrast_range})")
+    else:
+        print(f"       augmentation=DISABLED")
     print("=" * 80, flush=True)
 
     # Initialize Datasets
     train_dataset = FERPixelDataset(fer_csv, "train")
     val_dataset = FERPixelDataset(fer_csv, "val")
 
-    train_gen = PixelBatchGenerator(fer_csv, "train", batch_size=batch_size, seed=seed, shuffle=True, dataset=train_dataset)
-    val_gen = PixelBatchGenerator(fer_csv, "val", batch_size=eval_batch_size, seed=seed, shuffle=False, dataset=val_dataset)
+    train_gen = PixelBatchGenerator(
+        fer_csv,
+        "train",
+        batch_size=batch_size,
+        seed=seed,
+        shuffle=True,
+        dataset=train_dataset,
+        augment=augment_train,
+        flip_prob=flip_prob,
+        brightness_delta=brightness_delta,
+        contrast_range=contrast_range,
+    )
+    val_gen = PixelBatchGenerator(
+        fer_csv,
+        "val",
+        batch_size=eval_batch_size,
+        seed=seed,
+        shuffle=False,
+        dataset=val_dataset,
+        augment=False,
+    )
 
     # Strategy setup: auto-detect 2 GPUs on Kaggle or multi-GPU environments
     gpus = tf.config.list_physical_devices("GPU")
