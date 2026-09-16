@@ -55,7 +55,10 @@ def primitive_center_crop(primitive_map: np.ndarray) -> np.ndarray:
         raise ValueError("primitive_map must contain integer primitive IDs")
     if np.any((p < 0) | (p >= PRIMITIVE_K)):
         raise ValueError("primitive IDs outside registered K=128 range")
-    crop = p[CRS_RADIUS : PRIMITIVE_SIDE - CRS_RADIUS, CRS_RADIUS : PRIMITIVE_SIDE - CRS_RADIUS]
+    crop = p[
+        CRS_RADIUS : PRIMITIVE_SIDE - CRS_RADIUS,
+        CRS_RADIUS : PRIMITIVE_SIDE - CRS_RADIUS,
+    ]
     if crop.shape != (CRS_SIDE, CRS_SIDE):
         raise AssertionError("P-arm center crop shape invariant violated")
     return crop
@@ -77,7 +80,9 @@ def _histogram_rows(block: np.ndarray, n_bins: int = PRIMITIVE_K) -> np.ndarray:
     return counts.astype(np.float32, copy=False)
 
 
-def composition_descriptors(primitive_map: np.ndarray, *, normalize: bool = True) -> np.ndarray:
+def composition_descriptors(
+    primitive_map: np.ndarray, *, normalize: bool = True
+) -> np.ndarray:
     """Dense registered 9x9 -> 3x3-cell primitive-histogram descriptors.
 
     Returns row-major descriptors for all 36x36 valid centers with shape
@@ -94,22 +99,27 @@ def composition_descriptors(primitive_map: np.ndarray, *, normalize: bool = True
     windows = sliding_window_view(p, (CRS_SUPPORT, CRS_SUPPORT))
     if windows.shape != (CRS_SIDE, CRS_SIDE, CRS_SUPPORT, CRS_SUPPORT):
         raise AssertionError(f"unexpected CRS window shape {windows.shape}")
+
     n = CRS_VALID_POSITIONS
     cell_histograms: list[np.ndarray] = []
     for cell_y in range(CRS_CELL_GRID):
         ys = slice(cell_y * CRS_CELL_SIDE, (cell_y + 1) * CRS_CELL_SIDE)
         for cell_x in range(CRS_CELL_GRID):
             xs = slice(cell_x * CRS_CELL_SIDE, (cell_x + 1) * CRS_CELL_SIDE)
-            block = windows[:, :, ys, xs].reshape(n, CRS_CELL_SIDE * CRS_CELL_SIDE)
+            block = windows[:, :, ys, xs].reshape(
+                n, CRS_CELL_SIDE * CRS_CELL_SIDE
+            )
             hist = _histogram_rows(block, PRIMITIVE_K)
             if not np.all(hist.sum(axis=1) == CRS_CELL_SIDE * CRS_CELL_SIDE):
                 raise AssertionError("registered 9-count cell invariant violated")
             cell_histograms.append(hist)
+
     out = np.concatenate(cell_histograms, axis=1)
     if out.shape != (CRS_VALID_POSITIONS, CRS_DESCRIPTOR_DIM):
         raise AssertionError(f"CRS descriptor shape invariant violated: {out.shape}")
     if not np.all(out.sum(axis=1) == CRS_SUPPORT * CRS_SUPPORT):
         raise AssertionError("registered 81-count patch invariant violated")
+
     if normalize:
         norms = np.linalg.norm(out, axis=1, keepdims=True)
         if np.any(norms <= 0):
@@ -132,6 +142,19 @@ def composition_descriptor_subset(
         raise ValueError("composition center index outside 36x36 domain")
     dense = composition_descriptors(primitive_map, normalize=normalize)
     return dense[idx]
+
+
+def descriptors_to_csr(descriptors: np.ndarray) -> sparse.csr_matrix:
+    """Convert exact CRS descriptors to canonical float32 CSR representation."""
+    x = np.asarray(descriptors, dtype=np.float32)
+    if x.ndim != 2 or x.shape[1] != CRS_DESCRIPTOR_DIM:
+        raise ValueError(f"descriptors must have shape (n,{CRS_DESCRIPTOR_DIM})")
+    if not np.all(np.isfinite(x)):
+        raise FloatingPointError("non-finite CRS descriptor")
+    out = sparse.csr_matrix(x, dtype=np.float32)
+    out.eliminate_zeros()
+    out.sort_indices()
+    return out
 
 
 def _seed64(*parts: object) -> int:
@@ -165,7 +188,9 @@ def _permutation_table() -> np.ndarray:
     global _PERMUTATION_TABLE
     if _PERMUTATION_TABLE is None:
         flat = np.fromiter(
-            itertools.chain.from_iterable(itertools.permutations(range(CRS_CELL_GRID * CRS_CELL_GRID))),
+            itertools.chain.from_iterable(
+                itertools.permutations(range(CRS_CELL_GRID * CRS_CELL_GRID))
+            ),
             dtype=np.uint8,
         )
         table = flat.reshape(-1, CRS_CELL_GRID * CRS_CELL_GRID)
@@ -207,39 +232,68 @@ def permute_cell_blocks(
     center_indices: np.ndarray | None = None,
     master_seed: int = MASTER_SEED,
 ) -> np.ndarray:
-    """Apply the registered per-patch keyed permutation to nine 128-bin blocks."""
+    """Apply registered per-patch keyed permutation to nine 128-bin blocks."""
     x = np.asarray(descriptors, dtype=np.float32)
     if x.ndim != 2 or x.shape[1] != CRS_DESCRIPTOR_DIM:
         raise ValueError(f"descriptors must have shape (n,{CRS_DESCRIPTOR_DIM})")
-    n = len(x)
+    n = x.shape[0]
     if center_indices is None:
         if n != CRS_VALID_POSITIONS:
-            raise ValueError("center_indices required unless descriptors are dense 1296-row descriptors")
+            raise ValueError(
+                "center_indices required unless descriptors are dense 1296-row descriptors"
+            )
         center_indices = np.arange(CRS_VALID_POSITIONS, dtype=np.int32)
     idx = np.asarray(center_indices, dtype=np.int64).reshape(-1)
     if len(idx) != n or np.any((idx < 0) | (idx >= CRS_VALID_POSITIONS)):
         raise ValueError("invalid center_indices")
+
     centers = valid_center_indices()[idx]
-    blocks = x.reshape(n, 9, PRIMITIVE_K)
-    out = np.empty_like(blocks)
-    for row, ((center_y, center_x), block) in enumerate(zip(centers, blocks)):
-        perm = keyed_cell_permutation(
+    perms = np.empty((n, 9), dtype=np.int16)
+    for row, (center_y, center_x) in enumerate(centers):
+        perms[row] = keyed_cell_permutation(
             split_id=split_id,
             image_id=int(image_id),
             center_y=int(center_y),
             center_x=int(center_x),
             master_seed=master_seed,
         )
-        out[row] = block[perm]
+
+    blocks = x.reshape(n, 9, PRIMITIVE_K)
+    out = np.take_along_axis(blocks, perms[:, :, None], axis=1)
     return out.reshape(n, CRS_DESCRIPTOR_DIM)
 
 
-def _normalize_rows(x: np.ndarray) -> np.ndarray:
+def _normalize_rows(
+    x: np.ndarray | sparse.spmatrix,
+) -> np.ndarray | sparse.csr_matrix:
+    """L2-normalize rows without densifying CSR input."""
+    if sparse.issparse(x):
+        data = sparse.csr_matrix(x, dtype=np.float32, copy=True)
+        squared = data.multiply(data).sum(axis=1)
+        norms = np.sqrt(np.asarray(squared).reshape(-1))
+        if np.any(norms <= 0) or not np.all(np.isfinite(norms)):
+            raise ValueError(
+                "all spherical-kmeans rows must have finite positive norm"
+            )
+        data = sparse.diags((1.0 / norms).astype(np.float32)) @ data
+        data = sparse.csr_matrix(data, dtype=np.float32)
+        data.eliminate_zeros()
+        data.sort_indices()
+        return data
+
     data = np.asarray(x, dtype=np.float32)
+    if data.ndim != 2:
+        raise ValueError("spherical-kmeans input must be 2D")
     norms = np.linalg.norm(data, axis=1, keepdims=True)
     if np.any(norms <= 0) or not np.all(np.isfinite(norms)):
         raise ValueError("all spherical-kmeans rows must have finite positive norm")
     return data / norms
+
+
+def _n_rows(x: np.ndarray | sparse.spmatrix) -> int:
+    if getattr(x, "ndim", 2) != 2:
+        raise ValueError("spherical-kmeans input must be 2D")
+    return int(x.shape[0])
 
 
 @dataclass(frozen=True)
@@ -252,19 +306,27 @@ class SphericalKMeansResult:
     init_index_: int
     empty_reseeds_: int
 
-    def predict(self, x: np.ndarray, *, batch_size: int = 8192) -> np.ndarray:
+    def predict(
+        self,
+        x: np.ndarray | sparse.spmatrix,
+        *,
+        batch_size: int = 8192,
+    ) -> np.ndarray:
         data = _normalize_rows(x)
         centers = np.asarray(self.cluster_centers_, dtype=np.float32)
-        labels = np.empty(len(data), dtype=np.int32)
-        for start in range(0, len(data), batch_size):
+        n = _n_rows(data)
+        labels = np.empty(n, dtype=np.int32)
+        for start in range(0, n, batch_size):
             xb = data[start : start + batch_size]
-            sim = xb @ centers.T
-            labels[start : start + len(xb)] = np.argmax(sim, axis=1).astype(np.int32)
+            sim = np.asarray(xb @ centers.T)
+            labels[start : start + xb.shape[0]] = np.argmax(
+                sim, axis=1
+            ).astype(np.int32)
         return labels
 
 
 class SphericalKMeans:
-    """Deterministic Lloyd-style spherical k-means for the registered CRS stage."""
+    """Deterministic Lloyd-style spherical k-means with exact sparse support."""
 
     def __init__(
         self,
@@ -276,7 +338,13 @@ class SphericalKMeans:
         random_state: int = MASTER_SEED,
         batch_size: int = 8192,
     ) -> None:
-        if n_clusters <= 1 or n_init <= 0 or max_iter <= 0 or tol <= 0 or batch_size <= 0:
+        if (
+            n_clusters <= 1
+            or n_init <= 0
+            or max_iter <= 0
+            or tol <= 0
+            or batch_size <= 0
+        ):
             raise ValueError("invalid spherical-kmeans configuration")
         self.n_clusters = int(n_clusters)
         self.n_init = int(n_init)
@@ -285,42 +353,64 @@ class SphericalKMeans:
         self.random_state = int(random_state)
         self.batch_size = int(batch_size)
 
-    def _initial_centers(self, x: np.ndarray, init_index: int) -> np.ndarray:
-        if len(x) < self.n_clusters:
+    def _initial_centers(
+        self,
+        x: np.ndarray | sparse.spmatrix,
+        init_index: int,
+    ) -> np.ndarray:
+        n = _n_rows(x)
+        if n < self.n_clusters:
             raise ValueError("n_clusters exceeds number of training descriptors")
         seed = _seed64("crs-skm-init", self.random_state, init_index)
         rng = np.random.default_rng(seed)
-        ids = rng.choice(len(x), size=self.n_clusters, replace=False)
-        return x[ids].copy()
+        ids = rng.choice(n, size=self.n_clusters, replace=False)
+        selected = x[ids]
+        centers = (
+            selected.toarray()
+            if sparse.issparse(selected)
+            else np.asarray(selected, dtype=np.float32)
+        )
+        return np.asarray(centers, dtype=np.float32)
 
-    def _assign(self, x: np.ndarray, centers: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
-        labels = np.empty(len(x), dtype=np.int32)
-        best = np.empty(len(x), dtype=np.float32)
+    def _assign(
+        self,
+        x: np.ndarray | sparse.spmatrix,
+        centers: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, float]:
+        n = _n_rows(x)
+        labels = np.empty(n, dtype=np.int32)
+        best = np.empty(n, dtype=np.float32)
         objective = 0.0
-        for start in range(0, len(x), self.batch_size):
+        for start in range(0, n, self.batch_size):
             xb = x[start : start + self.batch_size]
-            sim = xb @ centers.T
+            sim = np.asarray(xb @ centers.T)
             lb = np.argmax(sim, axis=1).astype(np.int32)
-            bs = sim[np.arange(len(xb)), lb].astype(np.float32)
-            labels[start : start + len(xb)] = lb
-            best[start : start + len(xb)] = bs
+            bs = sim[np.arange(xb.shape[0]), lb].astype(np.float32)
+            labels[start : start + xb.shape[0]] = lb
+            best[start : start + xb.shape[0]] = bs
             objective += float(bs.sum(dtype=np.float64))
         return labels, best, objective
 
     def _updated_centers(
         self,
-        x: np.ndarray,
+        x: np.ndarray | sparse.spmatrix,
         labels: np.ndarray,
         best_similarity: np.ndarray,
     ) -> tuple[np.ndarray, int]:
-        n = len(x)
+        n = _n_rows(x)
         rows = labels.astype(np.int64, copy=False)
         cols = np.arange(n, dtype=np.int64)
         membership = sparse.csr_matrix(
             (np.ones(n, dtype=np.float32), (rows, cols)),
             shape=(self.n_clusters, n),
         )
-        sums = np.asarray(membership @ x, dtype=np.float32)
+        summed = membership @ x
+        sums = (
+            summed.toarray()
+            if sparse.issparse(summed)
+            else np.asarray(summed)
+        ).astype(np.float32, copy=False)
+
         counts = np.bincount(labels, minlength=self.n_clusters).astype(np.int64)
         centers = np.empty((self.n_clusters, x.shape[1]), dtype=np.float32)
         nonempty = counts > 0
@@ -329,31 +419,32 @@ class SphericalKMeans:
         empty_ids = np.flatnonzero(~nonempty)
         reseeds = len(empty_ids)
         if reseeds:
-            order = np.lexsort((np.arange(n, dtype=np.int64), best_similarity.astype(np.float64)))
-            selected: list[int] = []
-            used = set()
-            for idx in order:
-                ii = int(idx)
-                if ii in used:
-                    continue
-                selected.append(ii)
-                used.add(ii)
-                if len(selected) == reseeds:
-                    break
-            if len(selected) != reseeds:
-                raise RuntimeError("could not deterministically reseed empty clusters")
-            for cluster_id, row_id in zip(empty_ids.tolist(), selected):
-                centers[int(cluster_id)] = x[int(row_id)]
+            order = np.lexsort(
+                (np.arange(n, dtype=np.int64), best_similarity.astype(np.float64))
+            )
+            selected = order[:reseeds].astype(np.int64, copy=False)
+            for cluster_id, row_id in zip(empty_ids.tolist(), selected.tolist()):
+                row = x[int(row_id)]
+                row_dense = (
+                    row.toarray().reshape(-1)
+                    if sparse.issparse(row)
+                    else np.asarray(row).reshape(-1)
+                )
+                centers[int(cluster_id)] = row_dense.astype(np.float32)
 
-        centers = _normalize_rows(centers)
+        centers = np.asarray(_normalize_rows(centers), dtype=np.float32)
         return centers, reseeds
 
-    def fit(self, x: np.ndarray) -> SphericalKMeansResult:
+    def fit(
+        self,
+        x: np.ndarray | sparse.spmatrix,
+    ) -> SphericalKMeansResult:
         data = _normalize_rows(x)
         best_result: SphericalKMeansResult | None = None
+
         for init_index in range(self.n_init):
             centers = self._initial_centers(data, init_index)
-            centers = _normalize_rows(centers)
+            centers = np.asarray(_normalize_rows(centers), dtype=np.float32)
             previous_labels: np.ndarray | None = None
             previous_objective: float | None = None
             total_reseeds = 0
@@ -362,14 +453,22 @@ class SphericalKMeans:
 
             for iteration in range(1, self.max_iter + 1):
                 labels, best_similarity, objective = self._assign(data, centers)
-                assignments_unchanged = previous_labels is not None and np.array_equal(labels, previous_labels)
+                assignments_unchanged = (
+                    previous_labels is not None
+                    and np.array_equal(labels, previous_labels)
+                )
                 relative_small = False
                 if previous_objective is not None:
                     denom = max(1.0, abs(previous_objective))
                     improvement = objective - previous_objective
-                    relative_small = improvement >= -1e-10 and abs(improvement) / denom < self.tol
+                    relative_small = (
+                        improvement >= -1e-10
+                        and abs(improvement) / denom < self.tol
+                    )
 
-                new_centers, reseeds = self._updated_centers(data, labels, best_similarity)
+                new_centers, reseeds = self._updated_centers(
+                    data, labels, best_similarity
+                )
                 total_reseeds += reseeds
                 centers = new_centers
                 iterations = iteration
@@ -377,6 +476,7 @@ class SphericalKMeans:
                 if assignments_unchanged or (relative_small and reseeds == 0):
                     converged = True
                     break
+
                 previous_labels = labels.copy()
                 previous_objective = objective
 
@@ -406,6 +506,7 @@ def spatial_pyramid_histogram(id_map: np.ndarray, *, n_bins: int) -> np.ndarray:
         raise ValueError("id_map must contain integer IDs")
     if np.any((ids < 0) | (ids >= n_bins)):
         raise ValueError("IDs outside histogram range")
+
     half = CRS_SIDE // 2
     regions = [
         ids,
@@ -415,13 +516,20 @@ def spatial_pyramid_histogram(id_map: np.ndarray, *, n_bins: int) -> np.ndarray:
         ids[half:, half:],
     ]
     histograms: list[np.ndarray] = []
-    expected_counts = [CRS_VALID_POSITIONS, half * half, half * half, half * half, half * half]
+    expected_counts = [
+        CRS_VALID_POSITIONS,
+        half * half,
+        half * half,
+        half * half,
+        half * half,
+    ]
     for region, expected in zip(regions, expected_counts):
         hist = np.bincount(region.ravel(), minlength=n_bins).astype(np.float32)
         if int(hist.sum()) != expected:
             raise AssertionError("pyramid regional count invariant violated")
         hist /= float(expected)
         histograms.append(hist)
+
     out = np.concatenate(histograms)
     norm = float(np.linalg.norm(out))
     if not np.isfinite(norm) or norm <= 0:
@@ -431,7 +539,9 @@ def spatial_pyramid_histogram(id_map: np.ndarray, *, n_bins: int) -> np.ndarray:
 
 
 def p_image_feature(primitive_map: np.ndarray) -> np.ndarray:
-    feature = spatial_pyramid_histogram(primitive_center_crop(primitive_map), n_bins=PRIMITIVE_K)
+    feature = spatial_pyramid_histogram(
+        primitive_center_crop(primitive_map), n_bins=PRIMITIVE_K
+    )
     if feature.shape != (P_DIM,):
         raise AssertionError("P feature dimension invariant violated")
     return feature
