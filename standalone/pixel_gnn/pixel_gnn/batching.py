@@ -1,9 +1,8 @@
-"""Fast batch collation and dataset pipeline for pixel neighbor motif."""
+"""Batch collation and dataset pipeline for Pixel GNN."""
 
 from __future__ import annotations
 
 import threading
-import time
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -11,11 +10,10 @@ from pathlib import Path
 import numpy as np
 import tensorflow as tf
 
-from pixel_neighbor_motif.dataset import FERPixelDataset
+from pixel_gnn.dataset import FERPixelDataset
 
 
 def collate_samples(samples: list[dict]) -> dict[str, tf.Tensor]:
-    """Collate a list of sample dicts into a batch of tensors."""
     node_features = np.stack([s["node_features"] for s in samples], axis=0)  # [B, 2304, 5]
     labels = np.array([s["label"] for s in samples], dtype=np.int64)         # [B]
     sample_ids = np.array([s["sample_id"] for s in samples], dtype=np.int64) # [B]
@@ -30,8 +28,6 @@ def collate_samples(samples: list[dict]) -> dict[str, tf.Tensor]:
 
 
 class PixelBatchGenerator:
-    """Deterministic batch generator supporting multithreading, LRU caching, and TF dataset integration."""
-
     def __init__(
         self,
         fer_csv: str | Path,

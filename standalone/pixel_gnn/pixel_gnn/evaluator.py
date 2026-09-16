@@ -1,4 +1,4 @@
-"""Evaluation and Motif Diagnostics for Pixel Neighbor Motif."""
+"""Evaluation and motif diagnostics for Pixel GNN models."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 
 from lap_gnn_tf.training.metrics import classification_metrics
-from pixel_neighbor_motif.losses import compute_total_loss
+from pixel_gnn.losses import compute_total_loss
 
 
 def extract_motif_diagnostics(
@@ -14,38 +14,22 @@ def extract_motif_diagnostics(
     batch: dict,
     top_k_nodes: int = 10,
 ) -> dict:
-    """Extract diagnostic information about learned motifs for visualization.
-
-    Args:
-        model: PixelNeighborMotifModel
-        batch: sample batch dict
-        top_k_nodes: number of top pixel nodes to retrieve per motif
-    Returns:
-        dict containing:
-            - motif_prototypes: [K, D] np.ndarray
-            - motif_usage: [K] np.ndarray
-            - motif_attention_weights: [B, K] np.ndarray
-            - top_nodes_per_motif: list of dicts with top pixel (row, col) coordinates
-    """
     output = model(batch, training=False)
     if output.get("motif_assignment") is None:
         return {"motif_enabled": False}
 
-    prototypes = output["motif_prototypes"].numpy()               # [K, D]
-    assignment = output["motif_assignment"].numpy()               # [B, 2304, K]
-    beta = output["motif_attention_weights"].numpy()               # [B, K]
-    usage = output["motif_usage"].numpy()                         # [K]
+    prototypes = output["motif_prototypes"].numpy()
+    assignment = output["motif_assignment"].numpy()
+    beta = output["motif_attention_weights"].numpy()
+    usage = output["motif_usage"].numpy()
 
-    # Mean assignment across the batch for each of the 2304 nodes: [2304, K]
     node_motif_mean = np.mean(assignment, axis=0)
 
     top_nodes = {}
     num_motifs = prototypes.shape[0]
     for k in range(num_motifs):
-        # Top scoring nodes for motif k
         scores_k = node_motif_mean[:, k]
         top_indices = np.argsort(scores_k)[::-1][:top_k_nodes]
-        # Convert flat index to (row, col)
         coords = [(int(idx // 48), int(idx % 48), float(scores_k[idx])) for idx in top_indices]
         top_nodes[f"motif_{k:02d}"] = {
             "usage": float(usage[k]),
@@ -68,7 +52,6 @@ def evaluate_model(
     limit_batches: int | None = None,
     include_diagnostics: bool = False,
 ) -> dict:
-    """Run full evaluation on a dataset split."""
     all_labels, all_probs, all_losses = [], [], []
 
     @tf.function

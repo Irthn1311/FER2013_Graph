@@ -1,10 +1,9 @@
-"""Training loop for Pixel Neighbor Attention + Learned Motif Prototypes."""
+"""Universal Training Pipeline for Pixel GNN Models."""
 
 from __future__ import annotations
 
 import csv
 import json
-import os
 import time
 from pathlib import Path
 
@@ -18,11 +17,11 @@ from lap_gnn_tf.training.early_stopping import ValidationLossEarlyStopping
 from lap_gnn_tf.training.plateau import TorchCompatibleReduceLROnPlateau
 from lap_gnn_tf.training.optimizer import build_optimizer
 
-from pixel_neighbor_motif.batching import PixelBatchGenerator
-from pixel_neighbor_motif.dataset import FERPixelDataset
-from pixel_neighbor_motif.evaluator import evaluate_model, extract_motif_diagnostics
-from pixel_neighbor_motif.losses import compute_total_loss
-from pixel_neighbor_motif.model import PixelNeighborMotifModel
+from pixel_gnn.batching import PixelBatchGenerator
+from pixel_gnn.dataset import FERPixelDataset
+from pixel_gnn.evaluator import evaluate_model
+from pixel_gnn.losses import compute_total_loss
+from pixel_gnn.models import build_model
 
 
 def run_training(
@@ -33,7 +32,6 @@ def run_training(
     limit_train_batches: int | None = None,
     limit_val_batches: int | None = None,
 ):
-    """Run full training for the Pixel Neighbor Motif model."""
     config = load_config(config_path)
     seed = int(config.get("seed", 42))
     seed_everything(seed)
@@ -46,24 +44,14 @@ def run_training(
     eval_batch_size = int(config.get("training", {}).get("eval_batch_size", batch_size))
     max_epochs = limit_epochs if limit_epochs is not None else int(config.get("training", {}).get("max_epochs", 90))
 
-    # Model architecture parameters
-    m_cfg = config.get("model", {})
-    hidden_dim = int(m_cfg.get("hidden_dim", 64))
-    num_att_layers = int(m_cfg.get("num_attention_layers", 1))
-    num_motifs = int(m_cfg.get("num_motifs", 32))
-    temperature = float(m_cfg.get("temperature", 0.1))
-    pooling_type = str(m_cfg.get("pooling_type", "motif"))
-    dropout = float(m_cfg.get("dropout", 0.1))
-
-    # Regularization parameters
+    model_name = config.get("model", {}).get("name", "pixel_neighbor_motif")
     loss_cfg = config.get("loss", {})
     lambda_diversity = float(loss_cfg.get("lambda_motif_diversity", 0.0))
 
     print("=" * 80)
-    print(f"[INIT] Pixel Neighbor Motif Model")
-    print(f"       hidden_dim={hidden_dim} | attention_layers={num_att_layers} | num_motifs={num_motifs}")
-    print(f"       pooling_type={pooling_type} | temperature={temperature} | lambda_diversity={lambda_diversity}")
+    print(f"[INIT] Pixel GNN Universal Trainer | Model: {model_name}")
     print(f"       batch_size={batch_size} | max_epochs={max_epochs} | seed={seed}")
+    print(f"       output_dir={output_dir}")
     print("=" * 80, flush=True)
 
     # Initialize Datasets
@@ -73,23 +61,15 @@ def run_training(
     train_gen = PixelBatchGenerator(fer_csv, "train", batch_size=batch_size, seed=seed, shuffle=True, dataset=train_dataset)
     val_gen = PixelBatchGenerator(fer_csv, "val", batch_size=eval_batch_size, seed=seed, shuffle=False, dataset=val_dataset)
 
-    # Instantiate and build model
-    model = PixelNeighborMotifModel(
-        hidden_dim=hidden_dim,
-        num_attention_layers=num_att_layers,
-        num_motifs=num_motifs,
-        temperature=temperature,
-        pooling_type=pooling_type,
-        dropout=dropout,
-        num_classes=7,
-    )
+    # Instantiate model using Model Registry
+    model = build_model(config)
 
     # Trigger build with one batch
     sample_batch = next(iter(train_gen.as_dataset(0, limit_batches=1)))
     _ = model(sample_batch, training=False)
 
     param_count = sum(int(np.prod(v.shape)) for v in model.trainable_weights)
-    print(f"[MODEL] Build complete. Trainable parameters: {param_count:,}", flush=True)
+    print(f"[MODEL] Build complete: {model.name}. Trainable parameters: {param_count:,}", flush=True)
 
     # Optimizer and Scheduler
     optimizer = build_optimizer(config)
@@ -111,7 +91,6 @@ def run_training(
         patience=early_cfg.get("patience", 15),
     )
 
-    # Compiled train step
     @tf.function
     def train_step(batch):
         with tf.GradientTape() as tape:
@@ -125,7 +104,6 @@ def run_training(
     history = []
     best_val_acc = 0.0
     best_val_epoch = 0
-
     history_csv = output_dir / "training_history.csv"
 
     for epoch in range(1, max_epochs + 1):
@@ -139,7 +117,6 @@ def run_training(
             step_ce.append(float(ce_val.numpy()))
 
         train_loss = float(np.mean(step_losses))
-        train_time = time.perf_counter() - t0
 
         # Validation
         val_ds = val_gen.as_dataset(epoch, limit_batches=limit_val_batches)
@@ -154,11 +131,9 @@ def run_training(
         val_acc = val_metrics["accuracy"]
         val_macro_f1 = val_metrics["macro_f1"]
 
-        # Learning rate schedule step
         scheduler.step(val_loss)
         current_lr = float(optimizer.learning_rate.numpy()) if hasattr(optimizer.learning_rate, "numpy") else float(optimizer.learning_rate)
 
-        # Checkpoint if best accuracy
         saved = False
         if val_acc > best_val_acc:
             best_val_acc = val_acc
@@ -190,23 +165,20 @@ def run_training(
         }
         history.append(epoch_record)
 
-        # Save history CSV incrementally
         with history_csv.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=list(epoch_record.keys()))
             writer.writeheader()
             writer.writerows(history)
 
-        # Early stopping check
         if early_stopping.step(val_loss, epoch):
             print(f"[EARLY STOPPING] Triggered at epoch {epoch} (patience={early_stopping.patience})", flush=True)
             break
 
-    # Final summary & motif diagnostics
     print("=" * 80)
     print(f"[COMPLETED] Best Validation Accuracy: {best_val_acc*100:.2f}% at epoch {best_val_epoch}")
     print("=" * 80, flush=True)
 
-    # Load best checkpoint weights for final evaluation
+    # Load best checkpoint weights for final test evaluation
     best_weights_path = output_dir / "best_val_accuracy.weights.h5"
     if best_weights_path.exists():
         model.load_weights(str(best_weights_path))
@@ -233,7 +205,6 @@ def run_training(
     )
     print("=" * 80, flush=True)
 
-    # Save test metrics
     cm = test_metrics.get("confusion_matrix")
     if cm is not None and hasattr(cm, "tolist"):
         cm = cm.tolist()
@@ -242,6 +213,7 @@ def run_training(
         per_class = per_class.tolist()
 
     test_metrics_to_save = {
+        "model_name": model_name,
         "test_accuracy": float(test_acc),
         "test_macro_f1": float(test_macro_f1),
         "test_loss": float(test_loss),
@@ -254,8 +226,7 @@ def run_training(
 
     (output_dir / "test_metrics.json").write_text(json.dumps(test_metrics_to_save, indent=2), encoding="utf-8")
 
-    # Save motif diagnostics
-    if pooling_type == "motif" and test_metrics.get("motif_diagnostics"):
+    if test_metrics.get("motif_diagnostics", {}).get("motif_enabled"):
         final_diag = test_metrics["motif_diagnostics"]
         diag_path = output_dir / "motif_diagnostics.json"
         serializable_diag = {

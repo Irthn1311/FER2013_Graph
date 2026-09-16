@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from lap_gnn_tf.constants import SPLIT_COUNTS
-from pixel_neighbor_motif.grid import StaticGridTopology
+from pixel_gnn.grid import StaticGridTopology
 
 SPLIT_FILENAMES = {
     "train": ["train.csv"],
@@ -20,7 +20,6 @@ SPLIT_FILENAMES = {
 
 
 def resolve_split_source(fer_csv: str | Path, split: str) -> tuple[Path, bool]:
-    """Named split files take precedence over optional Usage metadata."""
     source = Path(fer_csv)
     explicit_directory = source.is_dir()
     if explicit_directory:
@@ -50,7 +49,6 @@ def resolve_split_source(fer_csv: str | Path, split: str) -> tuple[Path, bool]:
 
 
 def extract_node_features_single(image_48: np.ndarray, coords_norm: np.ndarray) -> np.ndarray:
-    """Extract [intensity, x_norm, y_norm, gx, gy] for a 48x48 image."""
     img = np.asarray(image_48, dtype=np.float32)
     if img.max() > 1.0:
         img = img / 255.0
@@ -60,13 +58,10 @@ def extract_node_features_single(image_48: np.ndarray, coords_norm: np.ndarray) 
     gx_flat = gx.reshape(-1, 1)
     gy_flat = gy.reshape(-1, 1)
 
-    # Concatenate [I, x_norm, y_norm, gx, gy] -> [2304, 5]
     return np.concatenate([intensity, coords_norm, gx_flat, gy_flat], axis=1).astype(np.float32)
 
 
 class FERPixelDataset:
-    """Reads raw FER2013 CSVs directly; provides [2304, 5] node features."""
-
     def __init__(self, fer_csv: str | Path, split: str):
         if split not in SPLIT_COUNTS:
             raise ValueError(f"Unknown split: {split}")
