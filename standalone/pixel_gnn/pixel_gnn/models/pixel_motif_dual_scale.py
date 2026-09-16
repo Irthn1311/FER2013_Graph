@@ -176,7 +176,8 @@ class PixelMotifDualScaleModel(tf.keras.Model):
         hidden_dim: int = 96,
         num_attention_layers: int = 3,
         num_heads: int = 4,
-        num_motifs: int = 32,
+        num_motifs: int = 36,
+        spatial_span: float = 0.58,
         use_motif_graph: bool = True,
         num_motif_gnn_layers: int = 2,
         temperature: float = 0.1,
@@ -189,6 +190,7 @@ class PixelMotifDualScaleModel(tf.keras.Model):
         self.num_attention_layers = int(num_attention_layers)
         self.num_heads = int(num_heads)
         self.num_motifs = int(num_motifs)
+        self.spatial_span = float(spatial_span)
         self.use_motif_graph = bool(use_motif_graph)
         self.num_motif_gnn_layers = int(num_motif_gnn_layers)
         self.temperature = float(temperature)
@@ -217,6 +219,7 @@ class PixelMotifDualScaleModel(tf.keras.Model):
             hidden_dim=self.hidden_dim,
             temperature=self.temperature,
             use_spatial=True,
+            spatial_span=self.spatial_span,
             name="spatial_motif_clustering",
         )
 

@@ -8,23 +8,53 @@ import tensorflow as tf
 from pixel_gnn.grid import StaticGridTopology
 
 
-def init_grid_centers(num_motifs: int) -> np.ndarray:
-    """Initialize K motif spatial centers quasi-uniformly across [-0.75, 0.75]^2."""
+def init_grid_centers(num_motifs: int, span: float = 0.58) -> np.ndarray:
+    """Initialize K motif spatial centers symmetrically across [-span, span]^2.
+    
+    Default span=0.58 maps normalized coordinates to pixel indices [10, 37] on a 48x48 image,
+    tightly focusing motif capacity on core facial structures (brows, eyes, nose, mouth)
+    and avoiding background / hair boundary artifacts.
+    """
     if num_motifs == 16:
         grid_h, grid_w = 4, 4
+        ys = np.linspace(-span, span, grid_h, dtype=np.float32)
+        xs = np.linspace(-span, span, grid_w, dtype=np.float32)
+        yy, xx = np.meshgrid(ys, xs, indexing="ij")
+        centers = np.stack([xx.reshape(-1), yy.reshape(-1)], axis=1)
+        return centers.astype(np.float32)
     elif num_motifs == 32:
-        grid_h, grid_w = 8, 4
+        # 6x6 grid with the 4 extreme outer corners removed -> 32 motifs in an octagonal face oval
+        grid_h, grid_w = 6, 6
+        ys = np.linspace(-span, span, grid_h, dtype=np.float32)
+        xs = np.linspace(-span, span, grid_w, dtype=np.float32)
+        yy, xx = np.meshgrid(ys, xs, indexing="ij")
+        centers_all = np.stack([xx.reshape(-1), yy.reshape(-1)], axis=1)
+        corner_indices = {0, 5, 30, 35}
+        centers_32 = [centers_all[i] for i in range(36) if i not in corner_indices]
+        return np.array(centers_32, dtype=np.float32)
+    elif num_motifs == 36:
+        # Perfectly symmetric 6x6 facial grid
+        grid_h, grid_w = 6, 6
+        ys = np.linspace(-span, span, grid_h, dtype=np.float32)
+        xs = np.linspace(-span, span, grid_w, dtype=np.float32)
+        yy, xx = np.meshgrid(ys, xs, indexing="ij")
+        centers = np.stack([xx.reshape(-1), yy.reshape(-1)], axis=1)
+        return centers.astype(np.float32)
     elif num_motifs == 64:
         grid_h, grid_w = 8, 8
+        ys = np.linspace(-span, span, grid_h, dtype=np.float32)
+        xs = np.linspace(-span, span, grid_w, dtype=np.float32)
+        yy, xx = np.meshgrid(ys, xs, indexing="ij")
+        centers = np.stack([xx.reshape(-1), yy.reshape(-1)], axis=1)
+        return centers.astype(np.float32)
     else:
         grid_w = int(np.ceil(np.sqrt(num_motifs)))
         grid_h = int(np.ceil(num_motifs / grid_w))
-
-    ys = np.linspace(-0.75, 0.75, grid_h, dtype=np.float32)
-    xs = np.linspace(-0.75, 0.75, grid_w, dtype=np.float32)
-    yy, xx = np.meshgrid(ys, xs, indexing="ij")
-    centers = np.stack([xx.reshape(-1), yy.reshape(-1)], axis=1)
-    return centers[:num_motifs].astype(np.float32)
+        ys = np.linspace(-span, span, grid_h, dtype=np.float32)
+        xs = np.linspace(-span, span, grid_w, dtype=np.float32)
+        yy, xx = np.meshgrid(ys, xs, indexing="ij")
+        centers = np.stack([xx.reshape(-1), yy.reshape(-1)], axis=1)
+        return centers[:num_motifs].astype(np.float32)
 
 
 class LocalNeighborAttentionLayer(tf.keras.layers.Layer):
@@ -133,6 +163,7 @@ class SpatialLearnedMotifClustering(tf.keras.layers.Layer):
         hidden_dim: int = 64,
         temperature: float = 0.1,
         use_spatial: bool = True,
+        spatial_span: float = 0.58,
         name: str = None,
     ):
         super().__init__(name=name)
@@ -140,6 +171,7 @@ class SpatialLearnedMotifClustering(tf.keras.layers.Layer):
         self.hidden_dim = int(hidden_dim)
         self.temperature = float(temperature)
         self.use_spatial = bool(use_spatial)
+        self.spatial_span = float(spatial_span)
 
     def build(self, input_shape):
         # Semantic feature prototypes [K, D]
@@ -152,7 +184,7 @@ class SpatialLearnedMotifClustering(tf.keras.layers.Layer):
         )
 
         # Learnable 2D spatial centers [K, 2] initialized quasi-uniformly
-        init_centers = init_grid_centers(self.num_motifs)
+        init_centers = init_grid_centers(self.num_motifs, span=self.spatial_span)
         self.spatial_centers = self.add_weight(
             name="motif_spatial_centers",
             shape=(self.num_motifs, 2),
@@ -225,8 +257,10 @@ LearnedMotifPrototypeLayer = SpatialLearnedMotifClustering
 class MotifGNNLayer(tf.keras.layers.Layer):
     """Edge-aware Motif Graph Attention Layer operating on the coarsened K-node graph.
     
-    Attention between motifs is modulated by A_motif (physical pixel connectivity):
-        score_kl = (q_k * k_l) / sqrt(d) + W_e * log(A_motif_norm_kl + eps)
+    Attention between motifs incorporates topological connectivity bias:
+        score_kl = (q_k * k_l) / sqrt(d) + W_e * A_motif_norm_kl
+    Topologically connected motifs receive a learned affinity boost, while distant
+    motifs (A_norm = 0) have bias = 0 and interact purely via semantic dot-product attention.
     """
 
     def __init__(self, hidden_dim: int = 64, dropout: float = 0.1, name: str = None):
@@ -237,7 +271,12 @@ class MotifGNNLayer(tf.keras.layers.Layer):
         self.q_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_q")
         self.k_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_k")
         self.v_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_v")
-        self.edge_proj = tf.keras.layers.Dense(1, name="motif_edge_proj")
+        self.edge_proj = tf.keras.layers.Dense(
+            1,
+            use_bias=False,
+            kernel_initializer=tf.keras.initializers.Constant(0.5),
+            name="motif_edge_proj",
+        )
 
         self.norm1 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name="motif_norm1")
         self.dropout1 = tf.keras.layers.Dropout(self.dropout_rate)
@@ -256,11 +295,12 @@ class MotifGNNLayer(tf.keras.layers.Layer):
         scale = 1.0 / tf.math.sqrt(tf.cast(self.hidden_dim, tf.float32))
         node_sim = tf.matmul(q, k, transpose_b=True) * scale  # [B, K, K]
 
-        # Normalize A_motif to row-stochastic
+        # Normalize A_motif to row-stochastic [0, 1]
         deg = tf.reduce_sum(A_motif, axis=-1, keepdims=True) + 1e-6  # [B, K, 1]
         A_norm = A_motif / deg                                       # [B, K, K]
-        log_edge = tf.math.log(A_norm + 1e-6)                        # [B, K, K]
-        edge_bias = tf.squeeze(self.edge_proj(tf.expand_dims(log_edge, axis=-1)), axis=-1)  # [B, K, K]
+        
+        # Linear edge bias: connected motifs get an affinity boost, distant motifs get 0 bias
+        edge_bias = tf.squeeze(self.edge_proj(tf.expand_dims(A_norm, axis=-1)), axis=-1)  # [B, K, K]
 
         scores = node_sim + edge_bias  # [B, K, K]
         attn_weights = tf.nn.softmax(scores, axis=-1)  # [B, K, K]

@@ -8,7 +8,8 @@ model:
   hidden_dim: 96
   num_attention_layers: 3
   num_heads: 4
-  num_motifs: 32
+  num_motifs: 36
+  spatial_span: 0.58
   use_motif_graph: true
   num_motif_gnn_layers: 2
   temperature: 0.1
