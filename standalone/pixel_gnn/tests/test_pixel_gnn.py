@@ -235,6 +235,47 @@ def test_warmup_cosine_decay():
     print("[TEST] test_warmup_cosine_decay passed!")
 
 
+def test_dual_scale_model():
+    from pixel_gnn.models import build_model
+    from pixel_gnn.losses import compute_total_loss
+
+    cfg = {
+        "model": {
+            "name": "pixel_motif_dual_scale",
+            "hidden_dim": 96,
+            "num_attention_layers": 2,
+            "num_heads": 4,
+            "num_motifs": 16,
+            "use_motif_graph": True,
+            "num_motif_gnn_layers": 1,
+            "dropout": 0.1,
+        },
+        "loss": {"label_smoothing": 0.05, "lambda_motif_diversity": 0.01},
+    }
+
+    model = build_model(cfg)
+    batch = {
+        "node_features": tf.random.uniform((2, 2304, 5)),
+        "labels": tf.constant([1, 4], dtype=tf.int64),
+    }
+
+    with tf.GradientTape() as tape:
+        out = model(batch, training=True)
+        loss, metrics = compute_total_loss(batch["labels"], out, label_smoothing=0.05)
+
+    grads = tape.gradient(loss, model.trainable_variables)
+    assert len(grads) == len(model.trainable_variables)
+    for g in grads:
+        assert g is not None and tf.reduce_all(tf.math.is_finite(g))
+
+    assert out["logits"].shape == (2, 7)
+    assert out["z_image"].shape == (2, 96)
+    assert out["z_motif"].shape == (2, 96)
+    assert out["z_pixel"].shape == (2, 96)
+    assert out["A_motif"].shape == (2, 16, 16)
+    print("[TEST] test_dual_scale_model passed!")
+
+
 if __name__ == "__main__":
     test_registry()
     test_motif_graph_configurations()
@@ -242,4 +283,5 @@ if __name__ == "__main__":
     test_visualization_synthetic()
     test_augmentation_module()
     test_warmup_cosine_decay()
+    test_dual_scale_model()
     print("ALL TESTS IN pixel_gnn PASSED!")

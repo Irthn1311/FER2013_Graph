@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from pixel_gnn.models.pixel_neighbor_motif import PixelNeighborMotifModel
 from pixel_gnn.models.pixel_gnn_only import PixelGNNOnly
+from pixel_gnn.models.pixel_motif_dual_scale import PixelMotifDualScaleModel
 
 MODEL_REGISTRY = {
     "pixel_neighbor_motif": PixelNeighborMotifModel,
     "pixel_motif_graph": PixelNeighborMotifModel,
+    "pixel_motif_dual_scale": PixelMotifDualScaleModel,
     "pixel_gnn_only": PixelGNNOnly,
 }
 
@@ -36,6 +38,18 @@ def build_model(config: dict):
             dropout=float(model_cfg.get("dropout", 0.1)),
             num_classes=int(model_cfg.get("num_classes", 7)),
         )
+    elif name == "pixel_motif_dual_scale":
+        return model_cls(
+            hidden_dim=int(model_cfg.get("hidden_dim", 96)),
+            num_attention_layers=int(model_cfg.get("num_attention_layers", 3)),
+            num_heads=int(model_cfg.get("num_heads", 4)),
+            num_motifs=int(model_cfg.get("num_motifs", 32)),
+            use_motif_graph=bool(model_cfg.get("use_motif_graph", True)),
+            num_motif_gnn_layers=int(model_cfg.get("num_motif_gnn_layers", 2)),
+            temperature=float(model_cfg.get("temperature", 0.1)),
+            dropout=float(model_cfg.get("dropout", 0.15)),
+            num_classes=int(model_cfg.get("num_classes", 7)),
+        )
     elif name == "pixel_gnn_only":
         return model_cls(
             hidden_dim=int(model_cfg.get("hidden_dim", 96)),
@@ -48,4 +62,10 @@ def build_model(config: dict):
         )
 
 
-__all__ = ["MODEL_REGISTRY", "build_model", "PixelNeighborMotifModel", "PixelGNNOnly"]
+__all__ = [
+    "MODEL_REGISTRY",
+    "build_model",
+    "PixelNeighborMotifModel",
+    "PixelMotifDualScaleModel",
+    "PixelGNNOnly",
+]
