@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import sparse
 
 from pixel_relational_motif_e0 import crs_stage as c
 
@@ -28,6 +29,18 @@ def test_composition_descriptor_count_invariants():
 
     xn = c.composition_descriptors(_toy_map(), normalize=True)
     assert np.allclose(np.linalg.norm(xn, axis=1), 1.0, atol=1e-6)
+
+
+def test_sparse_descriptor_conversion_is_exact_and_bounded():
+    dense = c.composition_descriptors(_toy_map(), normalize=True)
+    csr = c.descriptors_to_csr(dense)
+    assert sparse.isspmatrix_csr(csr)
+    assert csr.shape == dense.shape
+    assert np.allclose(csr.toarray(), dense)
+    # Each of the nine 3x3 cell histograms can contain at most nine non-zero bins.
+    assert np.all(np.diff(csr.indptr) <= 81)
+    row_norm = np.sqrt(np.asarray(csr.multiply(csr).sum(axis=1)).reshape(-1))
+    assert np.allclose(row_norm, 1.0, atol=1e-6)
 
 
 def test_control_preserves_exact_cell_histogram_multiset_and_norm():
@@ -119,3 +132,33 @@ def test_spherical_kmeans_is_deterministic_and_unit_norm():
     assert np.allclose(a.cluster_centers_, b.cluster_centers_)
     assert np.isclose(a.objective_, b.objective_)
     assert np.array_equal(a.predict(x, batch_size=53), a.labels_)
+
+
+def test_sparse_and_dense_spherical_kmeans_are_equivalent():
+    rng = np.random.default_rng(7)
+    # Sparse non-negative histogram-like toy data closer to the CRS domain.
+    x = np.zeros((180, 48), dtype=np.float32)
+    for row in range(len(x)):
+        ids = rng.choice(48, size=8, replace=False)
+        x[row, ids] = rng.integers(1, 5, size=8).astype(np.float32)
+    x /= np.linalg.norm(x, axis=1, keepdims=True)
+    xs = sparse.csr_matrix(x)
+
+    spec = dict(
+        n_clusters=9,
+        n_init=2,
+        max_iter=30,
+        batch_size=41,
+        random_state=42,
+    )
+    dense_result = c.SphericalKMeans(**spec).fit(x)
+    sparse_result = c.SphericalKMeans(**spec).fit(xs)
+
+    assert dense_result.converged_ == sparse_result.converged_
+    assert dense_result.init_index_ == sparse_result.init_index_
+    assert np.array_equal(dense_result.labels_, sparse_result.labels_)
+    assert np.allclose(
+        dense_result.cluster_centers_, sparse_result.cluster_centers_, atol=1e-6
+    )
+    assert np.isclose(dense_result.objective_, sparse_result.objective_, atol=1e-5)
+    assert np.array_equal(sparse_result.predict(x), sparse_result.predict(xs))
