@@ -5,18 +5,19 @@ from_scratch: true
 
 model:
   name: pixel_motif_graph
-  hidden_dim: 64
-  num_attention_layers: 2
+  hidden_dim: 96
+  num_attention_layers: 3
   num_motifs: 32
   use_motif_graph: true
-  num_motif_gnn_layers: 1
+  num_motif_gnn_layers: 2
   temperature: 0.1
   pooling_type: motif
-  dropout: 0.1
+  dropout: 0.15
   num_classes: 7
 
 loss:
   mode: ce_only
+  label_smoothing: 0.05
   lambda_motif_diversity: 0.05
   lambda_spatial_coherence: 0.02
 

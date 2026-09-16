@@ -90,6 +90,7 @@ def run_smoke_test(config: dict | None = None) -> dict:
     loss_cfg = config.get("loss", {})
     lambda_div = float(loss_cfg.get("lambda_motif_diversity", 0.0))
     lambda_spatial = float(loss_cfg.get("lambda_spatial_coherence", 0.0))
+    label_smooth = float(loss_cfg.get("label_smoothing", 0.0))
 
     with tf.GradientTape() as tape:
         out_train = model(dummy_batch, training=True)
@@ -98,6 +99,7 @@ def run_smoke_test(config: dict | None = None) -> dict:
             out_train,
             lambda_diversity=lambda_div,
             lambda_spatial_coherence=lambda_spatial,
+            label_smoothing=label_smooth,
         )
 
     grads = tape.gradient(loss, model.trainable_variables)

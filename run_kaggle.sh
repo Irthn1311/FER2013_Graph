@@ -5,14 +5,14 @@ echo "============================================================"
 echo "🚀 [RUNNER] FER2013 Hierarchical Pixel-to-Motif Graph Pipeline"
 echo "============================================================"
 
-# Config file (default: pixel_motif_graph_fast)
-CONFIG="${1:-standalone/pixel_gnn/configs/fer2013_pixel_motif_graph_fast_seed42.yaml}"
+# Config file (default: pixel_motif_graph_aug_fast)
+CONFIG="${1:-standalone/pixel_gnn/configs/fer2013_pixel_motif_graph_aug_fast_seed42.yaml}"
 
 # Output directory: use /kaggle/working if on Kaggle, otherwise ./outputs
 if [ -d "/kaggle/working" ]; then
-    DEFAULT_OUTPUT="/kaggle/working/outputs/pixel_motif_graph"
+    DEFAULT_OUTPUT="/kaggle/working/outputs/pixel_motif_graph_aug"
 else
-    DEFAULT_OUTPUT="outputs/pixel_motif_graph"
+    DEFAULT_OUTPUT="outputs/pixel_motif_graph_aug"
 fi
 OUTPUT_DIR="${2:-$DEFAULT_OUTPUT}"
 VIS_DIR="$OUTPUT_DIR/visualizations"

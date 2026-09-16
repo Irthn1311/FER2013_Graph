@@ -91,13 +91,23 @@ def compute_total_loss(
     output: dict[str, tf.Tensor],
     lambda_diversity: float = 0.0,
     lambda_spatial_coherence: float = 0.0,
+    label_smoothing: float = 0.0,
 ) -> tuple[tf.Tensor, dict[str, tf.Tensor]]:
     logits = tf.cast(output["logits"], tf.float32)
     labels = tf.cast(labels, tf.int64)
 
-    ce_loss = tf.reduce_mean(
-        tf.keras.losses.sparse_categorical_crossentropy(labels, logits, from_logits=True)
-    )
+    if label_smoothing > 0.0:
+        num_classes = tf.shape(logits)[-1]
+        one_hot = tf.one_hot(labels, depth=num_classes, dtype=tf.float32)
+        ce_loss = tf.reduce_mean(
+            tf.keras.losses.categorical_crossentropy(
+                one_hot, logits, from_logits=True, label_smoothing=label_smoothing
+            )
+        )
+    else:
+        ce_loss = tf.reduce_mean(
+            tf.keras.losses.sparse_categorical_crossentropy(labels, logits, from_logits=True)
+        )
 
     metrics = {"ce_loss": ce_loss}
     total_loss = ce_loss

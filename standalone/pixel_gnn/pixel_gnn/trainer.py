@@ -52,6 +52,7 @@ def run_training(
     loss_cfg = config.get("loss", {})
     lambda_diversity = float(loss_cfg.get("lambda_motif_diversity", 0.0))
     lambda_spatial_coherence = float(loss_cfg.get("lambda_spatial_coherence", 0.0))
+    label_smoothing = float(loss_cfg.get("label_smoothing", 0.0))
 
     # Augmentation config (only active for train split)
     aug_cfg = config.get("augmentation", {})
@@ -146,6 +147,7 @@ def run_training(
                 out,
                 lambda_diversity=lambda_diversity,
                 lambda_spatial_coherence=lambda_spatial_coherence,
+                label_smoothing=label_smoothing,
             )
             scaled_loss = loss / float(num_replicas)
         grads = tape.gradient(scaled_loss, model.trainable_variables)
