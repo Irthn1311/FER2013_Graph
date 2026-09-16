@@ -59,12 +59,21 @@ def main():
     fer_csv = args.fer_csv or config.get("paths", {}).get("fer_csv")
     if not fer_csv:
         candidates = [
+            Path("/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv"),
+            Path("/kaggle/input/fer13-split/train.csv"),
             Path("/kaggle/input/fer2013-split/train.csv"),
             Path("/kaggle/input/fer2013/train.csv"),
             Path("/kaggle/input/fer2013/fer2013.csv"),
             Path("data/train.csv"),
             Path("data/fer2013.csv"),
         ]
+        kaggle_input = Path("/kaggle/input")
+        if kaggle_input.exists():
+            for p in kaggle_input.rglob("train.csv"):
+                candidates.insert(0, p)
+            for p in kaggle_input.rglob("fer2013.csv"):
+                candidates.insert(0, p)
+
         for c in candidates:
             if c.is_file():
                 fer_csv = str(c)
