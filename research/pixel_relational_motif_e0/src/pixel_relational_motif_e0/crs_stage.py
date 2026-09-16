@@ -473,7 +473,10 @@ class SphericalKMeans:
                 centers = new_centers
                 iterations = iteration
 
-                if assignments_unchanged or (relative_small and reseeds == 0):
+                # A reseeded empty cluster changes the state even when the old
+                # assignment vector was unchanged, so convergence is forbidden
+                # until one full no-reseed iteration satisfies the registered rule.
+                if reseeds == 0 and (assignments_unchanged or relative_small):
                     converged = True
                     break
 
