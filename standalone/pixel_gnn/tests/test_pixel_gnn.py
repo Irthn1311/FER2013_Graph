@@ -200,10 +200,46 @@ def test_augmentation_module():
     print("[TEST] test_augmentation_module passed!")
 
 
+def test_warmup_cosine_decay():
+    from pixel_gnn.utils import WarmupCosineDecay, build_scheduler
+
+    opt = tf.keras.optimizers.Adam(learning_rate=3e-4)
+    sched = WarmupCosineDecay(opt, warmup_epochs=3, total_epochs=90, peak_lr=3e-4, min_lr=1e-6)
+
+    # Epoch 1
+    sched.on_epoch_start(1)
+    lr1 = float(opt.learning_rate.numpy())
+    assert abs(lr1 - (1e-6 + (3e-4 - 1e-6) * (1 / 3))) < 1e-8, f"Unexpected lr1: {lr1}"
+
+    # Epoch 3 (warmup peak)
+    sched.on_epoch_start(3)
+    lr3 = float(opt.learning_rate.numpy())
+    assert abs(lr3 - 3e-4) < 1e-8, f"Unexpected lr3: {lr3}"
+
+    # Epoch 90 (decay floor)
+    sched.on_epoch_start(90)
+    lr90 = float(opt.learning_rate.numpy())
+    assert abs(lr90 - 1e-6) < 1e-8, f"Unexpected lr90: {lr90}"
+
+    # Test factory
+    cfg = {
+        "training": {
+            "scheduler": {"type": "cosine_warmup", "warmup_epochs": 3, "min_lr": 1e-6},
+            "lr": 3e-4,
+            "max_epochs": 90,
+        }
+    }
+    built = build_scheduler(cfg, opt)
+    assert isinstance(built, WarmupCosineDecay)
+
+    print("[TEST] test_warmup_cosine_decay passed!")
+
+
 if __name__ == "__main__":
     test_registry()
     test_motif_graph_configurations()
     test_models_forward_and_backward()
     test_visualization_synthetic()
     test_augmentation_module()
+    test_warmup_cosine_decay()
     print("ALL TESTS IN pixel_gnn PASSED!")

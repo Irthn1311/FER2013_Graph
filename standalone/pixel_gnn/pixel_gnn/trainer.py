@@ -14,7 +14,9 @@ import yaml
 from pixel_gnn.utils import (
     EarlyStopping,
     ReduceLROnPlateau,
+    WarmupCosineDecay,
     build_optimizer,
+    build_scheduler,
     load_config,
     seed_everything,
 )
@@ -124,21 +126,17 @@ def run_training(
     param_count = sum(int(np.prod(v.shape)) for v in model.trainable_weights)
     print(f"[MODEL] Build complete: {model.name}. Trainable parameters: {param_count:,}", flush=True)
 
+    scheduler = build_scheduler(config, optimizer, max_epochs=max_epochs)
     sched_cfg = config.get("training", {}).get("scheduler", {})
-    scheduler = ReduceLROnPlateau(
-        optimizer,
-        mode=sched_cfg.get("mode", "min"),
-        factor=sched_cfg.get("factor", 0.5),
-        patience=sched_cfg.get("patience", 5),
-        threshold=sched_cfg.get("threshold", 0.0001),
-        min_lr=sched_cfg.get("min_lr", 3e-5),
-    )
+    sched_type = sched_cfg.get("type", "plateau")
+    print(f"[SCHEDULER] Initialized scheduler: {sched_type} (max_epochs={max_epochs})", flush=True)
 
     early_cfg = config.get("training", {}).get("early_stopping", {})
     early_stopping = EarlyStopping(
         min_epochs=early_cfg.get("min_epochs_before_stop", 30),
-        patience=early_cfg.get("patience", 15),
+        patience=early_cfg.get("patience", 20),
     )
+    print(f"[EARLY STOPPING] Configured: min_epochs={early_stopping.min_epochs}, patience={early_stopping.patience}", flush=True)
 
     def step_fn(batch):
         with tf.GradientTape() as tape:
@@ -174,6 +172,7 @@ def run_training(
 
     for epoch in range(1, max_epochs + 1):
         t0 = time.perf_counter()
+        scheduler.on_epoch_start(epoch)
         raw_train_ds = train_gen.as_dataset(epoch, limit_batches=limit_train_batches)
         if num_replicas > 1:
             train_ds = strategy.experimental_distribute_dataset(raw_train_ds)
@@ -202,7 +201,7 @@ def run_training(
         val_acc = val_metrics["accuracy"]
         val_macro_f1 = val_metrics["macro_f1"]
 
-        scheduler.step(val_loss)
+        scheduler.on_epoch_end(epoch, val_loss)
         current_lr = float(optimizer.learning_rate.numpy()) if hasattr(optimizer.learning_rate, "numpy") else float(optimizer.learning_rate)
 
         saved = False

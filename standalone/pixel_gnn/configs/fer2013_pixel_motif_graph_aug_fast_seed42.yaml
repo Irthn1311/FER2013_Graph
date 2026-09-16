@@ -41,17 +41,13 @@ training:
     epsilon: 1.0e-08
     clipnorm: 5.0
   scheduler:
-    type: plateau
-    monitor: val_loss
-    mode: min
-    factor: 0.5
-    patience: 5
-    threshold: 0.0001
-    min_lr: 3.0e-05
+    type: cosine_warmup
+    warmup_epochs: 3
+    min_lr: 1.0e-06
   early_stopping:
     enabled: true
     min_epochs_before_stop: 30
-    patience: 15
+    patience: 20
     metric: val_loss
     mode: min
 

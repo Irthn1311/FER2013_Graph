@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import random
 from dataclasses import dataclass
@@ -79,7 +80,7 @@ def classification_metrics(labels, probabilities, num_classes: int = 7) -> dict:
 
 
 class EarlyStopping:
-    def __init__(self, min_epochs: int = 30, patience: int = 15):
+    def __init__(self, min_epochs: int = 30, patience: int = 20):
         self.min_epochs = int(min_epochs)
         self.patience = int(patience)
         self.best_loss = float("inf")
@@ -116,7 +117,13 @@ class ReduceLROnPlateau:
         self.best = float("inf")
         self.wait = 0
 
-    def step(self, metric: float):
+    def on_epoch_start(self, epoch: int):
+        pass
+
+    def on_epoch_end(self, epoch: int, val_loss: float):
+        self.step(val_loss)
+
+    def step(self, metric: float, epoch: int | None = None):
         val = float(metric)
         if val < self.best - self.threshold:
             self.best = val
@@ -138,6 +145,77 @@ class ReduceLROnPlateau:
                     self.optimizer.learning_rate = new_lr
                 print(f"[SCHEDULER] Reduced learning rate: {current_lr:.6f} -> {new_lr:.6f}", flush=True)
             self.wait = 0
+
+
+class WarmupCosineDecay:
+    def __init__(
+        self,
+        optimizer,
+        warmup_epochs: int = 3,
+        total_epochs: int = 90,
+        peak_lr: float = 3e-4,
+        min_lr: float = 1e-6,
+    ):
+        self.optimizer = optimizer
+        self.warmup_epochs = max(int(warmup_epochs), 0)
+        self.total_epochs = max(int(total_epochs), 1)
+        self.peak_lr = float(peak_lr)
+        self.min_lr = float(min_lr)
+
+    def on_epoch_start(self, epoch: int):
+        self.step(epoch=epoch)
+
+    def on_epoch_end(self, epoch: int, val_loss: float | None = None):
+        pass
+
+    def step(self, metric: float | None = None, epoch: int = 1) -> float:
+        """Step learning rate for the given epoch (1-indexed)."""
+        epoch = max(1, int(epoch))
+        if self.warmup_epochs > 0 and epoch <= self.warmup_epochs:
+            fraction = epoch / self.warmup_epochs
+            new_lr = self.min_lr + (self.peak_lr - self.min_lr) * fraction
+        else:
+            decay_epochs = max(1, self.total_epochs - self.warmup_epochs)
+            if self.warmup_epochs > 0:
+                progress = (epoch - self.warmup_epochs) / decay_epochs
+            else:
+                progress = (epoch - 1) / max(1, self.total_epochs - 1)
+            progress = min(1.0, max(0.0, progress))
+            new_lr = self.min_lr + 0.5 * (self.peak_lr - self.min_lr) * (1.0 + math.cos(math.pi * progress))
+
+        if hasattr(self.optimizer.learning_rate, "assign"):
+            self.optimizer.learning_rate.assign(new_lr)
+        else:
+            self.optimizer.learning_rate = new_lr
+        return new_lr
+
+
+def build_scheduler(config: dict, optimizer, max_epochs: int = 90):
+    training = config.get("training", {})
+    sched_cfg = training.get("scheduler", {})
+    sched_type = str(sched_cfg.get("type", "plateau")).lower()
+    lr = float(training.get("lr", 3e-4))
+    total_epochs = int(training.get("max_epochs", max_epochs))
+
+    if sched_type in ("cosine", "cosine_warmup", "warmup_cosine"):
+        warmup_epochs = int(sched_cfg.get("warmup_epochs", 3))
+        min_lr = float(sched_cfg.get("min_lr", 1e-6))
+        return WarmupCosineDecay(
+            optimizer=optimizer,
+            warmup_epochs=warmup_epochs,
+            total_epochs=total_epochs,
+            peak_lr=lr,
+            min_lr=min_lr,
+        )
+    else:
+        return ReduceLROnPlateau(
+            optimizer,
+            mode=sched_cfg.get("mode", "min"),
+            factor=sched_cfg.get("factor", 0.5),
+            patience=sched_cfg.get("patience", 5),
+            threshold=sched_cfg.get("threshold", 0.0001),
+            min_lr=sched_cfg.get("min_lr", 3e-5),
+        )
 
 
 def build_optimizer(config: dict):
