@@ -151,15 +151,20 @@ def run_training(
         grads = tape.gradient(scaled_loss, model.trainable_variables)
         grads, _ = tf.clip_by_global_norm(grads, 5.0)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
-        return loss, metrics["ce_loss"]
+        preds = tf.argmax(out["logits"], axis=-1, output_type=batch["labels"].dtype)
+        correct = tf.reduce_sum(tf.cast(tf.equal(preds, batch["labels"]), tf.float32))
+        batch_size_f = tf.cast(tf.shape(batch["labels"])[0], tf.float32)
+        return loss, metrics["ce_loss"], correct, batch_size_f
 
     if num_replicas > 1:
         @tf.function
         def dist_train_step(dist_batch):
-            per_replica_loss, per_replica_ce = strategy.run(step_fn, args=(dist_batch,))
+            per_replica_loss, per_replica_ce, per_replica_correct, per_replica_count = strategy.run(step_fn, args=(dist_batch,))
             total_loss = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_loss, axis=None) / float(num_replicas)
             total_ce = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_ce, axis=None) / float(num_replicas)
-            return total_loss, total_ce
+            total_correct = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_correct, axis=None)
+            total_count = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_count, axis=None)
+            return total_loss, total_ce, total_correct, total_count
     else:
         @tf.function
         def dist_train_step(batch):
@@ -180,12 +185,16 @@ def run_training(
             train_ds = raw_train_ds
 
         step_losses, step_ce = [], []
+        train_correct, train_samples = 0.0, 0.0
         for batch in train_ds:
-            loss_val, ce_val = dist_train_step(batch)
+            loss_val, ce_val, correct_val, count_val = dist_train_step(batch)
             step_losses.append(float(loss_val.numpy()))
             step_ce.append(float(ce_val.numpy()))
+            train_correct += float(correct_val.numpy())
+            train_samples += float(count_val.numpy())
 
         train_loss = float(np.mean(step_losses))
+        train_acc = float(train_correct / max(train_samples, 1.0))
 
         # Validation
         val_ds = val_gen.as_dataset(epoch, limit_batches=limit_val_batches)
@@ -215,8 +224,9 @@ def run_training(
 
         print(
             f"[EPOCH {epoch:03d}/{max_epochs:03d}] "
-            f"train_loss={train_loss:.4f} | val_loss={val_loss:.4f} | "
-            f"val_acc={val_acc*100:.2f}% | val_macro_f1={val_macro_f1*100:.2f}% | "
+            f"train_loss={train_loss:.4f} | train_acc={train_acc*100:.2f}% | "
+            f"val_loss={val_loss:.4f} | val_acc={val_acc*100:.2f}% | "
+            f"val_macro_f1={val_macro_f1*100:.2f}% | "
             f"lr={current_lr:.6f} | time={total_time:.1f}s"
             f"{' [BEST SAVED]' if saved else ''}",
             flush=True,
@@ -225,6 +235,7 @@ def run_training(
         epoch_record = {
             "epoch": epoch,
             "train_loss": train_loss,
+            "train_accuracy": train_acc,
             "val_loss": val_loss,
             "val_accuracy": val_acc,
             "val_macro_f1": val_macro_f1,
