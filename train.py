@@ -36,6 +36,8 @@ def main():
     parser.add_argument("--output-root", help="Output directory for checkpoints and logs")
     parser.add_argument("--smoke", action="store_true", help="Run quick 1-batch verification check")
     parser.add_argument("--synthetic", action="store_true", help="Use synthetic data with --smoke")
+    parser.add_argument("--visualize", action="store_true", help="Run test graph visualization on test set")
+    parser.add_argument("--checkpoint", help="Path to checkpoint weights for visualization")
     parser.add_argument("--batch-size", type=int, help="Override training batch size")
     parser.add_argument("--epochs", type=int, help="Override maximum epochs")
     args = parser.parse_args()
@@ -53,6 +55,18 @@ def main():
     if args.smoke or args.synthetic:
         from pixel_gnn.smoke import run_smoke_test
         run_smoke_test(config=config)
+        return
+
+    # Mode 2: Test Graph Visualization
+    if args.visualize:
+        from visualize_test_graph import run_visualization
+        out_vis = args.output_root or "outputs/test_graph_visualization"
+        run_visualization(
+            config_path=args.config,
+            fer_csv=args.fer_csv,
+            checkpoint_path=args.checkpoint,
+            output_dir=out_vis,
+        )
         return
 
     # Mode 2: Training

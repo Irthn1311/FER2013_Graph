@@ -7,6 +7,7 @@ from pixel_gnn.models.pixel_gnn_only import PixelGNNOnly
 
 MODEL_REGISTRY = {
     "pixel_neighbor_motif": PixelNeighborMotifModel,
+    "pixel_motif_graph": PixelNeighborMotifModel,
     "pixel_gnn_only": PixelGNNOnly,
 }
 
@@ -23,11 +24,13 @@ def build_model(config: dict):
 
     model_cls = MODEL_REGISTRY[name]
 
-    if name == "pixel_neighbor_motif":
+    if name in ("pixel_neighbor_motif", "pixel_motif_graph"):
         return model_cls(
             hidden_dim=int(model_cfg.get("hidden_dim", 64)),
             num_attention_layers=int(model_cfg.get("num_attention_layers", 1)),
             num_motifs=int(model_cfg.get("num_motifs", 32)),
+            use_motif_graph=bool(model_cfg.get("use_motif_graph", True)),
+            num_motif_gnn_layers=int(model_cfg.get("num_motif_gnn_layers", 1)),
             temperature=float(model_cfg.get("temperature", 0.1)),
             pooling_type=str(model_cfg.get("pooling_type", "motif")),
             dropout=float(model_cfg.get("dropout", 0.1)),

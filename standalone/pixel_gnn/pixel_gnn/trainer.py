@@ -49,6 +49,7 @@ def run_training(
     model_name = config.get("model", {}).get("name", "pixel_neighbor_motif")
     loss_cfg = config.get("loss", {})
     lambda_diversity = float(loss_cfg.get("lambda_motif_diversity", 0.0))
+    lambda_spatial_coherence = float(loss_cfg.get("lambda_spatial_coherence", 0.0))
 
     print("=" * 80)
     print(f"[INIT] Pixel GNN Universal Trainer | Model: {model_name}")
@@ -112,7 +113,12 @@ def run_training(
     def step_fn(batch):
         with tf.GradientTape() as tape:
             out = model(batch, training=True)
-            loss, metrics = compute_total_loss(batch["labels"], out, lambda_diversity=lambda_diversity)
+            loss, metrics = compute_total_loss(
+                batch["labels"],
+                out,
+                lambda_diversity=lambda_diversity,
+                lambda_spatial_coherence=lambda_spatial_coherence,
+            )
             scaled_loss = loss / float(num_replicas)
         grads = tape.gradient(scaled_loss, model.trainable_variables)
         grads, _ = tf.clip_by_global_norm(grads, 5.0)
@@ -158,6 +164,7 @@ def run_training(
             model,
             val_ds,
             lambda_diversity=lambda_diversity,
+            lambda_spatial_coherence=lambda_spatial_coherence,
             include_diagnostics=(epoch % 5 == 0 or epoch == max_epochs),
         )
 
@@ -226,7 +233,13 @@ def run_training(
     test_gen = PixelBatchGenerator(fer_csv, "test", batch_size=eval_batch_size, seed=seed, shuffle=False, dataset=test_dataset)
     test_ds = test_gen.as_dataset(0)
 
-    test_metrics = evaluate_model(model, test_ds, lambda_diversity=lambda_diversity, include_diagnostics=True)
+    test_metrics = evaluate_model(
+        model,
+        test_ds,
+        lambda_diversity=lambda_diversity,
+        lambda_spatial_coherence=lambda_spatial_coherence,
+        include_diagnostics=True,
+    )
     test_acc = test_metrics["accuracy"]
     test_macro_f1 = test_metrics["macro_f1"]
     test_loss = test_metrics["loss"]
@@ -264,10 +277,22 @@ def run_training(
         final_diag = test_metrics["motif_diagnostics"]
         diag_path = output_dir / "motif_diagnostics.json"
         serializable_diag = {
-            "usage": final_diag["usage"].tolist(),
+            "usage": final_diag["usage"].tolist() if hasattr(final_diag["usage"], "tolist") else list(final_diag["usage"]),
+            "active_motifs": final_diag.get("active_motifs"),
+            "motif_usage_min": final_diag.get("motif_usage_min"),
+            "motif_usage_max": final_diag.get("motif_usage_max"),
+            "motif_usage_std": final_diag.get("motif_usage_std"),
+            "assignment_entropy": final_diag.get("assignment_entropy"),
             "top_nodes_per_motif": final_diag["top_nodes_per_motif"],
         }
         diag_path.write_text(json.dumps(serializable_diag, indent=2), encoding="utf-8")
+        print(
+            f"[MOTIF] Diagnostics: active={final_diag.get('active_motifs')} | "
+            f"usage_min={final_diag.get('motif_usage_min'):.4f} | "
+            f"usage_max={final_diag.get('motif_usage_max'):.4f} | "
+            f"entropy={final_diag.get('assignment_entropy'):.3f}",
+            flush=True,
+        )
         print(f"[MOTIF] Diagnostics saved to {diag_path}", flush=True)
 
     print(f"[SUCCESS] All artifacts and test metrics saved to {output_dir}")
