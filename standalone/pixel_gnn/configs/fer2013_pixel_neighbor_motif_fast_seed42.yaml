@@ -20,8 +20,8 @@ loss:
 training:
   seed: 42
   max_epochs: 90
-  batch_size: 64
-  eval_batch_size: 64
+  batch_size: 128
+  eval_batch_size: 128
   lr: 0.0003
   weight_decay: 0.001
   optimizer:

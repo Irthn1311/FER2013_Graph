@@ -8,18 +8,20 @@ from pixel_gnn.grid import StaticGridTopology
 
 
 class LocalNeighborAttentionLayer(tf.keras.layers.Layer):
-    """Vectorized local attention over static 8-neighborhood without Python loops."""
+    """Vectorized local attention over static 8-neighborhood with fast projected additive attention."""
 
     def __init__(self, hidden_dim: int = 64, edge_dim: int = 3, dropout: float = 0.1, name: str = None):
         super().__init__(name=name)
         self.hidden_dim = int(hidden_dim)
         self.edge_dim = int(edge_dim)
         self.dropout_rate = float(dropout)
+        self.score_hidden = max(self.hidden_dim // 2, 16)
 
-        # Score MLP: maps [h_i, h_j, e_ij] -> attention score
-        score_in_dim = 2 * self.hidden_dim + self.edge_dim
-        self.score_dense1 = tf.keras.layers.Dense(self.hidden_dim // 2, activation="gelu", name="score_dense1")
-        self.score_dense2 = tf.keras.layers.Dense(1, name="score_dense2")
+        # Fast projected attention (W [h_i, h_j, e] = W_i(h_i) + W_j(h_j) + W_e(e))
+        self.score_proj_i = tf.keras.layers.Dense(self.score_hidden, name="score_proj_i")
+        self.score_proj_j = tf.keras.layers.Dense(self.score_hidden, name="score_proj_j")
+        self.score_proj_e = tf.keras.layers.Dense(self.score_hidden, name="score_proj_e")
+        self.score_out = tf.keras.layers.Dense(1, name="score_out")
 
         # Value projection
         self.value_dense = tf.keras.layers.Dense(self.hidden_dim, name="value_dense")
@@ -43,39 +45,37 @@ class LocalNeighborAttentionLayer(tf.keras.layers.Layer):
         batch_size = tf.shape(h)[0]
         num_nodes = tf.shape(h)[1]  # 2304
 
-        # 1. Gather neighbor embeddings: [B, 2304, 8, D]
-        h_j = tf.gather(h, neighbors_idx, axis=1)
+        # 1. Projections computed at node level (2304 nodes, NOT tiled) -> 8x fewer operations!
+        proj_i = self.score_proj_i(h)  # [B, 2304, score_hidden]
+        proj_j = self.score_proj_j(h)  # [B, 2304, score_hidden]
 
-        # 2. Expand self node embeddings: [B, 2304, 1, D] -> [B, 2304, 8, D]
-        h_i = tf.expand_dims(h, axis=2)
-        h_i_tiled = tf.broadcast_to(h_i, [batch_size, num_nodes, 8, self.hidden_dim])
+        # 2. Gather neighbor projections: [B, 2304, 8, score_hidden]
+        proj_j_gathered = tf.gather(proj_j, neighbors_idx, axis=1)
 
-        # 3. Broadcast edge features: [1, 2304, 8, 3] -> [B, 2304, 8, 3]
-        edge_tiled = tf.broadcast_to(
-            tf.expand_dims(static_edge, axis=0),
-            [batch_size, num_nodes, 8, self.edge_dim]
-        )
+        # 3. Expand self node projection: [B, 2304, 1, score_hidden]
+        proj_i_expanded = tf.expand_dims(proj_i, axis=2)
 
-        # 4. Pairwise features: [B, 2304, 8, 2*D + edge_dim]
-        pair_features = tf.concat([h_i_tiled, h_j, edge_tiled], axis=-1)
+        # 4. Static edge projection: [1, 2304, 8, score_hidden]
+        proj_e = tf.expand_dims(self.score_proj_e(static_edge), axis=0)
 
-        # 5. Attention scores
-        scores = self.score_dense2(self.score_dense1(pair_features))  # [B, 2304, 8, 1]
-        scores = tf.squeeze(scores, axis=-1)                          # [B, 2304, 8]
+        # 5. Additive attention score with GELU activation
+        pair_features = tf.nn.gelu(proj_i_expanded + proj_j_gathered + proj_e)  # [B, 2304, 8, score_hidden]
+        scores = tf.squeeze(self.score_out(pair_features), axis=-1)            # [B, 2304, 8]
 
         # 6. Mask boundary / invalid neighbors
         mask_tiled = tf.broadcast_to(tf.expand_dims(neighbor_valid, axis=0), [batch_size, num_nodes, 8])
         masked_scores = tf.where(mask_tiled, scores, tf.constant(-1e9, dtype=scores.dtype))
 
         # 7. Softmax attention weights over 8 neighbors
-        alpha = tf.nn.softmax(masked_scores, axis=-1)                  # [B, 2304, 8]
+        alpha = tf.nn.softmax(masked_scores, axis=-1)  # [B, 2304, 8]
         alpha = tf.where(mask_tiled, alpha, tf.zeros_like(alpha))
         if training and self.dropout_rate > 0.0:
             alpha = self.dropout1(alpha, training=training)
 
-        # 8. Value projection and message aggregation
-        v = self.value_dense(h_j)                                      # [B, 2304, 8, D]
-        message = tf.reduce_sum(tf.expand_dims(alpha, axis=-1) * v, axis=2)  # [B, 2304, D]
+        # 8. Value projection computed at node level (2304 nodes, NOT tiled) -> 8x faster!
+        v_nodes = self.value_dense(h)                            # [B, 2304, D]
+        v_neighbors = tf.gather(v_nodes, neighbors_idx, axis=1)  # [B, 2304, 8, D]
+        message = tf.reduce_sum(tf.expand_dims(alpha, axis=-1) * v_neighbors, axis=2)  # [B, 2304, D]
 
         # 9. Residual + LayerNorm
         h_res = self.norm1(h + message)
