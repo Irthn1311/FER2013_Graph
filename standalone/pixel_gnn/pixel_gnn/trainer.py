@@ -63,19 +63,35 @@ def run_training(
     train_gen = PixelBatchGenerator(fer_csv, "train", batch_size=batch_size, seed=seed, shuffle=True, dataset=train_dataset)
     val_gen = PixelBatchGenerator(fer_csv, "val", batch_size=eval_batch_size, seed=seed, shuffle=False, dataset=val_dataset)
 
-    # Instantiate model using Model Registry
-    model = build_model(config)
+    # Strategy setup: auto-detect 2 GPUs on Kaggle or multi-GPU environments
+    gpus = tf.config.list_physical_devices("GPU")
+    if len(gpus) > 1:
+        for gpu in gpus:
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except Exception:
+                pass
+        strategy = tf.distribute.MirroredStrategy()
+        num_replicas = strategy.num_replicas_in_sync
+        print(f"[DEVICE] Detected {len(gpus)} GPUs: {[g.name for g in gpus]}")
+        print(f"[DEVICE] Activating MirroredStrategy with {num_replicas} replicas (both GPUs will be utilized)!", flush=True)
+    else:
+        strategy = tf.distribute.get_strategy()
+        num_replicas = 1
+        device_type = "1 GPU" if len(gpus) == 1 else "CPU"
+        print(f"[DEVICE] Single device ({device_type}).", flush=True)
 
-    # Trigger build with one batch
-    sample_batch = next(iter(train_gen.as_dataset(0, limit_batches=1)))
-    _ = model(sample_batch, training=False)
+    # Instantiate model and optimizer inside strategy scope
+    with strategy.scope():
+        model = build_model(config)
+        # Trigger build with one batch
+        sample_batch = next(iter(train_gen.as_dataset(0, limit_batches=1)))
+        _ = model(sample_batch, training=False)
+        optimizer = build_optimizer(config)
+        optimizer.build(model.trainable_variables)
 
     param_count = sum(int(np.prod(v.shape)) for v in model.trainable_weights)
     print(f"[MODEL] Build complete: {model.name}. Trainable parameters: {param_count:,}", flush=True)
-
-    # Optimizer and Scheduler
-    optimizer = build_optimizer(config)
-    optimizer.build(model.trainable_variables)
 
     sched_cfg = config.get("training", {}).get("scheduler", {})
     scheduler = ReduceLROnPlateau(
@@ -93,15 +109,27 @@ def run_training(
         patience=early_cfg.get("patience", 15),
     )
 
-    @tf.function
-    def train_step(batch):
+    def step_fn(batch):
         with tf.GradientTape() as tape:
             out = model(batch, training=True)
             loss, metrics = compute_total_loss(batch["labels"], out, lambda_diversity=lambda_diversity)
-        grads = tape.gradient(loss, model.trainable_variables)
+            scaled_loss = loss / float(num_replicas)
+        grads = tape.gradient(scaled_loss, model.trainable_variables)
         grads, _ = tf.clip_by_global_norm(grads, 5.0)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
-        return loss, metrics["ce_loss"], metrics["diversity_loss"]
+        return loss, metrics["ce_loss"]
+
+    if num_replicas > 1:
+        @tf.function
+        def dist_train_step(dist_batch):
+            per_replica_loss, per_replica_ce = strategy.run(step_fn, args=(dist_batch,))
+            total_loss = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_loss, axis=None) / float(num_replicas)
+            total_ce = strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_ce, axis=None) / float(num_replicas)
+            return total_loss, total_ce
+    else:
+        @tf.function
+        def dist_train_step(batch):
+            return step_fn(batch)
 
     history = []
     best_val_acc = 0.0
@@ -110,11 +138,15 @@ def run_training(
 
     for epoch in range(1, max_epochs + 1):
         t0 = time.perf_counter()
-        train_ds = train_gen.as_dataset(epoch, limit_batches=limit_train_batches)
+        raw_train_ds = train_gen.as_dataset(epoch, limit_batches=limit_train_batches)
+        if num_replicas > 1:
+            train_ds = strategy.experimental_distribute_dataset(raw_train_ds)
+        else:
+            train_ds = raw_train_ds
 
         step_losses, step_ce = [], []
         for batch in train_ds:
-            loss_val, ce_val, _ = train_step(batch)
+            loss_val, ce_val = dist_train_step(batch)
             step_losses.append(float(loss_val.numpy()))
             step_ce.append(float(ce_val.numpy()))
 

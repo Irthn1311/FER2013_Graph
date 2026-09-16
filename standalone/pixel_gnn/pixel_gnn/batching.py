@@ -103,10 +103,29 @@ class PixelBatchGenerator:
 
     def as_dataset(
         self,
-        epoch: int,
+        epoch: int = 0,
         limit_batches: int | None = None,
-        prefetch: int = 2,
+        prefetch: int | None = None,
     ) -> tf.data.Dataset:
+        if hasattr(self.dataset, "all_node_features"):
+            dataset = tf.data.Dataset.from_tensor_slices({
+                "node_features": self.dataset.all_node_features,
+                "labels": self.dataset.all_labels,
+                "sample_ids": self.dataset.all_sample_ids,
+                "image_48": self.dataset.all_images,
+            })
+            if self.shuffle:
+                dataset = dataset.shuffle(
+                    buffer_size=min(len(self.dataset), 10000),
+                    seed=self.seed + int(epoch) * 1_000_003,
+                    reshuffle_each_iteration=True,
+                )
+            dataset = dataset.batch(self.batch_size, drop_remainder=False)
+            if limit_batches is not None:
+                dataset = dataset.take(int(limit_batches))
+            dataset = dataset.prefetch(tf.data.AUTOTUNE)
+            return dataset
+
         dataset = tf.data.Dataset.from_generator(
             lambda: self.iter_epoch(epoch, limit_batches=limit_batches),
             output_signature=self.output_signature(),
@@ -114,6 +133,6 @@ class PixelBatchGenerator:
         options = tf.data.Options()
         options.experimental_deterministic = True
         dataset = dataset.with_options(options)
-        if int(prefetch) > 0:
-            dataset = dataset.prefetch(int(prefetch))
+        p = int(prefetch) if prefetch is not None and prefetch > 0 else tf.data.AUTOTUNE
+        dataset = dataset.prefetch(p)
         return dataset

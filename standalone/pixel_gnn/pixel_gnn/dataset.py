@@ -112,17 +112,37 @@ class FERPixelDataset:
             "rows": len(self.images),
             "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         }
-        print(f"[DATA] {split}: ready, {len(self.images)} rows in {time.perf_counter() - started:.1f}s", flush=True)
+
+        # Vectorized node features precomputation (<0.5s for 28k images)
+        t_pre = time.perf_counter()
+        imgs_arr = np.stack(self.images, axis=0).astype(np.float32) / 255.0  # [N, 48, 48]
+        gy, gx = np.gradient(imgs_arr, axis=(1, 2))                          # [N, 48, 48]
+        n_samples = len(self.images)
+        intensity = imgs_arr.reshape(n_samples, 2304, 1)
+        coords_exp = np.broadcast_to(self.coords_norm[None, :, :], (n_samples, 2304, 2))
+        gx_flat = gx.reshape(n_samples, 2304, 1)
+        gy_flat = gy.reshape(n_samples, 2304, 1)
+
+        self.all_node_features = np.concatenate(
+            [intensity, coords_exp, gx_flat, gy_flat], axis=-1
+        ).astype(np.float32)                                                 # [N, 2304, 5]
+        self.all_labels = np.array(self.labels, dtype=np.int64)
+        self.all_sample_ids = np.arange(n_samples, dtype=np.int64)
+        self.all_images = imgs_arr
+
+        print(
+            f"[DATA] {split}: ready, {len(self.images)} rows precomputed in "
+            f"{time.perf_counter() - started:.1f}s (vectorization: {time.perf_counter() - t_pre:.2f}s)",
+            flush=True,
+        )
 
     def __len__(self):
         return len(self.images)
 
     def __getitem__(self, index: int) -> dict:
-        img = self.images[index]
-        nodes = extract_node_features_single(img, self.coords_norm)
         return {
-            "node_features": nodes,
-            "label": int(self.labels[index]),
-            "sample_id": int(index),
-            "image_48": img.astype(np.float32) / 255.0,
+            "node_features": self.all_node_features[index],
+            "label": int(self.all_labels[index]),
+            "sample_id": int(self.all_sample_ids[index]),
+            "image_48": self.all_images[index],
         }
