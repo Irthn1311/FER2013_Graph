@@ -168,6 +168,10 @@ To change batch size entirely in YAML, set `data.batch_size`,
 `training.batch_size` and `resources.batch_size` to the same number.
 The supplied fast YAML has all three set to 32.
 
+The launcher applies TensorFlow CPU-thread, memory-growth, XLA and precision
+settings before importing graph/model code. This avoids Kaggle's
+`Intra op parallelism cannot be modified after initialization` failure.
+
 For a larger throughput run use `--batch-size 64` (32 graphs/GPU). Its T4
 memory requirements have not been measured; batch32 is the supplied default.
 For the original strict batch16 protocol explicitly select the original config:

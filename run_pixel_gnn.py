@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -28,13 +29,55 @@ def main():
     print(f"[BOOT] Pixel-GNN: importing TensorFlow; config={args.config}", flush=True)
     if not (3, 10) <= sys.version_info[:2] < (3, 13):
         raise RuntimeError("Use Python 3.10–3.12, matching the frozen TensorFlow package")
+
+    # Resolve CPU/thread controls before importing modules that may create a
+    # TensorFlow tensor. Kaggle rejects thread changes after its GPU context is
+    # initialized, even when the requested values match the defaults.
+    from lap_gnn_tf.config import load_config
+    from pixel_gnn_only.runtime import available_cpu_count
+
+    config = load_config(args.config)
+    resources = config["resources"]
+    cpu_count = available_cpu_count()
+    requested_gpu_count = args.gpus or config.get("runtime", {}).get("gpus", "1")
+    provisional_gpu_count = 2 if requested_gpu_count == "auto" else int(requested_gpu_count)
+    intra_op_threads = resources.get("intra_op_threads", 0) or cpu_count
+    inter_op_threads = resources.get("inter_op_threads", 0) or provisional_gpu_count
+    # These environment controls are consumed while TensorFlow initializes and
+    # also cover builds that create an eager device during the import itself.
+    os.environ["TF_NUM_INTRAOP_THREADS"] = str(intra_op_threads)
+    os.environ["TF_NUM_INTEROP_THREADS"] = str(inter_op_threads)
+
     import tensorflow as tf
+    # Prefer the explicit API while the runtime is still mutable. The pre-import
+    # environment controls remain authoritative if this TF build initialized
+    # eager devices as part of import.
+    try:
+        tf.config.threading.set_intra_op_parallelism_threads(intra_op_threads)
+        tf.config.threading.set_inter_op_parallelism_threads(inter_op_threads)
+    except RuntimeError:
+        print(
+            "[BOOT] TensorFlow initialized during import; using pre-import "
+            "TF_NUM_INTRAOP_THREADS/TF_NUM_INTEROP_THREADS settings",
+            flush=True,
+        )
+    physical_gpus = tf.config.list_physical_devices("GPU")
+    if resources["memory_growth"]:
+        for gpu in physical_gpus:
+            try:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            except RuntimeError:
+                # Harmless when the device was already initialized by this TF build.
+                pass
+    tf.config.optimizer.set_jit(bool(resources["xla"]))
+    tf.keras.mixed_precision.set_global_policy(
+        "mixed_float16" if resources["mixed_precision"] else "float32"
+    )
+
     tf_version = tuple(int(x) for x in tf.__version__.split(".")[:2])
     if not (2, 13) <= tf_version < (2, 19):
         raise RuntimeError("Use TensorFlow 2.13–2.18; install requirements-kaggle.txt and restart the Kaggle session")
-    from lap_gnn_tf.config import load_config
     from pixel_gnn_only.protocol import validate_pixel_config, apply_batch_size_override
-    config = load_config(args.config)
     apply_batch_size_override(config, args.batch_size)
     validate_pixel_config(config)
     if args.synthetic and not args.smoke:
@@ -55,11 +98,8 @@ def main():
     from lap_gnn_tf.resources import ResourceControls
     from lap_gnn_tf.seed import seed_everything
     from pixel_gnn_only.execution import validate_execution_config
-    from pixel_gnn_only.runtime import available_cpu_count, select_gpu_count
-    resources = config["resources"]
-    cpu_count = available_cpu_count()
-    gpu_count = select_gpu_count(args.gpus or config.get("runtime", {}).get("gpus", "1"),
-                                 len(tf.config.list_physical_devices("GPU")))
+    from pixel_gnn_only.runtime import select_gpu_count
+    gpu_count = select_gpu_count(requested_gpu_count, len(physical_gpus))
     graph_workers = args.graph_workers if args.graph_workers is not None else resources["graph_workers"]
     if graph_workers < 0:
         parser.error("--graph-workers must be zero (auto) or positive")
@@ -70,8 +110,7 @@ def main():
         graph_workers=graph_workers, tf_data_prefetch=resources["tf_data_prefetch"],
         graph_cache_size=resources["graph_cache_size"], memory_growth=resources["memory_growth"],
         mixed_precision=resources["mixed_precision"], xla=resources["xla"], device="gpu")
-    # Set threading/memory growth before any optimizer constants initialize TF.
-    controls.apply()
+    # TensorFlow runtime controls were applied before importing graph/model code.
     seed_everything(config["seed"])
     validate_execution_config(config["training"])
     print(f"[RUN] GPUs={gpu_count}; allocated CPUs={cpu_count}; graph workers={graph_workers}; "
