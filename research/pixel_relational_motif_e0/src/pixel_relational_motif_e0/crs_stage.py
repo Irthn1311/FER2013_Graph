@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 import hashlib
 import itertools
 
@@ -297,6 +298,26 @@ def _n_rows(x: np.ndarray | sparse.spmatrix) -> int:
 
 
 @dataclass(frozen=True)
+class SphericalKMeansIterationDiagnostic:
+    init_index: int
+    iteration: int
+    objective: float
+    relative_objective_improvement: float | None
+    assignment_changes: int | None
+    empty_reseeds: int
+    converged: bool
+
+
+@dataclass(frozen=True)
+class SphericalKMeansInitDiagnostic:
+    init_index: int
+    n_iter: int
+    objective: float
+    converged: bool
+    empty_reseeds: int
+
+
+@dataclass(frozen=True)
 class SphericalKMeansResult:
     cluster_centers_: np.ndarray
     labels_: np.ndarray
@@ -305,6 +326,7 @@ class SphericalKMeansResult:
     converged_: bool
     init_index_: int
     empty_reseeds_: int
+    init_diagnostics_: tuple[SphericalKMeansInitDiagnostic, ...]
 
     def predict(
         self,
@@ -337,6 +359,10 @@ class SphericalKMeans:
         tol: float = 1e-6,
         random_state: int = MASTER_SEED,
         batch_size: int = 8192,
+        diagnostic_callback: Callable[
+            [SphericalKMeansIterationDiagnostic], None
+        ]
+        | None = None,
     ) -> None:
         if (
             n_clusters <= 1
@@ -352,6 +378,7 @@ class SphericalKMeans:
         self.tol = float(tol)
         self.random_state = int(random_state)
         self.batch_size = int(batch_size)
+        self.diagnostic_callback = diagnostic_callback
 
     def _initial_centers(
         self,
@@ -441,6 +468,7 @@ class SphericalKMeans:
     ) -> SphericalKMeansResult:
         data = _normalize_rows(x)
         best_result: SphericalKMeansResult | None = None
+        init_diagnostics: list[SphericalKMeansInitDiagnostic] = []
 
         for init_index in range(self.n_init):
             centers = self._initial_centers(data, init_index)
@@ -458,9 +486,11 @@ class SphericalKMeans:
                     and np.array_equal(labels, previous_labels)
                 )
                 relative_small = False
+                relative_improvement: float | None = None
                 if previous_objective is not None:
                     denom = max(1.0, abs(previous_objective))
                     improvement = objective - previous_objective
+                    relative_improvement = float(improvement / denom)
                     relative_small = (
                         improvement >= -1e-10
                         and abs(improvement) / denom < self.tol
@@ -476,7 +506,32 @@ class SphericalKMeans:
                 # A reseeded empty cluster changes the state even when the old
                 # assignment vector was unchanged, so convergence is forbidden
                 # until one full no-reseed iteration satisfies the registered rule.
-                if reseeds == 0 and (assignments_unchanged or relative_small):
+                converged_this_iteration = reseeds == 0 and (
+                    assignments_unchanged or relative_small
+                )
+                if self.diagnostic_callback is not None and (
+                    iteration == 1
+                    or iteration % 10 == 0
+                    or converged_this_iteration
+                    or iteration == self.max_iter
+                ):
+                    assignment_changes = (
+                        None
+                        if previous_labels is None
+                        else int(np.count_nonzero(labels != previous_labels))
+                    )
+                    self.diagnostic_callback(
+                        SphericalKMeansIterationDiagnostic(
+                            init_index=init_index,
+                            iteration=iteration,
+                            objective=float(objective),
+                            relative_objective_improvement=relative_improvement,
+                            assignment_changes=assignment_changes,
+                            empty_reseeds=int(reseeds),
+                            converged=bool(converged_this_iteration),
+                        )
+                    )
+                if converged_this_iteration:
                     converged = True
                     break
 
@@ -492,12 +547,22 @@ class SphericalKMeans:
                 converged_=bool(converged),
                 init_index_=init_index,
                 empty_reseeds_=int(total_reseeds),
+                init_diagnostics_=(),
+            )
+            init_diagnostics.append(
+                SphericalKMeansInitDiagnostic(
+                    init_index=init_index,
+                    n_iter=iterations,
+                    objective=float(final_objective),
+                    converged=bool(converged),
+                    empty_reseeds=int(total_reseeds),
+                )
             )
             if best_result is None or result.objective_ > best_result.objective_:
                 best_result = result
 
         assert best_result is not None
-        return best_result
+        return replace(best_result, init_diagnostics_=tuple(init_diagnostics))
 
 
 def spatial_pyramid_histogram(id_map: np.ndarray, *, n_bins: int) -> np.ndarray:

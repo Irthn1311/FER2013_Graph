@@ -1,3 +1,5 @@
+import inspect
+
 import numpy as np
 from scipy import sparse
 
@@ -132,6 +134,8 @@ def test_spherical_kmeans_is_deterministic_and_unit_norm():
     assert np.allclose(a.cluster_centers_, b.cluster_centers_)
     assert np.isclose(a.objective_, b.objective_)
     assert np.array_equal(a.predict(x, batch_size=53), a.labels_)
+    assert len(a.init_diagnostics_) == spec["n_init"]
+    assert [d.init_index for d in a.init_diagnostics_] == [0, 1]
 
 
 def test_sparse_and_dense_spherical_kmeans_are_equivalent():
@@ -162,3 +166,77 @@ def test_sparse_and_dense_spherical_kmeans_are_equivalent():
     )
     assert np.isclose(dense_result.objective_, sparse_result.objective_, atol=1e-5)
     assert np.array_equal(sparse_result.predict(x), sparse_result.predict(xs))
+    for dense_diag, sparse_diag in zip(
+        dense_result.init_diagnostics_, sparse_result.init_diagnostics_
+    ):
+        assert dense_diag.init_index == sparse_diag.init_index
+        assert dense_diag.n_iter == sparse_diag.n_iter
+        assert dense_diag.converged == sparse_diag.converged
+        assert dense_diag.empty_reseeds == sparse_diag.empty_reseeds
+        assert np.isclose(
+            dense_diag.objective, sparse_diag.objective, atol=1e-5
+        )
+
+
+def test_spherical_kmeans_convergence_rule_is_still_the_registered_rule():
+    source = inspect.getsource(c.SphericalKMeans.fit)
+    assert "np.array_equal(labels, previous_labels)" in source
+    assert "improvement >= -1e-10" in source
+    assert "abs(improvement) / denom < self.tol" in source
+    assert "reseeds == 0" in source
+    assert "assignments_unchanged or relative_small" in source
+
+
+def test_empty_cluster_reseed_is_deterministic_and_cannot_converge_same_iteration():
+    class DuplicateInitialCenters(c.SphericalKMeans):
+        def _initial_centers(self, x, init_index):
+            row = x[0]
+            dense = row.toarray().reshape(-1) if sparse.issparse(row) else row
+            return np.repeat(
+                np.asarray(dense, dtype=np.float32)[None, :],
+                self.n_clusters,
+                axis=0,
+            )
+
+    x = np.asarray(
+        [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.70710677, 0.70710677, 0.0],
+            [0.70710677, 0.0, 0.70710677],
+            [0.0, 0.70710677, 0.70710677],
+        ],
+        dtype=np.float32,
+    )
+
+    traces = []
+    model = DuplicateInitialCenters(
+        n_clusters=3,
+        n_init=1,
+        max_iter=4,
+        tol=1e-6,
+        random_state=42,
+        batch_size=6,
+        diagnostic_callback=traces.append,
+    )
+    first = model.fit(x)
+
+    repeat_traces = []
+    repeated = DuplicateInitialCenters(
+        n_clusters=3,
+        n_init=1,
+        max_iter=4,
+        tol=1e-6,
+        random_state=42,
+        batch_size=6,
+        diagnostic_callback=repeat_traces.append,
+    ).fit(x)
+
+    assert traces == repeat_traces
+    assert first.init_diagnostics_ == repeated.init_diagnostics_
+    assert np.array_equal(first.labels_, repeated.labels_)
+    assert np.array_equal(first.cluster_centers_, repeated.cluster_centers_)
+    reseed_events = [event for event in traces if event.empty_reseeds > 0]
+    assert reseed_events
+    assert all(not event.converged for event in reseed_events)

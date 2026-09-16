@@ -34,6 +34,8 @@ from .crs_stage import (
     P_DIM,
     PRIMITIVE_K,
     PRIMITIVE_SIDE,
+    SphericalKMeansInitDiagnostic,
+    SphericalKMeansIterationDiagnostic,
     SphericalKMeans,
     SphericalKMeansResult,
     composition_descriptors,
@@ -55,10 +57,11 @@ SOURCE_BASE_SHA = "49e65e1032f1af13fd615a2e6f7a64f20760684b"
 PREREGISTRATION_PATH = "research/pixel_relational_motif_e0/CRS_STAGE_PREREGISTRATION.md"
 
 SKM_N_INIT = 3
-SKM_MAX_ITER = 50
+SKM_MAX_ITER = 500
 SKM_TOL = 1e-6
 SKM_BATCH_SIZE = 8192
 SPARSE_POOL_CHUNK_IMAGES = 256
+TECHNICAL_AMENDMENT = "A1"
 
 LOGREG_C = 1.0
 LOGREG_SOLVER = "lbfgs"
@@ -97,17 +100,55 @@ def _environment_manifest() -> dict[str, str]:
     }
 
 
-def _fit_registered_skm(
-    pool: np.ndarray | sparse.spmatrix, *, arm: str
-) -> SphericalKMeansResult:
-    result = SphericalKMeans(
+def _registered_skm(*, arm: str) -> SphericalKMeans:
+    def log_progress(diagnostic: SphericalKMeansIterationDiagnostic) -> None:
+        relative = diagnostic.relative_objective_improvement
+        relative_text = "NA" if relative is None else f"{relative:.12g}"
+        changes = diagnostic.assignment_changes
+        changes_text = "NA" if changes is None else str(changes)
+        _log(
+            f"{arm} spherical-kmeans progress init={diagnostic.init_index} "
+            f"iter={diagnostic.iteration} objective={diagnostic.objective:.6f} "
+            f"relative_improvement={relative_text} "
+            f"assignment_changes={changes_text} "
+            f"empty_reseeds={diagnostic.empty_reseeds} "
+            f"converged={diagnostic.converged}"
+        )
+
+    return SphericalKMeans(
         n_clusters=CRS_K,
         n_init=SKM_N_INIT,
         max_iter=SKM_MAX_ITER,
         tol=SKM_TOL,
         random_state=MASTER_SEED,
         batch_size=SKM_BATCH_SIZE,
-    ).fit(pool)
+        diagnostic_callback=log_progress,
+    )
+
+
+def _init_diagnostic_dict(
+    diagnostic: SphericalKMeansInitDiagnostic,
+) -> dict[str, float | int | bool]:
+    return {
+        "init_index": diagnostic.init_index,
+        "n_iter": diagnostic.n_iter,
+        "objective": diagnostic.objective,
+        "converged": diagnostic.converged,
+        "empty_reseeds": diagnostic.empty_reseeds,
+    }
+
+
+def _fit_registered_skm(
+    pool: np.ndarray | sparse.spmatrix, *, arm: str
+) -> SphericalKMeansResult:
+    result = _registered_skm(arm=arm).fit(pool)
+    for diagnostic in result.init_diagnostics_:
+        _log(
+            f"{arm} spherical-kmeans init={diagnostic.init_index} "
+            f"iter={diagnostic.n_iter} objective={diagnostic.objective:.6f} "
+            f"converged={diagnostic.converged} "
+            f"empty_reseeds={diagnostic.empty_reseeds}"
+        )
     _log(
         f"{arm} spherical-kmeans objective={result.objective_:.6f} "
         f"iter={result.n_iter_} converged={result.converged_} "
@@ -440,16 +481,50 @@ def _save_model_artifact(
         ),
         "crs_k": np.asarray(CRS_K, dtype=np.int32),
         "crs_descriptor_dim": np.asarray(CRS_DESCRIPTOR_DIM, dtype=np.int32),
+        "technical_amendment": np.asarray(TECHNICAL_AMENDMENT),
+        "skm_n_init": np.asarray(SKM_N_INIT, dtype=np.int32),
+        "skm_max_iter": np.asarray(SKM_MAX_ITER, dtype=np.int32),
+        "skm_tol": np.asarray(SKM_TOL, dtype=np.float64),
         "m_crs_centers": m_dict.cluster_centers_.astype(np.float32),
         "m_skm_objective": np.asarray(m_dict.objective_, dtype=np.float64),
         "m_skm_n_iter": np.asarray(m_dict.n_iter_, dtype=np.int32),
         "m_skm_init_index": np.asarray(m_dict.init_index_, dtype=np.int32),
         "m_skm_empty_reseeds": np.asarray(m_dict.empty_reseeds_, dtype=np.int32),
+        "m_skm_per_init_index": np.asarray(
+            [d.init_index for d in m_dict.init_diagnostics_], dtype=np.int32
+        ),
+        "m_skm_per_init_n_iter": np.asarray(
+            [d.n_iter for d in m_dict.init_diagnostics_], dtype=np.int32
+        ),
+        "m_skm_per_init_objective": np.asarray(
+            [d.objective for d in m_dict.init_diagnostics_], dtype=np.float64
+        ),
+        "m_skm_per_init_converged": np.asarray(
+            [d.converged for d in m_dict.init_diagnostics_], dtype=np.bool_
+        ),
+        "m_skm_per_init_empty_reseeds": np.asarray(
+            [d.empty_reseeds for d in m_dict.init_diagnostics_], dtype=np.int32
+        ),
         "c_crs_centers": c_dict.cluster_centers_.astype(np.float32),
         "c_skm_objective": np.asarray(c_dict.objective_, dtype=np.float64),
         "c_skm_n_iter": np.asarray(c_dict.n_iter_, dtype=np.int32),
         "c_skm_init_index": np.asarray(c_dict.init_index_, dtype=np.int32),
         "c_skm_empty_reseeds": np.asarray(c_dict.empty_reseeds_, dtype=np.int32),
+        "c_skm_per_init_index": np.asarray(
+            [d.init_index for d in c_dict.init_diagnostics_], dtype=np.int32
+        ),
+        "c_skm_per_init_n_iter": np.asarray(
+            [d.n_iter for d in c_dict.init_diagnostics_], dtype=np.int32
+        ),
+        "c_skm_per_init_objective": np.asarray(
+            [d.objective for d in c_dict.init_diagnostics_], dtype=np.float64
+        ),
+        "c_skm_per_init_converged": np.asarray(
+            [d.converged for d in c_dict.init_diagnostics_], dtype=np.bool_
+        ),
+        "c_skm_per_init_empty_reseeds": np.asarray(
+            [d.empty_reseeds for d in c_dict.init_diagnostics_], dtype=np.int32
+        ),
         "logreg_c": np.asarray(LOGREG_C, dtype=np.float64),
         "logreg_solver": np.asarray(LOGREG_SOLVER),
         "logreg_class_weight": np.asarray(LOGREG_CLASS_WEIGHT),
@@ -607,6 +682,7 @@ def run_train_stage(
             "model_artifact_sha256": artifact_sha,
             "environment": _environment_manifest(),
             "registered": {
+                "technical_amendment": TECHNICAL_AMENDMENT,
                 "master_seed": MASTER_SEED,
                 "primitive_k": PRIMITIVE_K,
                 "primitive_map": [PRIMITIVE_SIDE, PRIMITIVE_SIDE],
@@ -646,6 +722,9 @@ def run_train_stage(
                     "init_index": m_dict.init_index_,
                     "empty_reseeds": m_dict.empty_reseeds_,
                     "converged": m_dict.converged_,
+                    "per_init": [
+                        _init_diagnostic_dict(d) for d in m_dict.init_diagnostics_
+                    ],
                     "occupancy": m_diag,
                 },
                 "C": {
@@ -654,6 +733,9 @@ def run_train_stage(
                     "init_index": c_dict.init_index_,
                     "empty_reseeds": c_dict.empty_reseeds_,
                     "converged": c_dict.converged_,
+                    "per_init": [
+                        _init_diagnostic_dict(d) for d in c_dict.init_diagnostics_
+                    ],
                     "occupancy": c_diag,
                 },
             },

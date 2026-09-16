@@ -314,3 +314,37 @@ Before any registered PublicTest evaluation, tests must establish at least:
 10. Paired bootstrap uses one shared resample matrix and the runner cannot access PrivateTest.
 
 A result produced by code that violates this preregistration is `INVALID — IMPLEMENTATION DEVIATION`, not a scientific negative or positive result.
+
+## 18. Technical Amendment A1 — Train-only optimizer cap
+
+Date: `2026-09-16`
+
+The first official Train-only execution used scientific source lock
+`194876ccb5a723255f6e6ffaf3105f8cc3f1fc9e`. It completed the exact
+28,709-image, 24-centers-per-image sampled pool with sample-identity SHA256
+`96a6468f2a7d27d81d6ed87249cc381a62b12b59eef7f70ff232b626b28b0662`,
+then the M spherical k-means fit reached the registered `max_iter=50` with
+objective `371651.925665`, selected initialization `0`, zero empty-cluster
+reseeds, and `converged=false`. The runner stopped fail-closed before fitting
+C, building dense features, or fitting the probes. PublicTest and PrivateTest
+were not accessed. This was a technical Train-stage non-convergence, not a CRS
+scientific result.
+
+A1 authorizes exactly one optimizer-cap change:
+
+- spherical k-means `max_iter: 50 -> 500`;
+- the same cap applies identically to M and C.
+
+This is a Train-only technical optimization amendment. All other spherical
+k-means settings and semantics remain frozen: `K=512`, `n_init=3`, seed 42,
+`tol=1e-6`, cosine assignment, unit-normalized centroids, deterministic
+initialization and empty-cluster reseeding, highest-final-objective
+initialization selection, exact CSR cosine computation, and convergence only
+when assignments are unchanged or relative objective improvement is below
+`1e-6` on a no-reseed iteration.
+
+All representation, sampling, control, classifier, data-role, bootstrap, and
+Gate A/B contracts above remain frozen. The rerun must start from scratch and
+must reproduce the v1 sample-identity SHA256 before clustering. If either M or
+C reaches 500 iterations without convergence, execution stops fail-closed and
+PublicTest remains locked.

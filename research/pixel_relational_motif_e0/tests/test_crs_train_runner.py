@@ -20,14 +20,38 @@ def _toy_multiclass():
 def test_train_runner_registered_constants():
     assert r.SOURCE_BASE_SHA == "49e65e1032f1af13fd615a2e6f7a64f20760684b"
     assert r.SKM_N_INIT == 3
-    assert r.SKM_MAX_ITER == 50
+    assert r.SKM_MAX_ITER == 500
     assert r.SKM_TOL == 1e-6
+    assert r.TECHNICAL_AMENDMENT == "A1"
     assert r.SPARSE_POOL_CHUNK_IMAGES == 256
     assert r.LOGREG_C == 1.0
     assert r.LOGREG_SOLVER == "lbfgs"
     assert r.LOGREG_CLASS_WEIGHT == "balanced"
     assert r.LOGREG_MAX_ITER == 5000
     assert r.LOGREG_TOL == 1e-4
+
+
+def test_m_and_c_use_the_same_amended_spherical_kmeans_configuration():
+    m = r._registered_skm(arm="M")
+    c = r._registered_skm(arm="C")
+    registered = (
+        "n_clusters",
+        "n_init",
+        "max_iter",
+        "tol",
+        "random_state",
+        "batch_size",
+    )
+    assert {name: getattr(m, name) for name in registered} == {
+        name: getattr(c, name) for name in registered
+    }
+    assert m.n_clusters == 512
+    assert m.n_init == 3
+    assert m.max_iter == 500
+    assert m.tol == 1e-6
+    assert m.random_state == 42
+    assert callable(m.diagnostic_callback)
+    assert callable(c.diagnostic_callback)
 
 
 def test_fixed_probe_is_seven_way_converged_and_serializable_by_parameters():
