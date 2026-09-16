@@ -1,0 +1,51 @@
+run_name: pixel_neighbor_motif_fast_bs64_seed42
+framework: tensorflow
+seed: 42
+from_scratch: true
+
+model:
+  name: pixel_neighbor_motif
+  hidden_dim: 64
+  num_attention_layers: 1
+  num_motifs: 32
+  temperature: 0.1
+  pooling_type: motif
+  dropout: 0.1
+  num_classes: 7
+
+loss:
+  mode: ce_only
+  lambda_motif_diversity: 0.01
+
+training:
+  seed: 42
+  max_epochs: 90
+  batch_size: 64
+  eval_batch_size: 64
+  lr: 0.0003
+  weight_decay: 0.001
+  optimizer:
+    type: adamw
+    implementation: torch_compatible
+    beta1: 0.9
+    beta2: 0.999
+    epsilon: 1.0e-08
+    clipnorm: 5.0
+  scheduler:
+    type: plateau
+    monitor: val_loss
+    mode: min
+    factor: 0.5
+    patience: 5
+    threshold: 0.0001
+    min_lr: 3.0e-05
+  early_stopping:
+    enabled: true
+    min_epochs_before_stop: 30
+    patience: 15
+    metric: val_loss
+    mode: min
+
+paths:
+  fer_csv: null
+  output_root: /kaggle/working/outputs/pixel_neighbor_motif_fast_bs64_seed42
