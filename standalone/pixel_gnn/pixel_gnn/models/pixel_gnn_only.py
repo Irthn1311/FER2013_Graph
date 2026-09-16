@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import tensorflow as tf
 
-from lap_gnn_tf.model.gated_edge_layer import GatedEdgeLayer
-from lap_gnn_tf.model.initializers import TorchLinear
+from pixel_gnn.models.gated_edge_layer import GatedEdgeLayer
 from pixel_gnn.grid import StaticGridTopology
 
 
 class PixelMLP(tf.keras.layers.Layer):
     def __init__(self, hidden_dim: int = 96, dropout: float = 0.2):
         super().__init__(name="pixel_mlp")
-        self.linear = TorchLinear(5, hidden_dim, "pixel_encoder.linear", name="linear_5_to_hidden")
+        self.linear = tf.keras.layers.Dense(hidden_dim, name="linear_5_to_hidden")
         self.dropout_rate = float(dropout)
 
     def call(self, x, training=False):
@@ -63,24 +62,20 @@ class PixelGNNOnly(tf.keras.Model):
             num_layers=self.num_layers,
             dropout=gnn_dropout,
         )
-        self.classifier = TorchLinear(self.hidden_dim, self.num_classes, "classifier", name="linear_hidden_to_classes")
+        self.classifier = tf.keras.layers.Dense(self.num_classes, name="linear_hidden_to_classes")
 
     def call(self, batch, training=False):
-        # Support both flat graph representation and batch 3D representation
         if "edge_index" in batch and "edge_features" in batch:
-            # Flat graph mode
             h = self.encoder(tf.cast(batch["node_features"], tf.float32), training=training)
             h = self.gnn(h, batch["edge_index"], tf.cast(batch["edge_features"], tf.float32), training=training)
             node_count = tf.shape(batch["graph_node_counts"])[0] if "graph_node_counts" in batch else 1
             z = tf.math.unsorted_segment_mean(h, tf.cast(batch["node_graph_index"], tf.int32), node_count)
         else:
-            # 3D representation: reconstruct grid edges
-            x = batch["node_features"]  # [B, 2304, 5]
+            x = batch["node_features"]
             batch_size = tf.shape(x)[0]
             x_flat = tf.reshape(x, [-1, 5])
             h = self.encoder(x_flat, training=training)
 
-            # Use static grid edges
             grid = StaticGridTopology.get_instance()
             edge_index, edge_attr = grid.get_flat_batch_edges(batch_size)
             h = self.gnn(h, edge_index, edge_attr, training=training)

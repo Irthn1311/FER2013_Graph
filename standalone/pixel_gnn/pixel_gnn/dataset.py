@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from lap_gnn_tf.constants import SPLIT_COUNTS
+from pixel_gnn.utils import SPLIT_COUNTS
 from pixel_gnn.grid import StaticGridTopology
 
 SPLIT_FILENAMES = {

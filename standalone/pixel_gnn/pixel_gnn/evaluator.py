@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import tensorflow as tf
 
-from lap_gnn_tf.training.metrics import classification_metrics
+from pixel_gnn.utils import classification_metrics
 from pixel_gnn.losses import compute_total_loss
 
 

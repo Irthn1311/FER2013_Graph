@@ -8,10 +8,8 @@ import numpy as np
 import tensorflow as tf
 
 ROOT = Path(__file__).resolve().parents[3]
-TF_STANDALONE = ROOT / "standalone/lap_gnn_tensorflow_ofix7_mid_candidate/src"
 PIXEL_GNN_ROOT = ROOT / "standalone/pixel_gnn"
 
-sys.path.insert(0, str(TF_STANDALONE))
 sys.path.insert(0, str(PIXEL_GNN_ROOT))
 
 from pixel_gnn.grid import StaticGridTopology, precompute_grid_topology

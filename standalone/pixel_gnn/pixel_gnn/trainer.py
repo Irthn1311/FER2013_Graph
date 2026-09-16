@@ -11,11 +11,13 @@ import numpy as np
 import tensorflow as tf
 import yaml
 
-from lap_gnn_tf.config import load_config
-from lap_gnn_tf.seed import seed_everything
-from lap_gnn_tf.training.early_stopping import ValidationLossEarlyStopping
-from lap_gnn_tf.training.plateau import TorchCompatibleReduceLROnPlateau
-from lap_gnn_tf.training.optimizer import build_optimizer
+from pixel_gnn.utils import (
+    EarlyStopping,
+    ReduceLROnPlateau,
+    build_optimizer,
+    load_config,
+    seed_everything,
+)
 
 from pixel_gnn.batching import PixelBatchGenerator
 from pixel_gnn.dataset import FERPixelDataset
@@ -76,7 +78,7 @@ def run_training(
     optimizer.build(model.trainable_variables)
 
     sched_cfg = config.get("training", {}).get("scheduler", {})
-    scheduler = TorchCompatibleReduceLROnPlateau(
+    scheduler = ReduceLROnPlateau(
         optimizer,
         mode=sched_cfg.get("mode", "min"),
         factor=sched_cfg.get("factor", 0.5),
@@ -86,7 +88,7 @@ def run_training(
     )
 
     early_cfg = config.get("training", {}).get("early_stopping", {})
-    early_stopping = ValidationLossEarlyStopping(
+    early_stopping = EarlyStopping(
         min_epochs=early_cfg.get("min_epochs_before_stop", 30),
         patience=early_cfg.get("patience", 15),
     )
