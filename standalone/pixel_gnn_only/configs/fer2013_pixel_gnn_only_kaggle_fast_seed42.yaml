@@ -1,20 +1,22 @@
-# User-authorized throughput run: batch 32; all other training settings unchanged.
+# User-authorized maximum-throughput Kaggle run; optimization batch differs from baseline.
 extends: fer2013_pixel_gnn_only_seed42.yaml
-run_name: pixel_gnn_only_fast_bs32_seed42
+run_name: pixel_gnn_only_fast_bs64_seed42
 data:
-  batch_size: 32
+  batch_size: 64
 training:
-  batch_size: 32
+  batch_size: 64
 resources:
-  batch_size: 32
-  graph_workers: 0  # auto: available CPU affinity/quota, bounded by batch size
-  intra_op_threads: 0  # auto: available CPU affinity/quota
+  batch_size: 64
+  eval_batch_size: 64
+  graph_workers: 0  # auto: every CPU visible in process affinity
+  intra_op_threads: 0  # auto: every CPU visible in process affinity
   inter_op_threads: 2
-  tf_data_prefetch: 4
-  graph_cache_size: 256
+  tf_data_prefetch: 8
+  graph_cache_size: 512
 runtime:
-  gpus: auto  # use both T4s when available; --gpus 2 requires two
+  gpus: 2  # require both Kaggle T4 GPUs
+  cpu_mode: all_visible
   allow_batch_size_override: true
 paths:
   fer_csv: /kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv
-  output_root: /kaggle/working/outputs/pixel_gnn_only_fast_bs32_seed42
+  output_root: /kaggle/working/outputs/pixel_gnn_only_fast_bs64_seed42

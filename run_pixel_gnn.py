@@ -34,11 +34,12 @@ def main():
     # TensorFlow tensor. Kaggle rejects thread changes after its GPU context is
     # initialized, even when the requested values match the defaults.
     from lap_gnn_tf.config import load_config
-    from pixel_gnn_only.runtime import available_cpu_count
+    from pixel_gnn_only.runtime import select_cpu_count
 
     config = load_config(args.config)
     resources = config["resources"]
-    cpu_count = available_cpu_count()
+    cpu_mode = config.get("runtime", {}).get("cpu_mode", "quota")
+    cpu_count = select_cpu_count(cpu_mode)
     requested_gpu_count = args.gpus or config.get("runtime", {}).get("gpus", "1")
     provisional_gpu_count = 2 if requested_gpu_count == "auto" else int(requested_gpu_count)
     intra_op_threads = resources.get("intra_op_threads", 0) or cpu_count
@@ -104,7 +105,9 @@ def main():
     if graph_workers < 0:
         parser.error("--graph-workers must be zero (auto) or positive")
     graph_workers = min(graph_workers or cpu_count, config["training"]["batch_size"])
-    controls = ResourceControls(batch_size=config["training"]["batch_size"], eval_batch_size=32,
+    controls = ResourceControls(
+        batch_size=config["training"]["batch_size"],
+        eval_batch_size=resources.get("eval_batch_size", 32),
         intra_op_threads=resources.get("intra_op_threads", 0) or cpu_count,
         inter_op_threads=resources.get("inter_op_threads", 0) or gpu_count,
         graph_workers=graph_workers, tf_data_prefetch=resources["tf_data_prefetch"],
@@ -113,7 +116,7 @@ def main():
     # TensorFlow runtime controls were applied before importing graph/model code.
     seed_everything(config["seed"])
     validate_execution_config(config["training"])
-    print(f"[RUN] GPUs={gpu_count}; allocated CPUs={cpu_count}; graph workers={graph_workers}; "
+    print(f"[RUN] GPUs={gpu_count}; CPU mode={cpu_mode}; CPU threads={cpu_count}; graph workers={graph_workers}; "
           f"global batch={controls.batch_size}; eval batch={controls.eval_batch_size}; "
           f"prefetch={controls.tf_data_prefetch}; output={output}", flush=True)
     if args.smoke:

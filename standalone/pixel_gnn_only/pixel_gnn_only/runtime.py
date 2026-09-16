@@ -5,10 +5,17 @@ import os
 from pathlib import Path
 
 
-def available_cpu_count():
+def visible_cpu_count():
+    """Return every logical CPU the current Kaggle process may schedule on."""
     limits = [os.cpu_count() or 1]
     if hasattr(os, "sched_getaffinity"):
         limits.append(len(os.sched_getaffinity(0)))
+    return max(1, min(limits))
+
+
+def available_cpu_count():
+    """Return the conservative CPU count after affinity and cgroup quotas."""
+    limits = [visible_cpu_count()]
     try:
         quota, period = Path("/sys/fs/cgroup/cpu.max").read_text().split()
         if quota != "max":
@@ -22,6 +29,14 @@ def available_cpu_count():
         except (OSError, ValueError):
             pass
     return max(1, min(limits))
+
+
+def select_cpu_count(mode="quota"):
+    if str(mode) == "all_visible":
+        return visible_cpu_count()
+    if str(mode) == "quota":
+        return available_cpu_count()
+    raise ValueError("runtime.cpu_mode must be 'quota' or 'all_visible'")
 
 
 def select_gpu_count(requested, available):

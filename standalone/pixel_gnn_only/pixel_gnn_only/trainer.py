@@ -42,7 +42,6 @@ from pixel_gnn_only.execution import (
 )
 from pixel_gnn_only.artifacts import write_predictions, write_training_curves
 from pixel_gnn_only.parallel import create_replica, build_parallel_train_step, build_parallel_evaluation_step
-from pixel_gnn_only.runtime import available_cpu_count
 from lap_gnn_tf.training.plateau import TorchCompatibleReduceLROnPlateau
 
 
@@ -165,7 +164,7 @@ def run_training(
     config["training"]["batch_size"] = int(controls.batch_size)
     config["resources"].update(controls.__dict__)
     config.setdefault("runtime", {})["resolved_gpus"] = gpu_count
-    config["runtime"]["allocated_cpu_count"] = available_cpu_count()
+    config["runtime"]["allocated_cpu_count"] = int(controls.intra_op_threads)
     execution_state["data_parallel"] = "explicit_two_device_gradients" if gpu_count == 2 else "single_device"
     execution_state["global_gradient_clipping"] = "once after replica gradient summation"
     execution_state["bitwise_single_gpu_parity"] = "UNVERIFIED; replica RNG/reduction order can differ"

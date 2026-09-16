@@ -94,20 +94,21 @@ Accepted data layouts:
 
 No MediaPipe dataset or full-model graph cache needs to be attached.
 
-## Kaggle fast configuration — two GPUs / batch32
+## Kaggle maximum-throughput configuration — two GPUs / batch64
 
 The runner now defaults to `fer2013_pixel_gnn_only_kaggle_fast_seed42.yaml`:
 
-- Global training batch **32**, split as **16 complete graphs per GPU** on two T4s.
-- Evaluation batch remains 32. Train/validation/test row order is preserved.
+- Global training batch **64**, split as **32 complete graphs per GPU** on two T4s.
+- Evaluation batch is 64. Train/validation/test row order is preserved.
 - Forward/backward execute in separate GPU:0/GPU:1 branches of a compiled TF graph.
 - Gradients use the actual global example count, including a short final batch.
 - Gradients are summed on GPU:0, then the original AdamW performs global
   clipping and one update. GPU:1 weights synchronize before the step returns.
 - Both GPUs also run validation, clean train evaluation and final-test inference.
   The original evaluation loss aggregation and checkpoint policy are retained.
-- CPU workers and TensorFlow threads are sized from CPU affinity/cgroup quota;
-  prefetch is 4, with a bounded graph cache of 256 entries.
+- CPU workers and TensorFlow intra-op threads use every logical CPU visible in
+  the process affinity, without reducing the count to a cgroup quota estimate.
+  Prefetch is 8, with a bounded graph cache of 512 entries.
 - Train evaluation reuses already loaded train images instead of reparsing CSV.
 - Input tensors are collated on CPU and sliced by whole graph before GPU transfer.
 - The configured FER CSV is used directly; there is no recursive input-tree scan.
@@ -117,7 +118,7 @@ optimizer; it does not wrap the frozen custom AdamW in MirroredStrategy.
 Saved checkpoints contain the authoritative Pixel-GNN model, not an extra
 scientific head or an ensemble. Parameters per model remain 189,319.
 
-Batch32 changes the number of optimizer steps per epoch (898 rather than 1,795).
+Batch64 changes the number of optimizer steps per epoch (449 rather than 1,795).
 Consequently this throughput run is **not an architecture-only comparison**
 against the batch16 full baseline. Resolved config/provenance records original
 and effective batch sizes and `authorized_training_changes: [batch_size]`.
@@ -154,7 +155,7 @@ Or check architecture/gradients explicitly using synthetic data:
 !python -u run_pixel_gnn.py --gpus 2 --smoke --synthetic
 ```
 
-Run using the YAML configuration (batch32):
+Run using the YAML configuration (batch64):
 
 ```python
 !python -u train.py --config standalone/pixel_gnn_only/configs/fer2013_pixel_gnn_only_kaggle_fast_seed42.yaml
@@ -163,17 +164,18 @@ Run using the YAML configuration (batch32):
 `train.py` delegates to the same Pixel-GNN runner; it does not start the full
 LAP-GNN model. No training logic is duplicated. Edit the YAML's `paths.fer_csv`
 to match your attached Kaggle dataset and `paths.output_root` for outputs.
-`runtime.gpus: auto` uses up to two visible GPUs; set it to `2` to require both.
+`runtime.gpus: 2` requires both Kaggle T4 GPUs.
 To change batch size entirely in YAML, set `data.batch_size`,
 `training.batch_size` and `resources.batch_size` to the same number.
-The supplied fast YAML has all three set to 32.
+The supplied fast YAML has all three set to 64.
 
 The launcher applies TensorFlow CPU-thread, memory-growth, XLA and precision
 settings before importing graph/model code. This avoids Kaggle's
 `Intra op parallelism cannot be modified after initialization` failure.
 
-For a larger throughput run use `--batch-size 64` (32 graphs/GPU). Its T4
-memory requirements have not been measured; batch32 is the supplied default.
+The supplied batch64 uses 32 graphs per GPU. Its peak T4 memory and utilization
+must be confirmed on Kaggle. Utilization can fluctuate because graph building,
+host-to-device copies and sparse reductions do not have equal-duration kernels.
 For the original strict batch16 protocol explicitly select the original config:
 
 ```python
@@ -197,7 +199,7 @@ finite gradients for all 58 trainable variables and a compiled optimizer update.
 Smoke does not evaluate validation/test and cannot establish accuracy.
 Training does not automatically run an extra smoke update before the first epoch.
 
-Fast outputs are separate, under `/kaggle/working/outputs/pixel_gnn_only_fast_bs32_seed42`
+Fast outputs are separate, under `/kaggle/working/outputs/pixel_gnn_only_fast_bs64_seed42`
 and `/kaggle/working/outputs/pixel_gnn_only_smoke`. Existing nonempty output
 directories passed explicitly are rejected. For the default output path the
 runner appends a timestamp if needed, preserving all prior artifacts.
