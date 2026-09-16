@@ -1,6 +1,7 @@
 import inspect
 
 import numpy as np
+from scipy import sparse
 
 from pixel_relational_motif_e0 import crs_train_runner as r
 
@@ -21,6 +22,7 @@ def test_train_runner_registered_constants():
     assert r.SKM_N_INIT == 3
     assert r.SKM_MAX_ITER == 50
     assert r.SKM_TOL == 1e-6
+    assert r.SPARSE_POOL_CHUNK_IMAGES == 256
     assert r.LOGREG_C == 1.0
     assert r.LOGREG_SOLVER == "lbfgs"
     assert r.LOGREG_CLASS_WEIGHT == "balanced"
@@ -48,6 +50,21 @@ def test_cluster_diagnostics_cover_all_registered_clusters():
     assert diag["min_occupancy"] == 3
     assert diag["max_occupancy"] == 3
     assert np.isclose(diag["normalized_entropy"], 1.0)
+
+
+def test_sparse_pool_chunk_roundtrip_is_exact(tmp_path):
+    rng = np.random.default_rng(8)
+    x = np.zeros((11, 1152), dtype=np.float32)
+    for row in range(len(x)):
+        ids = rng.choice(1152, size=30, replace=False)
+        x[row, ids] = rng.random(30, dtype=np.float32)
+    block = sparse.csr_matrix(x)
+    path = tmp_path / "chunk.npz"
+    r._save_sparse_pool_chunk([block], path=path)
+    restored = sparse.load_npz(path)
+    assert sparse.isspmatrix_csr(restored)
+    assert restored.shape == x.shape
+    assert np.allclose(restored.toarray(), x)
 
 
 def test_train_runner_cli_has_no_public_or_private_input():
