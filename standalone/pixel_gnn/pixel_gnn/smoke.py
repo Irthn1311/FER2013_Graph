@@ -11,7 +11,7 @@ from pixel_gnn.losses import compute_total_loss
 from pixel_gnn.models import build_model
 
 
-def make_dummy_batch(batch_size: int = 4) -> dict[str, tf.Tensor]:
+def make_dummy_batch(batch_size: int = 4, node_dim: int = 5) -> dict[str, tf.Tensor]:
     grid = StaticGridTopology.get_instance()
     coords = grid.normalized_coords.numpy()
 
@@ -23,7 +23,14 @@ def make_dummy_batch(batch_size: int = 4) -> dict[str, tf.Tensor]:
         intensity = img.reshape(-1, 1)
         gx_flat = gx.reshape(-1, 1)
         gy_flat = gy.reshape(-1, 1)
-        feat = np.concatenate([intensity, coords, gx_flat, gy_flat], axis=1).astype(np.float32)
+        feats = [intensity, coords, gx_flat, gy_flat]
+        if node_dim == 7:
+            grad_mag = np.sqrt(gx**2 + gy**2).reshape(-1, 1)
+            gyy, _ = np.gradient(gy)
+            _, gxx = np.gradient(gx)
+            laplacian = (gxx + gyy).reshape(-1, 1)
+            feats.extend([grad_mag, laplacian])
+        feat = np.concatenate(feats, axis=1).astype(np.float32)
         node_features.append(feat)
 
     labels = np.random.randint(0, 7, size=(batch_size,), dtype=np.int64)
@@ -50,13 +57,14 @@ def run_smoke_test(config: dict | None = None) -> dict:
         }
 
     model_name = config.get("model", {}).get("name", "pixel_neighbor_motif")
+    node_dim = config.get("model", {}).get("node_dim", 5)
     print("=" * 80)
-    print(f"[SMOKE] Testing Pixel GNN Model: {model_name}...")
+    print(f"[SMOKE] Testing Pixel GNN Model: {model_name} (node_dim={node_dim})...")
     print("=" * 80, flush=True)
 
     model = build_model(config)
     batch_size = 4
-    dummy_batch = make_dummy_batch(batch_size=batch_size)
+    dummy_batch = make_dummy_batch(batch_size=batch_size, node_dim=node_dim)
 
     # 1. Forward pass
     output = model(dummy_batch, training=False)

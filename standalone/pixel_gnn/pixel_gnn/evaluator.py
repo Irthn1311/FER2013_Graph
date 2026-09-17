@@ -72,6 +72,7 @@ def evaluate_model(
     limit_batches: int | None = None,
     include_diagnostics: bool = False,
     use_tta: bool = False,
+    node_dim: int = 5,
 ) -> dict:
     all_labels, all_probs, all_losses = [], [], []
 
@@ -89,7 +90,7 @@ def evaluate_model(
     @tf.function
     def eval_step_tta(batch):
         out_orig = model(batch, training=False)
-        batch_flipped = make_flipped_batch(batch)
+        batch_flipped = make_flipped_batch(batch, node_dim=node_dim)
         out_flipped = model(batch_flipped, training=False)
         probs = (out_orig["probabilities"] + out_flipped["probabilities"]) / 2.0
 

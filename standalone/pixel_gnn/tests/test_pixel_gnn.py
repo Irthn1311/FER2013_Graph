@@ -276,6 +276,85 @@ def test_dual_scale_model():
     print("[TEST] test_dual_scale_model passed!")
 
 
+def test_7d_features_and_cutout():
+    from pixel_gnn.augmentation import (
+        compute_image_gradients,
+        compute_image_laplacian,
+        apply_random_cutout,
+        augment_batch,
+        make_flipped_batch,
+    )
+    from pixel_gnn.losses import compute_total_loss
+
+    # 1. Test Laplacian computation
+    imgs = tf.random.uniform((4, 48, 48), dtype=tf.float32)
+    gy, gx = compute_image_gradients(imgs)
+    lap = compute_image_laplacian(gy, gx)
+    assert lap.shape == (4, 48, 48)
+    assert tf.reduce_all(tf.math.is_finite(lap))
+
+    # 2. Test Cutout
+    cutout_imgs = apply_random_cutout(imgs, cutout_prob=1.0, min_size=8, max_size=14, fill_value=0.0)
+    assert cutout_imgs.shape == (4, 48, 48)
+    # With cutout_prob=1.0, some pixels should be zero
+    assert tf.reduce_any(cutout_imgs == 0.0)
+
+    # 3. Test augment_batch with node_dim=7 and cutout
+    batch_raw = {
+        "image_48": imgs,
+        "labels": tf.constant([0, 1, 2, 3], dtype=tf.int64),
+    }
+    aug = augment_batch(
+        batch_raw,
+        flip_prob=0.5,
+        brightness_delta=0.08,
+        contrast_range=(0.9, 1.1),
+        cutout_prob=0.5,
+        cutout_min_size=8,
+        cutout_max_size=14,
+        node_dim=7,
+    )
+    assert aug["node_features"].shape == (4, 2304, 7)
+    assert tf.reduce_all(tf.math.is_finite(aug["node_features"]))
+
+    # 4. Test make_flipped_batch with node_dim=7
+    flipped = make_flipped_batch(aug, node_dim=7)
+    assert flipped["node_features"].shape == (4, 2304, 7)
+    assert tf.reduce_all(tf.math.is_finite(flipped["node_features"]))
+
+    # 5. Test Dual-Scale model with 7D input
+    cfg = {
+        "model": {
+            "name": "pixel_motif_dual_scale",
+            "node_dim": 7,
+            "hidden_dim": 96,
+            "num_attention_layers": 2,
+            "num_heads": 4,
+            "num_motifs": 16,
+            "spatial_span": 0.58,
+            "use_motif_graph": True,
+            "num_motif_gnn_layers": 1,
+            "num_motif_heads": 4,
+            "dropout": 0.1,
+        },
+        "loss": {"label_smoothing": 0.05, "lambda_motif_diversity": 0.01},
+    }
+    model = build_model(cfg)
+
+    with tf.GradientTape() as tape:
+        out = model(aug, training=True)
+        loss, _ = compute_total_loss(aug["labels"], out, label_smoothing=0.05)
+
+    grads = tape.gradient(loss, model.trainable_variables)
+    assert len(grads) == len(model.trainable_variables)
+    for g in grads:
+        assert g is not None and tf.reduce_all(tf.math.is_finite(g))
+
+    assert out["logits"].shape == (4, 7)
+    assert out["z_image"].shape == (4, 96)
+    print("[TEST] test_7d_features_and_cutout passed!")
+
+
 if __name__ == "__main__":
     test_registry()
     test_motif_graph_configurations()
@@ -284,4 +363,5 @@ if __name__ == "__main__":
     test_augmentation_module()
     test_warmup_cosine_decay()
     test_dual_scale_model()
+    test_7d_features_and_cutout()
     print("ALL TESTS IN pixel_gnn PASSED!")

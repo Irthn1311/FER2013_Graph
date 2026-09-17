@@ -270,7 +270,8 @@ class PixelMotifDualScaleModel(tf.keras.Model):
     def call(self, batch, training: bool = False):
         x = batch["node_features"]
         if len(x.shape) == 2:
-            x = tf.reshape(x, [-1, 2304, 5])
+            feat_dim = tf.shape(x)[-1]
+            x = tf.reshape(x, [-1, 2304, feat_dim])
 
         # Step 1: Node projection
         h = tf.nn.gelu(self.node_proj(x))

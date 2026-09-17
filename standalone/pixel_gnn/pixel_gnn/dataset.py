@@ -48,7 +48,7 @@ def resolve_split_source(fer_csv: str | Path, split: str) -> tuple[Path, bool]:
     return source, True
 
 
-def extract_node_features_single(image_48: np.ndarray, coords_norm: np.ndarray) -> np.ndarray:
+def extract_node_features_single(image_48: np.ndarray, coords_norm: np.ndarray, node_dim: int = 5) -> np.ndarray:
     img = np.asarray(image_48, dtype=np.float32)
     if img.max() > 1.0:
         img = img / 255.0
@@ -58,11 +58,19 @@ def extract_node_features_single(image_48: np.ndarray, coords_norm: np.ndarray) 
     gx_flat = gx.reshape(-1, 1)
     gy_flat = gy.reshape(-1, 1)
 
-    return np.concatenate([intensity, coords_norm, gx_flat, gy_flat], axis=1).astype(np.float32)
+    feats = [intensity, coords_norm, gx_flat, gy_flat]
+    if node_dim == 7:
+        grad_mag = np.sqrt(gx**2 + gy**2).reshape(-1, 1)
+        gyy, _ = np.gradient(gy)
+        _, gxx = np.gradient(gx)
+        laplacian = (gxx + gyy).reshape(-1, 1)
+        feats.extend([grad_mag, laplacian])
+
+    return np.concatenate(feats, axis=1).astype(np.float32)
 
 
 class FERPixelDataset:
-    def __init__(self, fer_csv: str | Path, split: str):
+    def __init__(self, fer_csv: str | Path, split: str, node_dim: int = 5):
         if split not in SPLIT_COUNTS:
             raise ValueError(f"Unknown split: {split}")
         source, filter_usage = resolve_split_source(fer_csv, split)
@@ -105,6 +113,7 @@ class FERPixelDataset:
             )
 
         self.split = split
+        self.node_dim = int(node_dim)
         self.coords_norm = StaticGridTopology.get_instance().normalized_coords.numpy()
         self.provenance = {
             "split": split,
@@ -123,16 +132,22 @@ class FERPixelDataset:
         gx_flat = gx.reshape(n_samples, 2304, 1)
         gy_flat = gy.reshape(n_samples, 2304, 1)
 
-        self.all_node_features = np.concatenate(
-            [intensity, coords_exp, gx_flat, gy_flat], axis=-1
-        ).astype(np.float32)                                                 # [N, 2304, 5]
+        feats = [intensity, coords_exp, gx_flat, gy_flat]
+        if self.node_dim == 7:
+            grad_mag = np.sqrt(gx**2 + gy**2).reshape(n_samples, 2304, 1)
+            gyy, _ = np.gradient(gy, axis=(1, 2))
+            _, gxx = np.gradient(gx, axis=(1, 2))
+            laplacian = (gxx + gyy).reshape(n_samples, 2304, 1)
+            feats.extend([grad_mag, laplacian])
+
+        self.all_node_features = np.concatenate(feats, axis=-1).astype(np.float32)  # [N, 2304, node_dim]
         self.all_labels = np.array(self.labels, dtype=np.int64)
         self.all_sample_ids = np.arange(n_samples, dtype=np.int64)
         self.all_images = imgs_arr
 
         print(
             f"[DATA] {split}: ready, {len(self.images)} rows precomputed in "
-            f"{time.perf_counter() - started:.1f}s (vectorization: {time.perf_counter() - t_pre:.2f}s)",
+            f"{time.perf_counter() - started:.1f}s (node_dim={self.node_dim}, vectorization: {time.perf_counter() - t_pre:.2f}s)",
             flush=True,
         )
 

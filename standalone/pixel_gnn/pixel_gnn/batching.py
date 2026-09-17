@@ -43,8 +43,13 @@ class PixelBatchGenerator:
         flip_prob: float = 0.5,
         brightness_delta: float = 0.08,
         contrast_range: tuple[float, float] = (0.9, 1.1),
+        cutout_prob: float = 0.0,
+        cutout_min_size: int = 8,
+        cutout_max_size: int = 14,
+        node_dim: int = 5,
     ):
-        self.dataset = dataset if dataset is not None else FERPixelDataset(fer_csv, split)
+        self.node_dim = int(node_dim)
+        self.dataset = dataset if dataset is not None else FERPixelDataset(fer_csv, split, node_dim=self.node_dim)
         self.split = split
         self.batch_size = int(batch_size)
         self.seed = int(seed)
@@ -57,6 +62,9 @@ class PixelBatchGenerator:
         self.flip_prob = float(flip_prob)
         self.brightness_delta = float(brightness_delta)
         self.contrast_range = tuple(contrast_range)
+        self.cutout_prob = float(cutout_prob)
+        self.cutout_min_size = int(cutout_min_size)
+        self.cutout_max_size = int(cutout_max_size)
 
     def __len__(self):
         return (len(self.dataset) + self.batch_size - 1) // self.batch_size
@@ -103,16 +111,19 @@ class PixelBatchGenerator:
                         flip_prob=self.flip_prob,
                         brightness_delta=self.brightness_delta,
                         contrast_range=self.contrast_range,
+                        cutout_prob=self.cutout_prob,
+                        cutout_min_size=self.cutout_min_size,
+                        cutout_max_size=self.cutout_max_size,
+                        node_dim=self.node_dim,
                     )
                 yield batch
         finally:
             if executor is not None:
                 executor.shutdown(wait=True)
 
-    @staticmethod
-    def output_signature() -> dict[str, tf.TensorSpec]:
+    def output_signature(self) -> dict[str, tf.TensorSpec]:
         return {
-            "node_features": tf.TensorSpec((None, 2304, 5), tf.float32),
+            "node_features": tf.TensorSpec((None, 2304, self.node_dim), tf.float32),
             "labels": tf.TensorSpec((None,), tf.int64),
             "sample_ids": tf.TensorSpec((None,), tf.int64),
             "image_48": tf.TensorSpec((None, 48, 48), tf.float32),
@@ -145,6 +156,10 @@ class PixelBatchGenerator:
                         flip_prob=self.flip_prob,
                         brightness_delta=self.brightness_delta,
                         contrast_range=self.contrast_range,
+                        cutout_prob=self.cutout_prob,
+                        cutout_min_size=self.cutout_min_size,
+                        cutout_max_size=self.cutout_max_size,
+                        node_dim=self.node_dim,
                     ),
                     num_parallel_calls=tf.data.AUTOTUNE,
                 )

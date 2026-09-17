@@ -309,14 +309,16 @@ def run_visualization(
                 print(f"[AUTO-DETECT] Found dataset at: {fer_csv}")
                 break
 
+    node_dim = int(config.get("model", {}).get("node_dim", 5))
+
     if not fer_csv or not Path(fer_csv).exists():
         print("[VIS] No test.csv found! Generating synthetic samples for visualization test...")
         from pixel_gnn.smoke import make_dummy_batch
-        batch = make_dummy_batch(batch_size=min(num_samples, 4))
+        batch = make_dummy_batch(batch_size=min(num_samples, 4), node_dim=node_dim)
         images = batch["image_48"].numpy()
         labels = batch["labels"].numpy()
     else:
-        test_dataset = FERPixelDataset(fer_csv, "test")
+        test_dataset = FERPixelDataset(fer_csv, "test", node_dim=node_dim)
         # Select representative samples from distinct classes
         sample_indices = []
         seen_labels = set()

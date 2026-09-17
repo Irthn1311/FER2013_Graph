@@ -38,22 +38,77 @@ def compute_image_gradients(imgs: tf.Tensor) -> tuple[tf.Tensor, tf.Tensor]:
     return gy, gx
 
 
+def compute_image_laplacian(gy: tf.Tensor, gx: tf.Tensor) -> tf.Tensor:
+    """Compute exact second-derivative discrete Laplacian d^2I/dx^2 + d^2I/dy^2."""
+    gyy = tf.concat([
+        gy[:, 1:2, :] - gy[:, 0:1, :],
+        (gy[:, 2:, :] - gy[:, :-2, :]) / 2.0,
+        gy[:, 47:48, :] - gy[:, 46:47, :],
+    ], axis=1)
+
+    gxx = tf.concat([
+        gx[:, :, 1:2] - gx[:, :, 0:1],
+        (gx[:, :, 2:] - gx[:, :, :-2]) / 2.0,
+        gx[:, :, 47:48] - gx[:, :, 46:47],
+    ], axis=2)
+
+    return gxx + gyy
+
+
+def apply_random_cutout(
+    imgs: tf.Tensor,
+    cutout_prob: float = 0.3,
+    min_size: int = 8,
+    max_size: int = 14,
+    fill_value: float = 0.0,
+) -> tf.Tensor:
+    """Mask out a random rectangular patch to simulate partial facial occlusion (hands, hair, glasses)."""
+    batch_size = tf.shape(imgs)[0]
+    height, width = 48, 48
+
+    apply_mask = tf.random.uniform([batch_size], 0.0, 1.0) < cutout_prob
+    h_sizes = tf.random.uniform([batch_size], min_size, max_size + 1, dtype=tf.int32)
+    w_sizes = tf.random.uniform([batch_size], min_size, max_size + 1, dtype=tf.int32)
+
+    y0 = tf.random.uniform([batch_size], 0, height - max_size + 1, dtype=tf.int32)
+    x0 = tf.random.uniform([batch_size], 0, width - max_size + 1, dtype=tf.int32)
+
+    yy, xx = tf.meshgrid(tf.range(height), tf.range(width), indexing="ij")
+    yy = tf.expand_dims(yy, 0)
+    xx = tf.expand_dims(xx, 0)
+
+    y0_exp = tf.reshape(y0, [-1, 1, 1])
+    x0_exp = tf.reshape(x0, [-1, 1, 1])
+    h_exp = tf.reshape(h_sizes, [-1, 1, 1])
+    w_exp = tf.reshape(w_sizes, [-1, 1, 1])
+
+    in_box = (yy >= y0_exp) & (yy < y0_exp + h_exp) & (xx >= x0_exp) & (xx < x0_exp + w_exp)
+    apply_exp = tf.reshape(apply_mask, [-1, 1, 1])
+    mask = in_box & apply_exp
+
+    return tf.where(mask, tf.constant(fill_value, dtype=imgs.dtype), imgs)
+
+
 def augment_batch(
     batch: dict[str, tf.Tensor],
     flip_prob: float = 0.5,
     brightness_delta: float = 0.08,
     contrast_range: tuple[float, float] = (0.9, 1.1),
+    cutout_prob: float = 0.0,
+    cutout_min_size: int = 8,
+    cutout_max_size: int = 14,
+    node_dim: int = 5,
 ) -> dict[str, tf.Tensor]:
-    """Apply data augmentation to image_48 batch, recompute gradients, and rebuild node features."""
+    """Apply data augmentation, recompute gradients/Laplacian, and rebuild node features."""
     imgs = tf.cast(batch["image_48"], tf.float32)  # [B, 48, 48]
     batch_size = tf.shape(imgs)[0]
 
-    # 1. Random horizontal flip (p=0.5)
+    # 1. Random horizontal flip
     if flip_prob > 0.0:
         flips = tf.random.uniform([batch_size, 1, 1], minval=0.0, maxval=1.0) < flip_prob
         imgs = tf.where(flips, tf.reverse(imgs, axis=[2]), imgs)
 
-    # 2. Random contrast (factor in [0.9, 1.1])
+    # 2. Random contrast
     if contrast_range is not None and (contrast_range[0] != 1.0 or contrast_range[1] != 1.0):
         means = tf.reduce_mean(imgs, axis=[1, 2], keepdims=True)
         factors = tf.random.uniform(
@@ -64,7 +119,7 @@ def augment_batch(
         )
         imgs = (imgs - means) * factors + means
 
-    # 3. Random brightness (delta in [-0.08, 0.08])
+    # 3. Random brightness
     if brightness_delta > 0.0:
         deltas = tf.random.uniform(
             [batch_size, 1, 1],
@@ -77,10 +132,20 @@ def augment_batch(
     # 4. Clip to valid [0.0, 1.0] intensity range
     imgs = tf.clip_by_value(imgs, 0.0, 1.0)
 
-    # 5. Recompute spatial gradients on augmented image
+    # 5. Random Cutout / Occlusion
+    if cutout_prob > 0.0:
+        imgs = apply_random_cutout(
+            imgs,
+            cutout_prob=cutout_prob,
+            min_size=cutout_min_size,
+            max_size=cutout_max_size,
+            fill_value=0.0,
+        )
+
+    # 6. Recompute spatial gradients on augmented image
     gy, gx = compute_image_gradients(imgs)
 
-    # 6. Reconstruct [I, x, y, gx, gy] node features
+    # 7. Reconstruct node features
     grid = StaticGridTopology.get_instance()
     coords = grid.normalized_coords  # [2304, 2]
     coords_exp = tf.broadcast_to(tf.expand_dims(coords, axis=0), [batch_size, 2304, 2])
@@ -89,17 +154,25 @@ def augment_batch(
     gx_flat = tf.reshape(gx, [batch_size, 2304, 1])
     gy_flat = tf.reshape(gy, [batch_size, 2304, 1])
 
-    node_features = tf.concat([intensity, coords_exp, gx_flat, gy_flat], axis=-1)
+    features_list = [intensity, coords_exp, gx_flat, gy_flat]
+    if node_dim == 7:
+        grad_mag = tf.sqrt(tf.square(gx) + tf.square(gy) + 1e-8)
+        laplacian = compute_image_laplacian(gy, gx)
+        grad_mag_flat = tf.reshape(grad_mag, [batch_size, 2304, 1])
+        laplacian_flat = tf.reshape(laplacian, [batch_size, 2304, 1])
+        features_list.extend([grad_mag_flat, laplacian_flat])
+
+    node_features = tf.concat(features_list, axis=-1)
 
     return {
         "node_features": node_features,
         "labels": batch["labels"],
-        "sample_ids": batch["sample_ids"],
+        "sample_ids": batch.get("sample_ids", None),
         "image_48": imgs,
     }
 
 
-def make_flipped_batch(batch: dict[str, tf.Tensor]) -> dict[str, tf.Tensor]:
+def make_flipped_batch(batch: dict[str, tf.Tensor], node_dim: int = 5) -> dict[str, tf.Tensor]:
     """Deterministically horizontally flip a batch of images and recompute exact node features for TTA."""
     imgs = tf.cast(batch["image_48"], tf.float32)  # [B, 48, 48]
     batch_size = tf.shape(imgs)[0]
@@ -118,7 +191,15 @@ def make_flipped_batch(batch: dict[str, tf.Tensor]) -> dict[str, tf.Tensor]:
     gx_flat = tf.reshape(gx, [batch_size, 2304, 1])
     gy_flat = tf.reshape(gy, [batch_size, 2304, 1])
 
-    node_features = tf.concat([intensity, coords_exp, gx_flat, gy_flat], axis=-1)
+    features_list = [intensity, coords_exp, gx_flat, gy_flat]
+    if node_dim == 7:
+        grad_mag = tf.sqrt(tf.square(gx) + tf.square(gy) + 1e-8)
+        laplacian = compute_image_laplacian(gy, gx)
+        grad_mag_flat = tf.reshape(grad_mag, [batch_size, 2304, 1])
+        laplacian_flat = tf.reshape(laplacian, [batch_size, 2304, 1])
+        features_list.extend([grad_mag_flat, laplacian_flat])
+
+    node_features = tf.concat(features_list, axis=-1)
 
     return {
         "node_features": node_features,

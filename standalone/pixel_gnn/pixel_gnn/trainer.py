@@ -54,26 +54,33 @@ def run_training(
     lambda_spatial_coherence = float(loss_cfg.get("lambda_spatial_coherence", 0.0))
     label_smoothing = float(loss_cfg.get("label_smoothing", 0.0))
 
+    # Node dimensions and feature setup
+    node_dim = int(config.get("model", {}).get("node_dim", 5))
+
     # Augmentation config (only active for train split)
     aug_cfg = config.get("augmentation", {})
     augment_train = bool(aug_cfg.get("enabled", False))
     flip_prob = float(aug_cfg.get("horizontal_flip_prob", 0.5))
     brightness_delta = float(aug_cfg.get("brightness_delta", 0.08))
     contrast_range = tuple(aug_cfg.get("contrast_range", [0.9, 1.1]))
+    cutout_prob = float(aug_cfg.get("cutout_prob", 0.0))
+    cutout_min_size = int(aug_cfg.get("cutout_min_size", 8))
+    cutout_max_size = int(aug_cfg.get("cutout_max_size", 14))
 
     print("=" * 80)
     print(f"[INIT] Pixel GNN Universal Trainer | Model: {model_name}")
-    print(f"       batch_size={batch_size} | max_epochs={max_epochs} | seed={seed}")
+    print(f"       batch_size={batch_size} | max_epochs={max_epochs} | seed={seed} | node_dim={node_dim}")
     print(f"       output_dir={output_dir}")
     if augment_train:
-        print(f"       augmentation=ENABLED (flip_p={flip_prob}, brightness=±{brightness_delta}, contrast={contrast_range})")
+        cutout_str = f", cutout_p={cutout_prob} [{cutout_min_size}-{cutout_max_size}]" if cutout_prob > 0 else ""
+        print(f"       augmentation=ENABLED (flip_p={flip_prob}, brightness=±{brightness_delta}, contrast={contrast_range}{cutout_str})")
     else:
         print(f"       augmentation=DISABLED")
     print("=" * 80, flush=True)
 
     # Initialize Datasets
-    train_dataset = FERPixelDataset(fer_csv, "train")
-    val_dataset = FERPixelDataset(fer_csv, "val")
+    train_dataset = FERPixelDataset(fer_csv, "train", node_dim=node_dim)
+    val_dataset = FERPixelDataset(fer_csv, "val", node_dim=node_dim)
 
     train_gen = PixelBatchGenerator(
         fer_csv,
@@ -86,6 +93,10 @@ def run_training(
         flip_prob=flip_prob,
         brightness_delta=brightness_delta,
         contrast_range=contrast_range,
+        cutout_prob=cutout_prob,
+        cutout_min_size=cutout_min_size,
+        cutout_max_size=cutout_max_size,
+        node_dim=node_dim,
     )
     val_gen = PixelBatchGenerator(
         fer_csv,
@@ -95,6 +106,7 @@ def run_training(
         shuffle=False,
         dataset=val_dataset,
         augment=False,
+        node_dim=node_dim,
     )
 
     # Strategy setup: auto-detect 2 GPUs on Kaggle or multi-GPU environments
@@ -206,6 +218,7 @@ def run_training(
             lambda_diversity=lambda_diversity,
             lambda_spatial_coherence=lambda_spatial_coherence,
             include_diagnostics=(epoch % 5 == 0 or epoch == max_epochs),
+            node_dim=node_dim,
         )
 
         val_loss = val_metrics["loss"]
@@ -271,8 +284,8 @@ def run_training(
     print("\n" + "=" * 80)
     print("[TEST] Running final evaluation on TEST set...")
     print("=" * 80, flush=True)
-    test_dataset = FERPixelDataset(fer_csv, "test")
-    test_gen = PixelBatchGenerator(fer_csv, "test", batch_size=eval_batch_size, seed=seed, shuffle=False, dataset=test_dataset)
+    test_dataset = FERPixelDataset(fer_csv, "test", node_dim=node_dim)
+    test_gen = PixelBatchGenerator(fer_csv, "test", batch_size=eval_batch_size, seed=seed, shuffle=False, dataset=test_dataset, node_dim=node_dim)
     test_ds = test_gen.as_dataset(0)
 
     test_metrics = evaluate_model(
@@ -282,6 +295,7 @@ def run_training(
         lambda_spatial_coherence=lambda_spatial_coherence,
         include_diagnostics=True,
         use_tta=False,
+        node_dim=node_dim,
     )
     test_acc = test_metrics["accuracy"]
     test_macro_f1 = test_metrics["macro_f1"]
@@ -299,6 +313,7 @@ def run_training(
             lambda_spatial_coherence=lambda_spatial_coherence,
             include_diagnostics=False,
             use_tta=True,
+            node_dim=node_dim,
         )
 
     print("=" * 80)
