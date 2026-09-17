@@ -7,6 +7,7 @@ import tensorflow as tf
 
 from pixel_gnn.utils import classification_metrics
 from pixel_gnn.losses import compute_total_loss, compute_motif_diagnostics
+from pixel_gnn.augmentation import make_flipped_batch
 
 
 def extract_motif_diagnostics(
@@ -70,6 +71,7 @@ def evaluate_model(
     lambda_spatial_coherence: float = 0.0,
     limit_batches: int | None = None,
     include_diagnostics: bool = False,
+    use_tta: bool = False,
 ) -> dict:
     all_labels, all_probs, all_losses = [], [], []
 
@@ -84,12 +86,35 @@ def evaluate_model(
         )
         return loss, out["probabilities"], out
 
+    @tf.function
+    def eval_step_tta(batch):
+        out_orig = model(batch, training=False)
+        batch_flipped = make_flipped_batch(batch)
+        out_flipped = model(batch_flipped, training=False)
+        probs = (out_orig["probabilities"] + out_flipped["probabilities"]) / 2.0
+
+        loss_orig, _ = compute_total_loss(
+            batch["labels"],
+            out_orig,
+            lambda_diversity=lambda_diversity,
+            lambda_spatial_coherence=lambda_spatial_coherence,
+        )
+        loss_flipped, _ = compute_total_loss(
+            batch["labels"],
+            out_flipped,
+            lambda_diversity=lambda_diversity,
+            lambda_spatial_coherence=lambda_spatial_coherence,
+        )
+        loss = (loss_orig + loss_flipped) / 2.0
+        return loss, probs, out_orig
+
     first_batch_diagnostics = None
+    step_fn = eval_step_tta if use_tta else eval_step
 
     for batch_idx, batch in enumerate(dataset_generator):
         if limit_batches is not None and batch_idx >= int(limit_batches):
             break
-        loss, probs, out = eval_step(batch)
+        loss, probs, out = step_fn(batch)
         all_losses.append(float(loss.numpy()))
         all_labels.append(batch["labels"].numpy())
         all_probs.append(probs.numpy())

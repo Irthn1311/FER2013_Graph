@@ -281,10 +281,25 @@ def run_training(
         lambda_diversity=lambda_diversity,
         lambda_spatial_coherence=lambda_spatial_coherence,
         include_diagnostics=True,
+        use_tta=False,
     )
     test_acc = test_metrics["accuracy"]
     test_macro_f1 = test_metrics["macro_f1"]
     test_loss = test_metrics["loss"]
+
+    eval_cfg = config.get("evaluation", {})
+    run_tta = eval_cfg.get("use_tta", True)
+    test_metrics_tta = None
+    if run_tta:
+        print("[TEST] Running Test-Time Augmentation (TTA: Original + Horizontal Flip)...", flush=True)
+        test_metrics_tta = evaluate_model(
+            model,
+            test_ds,
+            lambda_diversity=lambda_diversity,
+            lambda_spatial_coherence=lambda_spatial_coherence,
+            include_diagnostics=False,
+            use_tta=True,
+        )
 
     print("=" * 80)
     print(
@@ -292,6 +307,16 @@ def run_training(
         f"Test Macro F1: {test_macro_f1*100:.2f}% | "
         f"Test Loss: {test_loss:.4f}"
     )
+    if test_metrics_tta:
+        tta_acc = test_metrics_tta["accuracy"]
+        tta_f1 = test_metrics_tta["macro_f1"]
+        tta_loss = test_metrics_tta["loss"]
+        delta_acc = (tta_acc - test_acc) * 100.0
+        print(
+            f"[TEST RESULT + TTA] Accuracy: {tta_acc*100:.2f}% ({delta_acc:+.2f}%) | "
+            f"Macro F1: {tta_f1*100:.2f}% | "
+            f"Test Loss: {tta_loss:.4f}"
+        )
     print("=" * 80, flush=True)
 
     cm = test_metrics.get("confusion_matrix")
@@ -312,6 +337,14 @@ def run_training(
         "per_class_f1": per_class,
         "confusion_matrix": cm,
     }
+    if test_metrics_tta:
+        test_metrics_to_save["test_accuracy_tta"] = float(test_metrics_tta["accuracy"])
+        test_metrics_to_save["test_macro_f1_tta"] = float(test_metrics_tta["macro_f1"])
+        test_metrics_to_save["test_loss_tta"] = float(test_metrics_tta["loss"])
+        per_class_tta = test_metrics_tta.get("per_class_f1")
+        if per_class_tta is not None and hasattr(per_class_tta, "tolist"):
+            per_class_tta = per_class_tta.tolist()
+        test_metrics_to_save["per_class_f1_tta"] = per_class_tta
 
     (output_dir / "test_metrics.json").write_text(json.dumps(test_metrics_to_save, indent=2), encoding="utf-8")
 

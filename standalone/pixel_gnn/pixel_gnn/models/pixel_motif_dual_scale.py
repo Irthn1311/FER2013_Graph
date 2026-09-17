@@ -25,6 +25,7 @@ from pixel_gnn.grid import StaticGridTopology
 from pixel_gnn.models.pixel_neighbor_motif import (
     SpatialLearnedMotifClustering,
     MotifGNNLayer,
+    MultiHeadMotifGNNLayer,
     MotifAttentionPooling,
 )
 
@@ -180,6 +181,7 @@ class PixelMotifDualScaleModel(tf.keras.Model):
         spatial_span: float = 0.58,
         use_motif_graph: bool = True,
         num_motif_gnn_layers: int = 2,
+        num_motif_heads: int = 4,
         temperature: float = 0.1,
         dropout: float = 0.15,
         num_classes: int = 7,
@@ -193,6 +195,7 @@ class PixelMotifDualScaleModel(tf.keras.Model):
         self.spatial_span = float(spatial_span)
         self.use_motif_graph = bool(use_motif_graph)
         self.num_motif_gnn_layers = int(num_motif_gnn_layers)
+        self.num_motif_heads = int(num_motif_heads)
         self.temperature = float(temperature)
         self.dropout_rate = float(dropout)
         self.num_classes = int(num_classes)
@@ -223,15 +226,26 @@ class PixelMotifDualScaleModel(tf.keras.Model):
             name="spatial_motif_clustering",
         )
 
-        # 4. Motif GNN layers (macro structural reasoning)
-        self.motif_gnn_layers = [
-            MotifGNNLayer(
-                hidden_dim=self.hidden_dim,
-                dropout=self.dropout_rate,
-                name=f"motif_gnn_{i}",
-            )
-            for i in range(self.num_motif_gnn_layers)
-        ]
+        # 4. Motif GNN layers (macro structural reasoning with multi-head attention)
+        if self.num_motif_heads > 1:
+            self.motif_gnn_layers = [
+                MultiHeadMotifGNNLayer(
+                    hidden_dim=self.hidden_dim,
+                    num_heads=self.num_motif_heads,
+                    dropout=self.dropout_rate,
+                    name=f"multihead_motif_gnn_{i}",
+                )
+                for i in range(self.num_motif_gnn_layers)
+            ]
+        else:
+            self.motif_gnn_layers = [
+                MotifGNNLayer(
+                    hidden_dim=self.hidden_dim,
+                    dropout=self.dropout_rate,
+                    name=f"motif_gnn_{i}",
+                )
+                for i in range(self.num_motif_gnn_layers)
+            ]
 
         # 5. Dual-Scale Readout:
         # 5a. Macro scale: Motif Attention Pooling

@@ -319,6 +319,101 @@ class MotifGNNLayer(tf.keras.layers.Layer):
         return z_out, attn_weights
 
 
+class MultiHeadMotifGNNLayer(tf.keras.layers.Layer):
+    """Vectorized Multi-Head Relational Attention Layer on coarsened K-node Motif Graph.
+    
+    Splits hidden dimension D into H heads:
+        score_{kl}^h = (q_k^h . k_l^h) / sqrt(d_k) + W_{e}^h * A_{norm, kl}
+    
+    Prevents Attention Sink (where 1 head collapses to a single motif like mouth node 26)
+    by allowing parallel heads to specialize across multiple facial expression axes:
+      - Head 1: Eye <-> Mouth long-range relational reasoning
+      - Head 2: Brow <-> Eye upper-facial emotion dynamics
+      - Head 3: Left <-> Right bilateral symmetry / asymmetry
+      - Head 4: Local topological structure
+    """
+
+    def __init__(
+        self,
+        hidden_dim: int = 96,
+        num_heads: int = 4,
+        dropout: float = 0.15,
+        name: str | None = None,
+    ):
+        super().__init__(name=name)
+        self.hidden_dim = int(hidden_dim)
+        self.num_heads = int(num_heads)
+        if self.hidden_dim % self.num_heads != 0:
+            raise ValueError(f"hidden_dim ({hidden_dim}) must be divisible by num_heads ({num_heads})")
+        self.head_dim = self.hidden_dim // self.num_heads
+        self.dropout_rate = float(dropout)
+
+        self.q_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_q")
+        self.k_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_k")
+        self.v_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_v")
+        
+        # Per-head topological bias: projects 1 scalar A_norm to H learned head biases
+        self.edge_proj = tf.keras.layers.Dense(
+            self.num_heads,
+            use_bias=False,
+            kernel_initializer=tf.keras.initializers.Constant(0.5),
+            name="motif_edge_proj",
+        )
+        self.out_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_out")
+
+        self.norm1 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name="motif_norm1")
+        self.dropout1 = tf.keras.layers.Dropout(self.dropout_rate)
+
+        self.ffn1 = tf.keras.layers.Dense(self.hidden_dim * 2, activation="gelu", name="motif_ffn1")
+        self.ffn2 = tf.keras.layers.Dense(self.hidden_dim, name="motif_ffn2")
+        self.norm2 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name="motif_norm2")
+        self.dropout2 = tf.keras.layers.Dropout(self.dropout_rate)
+
+    def call(self, z, A_motif, training: bool = False):
+        # z: [B, K, D], A_motif: [B, K, K]
+        batch_size = tf.shape(z)[0]
+        num_motifs = tf.shape(z)[1]
+
+        # 1. Project Q, K, V: [B, K, H, head_dim]
+        q = tf.reshape(self.q_dense(z), [batch_size, num_motifs, self.num_heads, self.head_dim])
+        k = tf.reshape(self.k_dense(z), [batch_size, num_motifs, self.num_heads, self.head_dim])
+        v = tf.reshape(self.v_dense(z), [batch_size, num_motifs, self.num_heads, self.head_dim])
+
+        # 2. Multi-head dot-product attention scores: [B, H, K, K]
+        scale = 1.0 / tf.math.sqrt(tf.cast(self.head_dim, tf.float32))
+        node_sim = tf.einsum("bkhd,blhd->bhkl", q, k) * scale
+
+        # 3. Row-normalized coarsened adjacency: [B, K, K]
+        deg = tf.reduce_sum(A_motif, axis=-1, keepdims=True) + 1e-6
+        A_norm = A_motif / deg
+
+        # 4. Multi-head topological edge bias: [B, K, K, 1] -> [B, K, K, H] -> [B, H, K, K]
+        edge_bias_raw = self.edge_proj(tf.expand_dims(A_norm, axis=-1))
+        edge_bias = tf.transpose(edge_bias_raw, [0, 3, 1, 2])
+
+        scores = node_sim + edge_bias
+        attn_weights = tf.nn.softmax(scores, axis=-1)  # [B, H, K, K]
+
+        if training and self.dropout_rate > 0.0:
+            attn_weights = self.dropout1(attn_weights, training=training)
+
+        # 5. Aggregate values per head: [B, H, K, K] x [B, K, H, d] -> [B, K, H, d]
+        msg = tf.einsum("bhkl,blhd->bkhd", attn_weights, v)
+        msg = tf.reshape(msg, [batch_size, num_motifs, self.hidden_dim])
+        msg = self.out_dense(msg)
+
+        z_res = self.norm1(z + msg)
+        ffn = self.ffn2(self.ffn1(z_res))
+        if training and self.dropout_rate > 0.0:
+            ffn = self.dropout2(ffn, training=training)
+        z_out = self.norm2(z_res + ffn)
+
+        # Mean attention weights across heads for visualization/diagnostics: [B, K, K]
+        mean_attn = tf.reduce_mean(attn_weights, axis=1)
+
+        return z_out, mean_attn
+
+
 class MotifAttentionPooling(tf.keras.layers.Layer):
     """Lightweight attention pooling over K motif representations."""
 

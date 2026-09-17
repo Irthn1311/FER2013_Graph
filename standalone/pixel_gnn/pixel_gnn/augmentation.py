@@ -97,3 +97,32 @@ def augment_batch(
         "sample_ids": batch["sample_ids"],
         "image_48": imgs,
     }
+
+
+def make_flipped_batch(batch: dict[str, tf.Tensor]) -> dict[str, tf.Tensor]:
+    """Deterministically horizontally flip a batch of images and recompute exact node features for TTA."""
+    imgs = tf.cast(batch["image_48"], tf.float32)  # [B, 48, 48]
+    batch_size = tf.shape(imgs)[0]
+
+    # Horizontal flip along width axis (axis 2)
+    imgs_flipped = tf.reverse(imgs, axis=[2])
+
+    # Recompute central difference spatial gradients on flipped image
+    gy, gx = compute_image_gradients(imgs_flipped)
+
+    grid = StaticGridTopology.get_instance()
+    coords = grid.normalized_coords  # [2304, 2]
+    coords_exp = tf.broadcast_to(tf.expand_dims(coords, axis=0), [batch_size, 2304, 2])
+
+    intensity = tf.reshape(imgs_flipped, [batch_size, 2304, 1])
+    gx_flat = tf.reshape(gx, [batch_size, 2304, 1])
+    gy_flat = tf.reshape(gy, [batch_size, 2304, 1])
+
+    node_features = tf.concat([intensity, coords_exp, gx_flat, gy_flat], axis=-1)
+
+    return {
+        "node_features": node_features,
+        "labels": batch["labels"],
+        "sample_ids": batch.get("sample_ids", None),
+        "image_48": imgs_flipped,
+    }
