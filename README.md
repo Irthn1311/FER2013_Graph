@@ -19,6 +19,15 @@ FER-2013 CSV
 
 This branch is intentionally graph-first: no CNN classifier branch is required by the D5 pipeline.
 
+
+## Research visual
+
+The repository includes analysis and visualization assets generated during graph-based FER exploration. The figure below illustrates the core pixel-graph representation used to reason about local spatial and intensity relationships.
+
+![Pixel graph concept](reports/gnn_figures/pixel_graph_concept.png)
+
+Additional motif-attention, confusion, hard-class, confidence, and error-analysis figures are available under `reports/gnn_figures/`.
+
 ## Data contract
 
 Typical batch tensors:
