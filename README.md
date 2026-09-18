@@ -1,131 +1,123 @@
-# FER-D5: Class-Level Pixel Motif Graph Retrieval
+# FER2013 Graph Research
 
-Clean D5 project for FER-2013. It builds full 48x48 pixel graphs, learns class-level node/edge motif prototypes, retrieves soft class subgraphs, and classifies by graph matching scores.
+Graph-based facial expression recognition experiments on **FER-2013**, with a current focus on pixel-level graph representations, motif discovery, class-aware graph retrieval, and graph matching.
 
-## D5A Idea
+> **Status:** active research repository. This README describes the current experimental direction; benchmark numbers are intentionally not claimed here unless they are backed by a reproducible run.
 
-Pipeline:
+## Research focus
+
+The current D5 direction represents each 48×48 facial image as a graph and learns class-level node/edge motif prototypes. For each expression class, the model retrieves a soft subgraph and produces class logits through graph matching.
 
 ```text
-FER-2013 CSV -> graph_repo -> full graph dataloader
--> class-level pixel motif prototypes T_0..T_6
--> soft retrieved subgraph S_i,c per class
--> graph matching logits [B, 7]
--> CE + motif regularization
--> evaluation + motif mask visualization
+FER-2013 CSV
+  -> full 48x48 pixel graph
+  -> class-level node/edge motif prototypes
+  -> class-conditioned soft subgraph retrieval
+  -> graph matching
+  -> 7-class expression prediction
 ```
 
-No CNN, no 41D descriptor motif, no candidate attention dataset, no pixel motif v2, no legacy motif bank, and no greedy top-K.
+This branch is intentionally graph-first: no CNN classifier branch is required by the D5 pipeline.
 
-## Data Contract
+## Data contract
 
-Batch keys:
+Typical batch tensors:
 
-- `x` / `node_features`: `[B, 2304, 7]`
-- `edge_index`: `[2, 17860]`
-- `edge_attr`: `[B, 17860, 5]`
-- `node_mask`: `[B, 2304]`
-- `y` / `label`: `[B]`
-- `graph_id`: `[B]`
+| Tensor | Shape |
+| --- | --- |
+| node features | `[B, 2304, 7]` |
+| edge index | `[2, 17860]` |
+| edge attributes | `[B, 17860, 5]` |
+| node mask | `[B, 2304]` |
+| labels | `[B]` |
 
-Model outputs:
+Main model outputs include class logits, node attention, edge attention, class-level node gates, class-level edge gates, and diagnostics.
 
-- `logits`: `[B, 7]`
-- `node_attn`: `[B, 7, 2304]`
-- `edge_attn`: `[B, 7, 17860]`
-- `class_node_gate`: `[7, 2304]`
-- `class_edge_gate`: `[7, 17860]`
-- diagnostics dict
+## Repository map
 
-## Install
+```text
+configs/        experiment configuration
+data/           dataset and graph-data utilities
+models/         graph models
+training/       training logic
+evaluation/     metrics and diagnostics
+visualization/  motif / attention visualization
+scripts/        reproducible command-line entry points
+notebooks/      notebook workflows
+research/       research notes and experiments
+tests/          tests and smoke checks
+```
+
+The repository also contains historical experiment notes and handoff documents from earlier research iterations. They are retained for traceability but are not part of the minimal D5 execution path.
+
+## Quick start
+
+Install dependencies:
 
 ```bash
-cd fer_d5
 pip install -r requirements.txt
 ```
 
-## Config Layout
-
-- `configs/base.yaml`: shared defaults and `local`/`kaggle` path profiles.
-- `configs/d5a.yaml`: the D5A experiment config to edit for model, loss, optimizer, scheduler, training limits, and default environment.
-
-## Local Commands
-
-Build graph repository:
+Build the graph repository:
 
 ```bash
 python scripts/build_graph_repo.py --config configs/d5a.yaml --environment local
 ```
 
-Inspect:
+Run a smoke test:
 
 ```bash
-python scripts/inspect_graph_repo.py --config configs/d5a.yaml --environment local
-```
-
-Debug one batch:
-
-```bash
-python scripts/debug_d5a_batch.py --config configs/d5a.yaml --environment local --batch_size 2
-```
-
-Smoke run:
-
-```bash
-python scripts/run_experiment.py --config configs/d5a.yaml --environment local --mode smoke --max_train_batches 3 --max_val_batches 2 --max_test_batches 2 --batch_size 2
+python scripts/run_experiment.py   --config configs/d5a.yaml   --environment local   --mode smoke   --max_train_batches 3   --max_val_batches 2   --max_test_batches 2   --batch_size 2
 ```
 
 Train:
 
 ```bash
-python scripts/train_d5a.py --config configs/d5a.yaml --environment local
+python scripts/train_d5a.py   --config configs/d5a.yaml   --environment local
 ```
 
 Evaluate:
 
 ```bash
-python scripts/evaluate_d5a.py --config configs/d5a.yaml --environment local --checkpoint outputs_local/checkpoints/best.pth
+python scripts/evaluate_d5a.py   --config configs/d5a.yaml   --environment local   --checkpoint outputs_local/checkpoints/best.pth
 ```
 
-Visualize:
+Visualize learned motifs / attention:
 
 ```bash
-python scripts/visualize_d5.py --config configs/d5a.yaml --environment local --checkpoint outputs_local/checkpoints/best.pth --max_samples 16
+python scripts/visualize_d5.py   --config configs/d5a.yaml   --environment local   --checkpoint outputs_local/checkpoints/best.pth   --max_samples 16
 ```
 
-## Kaggle Usage
+## Kaggle workflow
 
 Use `notebooks/kaggle_d5_end_to_end.ipynb`.
 
-1. Add a Kaggle input dataset containing `train.csv`, `val.csv`, and `test.csv`.
-2. Clone or upload this repo.
-3. In the notebook config cell, start with `MODE = "smoke"`.
-4. For a full run, use `MODE = "build_and_train"`.
+Recommended workflow:
 
-Recommended first run:
+1. Add FER-2013 train/validation/test CSV files as a Kaggle input.
+2. Clone or upload this repository.
+3. Start with smoke mode.
+4. Move to a full build-and-train run only after the data contract is verified.
 
-```bash
-python scripts/run_experiment.py --config configs/d5a.yaml --environment kaggle --mode smoke --max_train_batches 3 --max_val_batches 2
+## Expected outputs
+
+A complete run can produce:
+
+```text
+outputs/
+├── checkpoints/
+├── evaluation/
+│   ├── confusion_matrix.png
+│   └── predictions.csv
+└── figures/
+    ├── d5a_class_gates/
+    └── d5a_attention/
 ```
 
-Full run:
+## Current scope
 
-```bash
-python scripts/run_experiment.py --config configs/d5a.yaml --environment kaggle --mode build_and_train
-```
+The D5 path does **not** depend on the older candidate motif bank, 41D descriptor pipeline, D3.1 candidate slots, D4A generic slot pooling classifier, CNN classifier branches, or greedy top-K selection.
 
-## Expected Outputs
+## Notes
 
-- `outputs/checkpoints/best.pth`
-- `outputs/evaluation/confusion_matrix.png`
-- `outputs/evaluation/predictions.csv`
-- `outputs/figures/d5a_class_gates/*.png`
-- `outputs/figures/d5a_attention/**/*.png`
-
-## Intentionally Not Included
-
-- candidate motif bank
-- descriptor 41D pipeline
-- D3.1 candidate slots
-- D4A generic slot pooling classifier
-- CNN classifier branches
+This repository is used for iterative research, so experimental branches may diverge from `main`. Reproducible results should always be reported together with the exact branch/commit, configuration, data split, and checkpoint-selection protocol.
