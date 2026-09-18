@@ -1,0 +1,380 @@
+{
+  "BUILD_SUBSTRATE": {
+    "arm": null,
+    "filename": "kaggle/motif_issue86/generated/motif_build_substrate.py",
+    "mode": "BUILD_SUBSTRATE",
+    "replicate_id": null,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "6c6511086133de4305c8039b1390222be2c92dd93b0b7618e9e43db21bc35b82",
+    "unit_id": "BUILD_SUBSTRATE"
+  },
+  "C00": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C00.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 0,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "1722d5449b737064f2a8acbfd57b91ca2048a12aa2ba769b6d1aa68ada89603f",
+    "unit_id": "C00"
+  },
+  "C01": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C01.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 1,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "b9747a837cc5c3f6c5699dbf8293e46181c68df8de50ed4bba8cc5f95f0feee4",
+    "unit_id": "C01"
+  },
+  "C02": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C02.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 2,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "272a899d2dab07f5002382bc905e7475b16ca298afd56971eaf3adf7fbb8212f",
+    "unit_id": "C02"
+  },
+  "C03": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C03.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 3,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "583b0d3097f95b95743e6a8a500435e2bca745c8914314c1d9b7877d0a08f097",
+    "unit_id": "C03"
+  },
+  "C04": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C04.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 4,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "4b6be4588045024289079cb4ec70a0c37a2c2d829a6dba0b473c6b1d20177130",
+    "unit_id": "C04"
+  },
+  "C05": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C05.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 5,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "3b8d06a896925bc47efa54e6da67167d03e5816ff59d19ed070521d40dfa9f2e",
+    "unit_id": "C05"
+  },
+  "C06": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C06.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 6,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "27898c2128c0f49702c55eb68b0e1c6c122b7d67a891b276cafe5b3598a3a2c1",
+    "unit_id": "C06"
+  },
+  "C07": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C07.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 7,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "c7282ca05c14a322292cedd5e47482bfa9a021eab18a977d7c9e8789ea487df9",
+    "unit_id": "C07"
+  },
+  "C08": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C08.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 8,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "3f40f698307663f79e4a7eb76b9814244cae184300a9a2d354feaa32269f64f5",
+    "unit_id": "C08"
+  },
+  "C09": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C09.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 9,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "67a379a997f9cc8f1cb9fb65807e879b06662d2a2ab2187b10a8c715eef383b9",
+    "unit_id": "C09"
+  },
+  "C10": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C10.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 10,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "3a1f28cde991d4112c339ef70f351d23a3967697e23372b0e134dfe75b20d610",
+    "unit_id": "C10"
+  },
+  "C11": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C11.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 11,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "b378990a203cbea83b462c8d9786b5a24e6e56eedb425644d1456b2e5242a79c",
+    "unit_id": "C11"
+  },
+  "C12": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C12.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 12,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "746c95dd0209662c5796d0462b54cc53afa298c968a0825272e889c2bea29341",
+    "unit_id": "C12"
+  },
+  "C13": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C13.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 13,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "82141937b74fb12eed91890c7c06301c8976b04947ab2ba0425ea55df7c62a9d",
+    "unit_id": "C13"
+  },
+  "C14": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C14.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 14,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "86396a033bdcc157a9fc822f79ace505fca5ae83f3cb7eef9ebf5938acbc6246",
+    "unit_id": "C14"
+  },
+  "C15": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C15.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 15,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "344df95a01e81876673902ff2eb43383726ea42c6938678fcb8b5530dd8e0985",
+    "unit_id": "C15"
+  },
+  "C16": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C16.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 16,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "bbbb950bbf220b9b32ec263ea851a1133ff05f39af498b9ad1324a9756f45303",
+    "unit_id": "C16"
+  },
+  "C17": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C17.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 17,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "bd5752735cd4696d5460fce8dec89ba309e4f0577488d83f7144cd31e36c3f16",
+    "unit_id": "C17"
+  },
+  "C18": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C18.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 18,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "f6e33204016c6406c4c1287fc912914651ab23f6efccb6331ce0041102f1ccbc",
+    "unit_id": "C18"
+  },
+  "C19": {
+    "arm": "C",
+    "filename": "kaggle/motif_issue86/generated/motif_C19.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 19,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "63ea28e21e1c589cadbc6e28187d12fe44c05cddf7c6611895d7933bf0515571",
+    "unit_id": "C19"
+  },
+  "FINALIZE_TRAIN": {
+    "arm": null,
+    "filename": "kaggle/motif_issue86/generated/motif_finalize_train.py",
+    "mode": "FINALIZE_TRAIN",
+    "replicate_id": null,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "d6ecfc63e84c30a3c7f6558bbe507a06fdc2c0979216c2232b1532907450ea41",
+    "unit_id": "FINALIZE_TRAIN"
+  },
+  "M00": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M00.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 0,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "6e636fd23039b61d27caea71e1fff7346e3e877a15c9a9d2187df9c377751043",
+    "unit_id": "M00"
+  },
+  "M01": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M01.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 1,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "a790ad92e4ac2cbd90371c4e17cb571a02616d2f2e0a6ee45284fd86ad23949f",
+    "unit_id": "M01"
+  },
+  "M02": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M02.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 2,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "8f07f51f51e994506329fbc06b308ed064e4b7d2291ef50823c6d57fb8fee8e6",
+    "unit_id": "M02"
+  },
+  "M03": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M03.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 3,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "517c55542cdc442ca06f8c7a5e66d1e4c0408909a58f3028839afdc3e777e915",
+    "unit_id": "M03"
+  },
+  "M04": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M04.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 4,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "4432cd04d9ac4c1d14bf18827f2f969ef584ebfba2b6c7702b096e0759113c0d",
+    "unit_id": "M04"
+  },
+  "M05": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M05.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 5,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "9711bd118e9542dba57be0fa47ea31b847cce4e351969a072e4bc68c0c4c42cf",
+    "unit_id": "M05"
+  },
+  "M06": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M06.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 6,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "5b7dcab3d737a875991656b327f0f2ac085c7c885ab2d3ede3d053da93d0f3c3",
+    "unit_id": "M06"
+  },
+  "M07": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M07.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 7,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "0927279e1ef74d0c0e477f89f8f918c14e870de9fa501780909ac449f74b95e5",
+    "unit_id": "M07"
+  },
+  "M08": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M08.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 8,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "f8b758218ab632df4ba7b097dd82c96cc59a5878a3ea9073e625003e3a60abbb",
+    "unit_id": "M08"
+  },
+  "M09": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M09.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 9,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "a58d315e2867d23ab5cebe161ee9a0287344913d986453e5b9aefb430c1b69d1",
+    "unit_id": "M09"
+  },
+  "M10": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M10.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 10,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "c2f806d8e1f5458e88fd122eda21a2ee868b2ede0874503ad90d3dc7d1b051f1",
+    "unit_id": "M10"
+  },
+  "M11": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M11.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 11,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "92ddb9e1966cc131620ea77679c7a8d5d6ab2becde0ca5575ee17d3344628a46",
+    "unit_id": "M11"
+  },
+  "M12": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M12.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 12,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "9a5764c0aa89da47b8aea548c34989a5d5dcb84243c417de1abd0b75d4a2632d",
+    "unit_id": "M12"
+  },
+  "M13": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M13.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 13,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "cec06da2d1864547a5a9ee079e0513d94536091348bf3a20494302c152d9ecb4",
+    "unit_id": "M13"
+  },
+  "M14": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M14.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 14,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "46f59663f1fd17e024c93724abb501263bcd16d7f93a549685d0446a4561275b",
+    "unit_id": "M14"
+  },
+  "M15": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M15.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 15,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "ee903c96b0b7fa50617109ab97b220537755da30b633cc0e27e13aa2af2d3c56",
+    "unit_id": "M15"
+  },
+  "M16": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M16.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 16,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "2d306f8ca55a78ed87c6defd443481fea5d59cd4b0318106a345961b858cdb41",
+    "unit_id": "M16"
+  },
+  "M17": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M17.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 17,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "91f2569cff1ae91b0b90dd89184ab35a8c10373f4e0d4a7f24eca255c011e670",
+    "unit_id": "M17"
+  },
+  "M18": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M18.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 18,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "25e2d1ef9406ad1b7a4c7e9017daa580bf2bf9101fbfd21cdf1aa0f9f745530a",
+    "unit_id": "M18"
+  },
+  "M19": {
+    "arm": "M",
+    "filename": "kaggle/motif_issue86/generated/motif_M19.py",
+    "mode": "RUN_REPLICATE",
+    "replicate_id": 19,
+    "scientific_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    "sha256": "25b61c6bd75ff11ccca33d93244a437fa715a3746c06134e2575c995af35e792",
+    "unit_id": "M19"
+  }
+}
