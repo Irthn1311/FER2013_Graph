@@ -1,4 +1,4 @@
-run_name: pixel_motif_dual_scale_heavy_300ep_seed42
+run_name: pixel_motif_dual_scale_heavy_200ep_seed42
 framework: tensorflow
 seed: 42
 from_scratch: true
@@ -42,7 +42,7 @@ evaluation:
 
 training:
   seed: 42
-  max_epochs: 300
+  max_epochs: 200
   batch_size: 64
   eval_batch_size: 64
   lr: 0.0003
@@ -62,8 +62,8 @@ training:
     min_lr: 1.0e-06
   early_stopping:
     enabled: true
-    min_epochs_before_stop: 100
-    patience: 100
+    min_epochs_before_stop: 70
+    patience: 80
     metric: val_loss
     mode: min
 
