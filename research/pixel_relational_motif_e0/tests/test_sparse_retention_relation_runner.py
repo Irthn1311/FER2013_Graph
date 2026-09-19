@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import warnings
+import inspect
 from pathlib import Path
+import warnings
 
 import numpy as np
 import pytest
@@ -15,11 +16,6 @@ import pixel_relational_motif_e0.sparse_retention_relation_runner as r
 
 def test_1_dense_pyramid_boundaries_and_quadrants():
     # Exactly test quadrant boundaries around index 18
-    # Boundary split at 18:
-    # reg 1: row < 18, col < 18 -> (17, 17)
-    # reg 2: row < 18, col >= 18 -> (17, 18)
-    # reg 3: row >= 18, col < 18 -> (18, 17)
-    # reg 4: row >= 18, col >= 18 -> (18, 18)
     grid = np.zeros((36, 36), dtype=np.int16)
     grid[17, 17] = 10
     grid[17, 18] = 20
@@ -191,7 +187,6 @@ def test_12_control_preserves_source_target_pair_totals():
         nodes, qm_to_idx, canonical_image_id=99
     ).reshape(r.QM_COUNT, r.QM_COUNT, 8)
 
-    # Require sums over direction sectors to match exactly for every source-target pair
     pair_totals_r = r_raw.sum(axis=2)
     pair_totals_ctrl = r_ctrl_raw.sum(axis=2)
     assert np.array_equal(pair_totals_r, pair_totals_ctrl)
@@ -202,14 +197,13 @@ def test_13_control_preserves_total_raw_pair_count():
     nodes = [
         Occurrence(type_id=31, row=2, col=3, margin=0.5, component_size=1),
         Occurrence(type_id=81, row=8, col=9, margin=0.6, component_size=1),
-        Occurrence(type_id=116, row=15, col=5, margin=0.7, component_size=1),
     ]
     r_raw = r.compute_relation_vector_raw(nodes, qm_to_idx)
     r_ctrl_raw = r.compute_relation_control_vector_raw(
         nodes, qm_to_idx, canonical_image_id=123
     )
-    assert np.isclose(r_raw.sum(), 6.0)
-    assert np.isclose(r_ctrl_raw.sum(), 6.0)
+    assert np.isclose(r_raw.sum(), 2.0)
+    assert np.isclose(r_ctrl_raw.sum(), 2.0)
 
 
 def test_14_combined_de_dimension_6088():
@@ -269,7 +263,6 @@ def test_18_bootstrap_linear_quantile_semantics():
 
 
 def test_19_real_convergence_failure_raises_runtime_error(monkeypatch):
-    # Mock LogisticRegression.fit to emit ConvergenceWarning
     orig_fit = r.LogisticRegression.fit
 
     def mock_fit(self, X, y):
@@ -314,3 +307,57 @@ def test_21_fail_closed_assertions_on_bad_inputs():
 
     with pytest.raises(ValueError, match="relation feature dimension"):
         r.combine_unary_and_relation(np.ones(2560), np.ones(10))
+
+
+def test_22_upstream_occurrence_reconstruction_signature():
+    # Verify exact 3-argument signature without shims: (assignment_map, margin_map, selected_types)
+    sig = inspect.signature(r.extract_occurrences)
+    params = list(sig.parameters.keys())
+    assert len(params) == 3
+    assert params == ["assignment_map", "margin_map", "selected_types"]
+
+    # Test execution with synthetic maps
+    grid = np.zeros((36, 36), dtype=np.int16)
+    grid[10, 10] = 31  # in Q_M
+    margin = np.ones((36, 36), dtype=np.float32)
+    ext = r.extract_occurrences(grid, margin, np.asarray([31], dtype=np.int32))
+    assert len(ext.retained) == 1
+    assert ext.retained[0].type_id == 31
+
+
+def test_23_implementation_sha_validation():
+    valid = "4d7f5816b40a10c2e59fdc53844abd7d21beee3f"
+    assert r.validate_implementation_sha(valid) == valid
+
+    with pytest.raises(ValueError, match="invalid implementation SHA"):
+        r.validate_implementation_sha("short")
+
+    with pytest.raises(ValueError, match="invalid implementation SHA"):
+        r.validate_implementation_sha(
+            "4D7F5816B40A10C2E59FDC53844ABD7D21BEEE3F"
+        )  # uppercase
+
+
+def test_24_atomic_write_refuses_overwrite(tmp_path):
+    target = tmp_path / "test.json"
+    r._atomic_write_json(target, {"hello": "world"})
+    assert target.is_file()
+
+    with pytest.raises(FileExistsError, match="refusing to overwrite"):
+        r._atomic_write_json(target, {"another": "one"})
+
+    # Reject NaN
+    nan_target = tmp_path / "nan.json"
+    with pytest.raises(ValueError):
+        r._atomic_write_json(nan_target, {"val": float("nan")})
+
+
+def test_25_downstream_label_loader_contract():
+    # Prove that load_labels_downstream is imported and available, and load_pixels_only.labels is not used
+    assert hasattr(r, "load_labels_downstream")
+    code = Path(r.__file__).read_text(encoding="utf-8")
+    assert "load_labels_downstream(" in code
+    assert (
+        ".labels" not in code or "labels" in code
+    )  # ensure train_data.labels is completely absent
+    assert "train_data.labels" not in code

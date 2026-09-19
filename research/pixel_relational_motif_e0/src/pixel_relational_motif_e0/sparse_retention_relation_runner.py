@@ -5,9 +5,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import platform
+import re
 import sys
+import tempfile
 import warnings
 
 import numpy as np
@@ -17,7 +20,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, f1_score
 from sklearn.model_selection import StratifiedKFold
 
-from .e02_runner import load_pixels_only, sha256_file
+from .e02_runner import load_labels_downstream, sha256_file
 from .motif_qualification import (
     Occurrence,
     extract_occurrences,
@@ -29,6 +32,7 @@ from .motif_train_runner import load_substrate_manifest
 ISSUE_NUMBER = 90
 PREREGISTRATION_SHA = "fea1c85208aca3da503e53e770998f46c92a27b9"
 SCIENTIFIC_SOURCE_SHA = "16a84b2b36f0d3584afd0a547487c4373dc22128"
+PREVIOUS_IMPLEMENTATION_SHA = "4d7f5816b40a10c2e59fdc53844abd7d21beee3f"
 
 TRAIN_ROWS = 28709
 CRS_SIDE = 36
@@ -101,12 +105,47 @@ DIRECTION_SECTOR_MAP = {
 }
 
 
+def validate_implementation_sha(sha: str) -> str:
+    """Validate 40-character lowercase hexadecimal Git SHA."""
+    if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ValueError(
+            f"invalid implementation SHA; expected 40 lowercase hex characters, got: {sha}"
+        )
+    return sha
+
+
 def _verify_exact_hash(path: Path, expected: str, desc: str) -> None:
     if not path.is_file():
         raise FileNotFoundError(f"{desc} file not found: {path}")
     obs = sha256_file(path)
     if obs != expected:
         raise ValueError(f"{desc} SHA256 mismatch: {obs} != {expected}")
+
+
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    if path.exists():
+        raise FileExistsError(f"refusing to overwrite existing file: {path}")
+    parent = path.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=parent, delete=False
+    ) as tf:
+        temp_name = tf.name
+        json.dump(payload, tf, indent=2, sort_keys=True, allow_nan=False)
+        tf.flush()
+        os.fsync(tf.fileno())
+    os.replace(temp_name, path)
+
+
+def _atomic_write_npz(path: Path, **arrays) -> None:
+    if path.exists():
+        raise FileExistsError(f"refusing to overwrite existing file: {path}")
+    parent = path.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(suffix=".npz", dir=parent, delete=False) as tf:
+        temp_name = tf.name
+    np.savez_compressed(temp_name, **arrays)
+    os.replace(temp_name, path)
 
 
 def _l2_normalize_vector(vec: np.ndarray) -> np.ndarray:
@@ -511,8 +550,10 @@ def run_experiment(
     substrate_dir: str | Path,
     finalizer_dir: str | Path,
     output_dir: str | Path,
+    implementation_sha: str,
 ) -> dict:
     """Official end-to-end execution of Issue #90 Train-only OOF evaluation."""
+    valid_impl_sha = validate_implementation_sha(implementation_sha)
     out = Path(output_dir)
     if not out.exists():
         out.mkdir(parents=True)
@@ -566,12 +607,18 @@ def run_experiment(
     # 3. Load assignment & margin maps
     m_assignments = np.load(sub_root / "motif_train_m_assignments.npy", mmap_mode="r")
     m_margins = np.load(sub_root / "motif_train_m_margins.npy", mmap_mode="r")
-    if m_assignments.shape != (TRAIN_ROWS, CRS_SIDE, CRS_SIDE) or m_margins.shape != (
+    if m_assignments.shape != (
+        TRAIN_ROWS,
+        CRS_SIDE,
+        CRS_SIDE,
+    ) or m_margins.shape != (
         TRAIN_ROWS,
         CRS_SIDE,
         CRS_SIDE,
     ):
         raise ValueError("m_assignments or m_margins shape mismatch")
+
+    canonical_image_ids = np.arange(TRAIN_ROWS, dtype=np.int32)
 
     # 4. Feature construction (Arms A, B, C, D, E) BEFORE labels
     print("[1/5] Constructing Arm A (M_DENSE_ALL) and Arm B (M_DENSE_Q)...")
@@ -601,11 +648,11 @@ def run_experiment(
     reconstructed_post_cap = []
 
     for i in range(TRAIN_ROWS):
+        # Exact 3-argument upstream API call without shims
         ext = extract_occurrences(
-            assignment_map=m_assignments[i],
-            margin_map=m_margins[i],
-            selected_type_ids=np.asarray(loaded_qm, dtype=np.int32),
-            max_occurrences=64,
+            m_assignments[i],
+            m_margins[i],
+            np.asarray(loaded_qm, dtype=np.int32),
         )
         reconstructed_nodes_per_img.append(list(ext.retained))
         reconstructed_pre_cap.append(ext.pre_cap_count)
@@ -616,17 +663,30 @@ def run_experiment(
     rec_pre = np.array(reconstructed_pre_cap)
     rec_post = np.array(reconstructed_post_cap)
     zero_nodes_count = int(np.sum(rec_post == 0))
+
+    # Strict pre-cap and post-cap diagnostic checks
     if (
         zero_nodes_count != 48
+        or np.min(rec_pre) != 0
+        or np.median(rec_pre) != 13
+        or np.max(rec_pre) != 38
         or np.min(rec_post) != 0
         or np.median(rec_post) != 13
         or np.max(rec_post) != 38
     ):
         raise RuntimeError(
-            "Issue #90 sparse reconstruction diagnostics mismatch against official Issue #86"
+            "BLOCKED — ISSUE #90 SPARSE RECONSTRUCTION DIAGNOSTICS MISMATCH"
         )
-    if np.sum(rec_pre > 64) != 0:
-        raise RuntimeError("cap binding count is non-zero")
+
+    if np.count_nonzero(rec_pre > 64) != 0:
+        raise RuntimeError(
+            "BLOCKED — ISSUE #90 SPARSE RECONSTRUCTION DIAGNOSTICS MISMATCH"
+        )
+
+    if not np.array_equal(rec_pre, rec_post):
+        raise RuntimeError(
+            "BLOCKED — ISSUE #90 SPARSE RECONSTRUCTION DIAGNOSTICS MISMATCH"
+        )
 
     diff_c = np.max(np.abs(reconstructed_unary - feat_c.toarray()))
     if diff_c > 1e-5:
@@ -641,31 +701,87 @@ def run_experiment(
     feat_d = np.empty((TRAIN_ROWS, COMBINED_DIM), dtype=np.float32)
     feat_e = np.empty((TRAIN_ROWS, COMBINED_DIM), dtype=np.float32)
 
+    raw_rel_pair_counts = np.empty(TRAIN_ROWS, dtype=np.int32)
+    raw_ctrl_pair_counts = np.empty(TRAIN_ROWS, dtype=np.int32)
+    raw_rel_norms = np.empty(TRAIN_ROWS, dtype=np.float32)
+    raw_ctrl_norms = np.empty(TRAIN_ROWS, dtype=np.float32)
+
     for i in range(TRAIN_ROWS):
         nodes = reconstructed_nodes_per_img[i]
+        n_nodes = len(nodes)
+        c_id = int(canonical_image_ids[i])
+
+        r_raw = compute_relation_vector_raw(nodes, qm_to_idx)
+        r_ctrl_raw = compute_relation_control_vector_raw(
+            nodes, qm_to_idx, canonical_image_id=c_id
+        )
+
+        # Invariant asserts for raw blocks
+        if n_nodes < 2:
+            if r_raw.sum() != 0 or r_ctrl_raw.sum() != 0:
+                raise ValueError(f"image {i} has <2 nodes but non-zero relation sum")
+        else:
+            expected_pairs = n_nodes * (n_nodes - 1)
+            if (
+                abs(r_raw.sum() - expected_pairs) > 1e-5
+                or abs(r_ctrl_raw.sum() - expected_pairs) > 1e-5
+            ):
+                raise ValueError(f"image {i} raw relation sum mismatch against n(n-1)")
+
+        # Reshape to (21, 21, 8) and assert direction sum equality
+        r_reshaped = r_raw.reshape(QM_COUNT, QM_COUNT, 8)
+        ctrl_reshaped = r_ctrl_raw.reshape(QM_COUNT, QM_COUNT, 8)
+        if not np.allclose(
+            r_reshaped.sum(axis=2), ctrl_reshaped.sum(axis=2), atol=1e-5
+        ):
+            raise ValueError(
+                f"image {i} control direction permutation does not preserve source-target pair totals"
+            )
+
+        norm_r = float(np.linalg.norm(r_raw))
+        norm_ctrl = float(np.linalg.norm(r_ctrl_raw))
+        if abs(norm_r - norm_ctrl) > 1e-5:
+            raise ValueError(f"image {i} raw L2 norms mismatch")
+
+        raw_rel_pair_counts[i] = int(r_raw.sum())
+        raw_ctrl_pair_counts[i] = int(r_ctrl_raw.sum())
+        raw_rel_norms[i] = norm_r
+        raw_ctrl_norms[i] = norm_ctrl
+
         u = feat_c[i].toarray().reshape(-1)
-        r_vec = compute_relation_vector(nodes, qm_to_idx)
-        r_ctrl = compute_relation_control_vector(nodes, qm_to_idx, canonical_image_id=i)
-        feat_d[i] = combine_unary_and_relation(u, r_vec)
-        feat_e[i] = combine_unary_and_relation(u, r_ctrl)
+        r_norm = _l2_normalize_vector(r_raw)
+        r_ctrl_norm = _l2_normalize_vector(r_ctrl_raw)
+        feat_d[i] = combine_unary_and_relation(u, r_norm)
+        feat_e[i] = combine_unary_and_relation(u, r_ctrl_norm)
 
     # 5. Zero-node coverage diagnostic analysis
     arm_c_zero_ids = np.where(rec_post == 0)[0].tolist()
     zero_sets_equal = set(arm_b_zero_ids) == set(arm_c_zero_ids)
     if zero_sets_equal:
-        zero_node_verdict = "ZERO-NODE COVERAGE FAILURE ORIGINATES AT QUALIFIED-VOCABULARY COVERAGE, NOT COMPONENT COLLAPSE"
+        zero_node_verdict = (
+            "ZERO-NODE COVERAGE FAILURE ORIGINATES AT QUALIFIED-VOCABULARY"
+            " COVERAGE, NOT COMPONENT COLLAPSE"
+        )
     else:
-        zero_node_verdict = "ZERO-NODE COVERAGE FAILURE DIFFERS BETWEEN DENSE-Q AND COMPONENT OCCURRENCES"
+        zero_node_verdict = (
+            "ZERO-NODE COVERAGE FAILURE DIFFERS BETWEEN DENSE-Q AND COMPONENT"
+            " OCCURRENCES"
+        )
 
-    # 6. Now load official Train labels
-    print("[4/5] Loading official Train labels after feature completion...")
-    train_data = load_pixels_only(train_csv_path, role="train")
-    if (
-        train_data.sha256 != EXPECTED_TRAIN_SHA256
-        or len(train_data.labels) != TRAIN_ROWS
-    ):
-        raise ValueError("Train data loading validation failed")
-    y_true = train_data.labels.astype(np.int32)
+    # 6. Now load official Train labels via load_labels_downstream
+    print("[4/5] Loading official Train labels downstream after feature completion...")
+    y_raw = load_labels_downstream(
+        train_csv_path,
+        role="train",
+        expected_sha256=EXPECTED_TRAIN_SHA256,
+    )
+    if y_raw.shape != (TRAIN_ROWS,):
+        raise ValueError(
+            f"downstream labels shape mismatch: {y_raw.shape} != ({TRAIN_ROWS},)"
+        )
+    if not np.all((y_raw >= 0) & (y_raw <= 6)):
+        raise ValueError("downstream labels out of range [0, 6]")
+    y_true = y_raw.astype(np.int32)
 
     # 7. Generate shared 5-fold cross-validation
     print("[5/5] Generating shared 5-fold splits and executing OOF evaluation...")
@@ -690,7 +806,8 @@ def run_experiment(
         fold_diagnostics[arm_id] = diags
         per_arm_metrics[arm_id] = compute_metrics(y_true, preds)
         print(
-            f"  Arm {arm_id} OOF: Acc={per_arm_metrics[arm_id]['accuracy']:.6f}, Macro-F1={per_arm_metrics[arm_id]['macro_f1']:.6f}"
+            f"  Arm {arm_id} OOF: Acc={per_arm_metrics[arm_id]['accuracy']:.6f},"
+            f" Macro-F1={per_arm_metrics[arm_id]['macro_f1']:.6f}"
         )
 
     # 8. Shared paired bootstrap
@@ -701,7 +818,8 @@ def run_experiment(
         ("delta_geom", "D", "E"),
     ]
     print(
-        "Computing shared paired bootstrap across shared sampled indices (B=2000, seed 42)..."
+        "Computing shared paired bootstrap across shared sampled indices"
+        " (B=2000, seed 42)..."
     )
     bootstrap_results = compute_shared_paired_bootstrap(
         y_true, predictions, comparisons, b_replicates=2000, seed=42
@@ -710,7 +828,7 @@ def run_experiment(
 
     # 9. Serialize artifacts atomically
     pred_path = out / "issue90_oof_predictions.npz"
-    np.savez_compressed(
+    _atomic_write_npz(
         pred_path,
         y_true=y_true,
         pred_a=predictions["A"],
@@ -724,26 +842,40 @@ def run_experiment(
     val_folds_array = np.empty(TRAIN_ROWS, dtype=np.int32)
     for f_idx, (_, val_idx) in enumerate(fold_splits):
         val_folds_array[val_idx] = f_idx
-    np.savez_compressed(fold_path, fold_assignments=val_folds_array)
+    _atomic_write_npz(fold_path, fold_assignments=val_folds_array)
 
     diag_path = out / "issue90_relation_diagnostics.npz"
-    np.savez_compressed(
+    _atomic_write_npz(
         diag_path,
         q_m=np.asarray(loaded_qm, dtype=np.int32),
-        zero_node_canonical_ids=np.asarray(arm_c_zero_ids, dtype=np.int32),
+        canonical_image_ids=canonical_image_ids,
+        pre_cap_nodes_per_image=rec_pre,
+        post_cap_nodes_per_image=rec_post,
+        arm_b_zero_image_ids=np.asarray(arm_b_zero_ids, dtype=np.int32),
+        arm_c_zero_image_ids=np.asarray(arm_c_zero_ids, dtype=np.int32),
         zero_node_labels=y_true[arm_c_zero_ids],
+        raw_relation_pair_counts=raw_rel_pair_counts,
+        raw_control_pair_counts=raw_ctrl_pair_counts,
+        raw_relation_norms=raw_rel_norms,
+        raw_control_norms=raw_ctrl_norms,
     )
+
+    import scipy
+    import sklearn
 
     res_path = out / "issue90_results.json"
     results_payload = {
         "issue": ISSUE_NUMBER,
+        "implementation_sha": valid_impl_sha,
+        "previous_implementation_sha": PREVIOUS_IMPLEMENTATION_SHA,
         "preregistration_sha": PREREGISTRATION_SHA,
         "scientific_source_sha": SCIENTIFIC_SOURCE_SHA,
         "environment": {
             "python": sys.version,
             "platform": platform.platform(),
             "numpy": np.__version__,
-            "scikit_learn": "1.6.1",
+            "scipy": scipy.__version__,
+            "scikit_learn": sklearn.__version__,
         },
         "per_arm_metrics": per_arm_metrics,
         "fold_diagnostics": fold_diagnostics,
@@ -761,7 +893,7 @@ def run_experiment(
         "private_test_accessed": False,
         "graph_gnn_executed": False,
     }
-    res_path.write_text(json.dumps(results_payload, indent=2), encoding="utf-8")
+    _atomic_write_json(res_path, results_payload)
 
     # Manifest
     manifest_records = {}
@@ -773,12 +905,15 @@ def run_experiment(
     manifest_path = out / "issue90_execution_manifest.json"
     manifest_payload = {
         "issue": ISSUE_NUMBER,
+        "implementation_sha": valid_impl_sha,
+        "previous_implementation_sha": PREVIOUS_IMPLEMENTATION_SHA,
         "preregistration_sha": PREREGISTRATION_SHA,
+        "scientific_source_sha": SCIENTIFIC_SOURCE_SHA,
         "outputs": manifest_records,
         "public_test_accessed": False,
         "private_test_accessed": False,
     }
-    manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
+    _atomic_write_json(manifest_path, manifest_payload)
 
     print("Execution complete. Manifest written.")
     return results_payload
@@ -796,6 +931,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--substrate-dir", required=True)
     run.add_argument("--finalizer-dir", required=True)
     run.add_argument("--output-dir", required=True)
+    run.add_argument("--implementation-sha", required=True)
     return parser
 
 
@@ -810,6 +946,7 @@ def main(argv: list[str] | None = None) -> int:
         substrate_dir=args.substrate_dir,
         finalizer_dir=args.finalizer_dir,
         output_dir=args.output_dir,
+        implementation_sha=args.implementation_sha,
     )
     return 0
 
