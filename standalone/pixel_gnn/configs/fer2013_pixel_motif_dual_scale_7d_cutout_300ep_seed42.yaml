@@ -62,7 +62,7 @@ training:
   early_stopping:
     enabled: true
     min_epochs_before_stop: 100
-    patience: 60
+    patience: 100
     metric: val_loss
     mode: min
 
