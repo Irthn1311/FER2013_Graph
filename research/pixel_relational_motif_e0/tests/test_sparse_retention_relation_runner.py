@@ -2,26 +2,52 @@
 
 from __future__ import annotations
 
-import inspect
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pytest
+from sklearn.exceptions import ConvergenceWarning
 
 from pixel_relational_motif_e0.motif_qualification import Occurrence
 import pixel_relational_motif_e0.sparse_retention_relation_runner as r
 
 
 def test_1_dense_pyramid_boundaries_and_quadrants():
+    # Exactly test quadrant boundaries around index 18
+    # Boundary split at 18:
+    # reg 1: row < 18, col < 18 -> (17, 17)
+    # reg 2: row < 18, col >= 18 -> (17, 18)
+    # reg 3: row >= 18, col < 18 -> (18, 17)
+    # reg 4: row >= 18, col >= 18 -> (18, 18)
     grid = np.zeros((36, 36), dtype=np.int16)
-    grid[5, 5] = 10
-    grid[5, 25] = 20
-    grid[25, 5] = 30
-    grid[25, 25] = 40
+    grid[17, 17] = 10
+    grid[17, 18] = 20
+    grid[18, 17] = 30
+    grid[18, 18] = 40
+
     feat = r.dense_pyramid_feature(grid)
     assert feat.shape == (2560,)
     assert np.all(np.isfinite(feat))
     assert np.isclose(np.linalg.norm(feat), 1.0)
+
+    # Check that in reg 1 (indices 512..1023), bin 10 has positive count, and 20, 30, 40 are 0
+    assert feat[512 + 10] > 0
+    assert feat[512 + 20] == 0
+    assert feat[512 + 30] == 0
+    assert feat[512 + 40] == 0
+
+    # reg 2 (indices 1024..1535): bin 20 positive
+    assert feat[1024 + 20] > 0
+    assert feat[1024 + 10] == 0
+
+    # reg 3 (indices 1536..2047): bin 30 positive
+    assert feat[1536 + 30] > 0
+    assert feat[1536 + 10] == 0
+
+    # reg 4 (indices 2048..2559): bin 40 positive
+    assert feat[2048 + 40] > 0
+    assert feat[2048 + 10] == 0
 
 
 def test_2_arm_a_dimension_2560_and_normalization():
@@ -91,7 +117,7 @@ def test_6_relation_dimension_3528():
     assert vec.shape == (3528,)
 
 
-def test_7_ordered_pair_count_n_times_n_minus_one():
+def test_7_raw_ordered_pair_count_n_times_n_minus_one():
     qm_to_idx = {t: i for i, t in enumerate(r.FROZEN_QM_TYPES)}
     nodes = [
         Occurrence(type_id=31, row=5, col=5, margin=0.5, component_size=1),
@@ -99,26 +125,9 @@ def test_7_ordered_pair_count_n_times_n_minus_one():
         Occurrence(type_id=116, row=15, col=5, margin=0.7, component_size=1),
         Occurrence(type_id=123, row=20, col=20, margin=0.8, component_size=1),
     ]
-    # n=4 -> 4*3 = 12 pairs
-    # Before normalization, sum must equal 12
-    vec = np.zeros(r.RELATION_DIM, dtype=np.float32)
-    n = len(nodes)
-    for i in range(n):
-        for j in range(n):
-            if i == j:
-                continue
-            u = nodes[i]
-            v = nodes[j]
-            src = qm_to_idx[u.type_id]
-            tgt = qm_to_idx[v.type_id]
-            dr = v.row - u.row
-            dc = v.col - u.col
-            sr = 0 if dr == 0 else (1 if dr > 0 else -1)
-            sc = 0 if dc == 0 else (1 if dc > 0 else -1)
-            direction = r.DIRECTION_SECTOR_MAP[(sr, sc)]
-            coord = ((src * r.QM_COUNT + tgt) * r.RELATION_DIRECTIONS) + direction
-            vec[coord] += 1.0
-    assert vec.sum() == 12.0
+    # n=4 -> 4*3 = 12 raw pairs
+    raw_vec = r.compute_relation_vector_raw(nodes, qm_to_idx)
+    assert np.isclose(raw_vec.sum(), 12.0)
 
 
 def test_8_all_eight_direction_sectors():
@@ -175,19 +184,32 @@ def test_12_control_preserves_source_target_pair_totals():
         Occurrence(type_id=81, row=8, col=9, margin=0.6, component_size=1),
         Occurrence(type_id=116, row=15, col=5, margin=0.7, component_size=1),
     ]
-    r_vec = r.compute_relation_vector(nodes, qm_to_idx)
-    r_ctrl = r.compute_relation_control_vector(nodes, qm_to_idx, canonical_image_id=99)
-    assert np.isclose(np.linalg.norm(r_vec), np.linalg.norm(r_ctrl))
+    r_raw = r.compute_relation_vector_raw(nodes, qm_to_idx).reshape(
+        r.QM_COUNT, r.QM_COUNT, 8
+    )
+    r_ctrl_raw = r.compute_relation_control_vector_raw(
+        nodes, qm_to_idx, canonical_image_id=99
+    ).reshape(r.QM_COUNT, r.QM_COUNT, 8)
+
+    # Require sums over direction sectors to match exactly for every source-target pair
+    pair_totals_r = r_raw.sum(axis=2)
+    pair_totals_ctrl = r_ctrl_raw.sum(axis=2)
+    assert np.array_equal(pair_totals_r, pair_totals_ctrl)
 
 
-def test_13_control_preserves_total_pair_count():
+def test_13_control_preserves_total_raw_pair_count():
     qm_to_idx = {t: i for i, t in enumerate(r.FROZEN_QM_TYPES)}
     nodes = [
         Occurrence(type_id=31, row=2, col=3, margin=0.5, component_size=1),
         Occurrence(type_id=81, row=8, col=9, margin=0.6, component_size=1),
+        Occurrence(type_id=116, row=15, col=5, margin=0.7, component_size=1),
     ]
-    r_ctrl = r.compute_relation_control_vector(nodes, qm_to_idx, canonical_image_id=123)
-    assert np.isclose(np.linalg.norm(r_ctrl), 1.0)
+    r_raw = r.compute_relation_vector_raw(nodes, qm_to_idx)
+    r_ctrl_raw = r.compute_relation_control_vector_raw(
+        nodes, qm_to_idx, canonical_image_id=123
+    )
+    assert np.isclose(r_raw.sum(), 6.0)
+    assert np.isclose(r_ctrl_raw.sum(), 6.0)
 
 
 def test_14_combined_de_dimension_6088():
@@ -205,16 +227,15 @@ def test_15_combined_de_block_and_final_normalization():
 
 
 def test_16_shared_fold_assignment_and_oof_coverage():
-    from sklearn.model_selection import StratifiedKFold
-
-    y = np.random.randint(0, 7, size=100)
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    splits = list(skf.split(np.zeros(100), y))
+    y = np.random.randint(0, 7, size=r.TRAIN_ROWS)
+    splits = r.generate_shared_5fold_splits(y)
+    assert len(splits) == 5
 
     val_indices = []
     for tr, va in splits:
+        assert len(np.intersect1d(tr, va)) == 0
         val_indices.extend(va.tolist())
-    assert sorted(val_indices) == list(range(100))
+    assert sorted(val_indices) == list(range(r.TRAIN_ROWS))
 
 
 def test_17_bootstrap_shared_indices():
@@ -247,11 +268,24 @@ def test_18_bootstrap_linear_quantile_semantics():
     assert len(q) == 2
 
 
-def test_19_convergence_failure_is_fail_closed():
-    # If a model fails to converge or hits max_iter, run_fixed_oof_probe raises RuntimeError
-    sig = inspect.signature(r.run_fixed_oof_probe)
-    assert "features" in sig.parameters
-    assert "labels" in sig.parameters
+def test_19_real_convergence_failure_raises_runtime_error(monkeypatch):
+    # Mock LogisticRegression.fit to emit ConvergenceWarning
+    orig_fit = r.LogisticRegression.fit
+
+    def mock_fit(self, X, y):
+        warnings.warn("test convergence failure", ConvergenceWarning)
+        return orig_fit(self, X, y)
+
+    monkeypatch.setattr(r.LogisticRegression, "fit", mock_fit)
+
+    X_dummy = np.random.randn(r.TRAIN_ROWS, 10).astype(np.float32)
+    y_dummy = np.random.randint(0, 7, size=r.TRAIN_ROWS)
+    splits = r.generate_shared_5fold_splits(y_dummy)
+
+    with pytest.raises(
+        RuntimeError, match="failed convergence with ConvergenceWarning"
+    ):
+        r.run_fixed_oof_probe(X_dummy, y_dummy, splits)
 
 
 def test_20_public_private_paths_not_referenced():
@@ -266,3 +300,17 @@ def test_20_public_private_paths_not_referenced():
         "--private-csv",
     ]:
         assert forbidden not in code
+
+
+def test_21_fail_closed_assertions_on_bad_inputs():
+    with pytest.raises(ValueError, match="shape"):
+        r.dense_pyramid_feature(np.zeros((10, 10), dtype=np.int16))
+
+    with pytest.raises(ValueError, match="range"):
+        r.dense_pyramid_feature(np.full((36, 36), 600, dtype=np.int16))
+
+    with pytest.raises(ValueError, match="unary feature dimension"):
+        r.combine_unary_and_relation(np.ones(10), np.ones(3528))
+
+    with pytest.raises(ValueError, match="relation feature dimension"):
+        r.combine_unary_and_relation(np.ones(2560), np.ones(10))
