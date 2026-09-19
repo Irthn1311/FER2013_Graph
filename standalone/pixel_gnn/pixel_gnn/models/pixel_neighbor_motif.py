@@ -122,12 +122,12 @@ class LocalNeighborAttentionLayer(tf.keras.layers.Layer):
         scores = tf.squeeze(self.score_out(pair_features), axis=-1)            # [B, 2304, 8]
 
         # 6. Mask boundary / invalid neighbors
-        mask_tiled = tf.broadcast_to(tf.expand_dims(neighbor_valid, axis=0), [batch_size, num_nodes, 8])
-        masked_scores = tf.where(mask_tiled, scores, tf.constant(-1e9, dtype=scores.dtype))
+        mask = tf.expand_dims(neighbor_valid, axis=0)                          # [1, 2304, 8]
+        masked_scores = tf.where(mask, scores, tf.constant(-1e9, dtype=scores.dtype))
 
         # 7. Softmax attention weights over 8 neighbors
-        alpha = tf.nn.softmax(masked_scores, axis=-1)  # [B, 2304, 8]
-        alpha = tf.where(mask_tiled, alpha, tf.zeros_like(alpha))
+        alpha = tf.nn.softmax(masked_scores, axis=-1)                          # [B, 2304, 8]
+        alpha = alpha * tf.cast(mask, alpha.dtype)
         if training and self.dropout_rate > 0.0:
             alpha = self.dropout1(alpha, training=training)
 
@@ -246,11 +246,10 @@ class SpatialLearnedMotifClustering(tf.keras.layers.Layer):
 
         # Gather S on neighbor indices: [B, 2304, 8, K]
         S_nbr = tf.gather(assignment, neighbors_idx, axis=1)
-        mask = tf.expand_dims(tf.expand_dims(neighbor_valid, axis=0), axis=-1)  # [1, 2304, 8, 1]
-        S_nbr_masked = tf.where(mask, S_nbr, tf.zeros_like(S_nbr))              # [B, 2304, 8, K]
+        valid_mask = tf.cast(neighbor_valid, assignment.dtype)                  # [2304, 8]
 
-        # S_agg = A_pixel @ S: [B, 2304, K]
-        S_agg = tf.reduce_sum(S_nbr_masked, axis=2)
+        # S_agg = A_pixel @ S: [B, 2304, K] via direct neighbor contraction (eliminates tf.where/zeros_like OOM)
+        S_agg = tf.einsum("bnik,ni->bnk", S_nbr, valid_mask)
 
         # A_motif = S^T @ (A_pixel @ S): [B, K, K]
         A_motif = tf.einsum("bni,bnj->bij", assignment, S_agg)

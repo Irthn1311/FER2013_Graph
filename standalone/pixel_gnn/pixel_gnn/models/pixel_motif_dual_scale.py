@@ -100,41 +100,31 @@ class MultiHeadLocalNeighborAttentionLayer(tf.keras.layers.Layer):
         k_neighbors = tf.gather(k, neighbors_idx, axis=1)
         v_neighbors = tf.gather(v, neighbors_idx, axis=1)
 
-        # 3. Static edge projections: [1, 2304, 8, H, head_dim]
-        e_k = tf.expand_dims(
-            tf.reshape(self.edge_k_dense(static_edge), [num_nodes, 8, self.num_heads, self.head_dim]),
-            axis=0,
-        )
-        e_v = tf.expand_dims(
-            tf.reshape(self.edge_v_dense(static_edge), [num_nodes, 8, self.num_heads, self.head_dim]),
-            axis=0,
-        )
+        # 3. Static edge projections: [2304, 8, H, head_dim]
+        e_k = tf.reshape(self.edge_k_dense(static_edge), [num_nodes, 8, self.num_heads, self.head_dim])
+        e_v = tf.reshape(self.edge_v_dense(static_edge), [num_nodes, 8, self.num_heads, self.head_dim])
 
-        # 4. Expand query: [B, 2304, 1, H, head_dim]
-        q_exp = tf.expand_dims(q, axis=2)
-
-        # 5. Multi-head scaled dot-product attention with edge modulation
-        # (q + e_k) * k_neighbors: [B, 2304, 8, H]
+        # 4. Multi-head scaled dot-product attention with edge modulation via memory-efficient einsum
+        # Scores: (q_i . k_j + e_k,ij . k_j) / scale without allocating giant [B, 2304, 8, H, head_dim] intermediate
         scale = tf.cast(math.sqrt(self.head_dim), tf.float32)
-        scores = tf.reduce_sum((q_exp + e_k) * k_neighbors, axis=-1) / scale
+        q_k = tf.einsum("bnhd,bnehd->bneh", q, k_neighbors)
+        e_k_dot = tf.einsum("nehd,bnehd->bneh", e_k, k_neighbors)
+        scores = (q_k + e_k_dot) / scale
 
-        # 6. Mask boundary / invalid neighbors
-        mask = tf.expand_dims(
-            tf.broadcast_to(tf.expand_dims(neighbor_valid, axis=0), [batch_size, num_nodes, 8]),
-            axis=-1,
-        )  # [B, 2304, 8, 1]
+        # 5. Mask boundary / invalid neighbors without tf.broadcast_to or tf.zeros_like
+        mask = tf.expand_dims(tf.expand_dims(neighbor_valid, axis=0), axis=-1)  # [1, 2304, 8, 1]
         masked_scores = tf.where(mask, scores, tf.constant(-1e9, dtype=scores.dtype))
 
-        # 7. Softmax across 8 neighbors per head: [B, 2304, 8, H]
+        # 6. Softmax across 8 neighbors per head: [B, 2304, 8, H]
         alpha = tf.nn.softmax(masked_scores, axis=2)
-        alpha = tf.where(mask, alpha, tf.zeros_like(alpha))
+        alpha = alpha * tf.cast(mask, alpha.dtype)
         if training and self.dropout_rate > 0.0:
             alpha = self.attn_dropout(alpha, training=training)
 
-        # 8. Aggregate values: sum_j alpha_ij * (v_j + e_v): [B, 2304, H, head_dim]
-        alpha_exp = tf.expand_dims(alpha, axis=-1)  # [B, 2304, 8, H, 1]
-        v_total = v_neighbors + e_v                  # [B, 2304, 8, H, head_dim]
-        head_messages = tf.reduce_sum(alpha_exp * v_total, axis=2)
+        # 7. Aggregate values via memory-efficient einsum: sum_j alpha_ij * (v_j + e_v)
+        v_msg = tf.einsum("bneh,bnehd->bnhd", alpha, v_neighbors)
+        e_msg = tf.einsum("bneh,nehd->bnhd", alpha, e_v)
+        head_messages = v_msg + e_msg
 
         # 9. Concat heads & project: [B, 2304, D]
         concat_messages = tf.reshape(head_messages, [batch_size, num_nodes, self.hidden_dim])
