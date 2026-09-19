@@ -66,16 +66,37 @@ def _resolve_substrate_dir(candidates: tuple[Path, ...]) -> Path:
 
 
 def _resolve_replicates_dir(candidates: tuple[Path, ...]) -> Path:
+    expected_names = {
+        f"motif_stability_{arm}_rep_{replicate_id:02d}.npz"
+        for arm in ("M", "C")
+        for replicate_id in range(20)
+    }
+
+    def _is_valid(directory: Path) -> bool:
+        if not directory.is_dir():
+            return False
+        npz_names = {
+            p.name for p in directory.glob("motif_stability_[MC]_rep_[0-9][0-9].npz")
+        }
+        if npz_names != expected_names:
+            return False
+        for name in expected_names:
+            if not (directory / name.replace(".npz", ".manifest.json")).is_file():
+                return False
+        return True
+
     for candidate in candidates:
-        if candidate.is_dir() and any(
-            candidate.glob("motif_stability_replicate_*.npz")
-        ):
+        if _is_valid(candidate):
             return candidate
+
     if Path("/kaggle/input").exists():
-        for match in Path("/kaggle/input").glob("**/motif_stability_replicate_*.npz"):
-            if match.is_file():
+        for match in Path("/kaggle/input").glob("**/motif_stability_M_rep_00.npz"):
+            if _is_valid(match.parent):
                 return match.parent
-    return candidates[0]
+
+    raise FileNotFoundError(
+        "cannot resolve canonical replicate directory containing exact 40 M/C NPZ and manifest files"
+    )
 
 
 def run_unit() -> int:
