@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 from pathlib import Path
 import warnings
 
@@ -361,3 +362,57 @@ def test_25_downstream_label_loader_contract():
         ".labels" not in code or "labels" in code
     )  # ensure train_data.labels is completely absent
     assert "train_data.labels" not in code
+
+
+def test_26_canonical_final_manifest_sha_and_formatting():
+    assert (
+        r.EXPECTED_FINAL_MANIFEST_SHA256
+        == "3caa0fb1b73fc4cdb0284ecae5c6ca8857116c44dbdd2e5662990720e0dbed66"
+    )
+
+    # Reconstruct the exact 1246-byte canonical Issue #86 final manifest under Issue #86 atomic JSON semantics
+    manifest_data = {
+        "issue": 86,
+        "outputs": {
+            "motif_stability_merged.npz": {
+                "bytes": 208678,
+                "sha256": "aa7b3c14e2c544eff673969366c3e1801abe33ba0de2611159946b027a0b1f2b",
+            },
+            "motif_train_model.npz": {
+                "bytes": 29964,
+                "sha256": "836f32261a1897a4b6b9e7a913159683894b0303483b24bb0fb771841d01d9af",
+            },
+            "motif_train_occurrence_diagnostics.npz": {
+                "bytes": 1071027,
+                "sha256": "218838aeaefd575b96a15037e84f52d966ddae66b86850fea7f394febe146658",
+            },
+            "motif_train_s_c_match_features.npz": {
+                "bytes": 1846949,
+                "sha256": "52b978152d775cfdb99c7db727b2d34fd4f578f3cf8a663485dd33e31076f11a",
+            },
+            "motif_train_s_m_all_features.npz": {
+                "bytes": 1211831,
+                "sha256": "900e0fd07aa7bb9ef0eec947246df8d6d66d92603508994e1c09fcbca71092ad",
+            },
+            "motif_train_s_m_match_features.npz": {
+                "bytes": 1211831,
+                "sha256": "900e0fd07aa7bb9ef0eec947246df8d6d66d92603508994e1c09fcbca71092ad",
+            },
+            "motif_train_summary.json": {
+                "bytes": 3978,
+                "sha256": "ea191bd389c6cad44c4eb6f1ff600559b38c649eec904e4d886a3f9003963d18",
+            },
+        },
+        "private_test_accessed": False,
+        "public_test_accessed": False,
+        "scientific_source_sha": "16a84b2b36f0d3584afd0a547487c4373dc22128",
+    }
+    encoded = json.dumps(manifest_data, indent=2, sort_keys=True, allow_nan=False)
+    formatted_bytes = (encoded + "\n").encode("utf-8")
+    assert len(formatted_bytes) == 1246
+    import hashlib
+
+    assert (
+        hashlib.sha256(formatted_bytes).hexdigest()
+        == "3caa0fb1b73fc4cdb0284ecae5c6ca8857116c44dbdd2e5662990720e0dbed66"
+    )
