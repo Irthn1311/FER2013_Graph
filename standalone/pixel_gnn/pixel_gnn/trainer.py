@@ -23,6 +23,7 @@ from pixel_gnn.utils import (
 
 from pixel_gnn.batching import PixelBatchGenerator
 from pixel_gnn.dataset import FERPixelDataset
+from pixel_gnn.checkpoint_manager import RankedCheckpointManager
 from pixel_gnn.evaluator import evaluate_model
 from pixel_gnn.losses import compute_total_loss
 from pixel_gnn.models import build_model
@@ -151,6 +152,26 @@ def run_training(
     )
     print(f"[EARLY STOPPING] Configured: min_epochs={early_stopping.min_epochs}, patience={early_stopping.patience}", flush=True)
 
+    # Ranked Checkpoint Managers (FER2013_SGU Parity)
+    checkpoint_root = output_dir / "checkpoints"
+    max_to_keep_acc = int(config.get("training", {}).get("max_to_keep_acc", 5))
+    max_to_keep_loss = int(config.get("training", {}).get("max_to_keep_loss", 5))
+    best_acc_manager = RankedCheckpointManager(
+        model=model,
+        directory=checkpoint_root / "best",
+        max_to_keep=max_to_keep_acc,
+        metric_name="val_accuracy",
+        mode="max",
+    )
+    best_loss_manager = RankedCheckpointManager(
+        model=model,
+        directory=checkpoint_root / "best_loss",
+        max_to_keep=max_to_keep_loss,
+        metric_name="val_loss",
+        mode="min",
+    )
+    print(f"[CHECKPOINT] Ranked managers active: top-{max_to_keep_acc} val_acc in checkpoints/best, top-{max_to_keep_loss} val_loss in checkpoints/best_loss", flush=True)
+
     def step_fn(batch):
         with tf.GradientTape() as tape:
             out = model(batch, training=True)
@@ -228,14 +249,34 @@ def run_training(
         scheduler.on_epoch_end(epoch, val_loss)
         current_lr = float(optimizer.learning_rate.numpy()) if hasattr(optimizer.learning_rate, "numpy") else float(optimizer.learning_rate)
 
+        # Consider for Ranked Checkpoint Managers (top-K val_accuracy and top-K val_loss)
+        acc_save_res = best_acc_manager.consider(
+            epoch=epoch,
+            metric=val_acc,
+            additional_metrics={"val_loss": val_loss, "val_macro_f1": val_macro_f1, "lr": current_lr},
+        )
+        loss_save_res = best_loss_manager.consider(
+            epoch=epoch,
+            metric=val_loss,
+            additional_metrics={"val_accuracy": val_acc, "val_macro_f1": val_macro_f1, "lr": current_lr},
+        )
+
+        saved_tags = []
+        if acc_save_res["saved"]:
+            saved_tags.append(f"ACC#{acc_save_res['rank']}")
+        if loss_save_res["saved"]:
+            saved_tags.append(f"LOSS#{loss_save_res['rank']}")
+
         saved = False
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             best_val_epoch = epoch
             model.save_weights(str(output_dir / "best_val_accuracy.weights.h5"))
             saved = True
+            saved_tags.append("GLOBAL_BEST")
 
         total_time = time.perf_counter() - t0
+        saved_str = f" [{' '.join(saved_tags)}]" if saved_tags else ""
 
         print(
             f"[EPOCH {epoch:03d}/{max_epochs:03d}] "
@@ -243,7 +284,7 @@ def run_training(
             f"val_loss={val_loss:.4f} | val_acc={val_acc*100:.2f}% | "
             f"val_macro_f1={val_macro_f1*100:.2f}% | "
             f"lr={current_lr:.6f} | time={total_time:.1f}s"
-            f"{' [BEST SAVED]' if saved else ''}",
+            f"{saved_str}",
             flush=True,
         )
 
@@ -383,6 +424,20 @@ def run_training(
             f"entropy={final_diag.get('assignment_entropy'):.3f}",
             flush=True,
         )
-        print(f"[MOTIF] Diagnostics saved to {diag_path}", flush=True)
+    if eval_cfg.get("sweep_tta", True):
+        print("\n" + "=" * 80)
+        print("🚀 [SWEEP] Launching Validation-Tuned TTA & Checkpoint Ensemble Sweep (FER2013_SGU Parity)...")
+        print("=" * 80, flush=True)
+        try:
+            from pixel_gnn.sweep_tta import run_comprehensive_checkpoint_sweep
+            run_comprehensive_checkpoint_sweep(
+                config_path=config_path,
+                output_dir=output_dir,
+                fer_csv=fer_csv,
+                step=float(eval_cfg.get("tta_step", 0.05)),
+                num_random_samples=int(eval_cfg.get("ensemble_random_samples", 50000)),
+            )
+        except Exception as e:
+            print(f"[SWEEP ERROR] Checkpoint sweep encountered error: {e}", flush=True)
 
     print(f"[SUCCESS] All artifacts and test metrics saved to {output_dir}")

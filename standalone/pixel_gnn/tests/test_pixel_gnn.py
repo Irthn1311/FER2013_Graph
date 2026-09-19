@@ -355,6 +355,93 @@ def test_7d_features_and_cutout():
     print("[TEST] test_7d_features_and_cutout passed!")
 
 
+def test_ranked_checkpoint_manager():
+    from pixel_gnn.checkpoint_manager import RankedCheckpointManager
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dummy_model = tf.keras.Sequential([tf.keras.layers.Dense(2, input_shape=(2,))])
+        dummy_model.build((None, 2))
+
+        mgr = RankedCheckpointManager(dummy_model, tmpdir, max_to_keep=3, metric_name="val_accuracy", mode="max")
+
+        mgr.consider(epoch=1, metric=0.50)
+        mgr.consider(epoch=2, metric=0.60)
+        mgr.consider(epoch=3, metric=0.55)
+        mgr.consider(epoch=4, metric=0.65)  # should bump out 0.50
+        mgr.consider(epoch=5, metric=0.58)  # should bump out 0.55
+
+        assert len(mgr.entries) == 3
+        epochs = [e["epoch"] for e in mgr.entries]
+        metrics = [e["metric"] for e in mgr.entries]
+        assert epochs == [4, 2, 5]
+        assert metrics == [0.65, 0.60, 0.58]
+        assert mgr.threshold == 0.58
+        assert "ckpt-004.weights.h5" in mgr.latest_checkpoint
+
+        # Verify disk files
+        dir_path = Path(tmpdir)
+        remaining_files = [f.name for f in dir_path.glob("*.weights.h5")]
+        assert set(remaining_files) == {"ckpt-004.weights.h5", "ckpt-002.weights.h5", "ckpt-005.weights.h5"}
+        assert not (dir_path / "ckpt-001.weights.h5").exists()
+        assert not (dir_path / "ckpt-003.weights.h5").exists()
+        assert (dir_path / "top_k_rankings.json").exists()
+
+        # Test min mode (for val_loss)
+        mgr_loss = RankedCheckpointManager(dummy_model, Path(tmpdir) / "loss", max_to_keep=2, metric_name="val_loss", mode="min")
+        mgr_loss.consider(epoch=1, metric=1.5)
+        mgr_loss.consider(epoch=2, metric=1.2)
+        mgr_loss.consider(epoch=3, metric=1.8)
+        assert len(mgr_loss.entries) == 2
+        assert [e["epoch"] for e in mgr_loss.entries] == [2, 1]
+
+        print("[TEST] test_ranked_checkpoint_manager passed!")
+
+
+def test_sweep_tta_module():
+    from pixel_gnn.sweep_tta import (
+        eval_weights,
+        generate_combinatorial_candidates,
+        run_massive_combinatorial_sweep,
+        softmax,
+    )
+
+    np.random.seed(42)
+    n_samples = 50
+    n_classes = 7
+
+    logits_orig = np.random.randn(n_samples, n_classes).astype(np.float32)
+    logits_flip = np.random.randn(n_samples, n_classes).astype(np.float32)
+    labels = np.random.randint(0, n_classes, size=n_samples)
+
+    sweep_results, best_row = eval_weights(logits_orig, logits_flip, labels, step=0.1)
+    assert len(sweep_results) == 11
+    assert "accuracy" in best_row
+    assert "w_orig" in best_row
+
+    # Test candidate generator
+    cands = generate_combinatorial_candidates(num_models=3, num_random_samples=100, seed=42)
+    assert len(cands) > 10
+
+    # Test massive combinatorial sweep
+    k_models = 3
+    val_probs = softmax(np.random.randn(k_models, n_samples, n_classes), axis=-1)
+    test_probs = softmax(np.random.randn(k_models, n_samples, n_classes), axis=-1)
+    ckpt_names = ["m1", "m2", "m3"]
+
+    ens_res = run_massive_combinatorial_sweep(
+        val_probs=val_probs,
+        test_probs=test_probs,
+        y_val=labels,
+        y_test=labels,
+        ckpt_names=ckpt_names,
+        num_random_samples=500,
+        seed=42,
+    )
+    assert "best_val_overall" in ens_res
+    assert ens_res["best_val_overall"]["val_acc"] >= 0.0
+    print("[TEST] test_sweep_tta_module passed!")
+
+
 if __name__ == "__main__":
     test_registry()
     test_motif_graph_configurations()
@@ -364,4 +451,6 @@ if __name__ == "__main__":
     test_warmup_cosine_decay()
     test_dual_scale_model()
     test_7d_features_and_cutout()
+    test_ranked_checkpoint_manager()
+    test_sweep_tta_module()
     print("ALL TESTS IN pixel_gnn PASSED!")
