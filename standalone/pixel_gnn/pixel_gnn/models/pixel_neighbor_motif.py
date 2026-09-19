@@ -40,6 +40,14 @@ def init_grid_centers(num_motifs: int, span: float = 0.58) -> np.ndarray:
         yy, xx = np.meshgrid(ys, xs, indexing="ij")
         centers = np.stack([xx.reshape(-1), yy.reshape(-1)], axis=1)
         return centers.astype(np.float32)
+    elif num_motifs == 49:
+        # Perfectly symmetric 7x7 facial grid
+        grid_h, grid_w = 7, 7
+        ys = np.linspace(-span, span, grid_h, dtype=np.float32)
+        xs = np.linspace(-span, span, grid_w, dtype=np.float32)
+        yy, xx = np.meshgrid(ys, xs, indexing="ij")
+        centers = np.stack([xx.reshape(-1), yy.reshape(-1)], axis=1)
+        return centers.astype(np.float32)
     elif num_motifs == 64:
         grid_h, grid_w = 8, 8
         ys = np.linspace(-span, span, grid_h, dtype=np.float32)
@@ -338,6 +346,7 @@ class MultiHeadMotifGNNLayer(tf.keras.layers.Layer):
         hidden_dim: int = 96,
         num_heads: int = 4,
         dropout: float = 0.15,
+        ffn_expansion: int = 2,
         name: str | None = None,
     ):
         super().__init__(name=name)
@@ -347,6 +356,7 @@ class MultiHeadMotifGNNLayer(tf.keras.layers.Layer):
             raise ValueError(f"hidden_dim ({hidden_dim}) must be divisible by num_heads ({num_heads})")
         self.head_dim = self.hidden_dim // self.num_heads
         self.dropout_rate = float(dropout)
+        self.ffn_expansion = int(ffn_expansion)
 
         self.q_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_q")
         self.k_dense = tf.keras.layers.Dense(self.hidden_dim, name="motif_k")
@@ -364,7 +374,7 @@ class MultiHeadMotifGNNLayer(tf.keras.layers.Layer):
         self.norm1 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name="motif_norm1")
         self.dropout1 = tf.keras.layers.Dropout(self.dropout_rate)
 
-        self.ffn1 = tf.keras.layers.Dense(self.hidden_dim * 2, activation="gelu", name="motif_ffn1")
+        self.ffn1 = tf.keras.layers.Dense(self.hidden_dim * self.ffn_expansion, activation="gelu", name="motif_ffn1")
         self.ffn2 = tf.keras.layers.Dense(self.hidden_dim, name="motif_ffn2")
         self.norm2 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name="motif_norm2")
         self.dropout2 = tf.keras.layers.Dropout(self.dropout_rate)

@@ -45,6 +45,7 @@ class MultiHeadLocalNeighborAttentionLayer(tf.keras.layers.Layer):
         num_heads: int = 4,
         edge_dim: int = 3,
         dropout: float = 0.15,
+        ffn_expansion: int = 2,
         name: str | None = None,
     ):
         super().__init__(name=name)
@@ -57,6 +58,7 @@ class MultiHeadLocalNeighborAttentionLayer(tf.keras.layers.Layer):
         self.head_dim = self.hidden_dim // self.num_heads
         self.edge_dim = int(edge_dim)
         self.dropout_rate = float(dropout)
+        self.ffn_expansion = int(ffn_expansion)
 
         # Projections for Q, K, V
         self.q_dense = tf.keras.layers.Dense(self.hidden_dim, name="q_dense")
@@ -75,7 +77,7 @@ class MultiHeadLocalNeighborAttentionLayer(tf.keras.layers.Layer):
         self.attn_dropout = tf.keras.layers.Dropout(self.dropout_rate)
 
         # Feed-Forward Network
-        self.ffn_dense1 = tf.keras.layers.Dense(self.hidden_dim * 2, activation="gelu", name="ffn_dense1")
+        self.ffn_dense1 = tf.keras.layers.Dense(self.hidden_dim * self.ffn_expansion, activation="gelu", name="ffn_dense1")
         self.ffn_dense2 = tf.keras.layers.Dense(self.hidden_dim, name="ffn_dense2")
         self.norm2 = tf.keras.layers.LayerNormalization(epsilon=1e-5, name="norm2")
         self.ffn_dropout = tf.keras.layers.Dropout(self.dropout_rate)
@@ -182,6 +184,7 @@ class PixelMotifDualScaleModel(tf.keras.Model):
         use_motif_graph: bool = True,
         num_motif_gnn_layers: int = 2,
         num_motif_heads: int = 4,
+        ffn_expansion: int = 2,
         temperature: float = 0.1,
         dropout: float = 0.15,
         num_classes: int = 7,
@@ -196,6 +199,7 @@ class PixelMotifDualScaleModel(tf.keras.Model):
         self.use_motif_graph = bool(use_motif_graph)
         self.num_motif_gnn_layers = int(num_motif_gnn_layers)
         self.num_motif_heads = int(num_motif_heads)
+        self.ffn_expansion = int(ffn_expansion)
         self.temperature = float(temperature)
         self.dropout_rate = float(dropout)
         self.num_classes = int(num_classes)
@@ -211,6 +215,7 @@ class PixelMotifDualScaleModel(tf.keras.Model):
                 num_heads=self.num_heads,
                 edge_dim=3,
                 dropout=self.dropout_rate,
+                ffn_expansion=self.ffn_expansion,
                 name=f"multihead_pixel_layer_{i}",
             )
             for i in range(self.num_attention_layers)
@@ -233,6 +238,7 @@ class PixelMotifDualScaleModel(tf.keras.Model):
                     hidden_dim=self.hidden_dim,
                     num_heads=self.num_motif_heads,
                     dropout=self.dropout_rate,
+                    ffn_expansion=self.ffn_expansion,
                     name=f"multihead_motif_gnn_{i}",
                 )
                 for i in range(self.num_motif_gnn_layers)

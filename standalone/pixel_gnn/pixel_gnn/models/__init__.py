@@ -48,6 +48,7 @@ def build_model(config: dict):
             use_motif_graph=bool(model_cfg.get("use_motif_graph", True)),
             num_motif_gnn_layers=int(model_cfg.get("num_motif_gnn_layers", 2)),
             num_motif_heads=int(model_cfg.get("num_motif_heads", 4)),
+            ffn_expansion=int(model_cfg.get("ffn_expansion", 2)),
             temperature=float(model_cfg.get("temperature", 0.1)),
             dropout=float(model_cfg.get("dropout", 0.15)),
             num_classes=int(model_cfg.get("num_classes", 7)),
