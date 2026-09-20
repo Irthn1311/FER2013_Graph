@@ -24,12 +24,16 @@ def make_dummy_batch(batch_size: int = 4, node_dim: int = 5) -> dict[str, tf.Ten
         gx_flat = gx.reshape(-1, 1)
         gy_flat = gy.reshape(-1, 1)
         feats = [intensity, coords, gx_flat, gy_flat]
-        if node_dim == 7:
+        if node_dim >= 7:
             grad_mag = np.sqrt(gx**2 + gy**2).reshape(-1, 1)
             gyy, _ = np.gradient(gy)
             _, gxx = np.gradient(gx)
             laplacian = (gxx + gyy).reshape(-1, 1)
             feats.extend([grad_mag, laplacian])
+        if node_dim == 9:
+            local_var = np.random.uniform(0.0, 0.1, size=(2304, 1)).astype(np.float32)
+            lbp = np.random.uniform(0.0, 1.0, size=(2304, 1)).astype(np.float32)
+            feats.extend([local_var, lbp])
         feat = np.concatenate(feats, axis=1).astype(np.float32)
         node_features.append(feat)
 
@@ -78,7 +82,7 @@ def run_smoke_test(config: dict | None = None) -> dict:
 
     if output.get("motif_assignment") is not None:
         assign = output["motif_assignment"]
-        num_motifs = config.get("model", {}).get("num_motifs", 32)
+        num_motifs = config.get("model", {}).get("num_micro_motifs", config.get("model", {}).get("num_motifs", 32))
         assert assign.shape == (batch_size, 2304, num_motifs), f"Assignment shape mismatch: {assign.shape}"
         assert tf.reduce_all(tf.math.is_finite(assign)), "Assignment contains NaN!"
         # Check probability sum close to 1
@@ -87,7 +91,7 @@ def run_smoke_test(config: dict | None = None) -> dict:
 
     if output.get("A_motif") is not None:
         A_mat = output["A_motif"]
-        num_motifs = config.get("model", {}).get("num_motifs", 32)
+        num_motifs = config.get("model", {}).get("num_micro_motifs", config.get("model", {}).get("num_motifs", 32))
         assert A_mat.shape == (batch_size, num_motifs, num_motifs), f"A_motif shape mismatch: {A_mat.shape}"
         assert tf.reduce_all(tf.math.is_finite(A_mat)), "A_motif contains NaN!"
 

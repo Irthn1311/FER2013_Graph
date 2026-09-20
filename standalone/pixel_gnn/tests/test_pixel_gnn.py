@@ -442,6 +442,64 @@ def test_sweep_tta_module():
     print("[TEST] test_sweep_tta_module passed!")
 
 
+def test_adaptive_multiscale_model():
+    from pixel_gnn.models import build_model
+    from pixel_gnn.losses import compute_total_loss
+
+    cfg = {
+        "model": {
+            "name": "pixel_motif_adaptive_multiscale",
+            "node_dim": 9,
+            "hidden_dim": 64,
+            "num_attention_layers": 2,
+            "num_heads": 4,
+            "num_micro_motifs": 16,
+            "num_macro_motifs": 4,
+            "spatial_span": 0.58,
+            "num_motif_gnn_layers": 1,
+            "num_motif_heads": 4,
+            "dropout": 0.1,
+        },
+        "loss": {
+            "label_smoothing": 0.05,
+            "lambda_motif_diversity": 0.01,
+            "lambda_motif_infonce": 0.10,
+            "lambda_expression_contrastive": 0.05,
+        },
+    }
+
+    model = build_model(cfg)
+    batch = {
+        "node_features": tf.random.uniform((2, 2304, 9)),
+        "labels": tf.constant([0, 3], dtype=tf.int64),
+    }
+
+    with tf.GradientTape() as tape:
+        out = model(batch, training=True)
+        loss, metrics = compute_total_loss(
+            batch["labels"],
+            out,
+            lambda_diversity=0.01,
+            lambda_motif_infonce=0.10,
+            lambda_expression_contrastive=0.05,
+            label_smoothing=0.05,
+        )
+
+    grads = tape.gradient(loss, model.trainable_variables)
+    assert len(grads) == len(model.trainable_variables)
+    for g in grads:
+        assert g is not None and tf.reduce_all(tf.math.is_finite(g))
+
+    assert out["logits"].shape == (2, 7)
+    assert out["z_image"].shape == (2, 64)
+    assert out["z_motif"].shape == (2, 64)
+    assert out["A_motif"].shape == (2, 16, 16)
+    assert out["A_macro"].shape == (2, 4, 4)
+    assert "motif_infonce_loss" in metrics
+    assert "expression_contrastive_loss" in metrics
+    print("[TEST] test_adaptive_multiscale_model passed!")
+
+
 if __name__ == "__main__":
     test_registry()
     test_motif_graph_configurations()
@@ -451,6 +509,8 @@ if __name__ == "__main__":
     test_warmup_cosine_decay()
     test_dual_scale_model()
     test_7d_features_and_cutout()
+    test_adaptive_multiscale_model()
     test_ranked_checkpoint_manager()
     test_sweep_tta_module()
     print("ALL TESTS IN pixel_gnn PASSED!")
+

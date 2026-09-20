@@ -133,12 +133,34 @@ class FERPixelDataset:
         gy_flat = gy.reshape(n_samples, 2304, 1)
 
         feats = [intensity, coords_exp, gx_flat, gy_flat]
-        if self.node_dim == 7:
+        if self.node_dim >= 7:
             grad_mag = np.sqrt(gx**2 + gy**2).reshape(n_samples, 2304, 1)
             gyy, _ = np.gradient(gy, axis=(1, 2))
             _, gxx = np.gradient(gx, axis=(1, 2))
             laplacian = (gxx + gyy).reshape(n_samples, 2304, 1)
             feats.extend([grad_mag, laplacian])
+
+        if self.node_dim == 9:
+            # Pure pixel 8-neighbor local variance and LBP code (No CNNs)
+            grid = StaticGridTopology.get_instance()
+            neighbors_idx = grid.neighbors_idx.numpy()      # [2304, 8]
+            neighbor_valid = grid.neighbor_valid.numpy()    # [2304, 8]
+
+            # Gather neighbor intensities: [N, 2304, 8]
+            intensity_2d = intensity.squeeze(-1)            # [N, 2304]
+            nbr_intensity = intensity_2d[:, neighbors_idx]   # [N, 2304, 8]
+            diff = nbr_intensity - intensity_2d[:, :, None] # [N, 2304, 8]
+
+            valid_mask = neighbor_valid[None, :, :].astype(np.float32)
+            # Local variance
+            var_flat = np.sum((diff**2) * valid_mask, axis=-1, keepdims=True) / (np.sum(valid_mask, axis=-1, keepdims=True) + 1e-6)
+
+            # Local Binary Pattern (8-bit code normalized to [0, 1])
+            powers = (2 ** np.arange(8, dtype=np.float32))[None, None, :]
+            lbp_bits = (diff >= 0).astype(np.float32) * valid_mask
+            lbp_flat = np.sum(lbp_bits * powers, axis=-1, keepdims=True) / 255.0
+
+            feats.extend([var_flat, lbp_flat])
 
         self.all_node_features = np.concatenate(feats, axis=-1).astype(np.float32)  # [N, 2304, node_dim]
         self.all_labels = np.array(self.labels, dtype=np.int64)

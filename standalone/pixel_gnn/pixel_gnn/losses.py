@@ -58,6 +58,76 @@ def compute_spatial_coherence_loss(assignment: tf.Tensor | None) -> tf.Tensor:
     return tf.reduce_mean(valid_diffs)
 
 
+def compute_motif_infonce_contrastive_loss(
+    motif_reps: tf.Tensor | None,
+    prototypes: tf.Tensor | None,
+    temperature: float = 0.07,
+) -> tf.Tensor:
+    """InfoNCE contrastive loss forcing each motif representation z_k to align with prototype p_k while repelling all other p_m (m != k)."""
+    if motif_reps is None or prototypes is None:
+        return tf.constant(0.0, dtype=tf.float32)
+
+    # motif_reps: [B, K1, D], prototypes: [K2, D]
+    z_norm = tf.math.l2_normalize(motif_reps, axis=-1, epsilon=1e-6)        # [B, K1, D]
+    p_norm = tf.math.l2_normalize(prototypes, axis=-1, epsilon=1e-6)        # [K2, D]
+
+    k_z = tf.shape(z_norm)[1]
+    k_p = tf.shape(p_norm)[0]
+
+    # Ensure matching K dimension
+    k_min = tf.minimum(k_z, k_p)
+    z_norm = z_norm[:, :k_min, :]
+    p_norm = p_norm[:k_min, :]
+
+    # Compute similarity matrix: sim[b, k, m] = z_{b,k} . p_m
+    sim_matrix = tf.einsum("bkd,md->bkm", z_norm, p_norm) / float(temperature)  # [B, K, K]
+
+    # Positive targets are the diagonal entries m == k
+    labels_k = tf.tile(tf.range(k_min, dtype=tf.int32)[None, :], [tf.shape(z_norm)[0], 1])  # [B, K]
+
+    loss = tf.reduce_mean(
+        tf.keras.losses.sparse_categorical_crossentropy(labels_k, sim_matrix, from_logits=True)
+    )
+    return loss
+
+
+def compute_expression_motif_contrastive_loss(
+    z_motif: tf.Tensor | None,
+    labels: tf.Tensor,
+    temperature: float = 0.1,
+) -> tf.Tensor:
+    """Supervised contrastive loss over pooled motif representations across batch samples."""
+    if z_motif is None:
+        return tf.constant(0.0, dtype=tf.float32)
+
+    z_norm = tf.math.l2_normalize(z_motif, axis=-1, epsilon=1e-6)  # [B, D]
+    labels = tf.reshape(labels, [-1, 1])                           # [B, 1]
+
+    # Mask for positive pairs (same emotion label)
+    label_mask = tf.cast(tf.equal(labels, tf.transpose(labels)), tf.float32)  # [B, B]
+    batch_size = tf.shape(labels)[0]
+
+    # Ignore self-comparison on diagonal
+    self_mask = 1.0 - tf.eye(batch_size, dtype=tf.float32)
+    pos_mask = label_mask * self_mask                                          # [B, B]
+
+    sim = tf.matmul(z_norm, z_norm, transpose_b=True) / float(temperature)    # [B, B]
+
+    # For numerical stability
+    max_sim = tf.reduce_max(sim, axis=1, keepdims=True)
+    logits = sim - tf.stop_gradient(max_sim)
+
+    exp_logits = tf.exp(logits) * self_mask
+    log_prob = logits - tf.math.log(tf.reduce_sum(exp_logits, axis=1, keepdims=True) + 1e-8)
+
+    # Mean log likelihood over positive pairs
+    pos_counts = tf.reduce_sum(pos_mask, axis=1) + 1e-8
+    mean_log_prob_pos = tf.reduce_sum(pos_mask * log_prob, axis=1) / pos_counts
+
+    loss = -tf.reduce_mean(mean_log_prob_pos)
+    return loss
+
+
 def compute_motif_diagnostics(assignment: tf.Tensor | None) -> dict[str, float]:
     """Compute active_motifs, motif_usage_min/max/std, assignment_entropy."""
     if assignment is None:
@@ -91,6 +161,8 @@ def compute_total_loss(
     output: dict[str, tf.Tensor],
     lambda_diversity: float = 0.0,
     lambda_spatial_coherence: float = 0.0,
+    lambda_motif_infonce: float = 0.0,
+    lambda_expression_contrastive: float = 0.0,
     label_smoothing: float = 0.0,
 ) -> tuple[tf.Tensor, dict[str, tf.Tensor]]:
     logits = tf.cast(output["logits"], tf.float32)
@@ -130,5 +202,25 @@ def compute_total_loss(
     else:
         metrics["spatial_coherence_loss"] = tf.constant(0.0, dtype=tf.float32)
 
+    # Motif InfoNCE Contrastive Loss
+    if lambda_motif_infonce > 0.0 and output.get("motif_prototypes") is not None:
+        infonce_loss = compute_motif_infonce_contrastive_loss(
+            output.get("z_motif_raw") if output.get("z_motif_raw") is not None else output.get("z_motif"),
+            output.get("motif_prototypes"),
+        )
+        total_loss = total_loss + tf.cast(lambda_motif_infonce, tf.float32) * infonce_loss
+        metrics["motif_infonce_loss"] = infonce_loss
+    else:
+        metrics["motif_infonce_loss"] = tf.constant(0.0, dtype=tf.float32)
+
+    # Expression Contrastive Loss
+    if lambda_expression_contrastive > 0.0 and output.get("z_motif") is not None:
+        exp_loss = compute_expression_motif_contrastive_loss(output["z_motif"], labels)
+        total_loss = total_loss + tf.cast(lambda_expression_contrastive, tf.float32) * exp_loss
+        metrics["expression_contrastive_loss"] = exp_loss
+    else:
+        metrics["expression_contrastive_loss"] = tf.constant(0.0, dtype=tf.float32)
+
     metrics["total_loss"] = total_loss
     return total_loss, metrics
+
