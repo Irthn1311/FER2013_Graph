@@ -100,8 +100,12 @@ def compute_expression_motif_contrastive_loss(
     if z_motif is None:
         return tf.constant(0.0, dtype=tf.float32)
 
+    # Convert soft one-hot or 2D labels to 1D integer class indices
+    if len(labels.shape) == 2 and labels.shape[-1] > 1:
+        labels = tf.argmax(labels, axis=-1)
+
     z_norm = tf.math.l2_normalize(z_motif, axis=-1, epsilon=1e-6)  # [B, D]
-    labels = tf.reshape(labels, [-1, 1])                           # [B, 1]
+    labels = tf.reshape(tf.cast(labels, tf.int64), [-1, 1])        # [B, 1]
 
     # Mask for positive pairs (same emotion label)
     label_mask = tf.cast(tf.equal(labels, tf.transpose(labels)), tf.float32)  # [B, B]

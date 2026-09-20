@@ -502,7 +502,7 @@ def test_adaptive_multiscale_model():
     assert "motif_infonce_loss" in metrics
     assert "expression_contrastive_loss" in metrics
 def test_pixel_mixup_augmentation():
-    from pixel_gnn.augmentation import apply_pixel_mixup, augment_batch
+    from pixel_gnn.augmentation import apply_pixel_mixup
     from pixel_gnn.models import build_model
     from pixel_gnn.losses import compute_total_loss
 
@@ -520,13 +520,28 @@ def test_pixel_mixup_augmentation():
     assert tf.reduce_all(tf.math.is_finite(mixed["node_features"]))
     assert tf.reduce_all(tf.math.is_finite(mixed["labels"]))
 
-    # Test loss computation with soft mixup labels
-    cfg = {"model": {"name": "pixel_neighbor_motif", "hidden_dim": 32, "num_motifs": 8, "node_dim": 9}}
+    # Test loss computation with soft mixup labels AND expression contrastive loss
+    cfg = {
+        "model": {
+            "name": "pixel_motif_adaptive_multiscale",
+            "node_dim": 9,
+            "hidden_dim": 32,
+            "num_micro_motifs": 8,
+            "num_macro_motifs": 2,
+        }
+    }
     model = build_model(cfg)
     out = model(mixed, training=True)
-    loss, metrics = compute_total_loss(mixed["labels"], out, label_smoothing=0.08)
+    loss, metrics = compute_total_loss(
+        mixed["labels"],
+        out,
+        label_smoothing=0.08,
+        lambda_expression_contrastive=0.05,
+        lambda_motif_infonce=0.05,
+    )
     assert tf.math.is_finite(loss)
     assert "ce_loss" in metrics
+    assert "expression_contrastive_loss" in metrics
 
     print("[TEST] test_pixel_mixup_augmentation passed!")
 
