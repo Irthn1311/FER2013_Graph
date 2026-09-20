@@ -317,10 +317,14 @@ def test_7d_features_and_cutout():
     assert aug["node_features"].shape == (4, 2304, 7)
     assert tf.reduce_all(tf.math.is_finite(aug["node_features"]))
 
-    # 4. Test make_flipped_batch with node_dim=7
+    # 4. Test make_flipped_batch with node_dim=7 and node_dim=9
     flipped = make_flipped_batch(aug, node_dim=7)
     assert flipped["node_features"].shape == (4, 2304, 7)
     assert tf.reduce_all(tf.math.is_finite(flipped["node_features"]))
+
+    flipped_9d = make_flipped_batch(aug, node_dim=9)
+    assert flipped_9d["node_features"].shape == (4, 2304, 9)
+    assert tf.reduce_all(tf.math.is_finite(flipped_9d["node_features"]))
 
     # 5. Test Dual-Scale model with 7D input
     cfg = {

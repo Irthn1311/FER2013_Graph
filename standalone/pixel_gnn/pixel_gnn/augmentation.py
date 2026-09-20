@@ -298,12 +298,29 @@ def make_flipped_batch(batch: dict[str, tf.Tensor], node_dim: int = 5) -> dict[s
     gy_flat = tf.reshape(gy, [batch_size, 2304, 1])
 
     features_list = [intensity, coords_exp, gx_flat, gy_flat]
-    if node_dim == 7:
+    if node_dim >= 7:
         grad_mag = tf.sqrt(tf.square(gx) + tf.square(gy) + 1e-8)
         laplacian = compute_image_laplacian(gy, gx)
         grad_mag_flat = tf.reshape(grad_mag, [batch_size, 2304, 1])
         laplacian_flat = tf.reshape(laplacian, [batch_size, 2304, 1])
         features_list.extend([grad_mag_flat, laplacian_flat])
+
+    if node_dim == 9:
+        neighbors_idx = grid.neighbors_idx.numpy()
+        neighbor_valid = grid.neighbor_valid.numpy()
+        valid_mask = tf.constant(neighbor_valid[None, :, :], dtype=tf.float32)
+
+        intensity_2d = tf.squeeze(intensity, axis=-1)
+        nbr_intensity = tf.gather(intensity_2d, neighbors_idx, axis=1)
+        diff = nbr_intensity - tf.expand_dims(intensity_2d, axis=-1)
+
+        var_flat = tf.reduce_sum(tf.square(diff) * valid_mask, axis=-1, keepdims=True) / (
+            tf.reduce_sum(valid_mask, axis=-1, keepdims=True) + 1e-6
+        )
+        powers = tf.constant((2 ** np.arange(8, dtype=np.float32))[None, None, :], dtype=tf.float32)
+        lbp_bits = tf.cast(diff >= 0.0, tf.float32) * valid_mask
+        lbp_flat = tf.reduce_sum(lbp_bits * powers, axis=-1, keepdims=True) / 255.0
+        features_list.extend([var_flat, lbp_flat])
 
     node_features = tf.concat(features_list, axis=-1)
 
