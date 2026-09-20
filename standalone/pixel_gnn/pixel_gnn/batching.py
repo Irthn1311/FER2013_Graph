@@ -46,6 +46,8 @@ class PixelBatchGenerator:
         cutout_prob: float = 0.0,
         cutout_min_size: int = 8,
         cutout_max_size: int = 14,
+        mixup_prob: float = 0.0,
+        mixup_alpha: float = 0.2,
         node_dim: int = 5,
     ):
         self.node_dim = int(node_dim)
@@ -65,6 +67,8 @@ class PixelBatchGenerator:
         self.cutout_prob = float(cutout_prob)
         self.cutout_min_size = int(cutout_min_size)
         self.cutout_max_size = int(cutout_max_size)
+        self.mixup_prob = float(mixup_prob)
+        self.mixup_alpha = float(mixup_alpha)
 
     def __len__(self):
         return (len(self.dataset) + self.batch_size - 1) // self.batch_size
@@ -114,6 +118,8 @@ class PixelBatchGenerator:
                         cutout_prob=self.cutout_prob,
                         cutout_min_size=self.cutout_min_size,
                         cutout_max_size=self.cutout_max_size,
+                        mixup_prob=self.mixup_prob,
+                        mixup_alpha=self.mixup_alpha,
                         node_dim=self.node_dim,
                     )
                 yield batch
@@ -159,6 +165,8 @@ class PixelBatchGenerator:
                         cutout_prob=self.cutout_prob,
                         cutout_min_size=self.cutout_min_size,
                         cutout_max_size=self.cutout_max_size,
+                        mixup_prob=self.mixup_prob,
+                        mixup_alpha=self.mixup_alpha,
                         node_dim=self.node_dim,
                     ),
                     num_parallel_calls=tf.data.AUTOTUNE,

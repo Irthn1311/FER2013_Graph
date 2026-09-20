@@ -166,20 +166,29 @@ def compute_total_loss(
     label_smoothing: float = 0.0,
 ) -> tuple[tf.Tensor, dict[str, tf.Tensor]]:
     logits = tf.cast(output["logits"], tf.float32)
-    labels = tf.cast(labels, tf.int64)
 
-    if label_smoothing > 0.0:
-        num_classes = tf.shape(logits)[-1]
-        one_hot = tf.one_hot(labels, depth=num_classes, dtype=tf.float32)
+    # Check if labels are soft mixup one-hot [B, num_classes]
+    if len(labels.shape) == 2 and labels.shape[-1] > 1:
+        one_hot = tf.cast(labels, tf.float32)
         ce_loss = tf.reduce_mean(
             tf.keras.losses.categorical_crossentropy(
                 one_hot, logits, from_logits=True, label_smoothing=label_smoothing
             )
         )
     else:
-        ce_loss = tf.reduce_mean(
-            tf.keras.losses.sparse_categorical_crossentropy(labels, logits, from_logits=True)
-        )
+        labels_int = tf.cast(labels, tf.int64)
+        if label_smoothing > 0.0:
+            num_classes = tf.shape(logits)[-1]
+            one_hot = tf.one_hot(labels_int, depth=num_classes, dtype=tf.float32)
+            ce_loss = tf.reduce_mean(
+                tf.keras.losses.categorical_crossentropy(
+                    one_hot, logits, from_logits=True, label_smoothing=label_smoothing
+                )
+            )
+        else:
+            ce_loss = tf.reduce_mean(
+                tf.keras.losses.sparse_categorical_crossentropy(labels_int, logits, from_logits=True)
+            )
 
     metrics = {"ce_loss": ce_loss}
     total_loss = ce_loss

@@ -497,7 +497,34 @@ def test_adaptive_multiscale_model():
     assert out["A_macro"].shape == (2, 4, 4)
     assert "motif_infonce_loss" in metrics
     assert "expression_contrastive_loss" in metrics
-    print("[TEST] test_adaptive_multiscale_model passed!")
+def test_pixel_mixup_augmentation():
+    from pixel_gnn.augmentation import apply_pixel_mixup, augment_batch
+    from pixel_gnn.models import build_model
+    from pixel_gnn.losses import compute_total_loss
+
+    dummy_batch = {
+        "image_48": tf.random.uniform((4, 48, 48), 0.0, 1.0),
+        "labels": tf.constant([0, 1, 2, 3], dtype=tf.int64),
+        "sample_ids": tf.constant([10, 20, 30, 40], dtype=tf.int64),
+        "node_features": tf.zeros((4, 2304, 9)),
+    }
+
+    # Test direct apply_pixel_mixup
+    mixed = apply_pixel_mixup(dummy_batch, mixup_alpha=0.2, node_dim=9)
+    assert mixed["node_features"].shape == (4, 2304, 9)
+    assert mixed["labels"].shape == (4, 7)
+    assert tf.reduce_all(tf.math.is_finite(mixed["node_features"]))
+    assert tf.reduce_all(tf.math.is_finite(mixed["labels"]))
+
+    # Test loss computation with soft mixup labels
+    cfg = {"model": {"name": "pixel_neighbor_motif", "hidden_dim": 32, "num_motifs": 8, "node_dim": 9}}
+    model = build_model(cfg)
+    out = model(mixed, training=True)
+    loss, metrics = compute_total_loss(mixed["labels"], out, label_smoothing=0.08)
+    assert tf.math.is_finite(loss)
+    assert "ce_loss" in metrics
+
+    print("[TEST] test_pixel_mixup_augmentation passed!")
 
 
 if __name__ == "__main__":
@@ -510,7 +537,9 @@ if __name__ == "__main__":
     test_dual_scale_model()
     test_7d_features_and_cutout()
     test_adaptive_multiscale_model()
+    test_pixel_mixup_augmentation()
     test_ranked_checkpoint_manager()
     test_sweep_tta_module()
     print("ALL TESTS IN pixel_gnn PASSED!")
+
 

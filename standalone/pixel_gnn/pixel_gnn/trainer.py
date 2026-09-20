@@ -53,6 +53,8 @@ def run_training(
     loss_cfg = config.get("loss", {})
     lambda_diversity = float(loss_cfg.get("lambda_motif_diversity", 0.0))
     lambda_spatial_coherence = float(loss_cfg.get("lambda_spatial_coherence", 0.0))
+    lambda_motif_infonce = float(loss_cfg.get("lambda_motif_infonce", 0.0))
+    lambda_expression_contrastive = float(loss_cfg.get("lambda_expression_contrastive", 0.0))
     label_smoothing = float(loss_cfg.get("label_smoothing", 0.0))
 
     # Node dimensions and feature setup
@@ -67,6 +69,8 @@ def run_training(
     cutout_prob = float(aug_cfg.get("cutout_prob", 0.0))
     cutout_min_size = int(aug_cfg.get("cutout_min_size", 8))
     cutout_max_size = int(aug_cfg.get("cutout_max_size", 14))
+    mixup_prob = float(aug_cfg.get("mixup_prob", 0.0))
+    mixup_alpha = float(aug_cfg.get("mixup_alpha", 0.2))
 
     print("=" * 80)
     print(f"[INIT] Pixel GNN Universal Trainer | Model: {model_name}")
@@ -74,7 +78,8 @@ def run_training(
     print(f"       output_dir={output_dir}")
     if augment_train:
         cutout_str = f", cutout_p={cutout_prob} [{cutout_min_size}-{cutout_max_size}]" if cutout_prob > 0 else ""
-        print(f"       augmentation=ENABLED (flip_p={flip_prob}, brightness=±{brightness_delta}, contrast={contrast_range}{cutout_str})")
+        mixup_str = f", mixup_p={mixup_prob} (a={mixup_alpha})" if mixup_prob > 0 else ""
+        print(f"       augmentation=ENABLED (flip_p={flip_prob}, brightness=±{brightness_delta}, contrast={contrast_range}{cutout_str}{mixup_str})")
     else:
         print(f"       augmentation=DISABLED")
     print("=" * 80, flush=True)
@@ -97,6 +102,8 @@ def run_training(
         cutout_prob=cutout_prob,
         cutout_min_size=cutout_min_size,
         cutout_max_size=cutout_max_size,
+        mixup_prob=mixup_prob,
+        mixup_alpha=mixup_alpha,
         node_dim=node_dim,
     )
     val_gen = PixelBatchGenerator(
@@ -180,15 +187,20 @@ def run_training(
                 out,
                 lambda_diversity=lambda_diversity,
                 lambda_spatial_coherence=lambda_spatial_coherence,
+                lambda_motif_infonce=lambda_motif_infonce,
+                lambda_expression_contrastive=lambda_expression_contrastive,
                 label_smoothing=label_smoothing,
             )
             scaled_loss = loss / float(num_replicas)
         grads = tape.gradient(scaled_loss, model.trainable_variables)
         grads, _ = tf.clip_by_global_norm(grads, 5.0)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
-        preds = tf.argmax(out["logits"], axis=-1, output_type=batch["labels"].dtype)
-        correct = tf.reduce_sum(tf.cast(tf.equal(preds, batch["labels"]), tf.float32))
-        batch_size_f = tf.cast(tf.shape(batch["labels"])[0], tf.float32)
+
+        labels = batch["labels"]
+        target_class = tf.argmax(labels, axis=-1) if len(labels.shape) == 2 else labels
+        preds = tf.argmax(out["logits"], axis=-1, output_type=target_class.dtype)
+        correct = tf.reduce_sum(tf.cast(tf.equal(preds, target_class), tf.float32))
+        batch_size_f = tf.cast(tf.shape(target_class)[0], tf.float32)
         return loss, metrics["ce_loss"], correct, batch_size_f
 
     if num_replicas > 1:

@@ -1,0 +1,76 @@
+run_name: pixel_motif_adaptive_multiscale_9d_mixup_seed42
+framework: tensorflow
+seed: 42
+from_scratch: true
+
+model:
+  name: pixel_motif_adaptive_multiscale
+  node_dim: 9
+  hidden_dim: 96
+  num_attention_layers: 3
+  num_heads: 4
+  num_micro_motifs: 49
+  num_macro_motifs: 9
+  spatial_span: 0.58
+  use_motif_graph: true
+  num_motif_gnn_layers: 2
+  num_motif_heads: 4
+  temperature: 0.1
+  dropout: 0.20
+  num_classes: 7
+
+loss:
+  mode: ce_only
+  label_smoothing: 0.08
+  lambda_motif_diversity: 0.05
+  lambda_spatial_coherence: 0.02
+  lambda_motif_infonce: 0.10
+  lambda_expression_contrastive: 0.05
+
+augmentation:
+  enabled: true
+  horizontal_flip_prob: 0.5
+  brightness_delta: 0.08
+  contrast_range: [0.9, 1.1]
+  cutout_prob: 0.35
+  cutout_min_size: 8
+  cutout_max_size: 16
+  mixup_prob: 0.5
+  mixup_alpha: 0.2
+
+evaluation:
+  use_tta: true
+  sweep_tta: true
+  tta_step: 0.05
+  ensemble_random_samples: 50000
+
+training:
+  seed: 42
+  max_epochs: 180
+  batch_size: 128
+  eval_batch_size: 128
+  lr: 0.0003
+  weight_decay: 0.005
+  max_to_keep_acc: 5
+  max_to_keep_loss: 5
+  optimizer:
+    type: adamw
+    implementation: torch_compatible
+    beta1: 0.9
+    beta2: 0.999
+    epsilon: 1.0e-08
+    clipnorm: 5.0
+  scheduler:
+    type: cosine_warmup
+    warmup_epochs: 5
+    min_lr: 1.0e-06
+  early_stopping:
+    enabled: true
+    min_epochs_before_stop: 60
+    patience: 60
+    metric: val_loss
+    mode: min
+
+paths:
+  fer_csv: null
+  output_root: /kaggle/working/outputs/pixel_motif_adaptive_multiscale_mixup_180ep
