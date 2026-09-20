@@ -165,7 +165,7 @@ def apply_pixel_mixup(
     return {
         "node_features": node_features,
         "labels": labels_mixed,
-        "sample_ids": batch.get("sample_ids", None),
+        "sample_ids": batch["sample_ids"] if "sample_ids" in batch and batch["sample_ids"] is not None else tf.zeros([batch_size], dtype=tf.int64),
         "image_48": imgs_mixed,
     }
 
@@ -264,16 +264,30 @@ def augment_batch(
 
     node_features = tf.concat(features_list, axis=-1)
 
+    labels = batch["labels"]
+    if mixup_prob > 0.0:
+        if len(labels.shape) == 1:
+            labels_float = tf.one_hot(labels, depth=7, dtype=tf.float32)
+        else:
+            labels_float = tf.cast(labels, tf.float32)
+    else:
+        labels_float = labels
+
     aug_batch = {
         "node_features": node_features,
-        "labels": batch["labels"],
-        "sample_ids": batch.get("sample_ids", None),
+        "labels": labels_float,
+        "sample_ids": batch["sample_ids"] if "sample_ids" in batch and batch["sample_ids"] is not None else tf.zeros([batch_size], dtype=tf.int64),
         "image_48": imgs,
     }
 
     # 8. Pure Pixel Graph Mixup
-    if mixup_prob > 0.0 and tf.random.uniform([], 0.0, 1.0) < mixup_prob:
-        aug_batch = apply_pixel_mixup(aug_batch, mixup_alpha=mixup_alpha, node_dim=node_dim)
+    if mixup_prob > 0.0:
+        do_mixup = tf.random.uniform([], 0.0, 1.0) < mixup_prob
+        aug_batch = tf.cond(
+            do_mixup,
+            lambda: apply_pixel_mixup(aug_batch, mixup_alpha=mixup_alpha, node_dim=node_dim),
+            lambda: aug_batch,
+        )
 
     return aug_batch
 
