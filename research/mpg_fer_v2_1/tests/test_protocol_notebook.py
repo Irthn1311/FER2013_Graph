@@ -93,11 +93,17 @@ def test_v2_1_training_contract_and_scheduler() -> None:
 def test_scheduler_is_independent_of_max_epochs_after_decay_horizon() -> None:
     parameter = torch.nn.Parameter(torch.tensor(0.0))
     optimizer = torch.optim.AdamW([parameter], lr=3e-4)
-    first = WarmupCosineScheduler(optimizer, 3e-4, 5, 85, 120, 1e-6)
-    second = WarmupCosineScheduler(optimizer, 3e-4, 5, 85, 200, 1e-6)
-    assert [first.lr_for_epoch(epoch) for epoch in range(1, 121)] == [
-        second.lr_for_epoch(epoch) for epoch in range(1, 121)
-    ]
+    sched_100 = WarmupCosineScheduler(optimizer, 3e-4, 5, 85, 100, 1e-6)
+    sched_120 = WarmupCosineScheduler(optimizer, 3e-4, 5, 85, 120, 1e-6)
+    sched_200 = WarmupCosineScheduler(optimizer, 3e-4, 5, 85, 200, 1e-6)
+    lr_100 = [sched_100.lr_for_epoch(epoch) for epoch in range(1, 86)]
+    lr_120 = [sched_120.lr_for_epoch(epoch) for epoch in range(1, 86)]
+    lr_200 = [sched_200.lr_for_epoch(epoch) for epoch in range(1, 86)]
+    assert lr_100 == lr_120 == lr_200
+    for sched, horizon in [(sched_100, 100), (sched_120, 120), (sched_200, 200)]:
+        floor_lrs = [sched.lr_for_epoch(epoch) for epoch in range(85, horizon + 1)]
+        assert len(floor_lrs) == horizon - 85 + 1
+        assert all(lr == 1e-6 for lr in floor_lrs)
 
 
 def test_scheduler_resume_produces_identical_future_lr_sequence() -> None:

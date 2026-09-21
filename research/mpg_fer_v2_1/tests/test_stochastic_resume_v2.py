@@ -281,3 +281,147 @@ def test_actual_v2_1_stochastic_multiworker_trajectory_is_resume_invariant(tmp_p
     assert "supcon_head.0.weight" in resumed[0].state_dict()
     assert resumed[3].num_updates == continuous[3].num_updates
     assert any(any(epoch) for epoch in continuous_state["consistency_decisions"])
+
+
+def test_actual_v2_1_epoch_84_to_85_resume_boundary_is_invariant(tmp_path) -> None:
+    config = MPGConfig(gradient_accumulation_steps=1)
+    all_epochs = [84, 85, 86]
+    first_epochs = [84]
+    resumed_epochs = [85, 86]
+
+    set_seed(505)
+    continuous = _objects(config)
+    continuous_state = _initial_state()
+    _run(continuous, config, all_epochs, continuous_state)
+
+    set_seed(505)
+    interrupted = _objects(config)
+    interrupted_state = _initial_state()
+    _run(interrupted, config, first_epochs, interrupted_state)
+
+    bundle = build_resume_bundle(
+        config=config,
+        run_id="actual-v2-1-e84",
+        source_hash="actual-source",
+        completed_epoch=84,
+        global_optimizer_step=interrupted_state["global_step"],
+        model=interrupted[0],
+        ema=interrupted[3],
+        optimizer=interrupted[1],
+        scheduler=interrupted[2],
+        scaler=None,
+        best_comparator_state=interrupted_state["best_comparator"],
+        best_epoch=interrupted_state["best_epoch"],
+        best_metrics=interrupted_state["best_metrics"],
+        early_stop_counter=interrupted_state["patience"],
+        history=interrupted_state["history"],
+        loader_generator=interrupted[4],
+        consistency_state={"decisions": interrupted_state["consistency_decisions"]},
+        sampler_state=interrupted[6].state_dict(),
+        augmentation_state=interrupted[5].state_dict(),
+    )
+    path, digest = atomic_save_resume(bundle, tmp_path)
+
+    del interrupted
+    set_seed(999)
+    resumed = _objects(config)
+    loaded = load_resume_bundle(
+        path,
+        expected_sha256=digest,
+        config=config,
+        run_id="actual-v2-1-e84",
+        source_hash="actual-source",
+    )
+    restore_training_state(
+        loaded,
+        model=resumed[0],
+        ema=resumed[3],
+        optimizer=resumed[1],
+        scheduler=resumed[2],
+        scaler=None,
+        loader_generator=resumed[4],
+        sampler=resumed[6],
+        dataset=resumed[5],
+    )
+    resumed_state = {
+        "global_step": loaded["global_optimizer_step"],
+        "best_comparator": copy.deepcopy(loaded["best_comparator_state"]),
+        "best_epoch": loaded["best_epoch"],
+        "best_metrics": copy.deepcopy(loaded["best_metrics"]),
+        "patience": loaded["early_stop_counter"],
+        "history": copy.deepcopy(loaded["history"]),
+        "sample_order": copy.deepcopy(continuous_state["sample_order"][:1]),
+        "consistency_decisions": copy.deepcopy(
+            loaded["consistency_state"]["decisions"]
+        ),
+    }
+    _run(resumed, config, resumed_epochs, resumed_state)
+
+    # 1. model state
+    _assert_nested_close(continuous[0].state_dict(), resumed[0].state_dict())
+
+    # 2. EMA state
+    _assert_nested_close(continuous[3].state_dict(), resumed[3].state_dict())
+    assert continuous[3].num_updates == resumed[3].num_updates
+
+    # 3. AdamW state/moments
+    _assert_optimizer_numerically_equal(
+        continuous[1].state_dict(), resumed[1].state_dict()
+    )
+
+    # 4. scheduler state
+    assert continuous[2].state_dict() == resumed[2].state_dict()
+
+    # 5. LR
+    assert [h["lr"] for h in continuous_state["history"]] == [
+        h["lr"] for h in resumed_state["history"]
+    ]
+    assert continuous_state["history"][0]["lr"] > 1e-6
+    assert continuous_state["history"][1]["lr"] == 1e-6
+    assert continuous_state["history"][2]["lr"] == 1e-6
+    assert resumed_state["history"][0]["lr"] > 1e-6
+    assert resumed_state["history"][1]["lr"] == 1e-6
+    assert resumed_state["history"][2]["lr"] == 1e-6
+
+    # 6. global optimizer step
+    assert continuous_state["global_step"] == resumed_state["global_step"]
+
+    # 7. best comparator
+    assert continuous_state["best_comparator"] == resumed_state["best_comparator"]
+
+    # 8. best epoch/metrics
+    assert continuous_state["best_epoch"] == resumed_state["best_epoch"]
+    assert continuous_state["best_metrics"] == resumed_state["best_metrics"]
+
+    # 9. patience
+    assert continuous_state["patience"] == resumed_state["patience"]
+
+    # 10. history
+    assert continuous_state["history"] == resumed_state["history"]
+
+    # 11. sampler/sample order
+    assert continuous[6].state_dict() == resumed[6].state_dict()
+    assert continuous_state["sample_order"] == resumed_state["sample_order"]
+
+    # 12. augmentation trajectory
+    assert continuous[5].state_dict() == resumed[5].state_dict()
+    assert continuous[5].epoch == resumed[5].epoch == 86
+
+    # 13. consistency decisions
+    assert (
+        continuous_state["consistency_decisions"]
+        == resumed_state["consistency_decisions"]
+    )
+
+    # 14. tau: tau at 84/85/86 == 0.30
+    for h in continuous_state["history"]:
+        assert h["tau"] == pytest.approx(0.30)
+    for h in resumed_state["history"]:
+        assert h["tau"] == pytest.approx(0.30)
+    assert float(continuous[0].motif_composer.temperature) == pytest.approx(0.30)
+    assert float(resumed[0].motif_composer.temperature) == pytest.approx(0.30)
+    assert float(continuous[3].module.motif_composer.temperature) == pytest.approx(0.30)
+    assert float(resumed[3].module.motif_composer.temperature) == pytest.approx(0.30)
+
+    # Full state equivalence
+    assert continuous_state == resumed_state
