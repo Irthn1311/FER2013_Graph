@@ -1,0 +1,11 @@
+{
+  "scope": "16 real Train samples; full v2.2 objective; sparse routing active from step 1",
+  "samples": 16,
+  "accuracy": 1.0,
+  "target": 0.875,
+  "steps": 30,
+  "max_steps": 80,
+  "final_loss": 0.5523311495780945,
+  "passed": true,
+  "official_training": false
+}

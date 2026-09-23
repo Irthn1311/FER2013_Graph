@@ -1,0 +1,80 @@
+{
+  "v2_1_total": 2304528,
+  "v2_2_total": 2304528,
+  "total_delta": 0,
+  "all_module_deltas_zero": true,
+  "modules": [
+    {
+      "module": "aux_motif_head",
+      "v2_1": 2695,
+      "v2_2": 2695,
+      "delta": 0
+    },
+    {
+      "module": "aux_pixel_head",
+      "v2_1": 903,
+      "v2_2": 903,
+      "delta": 0
+    },
+    {
+      "module": "classifier",
+      "v2_1": 133639,
+      "v2_2": 133639,
+      "delta": 0
+    },
+    {
+      "module": "motif_attn_pool",
+      "v2_1": 193,
+      "v2_2": 193,
+      "delta": 0
+    },
+    {
+      "module": "motif_composer",
+      "v2_1": 51271,
+      "v2_2": 51271,
+      "delta": 0
+    },
+    {
+      "module": "motif_gnn",
+      "v2_1": 1485330,
+      "v2_2": 1485330,
+      "delta": 0
+    },
+    {
+      "module": "motif_readout_proj",
+      "v2_1": 222336,
+      "v2_2": 222336,
+      "delta": 0
+    },
+    {
+      "module": "pixel_attn_pool",
+      "v2_1": 97,
+      "v2_2": 97,
+      "delta": 0
+    },
+    {
+      "module": "pixel_gnn",
+      "v2_1": 301536,
+      "v2_2": 301536,
+      "delta": 0
+    },
+    {
+      "module": "pixel_proj",
+      "v2_1": 3360,
+      "v2_2": 3360,
+      "delta": 0
+    },
+    {
+      "module": "pixel_readout_proj",
+      "v2_1": 37248,
+      "v2_2": 37248,
+      "delta": 0
+    },
+    {
+      "module": "supcon_head",
+      "v2_1": 65920,
+      "v2_2": 65920,
+      "delta": 0
+    }
+  ]
+}
