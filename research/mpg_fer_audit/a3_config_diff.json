@@ -1,0 +1,20 @@
+{
+  "base_sha": "4967cc5dac3495be2300210215f72422f6f97aa4",
+  "equal_except_registered_field": true,
+  "differences": [
+    {
+      "field": "motif_topk_schedule",
+      "v2_1": "__ABSENT__",
+      "v2_2": [
+        8,
+        16,
+        16,
+        16,
+        24
+      ],
+      "classification": "registered_sparse_routing_field"
+    }
+  ],
+  "resume_schema_version_v2_1": 3,
+  "resume_schema_version_v2_2": 3
+}

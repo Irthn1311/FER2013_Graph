@@ -1,0 +1,135 @@
+{
+  "v2_1_source_hash": "d86d93655c83810d36c89a632baee0745f1de0f0e701b762b719d44445a6e679",
+  "v2_2_source_hash": "cbdeee5d5336338115895d2484ab35c3b233c25718d6c03768b7e0f5a2e93cca",
+  "only_scientific_behavior_change_file": [
+    "model.py"
+  ],
+  "files": [
+    {
+      "file": "__init__.py",
+      "v2_1_sha256": "1dceb96fa42f888db3734db751565de1f257b5cf88d76f8957b7514bd034f28e",
+      "v2_2_sha256": "4cb96c1c7b3a85e3d4aa8669f323dda77d743e9ca605aeb08c2841c0f203bb59",
+      "byte_identical": false,
+      "difference_category": "identity_metadata",
+      "scientific_behavior_changed": false,
+      "reason": "package and Issue identity only"
+    },
+    {
+      "file": "checkpoint.py",
+      "v2_1_sha256": "9a500835fed567397fc77d00b856b28fec0f65e856088344f9df1d4ca6178dca",
+      "v2_2_sha256": "8d08596d171c83cf2d47bb362a4c9c5a89507c22fffcdbfa4444d19ab38ea143",
+      "byte_identical": false,
+      "difference_category": "identity_metadata",
+      "scientific_behavior_changed": false,
+      "reason": "module identity only; bundle layout and schema remain unchanged"
+    },
+    {
+      "file": "config.py",
+      "v2_1_sha256": "5025451fbcd68639118c1eea6c457107ee10e724ff5e0183e2969647b73e2887",
+      "v2_2_sha256": "2bf041e4756921749d1492620091ad6e1a9bcd510e7ce5fa3dc114f95bb17a0e",
+      "byte_identical": false,
+      "difference_category": "scientific_configuration",
+      "scientific_behavior_changed": false,
+      "reason": "declares and fail-closed validates the locked Top-K schedule; operator behavior is implemented in model.py"
+    },
+    {
+      "file": "data.py",
+      "v2_1_sha256": "17d74c9b3672ad281629aeda8fb16936d61cb8daac5873058e371a000cdb3d6e",
+      "v2_2_sha256": "17d74c9b3672ad281629aeda8fb16936d61cb8daac5873058e371a000cdb3d6e",
+      "byte_identical": true,
+      "difference_category": "byte_identical",
+      "scientific_behavior_changed": false,
+      "reason": "no difference"
+    },
+    {
+      "file": "ema.py",
+      "v2_1_sha256": "abfb6543100a6e628f95607351a998711b6d53062c3fb3ad91555510d9651957",
+      "v2_2_sha256": "abfb6543100a6e628f95607351a998711b6d53062c3fb3ad91555510d9651957",
+      "byte_identical": true,
+      "difference_category": "byte_identical",
+      "scientific_behavior_changed": false,
+      "reason": "no difference"
+    },
+    {
+      "file": "evaluate.py",
+      "v2_1_sha256": "3cdfca32172288cf51784840cfdac62e65f35aaee79bb9e004065652ccbe1b19",
+      "v2_2_sha256": "3cdfca32172288cf51784840cfdac62e65f35aaee79bb9e004065652ccbe1b19",
+      "byte_identical": true,
+      "difference_category": "byte_identical",
+      "scientific_behavior_changed": false,
+      "reason": "no difference"
+    },
+    {
+      "file": "features.py",
+      "v2_1_sha256": "2a39fe1aed2450b99ef65eaaae4b4f78837204e71757aaf31a73211934aa3c6c",
+      "v2_2_sha256": "2a39fe1aed2450b99ef65eaaae4b4f78837204e71757aaf31a73211934aa3c6c",
+      "byte_identical": true,
+      "difference_category": "byte_identical",
+      "scientific_behavior_changed": false,
+      "reason": "no difference"
+    },
+    {
+      "file": "graph.py",
+      "v2_1_sha256": "4a417b2cc7aa48bc79d9cb6249776a8f8e6d8d08f48aa57db065c4aa7237a60a",
+      "v2_2_sha256": "4a417b2cc7aa48bc79d9cb6249776a8f8e6d8d08f48aa57db065c4aa7237a60a",
+      "byte_identical": true,
+      "difference_category": "byte_identical",
+      "scientific_behavior_changed": false,
+      "reason": "no difference"
+    },
+    {
+      "file": "kaggle.py",
+      "v2_1_sha256": "6544493c6dc4c66f35aeeed7cf25139e31de65b1124cdf8092e3f5c96e80b18e",
+      "v2_2_sha256": "6ec77dc85b4777d7523d9d384cefbaf0f6d80b4522ea8e3a27b39703020f8614",
+      "byte_identical": false,
+      "difference_category": "engineering_identity",
+      "scientific_behavior_changed": false,
+      "reason": "v2.2-only resume dataset identity; resume verification semantics unchanged"
+    },
+    {
+      "file": "losses.py",
+      "v2_1_sha256": "76be06c69c4a7b3c52854cfd6793cf3420f4b93ca7513dd93ad0a752fbd264e2",
+      "v2_2_sha256": "fc7d9ca1c1230125a4ca0cc4b6c51879e9c76dcd4c6089fe511b272b6641c66c",
+      "byte_identical": false,
+      "difference_category": "identity_metadata",
+      "scientific_behavior_changed": false,
+      "reason": "module identity only"
+    },
+    {
+      "file": "model.py",
+      "v2_1_sha256": "0d16763b02d72b3d6cb880b567013c9a8c1703fedfa017af5e208654f925d9b6",
+      "v2_2_sha256": "915aaf12790eb8a145451da2d9f3920401d061bf4110902259bcd8cc35d97a30",
+      "byte_identical": false,
+      "difference_category": "scientific_operator",
+      "scientific_behavior_changed": true,
+      "reason": "dynamic hard Top-K non-self support before softmax plus read-only routing diagnostics"
+    },
+    {
+      "file": "motif.py",
+      "v2_1_sha256": "694886e7e2438c96c9bf7b8edcb83d24339eed0bae33285b2ac01d20b305a6e2",
+      "v2_2_sha256": "25bdcfaee69b59abe95a3a57c415911ec81a7e542f53a0abe9462e24d9aefc43",
+      "byte_identical": false,
+      "difference_category": "identity_metadata",
+      "scientific_behavior_changed": false,
+      "reason": "version text only"
+    },
+    {
+      "file": "train.py",
+      "v2_1_sha256": "96742599e21973b8102028bda046d18defc71087637f336eff91f6a303364ab5",
+      "v2_2_sha256": "0c2de7818d5a872602fb0c11e3aefc0fbb5baa5af116c1507a9091f224c72c83",
+      "byte_identical": false,
+      "difference_category": "identity_metadata",
+      "scientific_behavior_changed": false,
+      "reason": "version text only"
+    },
+    {
+      "file": "utils.py",
+      "v2_1_sha256": "a7825cdc1cfc2d10363b4cd3de6aa5962830991093b106f2eb10255595cde9c9",
+      "v2_2_sha256": "a7825cdc1cfc2d10363b4cd3de6aa5962830991093b106f2eb10255595cde9c9",
+      "byte_identical": true,
+      "difference_category": "byte_identical",
+      "scientific_behavior_changed": false,
+      "reason": "no difference"
+    }
+  ]
+}

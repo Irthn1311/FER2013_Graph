@@ -1,0 +1,8 @@
+{
+  "checkpoint_bytes": 38441768,
+  "checkpoint_mib": 36.660926818847656,
+  "save_and_sha256_seconds": 0.26902829998289235,
+  "load_and_sha256_seconds": 0.3064639999938663,
+  "schema": 3,
+  "tensor_device": "cpu"
+}
