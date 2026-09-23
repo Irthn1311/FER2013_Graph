@@ -149,11 +149,11 @@ Canonical v2.2 package source SHA-256: `cbdeee5d5336338115895d2484ab35c3b233c257
 
 ## T. Git commit SHA
 
-Implementation commit: `PENDING_COMMIT`.
+Implementation commit: `0253bb175cce8f6a161db9c482ead90929c0c76e`.
 
 ## U. Draft PR
 
-Draft PR: `PENDING_PR`.
+Draft PR: [#96](https://github.com/Irthn1311/FER2013_Graph/pull/96).
 
 ## Validation commands and outcomes
 
