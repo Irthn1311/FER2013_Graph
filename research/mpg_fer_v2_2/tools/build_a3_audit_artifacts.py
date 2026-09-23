@@ -54,10 +54,14 @@ FILE_CLASSIFICATION = {
     "model.py": (
         "scientific_operator",
         True,
-        "dynamic hard Top-K non-self support before softmax plus read-only routing diagnostics",
+        "dynamic hard Top-K non-self support before softmax plus detached read-only routing scalars and optional support indices",
     ),
     "motif.py": ("identity_metadata", False, "version text only"),
-    "train.py": ("identity_metadata", False, "version text only"),
+    "train.py": (
+        "read_only_diagnostics_and_execution_protocol",
+        False,
+        "detached routing trajectory and fixed-batch support turnover; B16/acc2 official contract; checkpoint selection unchanged",
+    ),
     "utils.py": ("byte_identical", False, "no difference"),
 }
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -180,16 +182,42 @@ class GeometryAwareMotifTransformerBlock(nn.Module):
             return h_motif
 
         diagnostic_attention = attention_pre_dropout.detach()
+        diagnostic_support = selected_mask.detach()
         p = diagnostic_attention.clamp(min=1e-12)
         entropy = -(diagnostic_attention * p.log()).sum(dim=-1).mean()
         top1 = diagnostic_attention.max(dim=-1).values.mean()
+        grid_width = math.isqrt(nodes)
+        if grid_width * grid_width != nodes:
+            raise ValueError(
+                "routing diagnostics require a square occurrence grid"
+            )
+        occurrence = torch.arange(nodes, device=h_motif.device)
+        row = occurrence.div(grid_width, rounding_mode="floor")
+        column = occurrence.remainder(grid_width)
+        chebyshev = torch.maximum(
+            (row[:, None] - row[None, :]).abs(),
+            (column[:, None] - column[None, :]).abs(),
+        ).view(1, 1, nodes, nodes)
+        selected_count = diagnostic_support.sum().clamp_min(1)
+        local_share = (diagnostic_support & (chebyshev == 1)).sum() / selected_count
+        meso_share = (
+            diagnostic_support & ((chebyshev == 2) | (chebyshev == 3))
+        ).sum() / selected_count
+        far_share = (diagnostic_support & (chebyshev >= 4)).sum() / selected_count
+        edge_universe_coverage = diagnostic_support.any(dim=(0, 1)).sum() / (
+            nodes * (nodes - 1)
+        )
         layer_diag = {
             "topk": torch.tensor(self.topk, device=h_motif.device),
-            "selected_mask": selected_mask.detach(),
+            "selected_mask": diagnostic_support,
             "attention_pre_dropout": diagnostic_attention,
             "entropy": entropy,
             "top1_mass": top1,
             "boundary_tie_count": boundary_tie_count.detach(),
+            "local_share": local_share,
+            "meso_share": meso_share,
+            "far_share": far_share,
+            "edge_universe_coverage": edge_universe_coverage,
         }
         return h_motif, layer_diag
 
@@ -260,7 +288,9 @@ class MPGFER(nn.Module):
         """Set the deterministic serialized motif temperature for an epoch."""
         return self.motif_composer.set_epoch_temperature(epoch)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    def forward(
+        self, x: torch.Tensor, return_routing_supports: bool = False
+    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
         batch = x.shape[0]
         h = self.pixel_proj(self.pixel_extractor(x))
         intensities = x.reshape(batch, self.config.num_pixels, 1)
@@ -279,11 +309,26 @@ class MPGFER(nn.Module):
         routing_diagnostics = {}
         for l_idx, layer in enumerate(self.motif_gnn):
             h_motif, layer_diag = layer(h_motif, geometry, return_diagnostics=True)
+            prefix = f"motif_l{l_idx+1}"
+            routing_diagnostics[f"{prefix}_selected_k"] = layer_diag["topk"]
             routing_diagnostics[f"motif_l{l_idx+1}_entropy"] = layer_diag["entropy"]
             routing_diagnostics[f"motif_l{l_idx+1}_top1_mass"] = layer_diag["top1_mass"]
             routing_diagnostics[f"motif_l{l_idx+1}_boundary_tie_count"] = (
                 layer_diag["boundary_tie_count"]
             )
+            routing_diagnostics[f"{prefix}_local_share"] = layer_diag["local_share"]
+            routing_diagnostics[f"{prefix}_meso_share"] = layer_diag["meso_share"]
+            routing_diagnostics[f"{prefix}_far_share"] = layer_diag["far_share"]
+            routing_diagnostics[f"{prefix}_edge_universe_coverage"] = (
+                layer_diag["edge_universe_coverage"]
+            )
+            if return_routing_supports:
+                selected = layer_diag["selected_mask"]
+                routing_diagnostics[f"{prefix}_selected_indices"] = (
+                    selected.nonzero(as_tuple=False)[:, -1]
+                    .reshape(*selected.shape[:-1], layer.topk)
+                    .to(torch.int16)
+                )
         m_mean, m_max = h_motif.mean(dim=1), h_motif.max(dim=1).values
         m_attention = (F.softmax(self.motif_attn_pool(h_motif), dim=1) * h_motif).sum(dim=1)
         motif_readout = self.motif_readout_proj(torch.cat([m_mean, m_max, m_attention], dim=-1))

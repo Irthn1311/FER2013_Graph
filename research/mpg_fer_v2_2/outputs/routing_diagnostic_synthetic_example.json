@@ -1,0 +1,32 @@
+{
+  "scope": "local synthetic batch only; not FER2013 and not an official run",
+  "device": "cuda",
+  "physical_batch": 16,
+  "first_call_seconds": 1.8035395999904722,
+  "second_call_seconds": 0.140531099983491,
+  "retained_selected_index_bytes": 752640,
+  "layer1_first_observation": {
+    "selected_k": 8,
+    "entropy": 2.074889659881592,
+    "top1_mass": 0.142991840839386,
+    "boundary_tie_count": 0,
+    "local_share": 0.25876912474632263,
+    "meso_share": 0.3347948491573334,
+    "far_share": 0.406436026096344,
+    "edge_universe_coverage": 0.757227897644043,
+    "support_jaccard_previous_epoch": null,
+    "support_turnover_previous_epoch": null
+  },
+  "layer1_repeat_observation": {
+    "selected_k": 8,
+    "entropy": 2.074889659881592,
+    "top1_mass": 0.142991840839386,
+    "boundary_tie_count": 0,
+    "local_share": 0.25876912474632263,
+    "meso_share": 0.3347948491573334,
+    "far_share": 0.406436026096344,
+    "edge_universe_coverage": 0.757227897644043,
+    "support_jaccard_previous_epoch": 1.0,
+    "support_turnover_previous_epoch": 0.0
+  }
+}

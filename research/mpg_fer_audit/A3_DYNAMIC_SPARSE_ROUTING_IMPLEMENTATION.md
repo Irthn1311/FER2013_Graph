@@ -1,16 +1,16 @@
 # A3 independent source review: dynamic sparse motif routing
 
-Final verdict: `A3_REVIEWED_READY_FOR_OFFICIAL_V22_RUN`
+Final verdict: `A3_FINAL_READY_FOR_OFFICIAL_V22_RUN`
 
 ## A. Provenance
 
 - Repository: `Irthn1311/FER2013_Graph`
-- Preregistered implementation Issue: [#95](https://github.com/Irthn1311/FER2013_Graph/issues/95)
+- GitHub mirror/frozen protocol record: [#95](https://github.com/Irthn1311/FER2013_Graph/issues/95), created during independent review; the experimental design had already been preregistered in the pre-implementation A3 handoff
 - Frozen base branch: `research/mpg-fer-v2-1-issue93`
 - Exact base SHA: `4967cc5dac3495be2300210215f72422f6f97aa4`
 - Review branch: `research/mpg-fer-v2-2-dynamic-sparse-routing`
 - Frozen v2.1 source hash: `d86d93655c83810d36c89a632baee0745f1de0f0e701b762b719d44445a6e679`
-- Final v2.2 source hash: `cbdeee5d5336338115895d2484ab35c3b233c25718d6c03768b7e0f5a2e93cca`
+- Final v2.2 source hash: `a8dc77db29e997c4c3ab69bb862704c8a948f940a4636e1c01e0d96bab40de65`
 - Official v2.1 EMA checkpoint: `4720a482ff0f6da15a00dc168d7c551b4e9538b4c1ed8780ea891b69b97aeb75`, epoch 57
 
 The A0/A1/A2/A2-R/A2-R2 chain justifies this controlled experiment. It does not establish that a from-scratch v2.2 model will be better. The official v2.2 result remains UNKNOWN.
@@ -37,9 +37,9 @@ Every Python source file was compared against `research/mpg_fer_v2_1/src/mpg_fer
 | `graph.py` | `4a417b2cc7aa48bc79d9cb6249776a8f8e6d8d08f48aa57db065c4aa7237a60a` | same | byte-identical | no | unchanged |
 | `kaggle.py` | `6544493c6dc4c66f35aeeed7cf25139e31de65b1124cdf8092e3f5c96e80b18e` | `6ec77dc85b4777d7523d9d384cefbaf0f6d80b4522ea8e3a27b39703020f8614` | engineering identity | no | v2.2-only resume namespace |
 | `losses.py` | `76be06c69c4a7b3c52854cfd6793cf3420f4b93ca7513dd93ad0a752fbd264e2` | `fc7d9ca1c1230125a4ca0cc4b6c51879e9c76dcd4c6089fe511b272b6641c66c` | identity | no | docstring only |
-| `model.py` | `0d16763b02d72b3d6cb880b567013c9a8c1703fedfa017af5e208654f925d9b6` | `915aaf12790eb8a145451da2d9f3920401d061bf4110902259bcd8cc35d97a30` | scientific operator | **yes** | exact dynamic hard Top-K support plus read-only diagnostics |
+| `model.py` | `0d16763b02d72b3d6cb880b567013c9a8c1703fedfa017af5e208654f925d9b6` | `08a6c38b8ffaac374a1a175903c5f79392257a1a5b642eb1232dfc442b0a141a` | scientific operator | **yes** | exact dynamic hard Top-K support plus detached read-only routing diagnostics |
 | `motif.py` | `694886e7e2438c96c9bf7b8edcb83d24339eed0bae33285b2ac01d20b305a6e2` | `25bdcfaee69b59abe95a3a57c415911ec81a7e542f53a0abe9462e24d9aefc43` | identity | no | version text only |
-| `train.py` | `96742599e21973b8102028bda046d18defc71087637f336eff91f6a303364ab5` | `0c2de7818d5a872602fb0c11e3aefc0fbb5baa5af116c1507a9091f224c72c83` | identity | no | version text only |
+| `train.py` | `96742599e21973b8102028bda046d18defc71087637f336eff91f6a303364ab5` | `eb3bd2abf9e5c3f409b64e963ed686274a4de84e4cd70e2b8fb72ad38f89d8d7` | read-only diagnostics and execution protocol | no | routing trajectory/fixed-batch turnover and fail-closed B16/acc2; selector unchanged |
 | `utils.py` | `a7825cdc1cfc2d10363b4cd3de6aa5962830991093b106f2eb10255595cde9c9` | same | byte-identical | no | unchanged |
 
 ## D. Findings by severity
@@ -50,7 +50,8 @@ Every Python source file was compared against `research/mpg_fer_v2_1/src/mpg_fer
 2. Invalid schedule lengths and K values did not fail closed; missing entries silently fell back to dense K=48. Fixed with config and block validation and removal of fallback behavior.
 3. Resume discovery still searched `mpg-fer-v2-1-resume*`, permitting v2.1 artifact selection before later hash rejection. Fixed to the v2.2-only namespace.
 4. The notebook expected the v2.1 source hash and used a v2.1 kernel identity. Fixed and regenerated from the final v2.2 sources.
-5. No A3/v2.2 GitHub Issue existed. Issue #95 now contains the frozen contract and explicitly forbids official training.
+5. No A3/v2.2 GitHub Issue existed when the prior Gemini implementation was produced. Issue #95 was created during the independent Codex review as the GitHub mirror/frozen protocol record; the pre-implementation A3 handoff had already preregistered the experiment.
+6. The inherited notebook changed B16/acc2 to B8/acc4 after CUDA OOM. The fallback is removed: fresh OOM writes `BATCH16_OOM` and stops, and resumes must explicitly declare B16/acc2.
 
 ### MAJOR findings, all fixed
 
@@ -58,6 +59,8 @@ Every Python source file was compared against `research/mpg_fer_v2_1/src/mpg_fer
 2. The previous report falsely guaranteed lower-index tie-breaking. The implementation/report now state the actual PyTorch contract.
 3. `README.md`, `IMPLEMENTATION_REPORT.md`, and bounded/resume outputs were copied v2.1 artifacts. They were replaced with measured v2.2 evidence.
 4. Sparse tests did not independently cover invalid schedule, exact ties, non-zero selected-path gradients, AMP, TTA, full config equality, or per-module parameter equality. Coverage was added.
+5. The original A3 routing diagnostics were incomplete and were not accumulated by training. All registered layer scalars, fixed-batch support Jaccard/turnover, history trajectory, and `routing_diagnostics.json` are now implemented and tested as read-only telemetry.
+6. Issue #95 was described as the original preregistration despite being created during independent review. Chronology is corrected in the Issue, PR, notebook, and reports.
 
 ### MINOR findings, all fixed
 
@@ -109,7 +112,7 @@ This was implementation verification only. PrivateTest did not influence code, K
 
 ## K. Gradient and AMP tests
 
-The bounded RTX 3050 Ti audit used batch 16, AMP, both original and flipped forwards, the full v2.1 objective, backward, clipping, optimizer, and EMA. All five motif layers had finite non-zero Q/K/V/geometry gradients. Peak allocated/reserved memory was `2819.629/3014.0 MiB`. This is a local bounded audit, not a Kaggle T4 benchmark.
+The final bounded RTX 3050 Ti audit used batch 16, AMP, both original and flipped forwards, the full v2.1 objective, backward, clipping, optimizer, and EMA. All five motif layers had finite non-zero Q/K/V/geometry gradients. Peak allocated/reserved memory was `2819.654/3014.0 MiB`; the optimizer step succeeded and EMA updated once. This is a local bounded audit, not a Kaggle T4 benchmark.
 
 ## L. Micro-overfit
 
@@ -127,7 +130,7 @@ EMA deep-copies the configured v2.2 model, including the same schedule. Top-K ha
 
 ## O. Notebook and source lock
 
-`MPG_FER_v2_2_Kaggle_T4.ipynb` imports only `mpg_fer_v2_2`, embeds all canonical package files, expects source hash `cbdeee5d...`, uses v2.2 output/kernel identities, and compiles all six code cells. Public checkpoint selection is unchanged; Private evaluation is refused unless training status is complete and the frozen checkpoint hash matches.
+`MPG_FER_v2_2_Kaggle_T4.ipynb` imports only `mpg_fer_v2_2`, embeds all canonical package files, expects source hash `a8dc77db...`, uses v2.2 output/kernel identities, and compiles all six code cells. It accepts only B16/acc2, records `BATCH16_OOM` and stops on a fresh bounded-preflight OOM, and rejects missing or different resumed batch declarations. Public checkpoint selection is unchanged; Private evaluation is refused unless training status is complete and the frozen checkpoint hash matches.
 
 ## P. Staging and Kaggle readiness
 
@@ -135,7 +138,11 @@ The staging tool uses only the v2.2 notebook, writes v2.2 kernel titles and path
 
 ## Q. Routing diagnostic side-effect audit
 
-Routing diagnostics are derived from the already-computed pre-dropout attention, detached, and reduced to scalars before being returned by the full model. They add no loss, parameter, forward, DataLoader access, augmentation, consistency choice, or RNG consumption. Full masks/attention are exposed only by the block-level opt-in test interface and are not retained across batches or epochs.
+Ordinary-batch routing diagnostics are derived from already-computed Top-K support and pre-dropout attention, detached, and reduced to layer scalars: K, entropy, top-1 mass, boundary ties, LOCAL/MESO/FAR shares, and edge-universe coverage. The fixed bins use the 7x7 occurrence grid and Chebyshev distance (`d=1`, `d in {2,3}`, `d>=4`).
+
+Once per completed epoch, fixed non-augmented Train indices 0-15 are evaluated on the online model under `torch.no_grad()` and `torch.random.fork_rng`. Exact module modes and RNG are restored; no optimizer/EMA update or DataLoader/augmentation access occurs. Only compact `int16` selected-key indices are retained until the next epoch for support Jaccard/turnover. `history.json` and `routing_diagnostics.json` contain the trajectory. The EMA Public flip-TTA improvement decision is computed before the fixed diagnostic and never consumes its values.
+
+A local synthetic batch-16 probe measured `1.8035s` first call, `0.1405s` warm, and `752,640` retained bytes. It was not FER2013 and not an official run; the example is `research/mpg_fer_v2_2/outputs/routing_diagnostic_synthetic_example.json`.
 
 ## R. `torch.topk` tie semantics correction
 
@@ -145,7 +152,7 @@ On a real PublicTest batch, cutoff-tie query counts were `[0,0,0,0,0]` in FP32 a
 
 ## S. Source hash
 
-Canonical v2.2 package source SHA-256: `cbdeee5d5336338115895d2484ab35c3b233c25718d6c03768b7e0f5a2e93cca`.
+Canonical v2.2 package source SHA-256: `a8dc77db29e997c4c3ab69bb862704c8a948f940a4636e1c01e0d96bab40de65`.
 
 ## T. Git commit SHA
 
@@ -157,10 +164,12 @@ Draft PR: [#96](https://github.com/Irthn1311/FER2013_Graph/pull/96).
 
 ## Validation commands and outcomes
 
-- v2.2 suite: `68 passed in 193.68s`.
-- frozen v2.1 suite: `44 passed in 212.08s`.
+- v2.2 suite: `73 passed in 282.00s`.
+- frozen v2.1 suite: `44 passed in 227.02s`.
 - notebook JSON parsed and all six code cells compiled.
 - real-data sparse replay matched all registered A2-R metrics exactly.
+- 16-sample real-objective micro-overfit rerun: `100%` at step 30, loss `0.5523311496`.
+- fail-closed B16/acc2 tests, resume/config tests, and routing no-gradient/no-RNG tests passed in the v2.2 suite.
 - `git diff --check`: passed after staging.
 - Black/Ruff: unavailable in the selected environment; not claimed as run.
 

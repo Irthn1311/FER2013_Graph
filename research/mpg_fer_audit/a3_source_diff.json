@@ -1,6 +1,6 @@
 {
   "v2_1_source_hash": "d86d93655c83810d36c89a632baee0745f1de0f0e701b762b719d44445a6e679",
-  "v2_2_source_hash": "cbdeee5d5336338115895d2484ab35c3b233c25718d6c03768b7e0f5a2e93cca",
+  "v2_2_source_hash": "a8dc77db29e997c4c3ab69bb862704c8a948f940a4636e1c01e0d96bab40de65",
   "only_scientific_behavior_change_file": [
     "model.py"
   ],
@@ -98,11 +98,11 @@
     {
       "file": "model.py",
       "v2_1_sha256": "0d16763b02d72b3d6cb880b567013c9a8c1703fedfa017af5e208654f925d9b6",
-      "v2_2_sha256": "915aaf12790eb8a145451da2d9f3920401d061bf4110902259bcd8cc35d97a30",
+      "v2_2_sha256": "08a6c38b8ffaac374a1a175903c5f79392257a1a5b642eb1232dfc442b0a141a",
       "byte_identical": false,
       "difference_category": "scientific_operator",
       "scientific_behavior_changed": true,
-      "reason": "dynamic hard Top-K non-self support before softmax plus read-only routing diagnostics"
+      "reason": "dynamic hard Top-K non-self support before softmax plus detached read-only routing scalars and optional support indices"
     },
     {
       "file": "motif.py",
@@ -116,11 +116,11 @@
     {
       "file": "train.py",
       "v2_1_sha256": "96742599e21973b8102028bda046d18defc71087637f336eff91f6a303364ab5",
-      "v2_2_sha256": "0c2de7818d5a872602fb0c11e3aefc0fbb5baa5af116c1507a9091f224c72c83",
+      "v2_2_sha256": "eb3bd2abf9e5c3f409b64e963ed686274a4de84e4cd70e2b8fb72ad38f89d8d7",
       "byte_identical": false,
-      "difference_category": "identity_metadata",
+      "difference_category": "read_only_diagnostics_and_execution_protocol",
       "scientific_behavior_changed": false,
-      "reason": "version text only"
+      "reason": "detached routing trajectory and fixed-batch support turnover; B16/acc2 official contract; checkpoint selection unchanged"
     },
     {
       "file": "utils.py",

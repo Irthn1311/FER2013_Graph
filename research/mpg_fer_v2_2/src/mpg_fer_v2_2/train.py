@@ -49,6 +49,112 @@ MOTIF_DIAGNOSTICS = (
     "mean_offdiag_prototype_cosine", "mean_alpha_8", "mean_alpha_12",
     "mean_alpha_16", "std_alpha_8", "std_alpha_12", "std_alpha_16",
 )
+ROUTING_DIAGNOSTIC_FIELDS = (
+    "selected_k", "entropy", "top1_mass", "boundary_tie_count",
+    "local_share", "meso_share", "far_share", "edge_universe_coverage",
+)
+ROUTING_DIAGNOSTICS = tuple(
+    f"motif_l{layer}_{field}"
+    for layer in range(1, 6)
+    for field in ROUTING_DIAGNOSTIC_FIELDS
+)
+FIXED_ROUTING_DIAGNOSTIC_INDICES = tuple(range(16))
+ROUTING_DIAGNOSTIC_CADENCE_EPOCHS = 1
+OFFICIAL_PHYSICAL_BATCH = 16
+OFFICIAL_GRADIENT_ACCUMULATION = 2
+
+
+def validate_official_batch_contract(config: MPGConfig) -> None:
+    pair = (config.batch_size, config.gradient_accumulation_steps)
+    expected = (OFFICIAL_PHYSICAL_BATCH, OFFICIAL_GRADIENT_ACCUMULATION)
+    if pair != expected:
+        raise RuntimeError(
+            f"OFFICIAL_BATCH_CONTRACT_VIOLATION: expected {expected}, got {pair}"
+        )
+
+
+def build_fixed_routing_diagnostic_batch(
+    dataset: FER2013Dataset,
+) -> tuple[tuple[int, ...], torch.Tensor]:
+    """Materialize fixed non-augmented Train images without advancing any RNG."""
+    indices = FIXED_ROUTING_DIAGNOSTIC_INDICES
+    if len(dataset) <= indices[-1]:
+        raise RuntimeError("Train split is too small for the fixed routing batch")
+    images = torch.from_numpy(dataset.images[list(indices)].copy()).float().unsqueeze(1)
+    return indices, images.div_(255.0)
+
+
+def _support_jaccard(
+    current: torch.Tensor, previous: torch.Tensor | None,
+) -> tuple[float | None, float | None]:
+    if previous is None:
+        return None, None
+    if current.shape != previous.shape:
+        raise RuntimeError("Previous routing support shape is incompatible")
+    intersection = (
+        current.unsqueeze(-1)
+        .eq(previous.unsqueeze(-2))
+        .any(dim=-1)
+        .sum()
+        .item()
+    )
+    union = current.numel() + previous.numel() - intersection
+    jaccard = float(intersection / union) if union else 1.0
+    return jaccard, 1.0 - jaccard
+
+
+def collect_fixed_routing_diagnostics(
+    model: nn.Module,
+    images: torch.Tensor,
+    device: str | torch.device,
+    previous_supports: dict[str, torch.Tensor] | None = None,
+) -> tuple[dict, dict[str, torch.Tensor]]:
+    """Read routing on a fixed batch while preserving RNG and module modes."""
+    resolved_device = torch.device(device)
+    cuda_devices: list[int] = []
+    if resolved_device.type == "cuda":
+        cuda_devices = [
+            torch.cuda.current_device()
+            if resolved_device.index is None
+            else resolved_device.index
+        ]
+    modes = [(module, module.training) for module in model.modules()]
+    try:
+        with torch.random.fork_rng(devices=cuda_devices, enabled=True):
+            model.eval()
+            with torch.no_grad():
+                _, outputs = model(
+                    images.to(resolved_device), return_routing_supports=True
+                )
+    finally:
+        for module, training in modes:
+            module.training = training
+
+    layers: dict[str, dict] = {}
+    current_supports: dict[str, torch.Tensor] = {}
+    for layer in range(1, 6):
+        prefix = f"motif_l{layer}"
+        support = outputs[f"{prefix}_selected_indices"].detach().cpu()
+        prior = None if previous_supports is None else previous_supports.get(prefix)
+        jaccard, turnover = _support_jaccard(support, prior)
+        current_supports[prefix] = support
+        layers[prefix] = {
+            "selected_k": int(outputs[f"{prefix}_selected_k"].detach()),
+            "entropy": float(outputs[f"{prefix}_entropy"].detach()),
+            "top1_mass": float(outputs[f"{prefix}_top1_mass"].detach()),
+            "boundary_tie_count": int(
+                outputs[f"{prefix}_boundary_tie_count"].detach()
+            ),
+            "local_share": float(outputs[f"{prefix}_local_share"].detach()),
+            "meso_share": float(outputs[f"{prefix}_meso_share"].detach()),
+            "far_share": float(outputs[f"{prefix}_far_share"].detach()),
+            "edge_universe_coverage": float(
+                outputs[f"{prefix}_edge_universe_coverage"].detach()
+            ),
+            "support_jaccard_previous_epoch": jaccard,
+            "support_turnover_previous_epoch": turnover,
+        }
+    return {"layers": layers}, current_supports
 
 
 class WarmupCosineScheduler:
@@ -208,7 +314,13 @@ def train_one_epoch(
         "weighted_consistency", "supcon_loss_raw", "supcon_loss_weighted",
         "valid_supcon_anchor_fraction", "mean_positive_count",
     )
-    totals = {name: 0.0 for name in ("train_loss", *component_names, *MOTIF_DIAGNOSTICS)}
+    totals = {
+        name: 0.0
+        for name in (
+            "train_loss", *component_names, *MOTIF_DIAGNOSTICS,
+            *ROUTING_DIAGNOSTICS,
+        )
+    }
     correct = samples = 0
     accum_steps = config.gradient_accumulation_steps
     use_amp = config.use_amp and torch.cuda.is_available()
@@ -262,10 +374,23 @@ def train_one_epoch(
             totals[name] += float(value.detach()) * batch_size
         for name in MOTIF_DIAGNOSTICS:
             totals[name] += float(outputs[name].detach()) * batch_size
+        for name in ROUTING_DIAGNOSTICS:
+            value = float(outputs[name].detach())
+            if name.endswith("_boundary_tie_count"):
+                totals[name] += value
+            else:
+                totals[name] += value * batch_size
         correct += int((logits.argmax(dim=-1) == targets).sum())
         samples += batch_size
 
-    stats = {name: value / samples for name, value in totals.items()}
+    stats = {
+        name: (
+            value
+            if name.endswith("_boundary_tie_count")
+            else value / samples
+        )
+        for name, value in totals.items()
+    }
     stats["train_accuracy"] = correct / samples
     stats["consistency_groups"] = selected_groups
     stats["consistency_group_fraction"] = len(selected_groups) / math.ceil(num_batches / accum_steps)
@@ -420,6 +545,52 @@ def _atomic_json_document(path: Path, payload: dict) -> None:
     os.replace(temporary, path)
 
 
+def _write_routing_diagnostics(
+    history: list[dict], output: Path, best_epoch: int | None,
+) -> None:
+    trajectory = []
+    for entry in history:
+        fixed = entry.get("routing_diagnostics")
+        if fixed is None:
+            raise RuntimeError(
+                f"Epoch {entry.get('epoch')} lacks fixed routing diagnostics"
+            )
+        ordinary = {}
+        for layer in range(1, 6):
+            prefix = f"motif_l{layer}"
+            ordinary[prefix] = {
+                field: entry[f"{prefix}_{field}"]
+                for field in ROUTING_DIAGNOSTIC_FIELDS
+            }
+        trajectory.append({
+            "epoch": entry["epoch"],
+            "ordinary_train_batch_statistics": ordinary,
+            "fixed_batch_statistics": fixed["layers"],
+        })
+    payload = {
+        "schema_version": 1,
+        "checkpoint_selection_used_routing_diagnostics": False,
+        "model_observed": "online training model after each completed epoch",
+        "cadence_epochs": ROUTING_DIAGNOSTIC_CADENCE_EPOCHS,
+        "fixed_batch": {
+            "split": "Train",
+            "sample_indices": list(FIXED_ROUTING_DIAGNOSTIC_INDICES),
+            "augmentation": False,
+        },
+        "spatial_bins": {
+            "grid": "fixed 7x7 occurrence grid",
+            "distance": "Chebyshev",
+            "LOCAL": "d=1",
+            "MESO": "d in {2,3}",
+            "FAR": "d>=4",
+        },
+        "best_epoch": best_epoch,
+        "final_epoch": None if not history else history[-1]["epoch"],
+        "trajectory": trajectory,
+    }
+    _atomic_json_document(output / "routing_diagnostics.json", payload)
+
+
 def _save_best_ema(path: Path, ema: ModelEMA, epoch: int, metrics: dict, config: MPGConfig, source_hash: str) -> None:
     temporary = path.with_suffix(".tmp")
     scheduled_tau = (
@@ -465,6 +636,7 @@ def run_training(
 ) -> dict:
     """Train/select with EMA PublicTest metrics; never opens PrivateTest."""
     config = config or MPGConfig()
+    validate_official_batch_contract(config)
     fresh_gate = (
         preflight_result.get("passed")
         and preflight_result.get("samples") == config.micro_overfit_samples
@@ -485,6 +657,11 @@ def run_training(
         train_csv, val_csv, config.batch_size, config.num_workers,
         seed=config.seed, generator=generator,
     )
+    fixed_routing_indices, fixed_routing_images = (
+        build_fixed_routing_diagnostic_batch(loaders["train"].dataset)
+    )
+    if fixed_routing_indices != FIXED_ROUTING_DIAGNOSTIC_INDICES:
+        raise RuntimeError("Fixed routing diagnostic indices changed unexpectedly")
     model = MPGFER(config).to(device)
     optimizer = AdamW(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
     scheduler = WarmupCosineScheduler(
@@ -501,6 +678,7 @@ def run_training(
     best_epoch = None
     patience = 0
     history: list[dict] = []
+    previous_routing_supports: dict[str, torch.Tensor] | None = None
     resumed_from = None
     if resume_path is not None:
         bundle = load_resume_bundle(
@@ -540,6 +718,9 @@ def run_training(
             "early-stop monitor active="
             f"{start_epoch >= config.early_stop_monitor_start_epoch}"
         )
+        _, previous_routing_supports = collect_fixed_routing_diagnostics(
+            model, fixed_routing_images, device
+        )
 
     (output / "config.json").write_text(json.dumps(asdict(config), indent=2), encoding="utf-8")
     segment_started = time.monotonic()
@@ -566,6 +747,14 @@ def run_training(
             validation = evaluate_raw_and_tta(
                 ema.module, loaders["val"], device, config.use_amp
             )
+            tta = validation["tta"]
+            improved = is_better_checkpoint(tta, best_comparator)
+            routing_diagnostics, current_routing_supports = (
+                collect_fixed_routing_diagnostics(
+                    model, fixed_routing_images, device,
+                    previous_supports=previous_routing_supports,
+                )
+            )
         except Exception:
             latest_resume = output / "resume_latest.pt"
             failed_sha = sha256_file(latest_resume) if latest_resume.exists() else ""
@@ -578,24 +767,25 @@ def run_training(
             )
             raise
         duration = time.monotonic() - epoch_started
-        tta = validation["tta"]
-        improved = is_better_checkpoint(tta, best_comparator)
         if improved:
             best_comparator = dict(tta); best_metrics = {"raw": validation["raw"], "tta": tta}
             best_epoch = epoch
             _save_best_ema(checkpoint_path, ema, epoch, best_metrics, config, source_hash)
         patience = update_early_stop_patience(epoch, improved, patience, config)
+        previous_routing_supports = current_routing_supports
         entry = {
             "epoch": epoch, "lr": lr, "epoch_duration_sec": duration,
             "val_raw": validation["raw"], "val_tta": tta,
             "global_optimizer_step": global_step,
             "early_stop_monitor_active": epoch >= config.early_stop_monitor_start_epoch,
             "early_stop_patience": patience,
+            "routing_diagnostics": routing_diagnostics,
             "gpu_peak_allocated_mib": torch.cuda.max_memory_allocated(device) / 2**20 if device.type == "cuda" else 0.0,
             "gpu_peak_reserved_mib": torch.cuda.max_memory_reserved(device) / 2**20 if device.type == "cuda" else 0.0,
             **stats,
         }
         history.append(entry); end_epoch = epoch; _write_history(history, output)
+        _write_routing_diagnostics(history, output, best_epoch)
         print(
             f"Epoch {epoch:03d}/{config.max_epochs} [{duration:.1f}s] LR={lr:.8f} "
             f"TrainAcc={stats['train_accuracy']:.4f} RawAcc={validation['raw']['accuracy']:.4f} "

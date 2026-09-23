@@ -16,6 +16,7 @@ from mpg_fer_v2_2.train import (
     should_early_stop,
     should_end_segment,
     update_early_stop_patience,
+    validate_official_batch_contract,
 )
 
 
@@ -200,6 +201,9 @@ def test_generated_notebook_matches_all_reviewed_sources() -> None:
     expected = module.build_notebook()
     actual = json.loads((ROOT / "notebooks" / "MPG_FER_v2_2_Kaggle_T4.ipynb").read_text(encoding="utf-8"))
     assert actual == expected
+    all_text = "\n".join(
+        "".join(cell["source"]) for cell in actual["cells"]
+    )
     code = "\n".join("".join(cell["source"]) for cell in actual["cells"] if cell["cell_type"] == "code")
     assert 'RESUME_MODE = "fresh"' in code
     assert "resolve_resume_artifact(RESUME_MODE, RESUME_PATH)" in code
@@ -209,3 +213,17 @@ def test_generated_notebook_matches_all_reviewed_sources() -> None:
     assert "mpg-fer-v2-1-resume" not in code
     assert "Issue #95" in code
     assert "best_val_acc.pt" in code  # inference checkpoint name only
+    assert "BATCH16_OOM" in code
+    assert "cfg.batch_size = 8" not in code
+    assert "cfg.gradient_accumulation_steps = 4" not in code
+    assert "oom_fallback_applied" not in code
+    assert "(8, 4)" not in code
+    assert "pre-implementation A3 handoff preregistered" in all_text
+
+
+def test_official_batch_contract_rejects_b8_acc4() -> None:
+    validate_official_batch_contract(MPGConfig())
+    with pytest.raises(RuntimeError, match="OFFICIAL_BATCH_CONTRACT_VIOLATION"):
+        validate_official_batch_contract(
+            MPGConfig(batch_size=8, gradient_accumulation_steps=4)
+        )

@@ -17,6 +17,7 @@ from mpg_fer_v2_2.ema import ModelEMA
 from mpg_fer_v2_2.motif import SpatialMotifComposer, scheduled_motif_temperature
 from mpg_fer_v2_2.train import (
     MOTIF_DIAGNOSTICS,
+    ROUTING_DIAGNOSTICS,
     WarmupCosineScheduler,
     _save_best_ema,
     train_one_epoch,
@@ -49,7 +50,10 @@ class AuditTrainingModel(nn.Module):
             "loss_diversity": zero,
             "loss_mi": zero,
         }
-        outputs.update({name: self.diagnostic_scalar for name in MOTIF_DIAGNOSTICS})
+        outputs.update({
+            name: self.diagnostic_scalar
+            for name in (*MOTIF_DIAGNOSTICS, *ROUTING_DIAGNOSTICS)
+        })
         return logits, outputs
 
 
@@ -86,12 +90,13 @@ def test_ema_updates_once_per_successful_accumulation_group() -> None:
     )
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
-    _stats, steps = train_one_epoch(
+    stats, steps = train_one_epoch(
         model, loader, optimizer, "cpu", None, config, criterion,
         ema=ema, epoch=1, global_optimizer_step=0,
     )
     assert steps == 2
     assert ema.num_updates == 2
+    assert set(ROUTING_DIAGNOSTICS).issubset(stats)
 
 
 def test_best_inference_checkpoint_is_explicitly_ema(tmp_path) -> None:

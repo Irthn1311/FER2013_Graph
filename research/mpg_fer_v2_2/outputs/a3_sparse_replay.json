@@ -6,7 +6,7 @@
   "torch_version": "2.11.0+cu126",
   "checkpoint": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\research\\mpg_fer_v2_1\\official_runs\\segment_02\\mpg_fer_v2_1_run\\best_val_acc.pt",
   "checkpoint_sha256": "4720a482ff0f6da15a00dc168d7c551b4e9538b4c1ed8780ea891b69b97aeb75",
-  "source_hash": "cbdeee5d5336338115895d2484ab35c3b233c25718d6c03768b7e0f5a2e93cca",
+  "source_hash": "a8dc77db29e997c4c3ab69bb862704c8a948f940a4636e1c01e0d96bab40de65",
   "motif_topk_schedule": [
     8,
     16,
@@ -475,6 +475,6 @@
     "private_tta_accuracy": 0.0,
     "private_tta_macro_f1": 0.0
   },
-  "public_evaluation_seconds": 34.27026689998456,
-  "private_evaluation_seconds": 34.3589494000189
+  "public_evaluation_seconds": 45.269023100001505,
+  "private_evaluation_seconds": 47.03620059997775
 }

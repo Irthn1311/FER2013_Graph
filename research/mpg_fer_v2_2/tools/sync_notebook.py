@@ -31,7 +31,7 @@ def _code(source: str) -> dict:
 def build_notebook() -> dict:
     sources = {name: (SOURCE_ROOT / name).read_text(encoding="utf-8") for name in SOURCE_FILES}
     hashes = {name: hashlib.sha256(text.encode("utf-8")).hexdigest() for name, text in sources.items()}
-    bootstrap = f'''# Generated from reviewed Issue #95 sources. Do not hand-edit embedded code.
+    bootstrap = f'''# Generated from the reviewed GitHub protocol mirror #95. Do not hand-edit embedded code.
 import sys
 from pathlib import Path
 
@@ -47,7 +47,9 @@ print(f"Materialized reviewed MPG-FER v2.2 package at {{EMBEDDED_PACKAGE}}")
     cells = [
         _markdown(
             "# MPG-FER v2.2 — source-locked segmented Kaggle T4 candidate\n\n"
-            "Generated from Issue #95 reviewed sources. The scientific package is "
+            "Generated from GitHub mirror/frozen protocol record #95, created during "
+            "independent review after the pre-implementation A3 handoff preregistered "
+            "the experiment. The scientific package is "
             "source-locked; this notebook adds only runtime gates, resume verification, "
             "and artifact finalization.\n"
         ),
@@ -60,7 +62,7 @@ OUTPUT_DIR = "/kaggle/working/mpg_fer_v2_2_run"
 ACCOUNT = "irthn1311"
 KERNEL_REF = "irthn1311/mpg-fer-v2-2-t4-review-candidate"
 GIT_COMMIT_SHA = "SET_BY_STAGING"
-EXPECTED_SOURCE_SHA = "cbdeee5d5336338115895d2484ab35c3b233c25718d6c03768b7e0f5a2e93cca"
+EXPECTED_SOURCE_SHA = "a8dc77db29e997c4c3ab69bb862704c8a948f940a4636e1c01e0d96bab40de65"
 EXPECTED_PARAMETERS = 2_304_528
 '''
         ),
@@ -89,7 +91,7 @@ from mpg_fer_v2_2.kaggle import resolve_kaggle_splits, resolve_resume_artifact
 from mpg_fer_v2_2.model import MPGFER
 from mpg_fer_v2_2.train import (
     compute_training_loss, evaluate_private_once, run_micro_overfit_preflight,
-    run_training, source_tree_hash,
+    run_training, source_tree_hash, validate_official_batch_contract,
 )
 from mpg_fer_v2_2.utils import set_seed
 
@@ -106,6 +108,7 @@ def atomic_json(path, payload):
 output_dir = Path(OUTPUT_DIR)
 output_dir.mkdir(parents=True, exist_ok=True)
 cfg = MPGConfig(segment_number=SEGMENT_NUMBER, output_dir=str(output_dir), resume_path=RESUME_PATH)
+validate_official_batch_contract(cfg)
 cuda_available = torch.cuda.is_available()
 gpu_name = torch.cuda.get_device_name(0) if cuda_available else "NONE"
 environment = {
@@ -140,19 +143,20 @@ train_csv, val_csv, test_csv = resolve_kaggle_splits()
 dataset_gate = validate_dataset_gate(train_csv, val_csv, test_csv)
 resume_checkpoint, resume_sha = resolve_resume_artifact(RESUME_MODE, RESUME_PATH)
 
-# The only allowed scientific fallback is selected before the fresh official run.
-# A resumed bundle declares which of the two preregistered batch/accumulation pairs it used.
+# Official v2.2 is locked to the actual v2.1 physical-batch contract.
 if resume_checkpoint is not None:
     inspected = torch.load(resume_checkpoint, map_location="cpu", weights_only=False)
     resumed_scientific = inspected.get("scientific_config", {})
+    if not {"batch_size", "gradient_accumulation_steps"}.issubset(resumed_scientific):
+        raise RuntimeError("Resume artifact does not declare the official batch contract")
     resumed_pair = (
-        int(resumed_scientific.get("batch_size", cfg.batch_size)),
-        int(resumed_scientific.get("gradient_accumulation_steps", cfg.gradient_accumulation_steps)),
+        int(resumed_scientific["batch_size"]),
+        int(resumed_scientific["gradient_accumulation_steps"]),
     )
-    if resumed_pair == (8, 4):
-        cfg.batch_size, cfg.gradient_accumulation_steps = resumed_pair
-    elif resumed_pair != (16, 2):
-        raise RuntimeError(f"Forbidden resumed batch/accumulation pair: {resumed_pair}")
+    if resumed_pair != (16, 2):
+        raise RuntimeError(
+            f"OFFICIAL_BATCH_CONTRACT_VIOLATION: resumed pair {resumed_pair}"
+        )
     del inspected
 
 print(json.dumps({
@@ -291,12 +295,21 @@ resume_verification = None
 if resume_checkpoint is None:
     try:
         bounded = run_execution_bounded_preflight(train_csv, cfg, device)
-    except torch.cuda.OutOfMemoryError:
+    except torch.cuda.OutOfMemoryError as exc:
         torch.cuda.empty_cache()
-        cfg.batch_size = 8
-        cfg.gradient_accumulation_steps = 4
-        bounded = run_execution_bounded_preflight(train_csv, cfg, device)
-        bounded["oom_fallback_applied"] = True
+        preflight = {
+            "status": "BATCH16_OOM", "passed": False,
+            "physical_batch": cfg.batch_size,
+            "gradient_accumulation": cfg.gradient_accumulation_steps,
+            "environment": environment, "dataset": dataset_gate,
+            "parameter_count": parameter_count,
+            "source_sha256": reviewed_source_sha,
+        }
+        atomic_json(output_dir / "preflight_report.json", preflight)
+        raise RuntimeError(
+            "BATCH16_OOM: official v2.2 requires physical batch 16 and "
+            "gradient accumulation 2; no fallback is permitted"
+        ) from exc
     micro = run_micro_overfit_preflight(
         train_csv, cfg, device=device, raise_on_failure=False
     )
