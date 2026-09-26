@@ -1,0 +1,329 @@
+{
+  "layer_statistics": {
+    "layer_1": {
+      "motif_layer": 1,
+      "K": 8,
+      "per_sample_jaccard_distribution": {
+        "mean": 0.36776637519361977,
+        "std": 0.04028085323112884,
+        "p10": 0.3140930652618408,
+        "median": 0.3696561157703399,
+        "p90": 0.41769301295280453
+      },
+      "directions": {
+        "v21_correct_v22_wrong": {
+          "sample_count": 593,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": 0.05466425786848696,
+            "ci_95": [
+              -0.026060609889120505,
+              0.13966713148665294
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": 0.0822135239175604,
+            "ci_95": [
+              0.0007555717143239134,
+              0.16565703203430862
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": -0.05353353547715074,
+            "p_value": 0.19298142404239604
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.629232186972019,
+            "not_rescued_mean": 0.6335942108608499,
+            "difference_rescued_minus_not": -0.00436202388883089
+          }
+        },
+        "v22_correct_v21_wrong": {
+          "sample_count": 604,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": -0.05830284772591923,
+            "ci_95": [
+              -0.13614151169036087,
+              0.025333770111820107
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": -0.008389147937926366,
+            "ci_95": [
+              -0.08718374109632575,
+              0.07277827540290283
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": 0.021784924736514485,
+            "p_value": 0.5930996728049976
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.6338027784536625,
+            "not_rescued_mean": 0.6320629194853412,
+            "difference_rescued_minus_not": 0.001739858968321295
+          }
+        }
+      }
+    },
+    "layer_2": {
+      "motif_layer": 2,
+      "K": 16,
+      "per_sample_jaccard_distribution": {
+        "mean": 0.34731286314744797,
+        "std": 0.04719150460470455,
+        "p10": 0.2888743937015533,
+        "median": 0.3442606925964355,
+        "p90": 0.40795301198959355
+      },
+      "directions": {
+        "v21_correct_v22_wrong": {
+          "sample_count": 593,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": -0.0420266562315784,
+            "ci_95": [
+              -0.11789720268259865,
+              0.03599949491390407
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": 0.037587984015036886,
+            "ci_95": [
+              -0.038572638487575084,
+              0.11830664557612593
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": -0.02089438444746828,
+            "p_value": 0.6115982600843581
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.6491810184612914,
+            "not_rescued_mean": 0.6512414547204971,
+            "difference_rescued_minus_not": -0.0020604362592057113
+          }
+        },
+        "v22_correct_v21_wrong": {
+          "sample_count": 604,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": -0.0461736835640377,
+            "ci_95": [
+              -0.12475034424508916,
+              0.04709672823541091
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": 0.07306778512895964,
+            "ci_95": [
+              -0.007199227299903699,
+              0.15351683124202653
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": -0.002918854482549724,
+            "p_value": 0.9429309668121734
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.6551668158729761,
+            "not_rescued_mean": 0.6554373995990169,
+            "difference_rescued_minus_not": -0.0002705837260408295
+          }
+        }
+      }
+    },
+    "layer_3": {
+      "motif_layer": 3,
+      "K": 16,
+      "per_sample_jaccard_distribution": {
+        "mean": 0.28036640333003965,
+        "std": 0.04520078473222269,
+        "p10": 0.2227973401546478,
+        "median": 0.279199868440628,
+        "p90": 0.34012082815170286
+      },
+      "directions": {
+        "v21_correct_v22_wrong": {
+          "sample_count": 593,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": 0.00959244516500263,
+            "ci_95": [
+              -0.07131768303718404,
+              0.09187316320739894
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": 0.012352717972437423,
+            "ci_95": [
+              -0.07032808474568134,
+              0.09753916893674677
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": 0.00680901986140224,
+            "p_value": 0.8685799388782987
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.7190792087837049,
+            "not_rescued_mean": 0.7184324269224932,
+            "difference_rescued_minus_not": 0.0006467818612116982
+          }
+        },
+        "v22_correct_v21_wrong": {
+          "sample_count": 604,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": -0.0051201769272090185,
+            "ci_95": [
+              -0.08404368850328849,
+              0.07684973378868959
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": 0.09210221756020794,
+            "ci_95": [
+              0.011128017432232537,
+              0.1716994658237248
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": 0.036978538408934114,
+            "p_value": 0.36428650814555924
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.7216811636585674,
+            "not_rescued_mean": 0.7182838620079888,
+            "difference_rescued_minus_not": 0.0033973016505786102
+          }
+        }
+      }
+    },
+    "layer_4": {
+      "motif_layer": 4,
+      "K": 16,
+      "per_sample_jaccard_distribution": {
+        "mean": 0.27249968775183137,
+        "std": 0.041217321275663146,
+        "p10": 0.22127835154533382,
+        "median": 0.2714862525463104,
+        "p90": 0.3257542729377746
+      },
+      "directions": {
+        "v21_correct_v22_wrong": {
+          "sample_count": 593,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": -0.0608094114213229,
+            "ci_95": [
+              -0.13852189296669062,
+              0.017955986234122305
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": -0.1486827705780466,
+            "ci_95": [
+              -0.23060152609851403,
+              -0.06821072503042994
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": 0.04029063035554973,
+            "p_value": 0.3273485310504967
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.7296950930586228,
+            "not_rescued_mean": 0.7262348791061364,
+            "difference_rescued_minus_not": 0.003460213952486413
+          }
+        },
+        "v22_correct_v21_wrong": {
+          "sample_count": 604,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": -0.08441164690571937,
+            "ci_95": [
+              -0.1597858320881172,
+              -0.003728978404162591
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": -0.07372924717956225,
+            "ci_95": [
+              -0.15261162570019035,
+              0.006432807443278506
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": -0.0302530384779763,
+            "p_value": 0.45800202609209556
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.7256679779105779,
+            "not_rescued_mean": 0.7283972701238047,
+            "difference_rescued_minus_not": -0.0027292922132268194
+          }
+        }
+      }
+    },
+    "layer_5": {
+      "motif_layer": 5,
+      "K": 24,
+      "per_sample_jaccard_distribution": {
+        "mean": 0.35546431806850354,
+        "std": 0.03400153014817356,
+        "p10": 0.31450164318084717,
+        "median": 0.3539041876792907,
+        "p90": 0.3985896348953247
+      },
+      "directions": {
+        "v21_correct_v22_wrong": {
+          "sample_count": 593,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": -0.05343771375806272,
+            "ci_95": [
+              -0.13339806788822103,
+              0.027030162994072317
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": 0.019223360679499195,
+            "ci_95": [
+              -0.0567469058954953,
+              0.095569972450718
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": 0.009618471210381872,
+            "p_value": 0.8151897216984223
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.6458014273756221,
+            "not_rescued_mean": 0.6450876213171903,
+            "difference_rescued_minus_not": 0.0007138060584317429
+          }
+        },
+        "v22_correct_v21_wrong": {
+          "sample_count": 604,
+          "spearman_routing_divergence_vs_abs_margin_diff": {
+            "estimate": 0.046495210343064,
+            "ci_95": [
+              -0.036750466740936995,
+              0.12969767458708137
+            ]
+          },
+          "spearman_routing_divergence_vs_representation_cosine_dist": {
+            "estimate": -0.0032698694741135786,
+            "ci_95": [
+              -0.08009487777310659,
+              0.07266550168171702
+            ]
+          },
+          "point_biserial_routing_divergence_vs_rescue": {
+            "estimate": -0.03049295649253406,
+            "p_value": 0.4544426687910546
+          },
+          "mean_routing_divergence": {
+            "rescued_mean": 0.6428749385023755,
+            "not_rescued_mean": 0.6452714065328623,
+            "difference_rescued_minus_not": -0.0023964680304867647
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "overall_status": "CONSISTENCY_PASS",
+  "checks_total": 9,
+  "checks_passed": 9,
+  "all_checks_passed": true,
+  "checks": [
+    {
+      "check": "composer_what_in_markdown",
+      "pass": true,
+      "details": "Dir A: 36.93%, Dir B: 36.59%"
+    },
+    {
+      "check": "readout_csv_equals_master_json",
+      "pass": true,
+      "details": "All F00/F01/F10/F11 sample counts match exact CSV aggregation"
+    },
+    {
+      "check": "readout_numbers_in_markdown",
+      "pass": true,
+      "details": "Markdown tables exactly match master results"
+    },
+    {
+      "check": "routing_csv_equals_json",
+      "pass": true,
+      "details": "L1 mean: 0.3678, L4 mean: 0.2725"
+    },
+    {
+      "check": "standalone_numeric_results_equal_master",
+      "pass": true,
+      "details": "Readout factorial and routing association JSONs exactly equal their master sections"
+    },
+    {
+      "check": "hypothesis_json_exactly_regenerated_from_master",
+      "pass": true,
+      "details": "Statuses, structured numerical evidence, and findings equal the master-derived document"
+    },
+    {
+      "check": "target_json_exactly_regenerated_from_master",
+      "pass": true,
+      "details": "Target numerical evidence, decision, and verdict equal the master-derived document"
+    },
+    {
+      "check": "routing_markdown_contains_master_numeric_evidence",
+      "pass": true,
+      "details": "Checked 55 formatted routing values from all five layers and both directions"
+    },
+    {
+      "check": "zero_stale_numbers_in_derived_artifacts",
+      "pass": true,
+      "details": "Stale hits: []"
+    }
+  ]
+}

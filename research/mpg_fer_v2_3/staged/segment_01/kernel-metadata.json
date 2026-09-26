@@ -1,0 +1,15 @@
+{
+  "id": "irthn1311/mpg-fer-v2-3-official-t4-segment-01",
+  "title": "MPG-FER v2.3 official T4 segment 01",
+  "code_file": "MPG_FER_v2_3_Kaggle_T4.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": [
+    "doduyquynii/fer13-split"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

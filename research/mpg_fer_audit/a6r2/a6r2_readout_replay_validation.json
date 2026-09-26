@@ -1,0 +1,28 @@
+{
+  "dir_A": {
+    "donor": "v2.1",
+    "receiver": "v2.2",
+    "cohort_count": 593,
+    "f00_baseline_correct_count": 0,
+    "f00_max_abs_error_vs_original_receiver": 9.5367431640625e-07,
+    "f00_exact_replay_pass": true,
+    "donor_native_replay_max_abs_error": 1.1920928955078125e-06,
+    "donor_native_replay_pass": true,
+    "f11_vs_historical_a6_s7_max_abs_error": 4.053115844837585e-06,
+    "f11_vs_historical_a6_s7_prediction_mismatches": 0,
+    "f11_a6_s7_exact_equivalence_pass": true
+  },
+  "dir_B": {
+    "donor": "v2.2",
+    "receiver": "v2.1",
+    "cohort_count": 604,
+    "f00_baseline_correct_count": 0,
+    "f00_max_abs_error_vs_original_receiver": 1.0728836059570312e-06,
+    "f00_exact_replay_pass": true,
+    "donor_native_replay_max_abs_error": 1.430511474609375e-06,
+    "donor_native_replay_pass": true,
+    "f11_vs_historical_a6_s7_max_abs_error": 4.410743713378906e-06,
+    "f11_vs_historical_a6_s7_prediction_mismatches": 0,
+    "f11_a6_s7_exact_equivalence_pass": true
+  }
+}

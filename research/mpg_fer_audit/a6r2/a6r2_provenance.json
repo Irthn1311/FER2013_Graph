@@ -1,0 +1,13 @@
+{
+  "audit": "MPG-FER A6-R2",
+  "device": "cuda",
+  "v2_1_sha256": "4720a482ff0f6da15a00dc168d7c551b4e9538b4c1ed8780ea891b69b97aeb75",
+  "v2_2_sha256": "a10bd22b3903550156c8239d91b5d2af35067ca1f2bdba9af46cf1e53d0bbdf4",
+  "sample_cohorts": {
+    "model_resolvable_all": 1197,
+    "v21_correct_v22_wrong": 593,
+    "v22_correct_v21_wrong": 604,
+    "a6_clean": 1187,
+    "a6_strict_clean": 1161
+  }
+}
