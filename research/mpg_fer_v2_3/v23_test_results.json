@@ -1,0 +1,91 @@
+{
+  "status": "PASS_WITH_LOCAL_RESOURCE_LIMIT_NOTED",
+  "environment": {
+    "python": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe",
+    "python_version": "3.11.15",
+    "gpu": "NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+    "gpu_memory_mib": 4096,
+    "torch": "2.11.0+cu126",
+    "cuda": "12.6"
+  },
+  "results": [
+    {
+      "name": "a6r2_source_consistency",
+      "result": "9 passed, 0 failed",
+      "status": "PASS"
+    },
+    {
+      "name": "v2_3_full_suite",
+      "command": "PYTHONPATH=src python -m pytest -q",
+      "result": "90 passed in 328.73s",
+      "status": "PASS"
+    },
+    {
+      "name": "frozen_v2_2_full_suite",
+      "command": "PYTHONPATH=src python -m pytest -q",
+      "working_directory": "research/mpg_fer_v2_2",
+      "result": "73 passed in 283.66s",
+      "status": "PASS"
+    },
+    {
+      "name": "v2_3_sparse_and_intervention_contract",
+      "result": "37 passed in 55.25s",
+      "status": "PASS"
+    },
+    {
+      "name": "real_train_micro_overfit_local_bounded",
+      "data_read": ["data/train.csv rows 0-3"],
+      "validation_only_overrides": {
+        "micro_overfit_samples": 4,
+        "micro_overfit_target": 1.0
+      },
+      "result": {
+        "accuracy": 1.0,
+        "steps": 20,
+        "final_loss": 0.46385619044303894
+      },
+      "status": "PASS",
+      "scientific_interpretation": "implementation validation only"
+    },
+    {
+      "name": "bounded_amp_gradient_audit",
+      "input": "synthetic",
+      "validation_only_overrides": {"physical_batch_size": 8},
+      "result": {
+        "loss": 2.650949239730835,
+        "optimizer_step_succeeded": true,
+        "ema_updates": 1,
+        "all_audited_gradients_finite_nonzero": true,
+        "step_time_seconds": 3.5857239000033587,
+        "peak_allocated_mib": 1451.455078125,
+        "peak_reserved_mib": 1560.0
+      },
+      "status": "PASS",
+      "scientific_interpretation": "implementation validation only; not official runtime evidence"
+    },
+    {
+      "name": "python_and_notebook_compilation",
+      "result": "all source, test, and tool modules compiled; 6 notebook code cells compiled",
+      "status": "PASS"
+    },
+    {
+      "name": "private_kaggle_staging",
+      "result": {
+        "kernel_ref": "irthn1311/mpg-fer-v2-3-official-t4-segment-01",
+        "dataset_source": "doduyquynii/fer13-split",
+        "internet_enabled": false,
+        "staged_notebook_sha256": "65279e791cd081cf6c649e370a2b523563b5eed6537d79264da02a4522ef6cd8"
+      },
+      "status": "PASS"
+    }
+  ],
+  "resource_limit": {
+    "check": "default 16-example FP32 micro-overfit on local 4 GiB GPU",
+    "result": "CUDA memory allocation failure before a metric was produced",
+    "impact": "official config unchanged; Kaggle notebook requires Tesla T4 and reruns the default 16-example gate"
+  },
+  "held_out_access": {
+    "public_test_used_for_v2_3_training_or_selection": false,
+    "private_test_used_for_v2_3_training_tuning_or_evaluation": false
+  }
+}

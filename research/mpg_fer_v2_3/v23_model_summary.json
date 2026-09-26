@@ -1,0 +1,16 @@
+{
+  "version": "MPG-FER v2.3",
+  "total_parameters": 2304528,
+  "trainable_parameters": 2304528,
+  "parameter_delta_from_v2_2": 0,
+  "early_depth_intervention": {
+    "mechanism": "fixed_residual_branch_scaling",
+    "motif_residual_scale_schedule": [0.5, 0.5, 1.0, 1.0, 1.0],
+    "target_layers": [1, 2],
+    "scaled_branches": ["attention", "ffn"],
+    "coefficient_sweep": false
+  },
+  "motif_topk_schedule": [8, 16, 16, 16, 24],
+  "source_git_commit": "08faea291ef425c10cc11ab0bc880e6cef302e97",
+  "source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87"
+}
