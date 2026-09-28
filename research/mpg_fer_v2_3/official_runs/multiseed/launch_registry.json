@@ -1,0 +1,79 @@
+{
+  "issue": 99,
+  "execution_commit": "136315128468a9c37acfa875e5e8008fbfec86a4",
+  "architecture_commit": "08faea291ef425c10cc11ab0bc880e6cef302e97",
+  "source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "dataset": "doduyquynii/fer13-split",
+  "internet_enabled": false,
+  "launches": [
+    {
+      "seed": 0,
+      "account_alias": "A",
+      "kernel_slug_without_owner": "mpg-fer-v2-3-seed-0-official-t4-segment-01",
+      "segment": 1,
+      "resume_mode": "fresh",
+      "latest_observed_status": "COMPLETE",
+      "scientific_status": "NEEDS_RESUME",
+      "run_id": "a12b2fc1-45f2-4e8f-8748-9c30be26cbee",
+      "completed_epoch": 84,
+      "resume_sha256": "fa8449bb04f14502892dd97fb7f86ac09eeb29517c65ea28aeb4ffe9043f90ad"
+    },
+    {
+      "seed": 1,
+      "account_alias": "A",
+      "kernel_slug_without_owner": "mpg-fer-v2-3-seed-1-official-t4-segment-01",
+      "segment": 1,
+      "resume_mode": "fresh",
+      "latest_observed_status": "COMPLETE",
+      "scientific_status": "NEEDS_RESUME",
+      "run_id": "68edfa55-469d-45d9-bb2c-513cca8af56d",
+      "completed_epoch": 86,
+      "resume_sha256": "b9ee2ad27d1a4f7a1ce7e1539fabd51f96d688307ed2eb5a6c9e299eeea858ad"
+    },
+    {
+      "seed": 43,
+      "account_alias": "B",
+      "kernel_slug_without_owner": "mpg-fer-v2-3-seed-43-official-t4-segment-01",
+      "segment": 1,
+      "resume_mode": "fresh",
+      "latest_observed_status": "COMPLETE",
+      "scientific_status": "NEEDS_RESUME",
+      "run_id": "debad58e-805b-4356-80f0-f890cc1c5553",
+      "completed_epoch": 83,
+      "resume_sha256": "064d1426f04ef3f7197e90f4b699650f77cfe8ba02a964ce5bd129d6ec35e0e5"
+    },
+    {
+      "seed": 123,
+      "account_alias": "B",
+      "kernel_slug_without_owner": "mpg-fer-v2-3-seed-123-official-t4-segment-01",
+      "segment": 1,
+      "resume_mode": "fresh",
+      "latest_observed_status": "COMPLETE",
+      "scientific_status": "NEEDS_RESUME",
+      "run_id": "7dd80952-96ca-46ab-acb2-096bdfa626b2",
+      "completed_epoch": 84,
+      "resume_sha256": "bbeee997d29a8cde3ed0f416d5299d931fd4b43f5408a866e20146f67e203abe"
+    },
+    {
+      "seed": 3047,
+      "account_alias": "C",
+      "kernel_slug_without_owner": "mpg-fer-v2-3-seed-3047-official-t4-segment-01",
+      "segment": 1,
+      "resume_mode": "fresh",
+      "latest_observed_status": "COMPLETE",
+      "scientific_status": "NEEDS_RESUME",
+      "run_id": "f17b2267-f909-4fa2-b893-42c088df3754",
+      "completed_epoch": 88,
+      "resume_sha256": "a41bbc21cf58e463e6a088ab68e154a566b191755ae474ba1ccca53d51bdb5ad"
+    }
+  ],
+  "resume_launches": [
+    {"seed": 0, "account_alias": "A", "segment": 2, "resume_mode": "required", "resume_start_epoch": 85, "latest_observed_status": "RUNNING"},
+    {"seed": 1, "account_alias": "A", "segment": 2, "resume_mode": "required", "resume_start_epoch": 87, "latest_observed_status": "RUNNING"},
+    {"seed": 43, "account_alias": "B", "segment": 2, "resume_mode": "required", "resume_start_epoch": 84, "latest_observed_status": "RUNNING"},
+    {"seed": 123, "account_alias": "B", "segment": 2, "resume_mode": "required", "resume_start_epoch": 85, "latest_observed_status": "RUNNING"},
+    {"seed": 3047, "account_alias": "C", "segment": 2, "resume_mode": "required", "resume_start_epoch": 89, "latest_observed_status": "RUNNING"}
+  ],
+  "submission_note": "The initial segment-01 submission used a shorter requested id, but Kaggle derived each actual slug from the title. A corrected version was immediately submitted to the actual kernel with only KERNEL_REF/id metadata changed. Initial versions are excluded as provenance-invalid infrastructure attempts.",
+  "credential_storage": "Credentials remain external and are used only through process-local environment variables. No key is present in this registry."
+}
