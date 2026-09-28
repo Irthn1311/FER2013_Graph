@@ -68,11 +68,11 @@
     }
   ],
   "resume_launches": [
-    {"seed": 0, "account_alias": "A", "segment": 2, "resume_mode": "required", "resume_start_epoch": 85, "latest_observed_status": "RUNNING"},
-    {"seed": 1, "account_alias": "A", "segment": 2, "resume_mode": "required", "resume_start_epoch": 87, "latest_observed_status": "RUNNING"},
-    {"seed": 43, "account_alias": "B", "segment": 2, "resume_mode": "required", "resume_start_epoch": 84, "latest_observed_status": "RUNNING"},
-    {"seed": 123, "account_alias": "B", "segment": 2, "resume_mode": "required", "resume_start_epoch": 85, "latest_observed_status": "RUNNING"},
-    {"seed": 3047, "account_alias": "C", "segment": 2, "resume_mode": "required", "resume_start_epoch": 89, "latest_observed_status": "RUNNING"}
+    {"seed": 0, "account_alias": "A", "segment": 2, "resume_mode": "required", "resume_start_epoch": 85, "end_epoch": 99, "latest_observed_status": "COMPLETE", "scientific_status": "TRAINING_COMPLETED", "selected_epoch": 45, "checkpoint_sha256": "5ab881bd097dbcbc1e1e011f8e0de7343f5ec2b9553d1bf10de53ead1b80e876"},
+    {"seed": 1, "account_alias": "A", "segment": 2, "resume_mode": "required", "resume_start_epoch": 87, "end_epoch": 99, "latest_observed_status": "COMPLETE", "scientific_status": "TRAINING_COMPLETED", "selected_epoch": 42, "checkpoint_sha256": "36a5ed1a59a9ac322e8eb4e3ddb080b2e82151b6c7d67a7262632f72b9fdfd1b"},
+    {"seed": 43, "account_alias": "B", "segment": 2, "resume_mode": "required", "resume_start_epoch": 84, "end_epoch": 99, "latest_observed_status": "COMPLETE", "scientific_status": "TRAINING_COMPLETED", "selected_epoch": 49, "checkpoint_sha256": "f2b388c8d3e10c4a47c3567d4d7a10e2e9d08527c374243450a975c1a85fb8d3"},
+    {"seed": 123, "account_alias": "B", "segment": 2, "resume_mode": "required", "resume_start_epoch": 85, "end_epoch": 99, "latest_observed_status": "COMPLETE", "scientific_status": "TRAINING_COMPLETED", "selected_epoch": 44, "checkpoint_sha256": "3257e2c587f8220abc476f5b9a662bf8c15a66c03b905f849d411d2036e89d1a"},
+    {"seed": 3047, "account_alias": "C", "segment": 2, "resume_mode": "required", "resume_start_epoch": 89, "end_epoch": 99, "latest_observed_status": "COMPLETE", "scientific_status": "TRAINING_COMPLETED", "selected_epoch": 42, "checkpoint_sha256": "2e7c415ec8b4730b342e22d960ee881a7fdfe93ae0b16c9ac5576cd5d570237d"}
   ],
   "submission_note": "The initial segment-01 submission used a shorter requested id, but Kaggle derived each actual slug from the title. A corrected version was immediately submitted to the actual kernel with only KERNEL_REF/id metadata changed. Initial versions are excluded as provenance-invalid infrastructure attempts.",
   "credential_storage": "Credentials remain external and are used only through process-local environment variables. No key is present in this registry."
