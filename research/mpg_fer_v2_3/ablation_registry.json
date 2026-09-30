@@ -1,0 +1,562 @@
+{
+  "schema_version": 1,
+  "issue": 101,
+  "method": "MPG-FER",
+  "seed": 42,
+  "semantic_order": [
+    "NO_PIXEL_GNN",
+    "FIXED_POOL",
+    "NO_MOTIF_GNN",
+    "SINGLE_SCALE_12",
+    "NO_GEOM_BIAS",
+    "DENSE_MOTIF",
+    "NO_PIXEL_FUSION",
+    "FULL"
+  ],
+  "variants": [
+    {
+      "internal_id": "NO_PIXEL_GNN",
+      "paper_name": "w/o Pixel GNN",
+      "scientific_question": "Does contextual pixel relational reasoning contribute before spatial occurrence composition?",
+      "exact_intervention": "Keep the 32D descriptor and 32-to-96 projection; bypass all four Pixel-GNN forward passes.",
+      "active_modules": {
+        "pixel_descriptor": true,
+        "pixel_projection": true,
+        "pixel_gnn": false,
+        "pixel_readout": true,
+        "spatial_motif_composer": true,
+        "fixed_spatial_pool": false,
+        "motif_gnn": true,
+        "motif_readout": true,
+        "pixel_aux_head": true,
+        "motif_aux_head": true,
+        "supcon_head": true,
+        "final_classifier": true
+      },
+      "applicable_losses": {
+        "final_ce": true,
+        "pixel_aux": true,
+        "motif_aux": true,
+        "prototype_mi": true,
+        "prototype_diversity": true,
+        "consistency": true,
+        "supcon": true
+      },
+      "applicable_diagnostics": {
+        "motif_prototype_diagnostics": true,
+        "motif_routing_diagnostics": true,
+        "scale_gate": true
+      },
+      "expected_tensor_invariants": {
+        "input": [
+          -1,
+          1,
+          48,
+          48
+        ],
+        "pixel_nodes": [
+          -1,
+          2304,
+          96
+        ],
+        "occurrence_nodes": [
+          -1,
+          49,
+          192
+        ],
+        "pixel_readout": [
+          -1,
+          128
+        ],
+        "motif_readout": [
+          -1,
+          384
+        ],
+        "fusion": [
+          -1,
+          512
+        ],
+        "logits": [
+          -1,
+          7
+        ]
+      }
+    },
+    {
+      "internal_id": "FIXED_POOL",
+      "paper_name": "Fixed spatial pooling",
+      "scientific_question": "Is learned Spatial Motif Composition useful beyond reducing 2304 contextual pixels to the same 49-node motif graph?",
+      "exact_intervention": "Replace learned SMC with aligned stride-6 12x12 mean pooling followed by Linear 96-to-192, LayerNorm, GELU; use the same support centers.",
+      "active_modules": {
+        "pixel_descriptor": true,
+        "pixel_projection": true,
+        "pixel_gnn": true,
+        "pixel_readout": true,
+        "spatial_motif_composer": false,
+        "fixed_spatial_pool": true,
+        "motif_gnn": true,
+        "motif_readout": true,
+        "pixel_aux_head": true,
+        "motif_aux_head": true,
+        "supcon_head": true,
+        "final_classifier": true
+      },
+      "applicable_losses": {
+        "final_ce": true,
+        "pixel_aux": true,
+        "motif_aux": true,
+        "prototype_mi": false,
+        "prototype_diversity": false,
+        "consistency": true,
+        "supcon": true
+      },
+      "applicable_diagnostics": {
+        "motif_prototype_diagnostics": false,
+        "motif_routing_diagnostics": true,
+        "scale_gate": false
+      },
+      "expected_tensor_invariants": {
+        "input": [
+          -1,
+          1,
+          48,
+          48
+        ],
+        "pixel_nodes": [
+          -1,
+          2304,
+          96
+        ],
+        "occurrence_nodes": [
+          -1,
+          49,
+          192
+        ],
+        "pixel_readout": [
+          -1,
+          128
+        ],
+        "motif_readout": [
+          -1,
+          384
+        ],
+        "fusion": [
+          -1,
+          512
+        ],
+        "logits": [
+          -1,
+          7
+        ]
+      }
+    },
+    {
+      "internal_id": "NO_MOTIF_GNN",
+      "paper_name": "w/o Motif Graph",
+      "scientific_question": "Are the composed 49 occurrences already sufficient, or does relational reasoning among occurrences contribute?",
+      "exact_intervention": "Keep the full SMC and feed its 49 occurrence nodes directly to Motif Readout; bypass all five motif blocks.",
+      "active_modules": {
+        "pixel_descriptor": true,
+        "pixel_projection": true,
+        "pixel_gnn": true,
+        "pixel_readout": true,
+        "spatial_motif_composer": true,
+        "fixed_spatial_pool": false,
+        "motif_gnn": false,
+        "motif_readout": true,
+        "pixel_aux_head": true,
+        "motif_aux_head": true,
+        "supcon_head": true,
+        "final_classifier": true
+      },
+      "applicable_losses": {
+        "final_ce": true,
+        "pixel_aux": true,
+        "motif_aux": true,
+        "prototype_mi": true,
+        "prototype_diversity": true,
+        "consistency": true,
+        "supcon": true
+      },
+      "applicable_diagnostics": {
+        "motif_prototype_diagnostics": true,
+        "motif_routing_diagnostics": false,
+        "scale_gate": true
+      },
+      "expected_tensor_invariants": {
+        "input": [
+          -1,
+          1,
+          48,
+          48
+        ],
+        "pixel_nodes": [
+          -1,
+          2304,
+          96
+        ],
+        "occurrence_nodes": [
+          -1,
+          49,
+          192
+        ],
+        "pixel_readout": [
+          -1,
+          128
+        ],
+        "motif_readout": [
+          -1,
+          384
+        ],
+        "fusion": [
+          -1,
+          512
+        ],
+        "logits": [
+          -1,
+          7
+        ]
+      }
+    },
+    {
+      "internal_id": "SINGLE_SCALE_12",
+      "paper_name": "Single-scale Composer (12x12)",
+      "scientific_question": "Does multiscale 8/12/16 composition contribute relative to a single 12x12 SMC?",
+      "exact_intervention": "Retain learned prototypes, saliency, WHAT/TYPE/WHERE and 133-to-192 projection, but activate only the 12x12 support and no learned scale gate.",
+      "active_modules": {
+        "pixel_descriptor": true,
+        "pixel_projection": true,
+        "pixel_gnn": true,
+        "pixel_readout": true,
+        "spatial_motif_composer": true,
+        "fixed_spatial_pool": false,
+        "motif_gnn": true,
+        "motif_readout": true,
+        "pixel_aux_head": true,
+        "motif_aux_head": true,
+        "supcon_head": true,
+        "final_classifier": true
+      },
+      "applicable_losses": {
+        "final_ce": true,
+        "pixel_aux": true,
+        "motif_aux": true,
+        "prototype_mi": true,
+        "prototype_diversity": true,
+        "consistency": true,
+        "supcon": true
+      },
+      "applicable_diagnostics": {
+        "motif_prototype_diagnostics": true,
+        "motif_routing_diagnostics": true,
+        "scale_gate": false
+      },
+      "expected_tensor_invariants": {
+        "input": [
+          -1,
+          1,
+          48,
+          48
+        ],
+        "pixel_nodes": [
+          -1,
+          2304,
+          96
+        ],
+        "occurrence_nodes": [
+          -1,
+          49,
+          192
+        ],
+        "pixel_readout": [
+          -1,
+          128
+        ],
+        "motif_readout": [
+          -1,
+          384
+        ],
+        "fusion": [
+          -1,
+          512
+        ],
+        "logits": [
+          -1,
+          7
+        ]
+      }
+    },
+    {
+      "internal_id": "NO_GEOM_BIAS",
+      "paper_name": "w/o geometry bias",
+      "scientific_question": "Does explicit relative geometry contribute beyond learned content similarity?",
+      "exact_intervention": "Remove geometry bias from every motif relation score while preserving geometry tensors for diagnostics.",
+      "active_modules": {
+        "pixel_descriptor": true,
+        "pixel_projection": true,
+        "pixel_gnn": true,
+        "pixel_readout": true,
+        "spatial_motif_composer": true,
+        "fixed_spatial_pool": false,
+        "motif_gnn": true,
+        "motif_readout": true,
+        "pixel_aux_head": true,
+        "motif_aux_head": true,
+        "supcon_head": true,
+        "final_classifier": true
+      },
+      "applicable_losses": {
+        "final_ce": true,
+        "pixel_aux": true,
+        "motif_aux": true,
+        "prototype_mi": true,
+        "prototype_diversity": true,
+        "consistency": true,
+        "supcon": true
+      },
+      "applicable_diagnostics": {
+        "motif_prototype_diagnostics": true,
+        "motif_routing_diagnostics": true,
+        "scale_gate": true
+      },
+      "expected_tensor_invariants": {
+        "input": [
+          -1,
+          1,
+          48,
+          48
+        ],
+        "pixel_nodes": [
+          -1,
+          2304,
+          96
+        ],
+        "occurrence_nodes": [
+          -1,
+          49,
+          192
+        ],
+        "pixel_readout": [
+          -1,
+          128
+        ],
+        "motif_readout": [
+          -1,
+          384
+        ],
+        "fusion": [
+          -1,
+          512
+        ],
+        "logits": [
+          -1,
+          7
+        ]
+      }
+    },
+    {
+      "internal_id": "DENSE_MOTIF",
+      "paper_name": "Dense motif attention",
+      "scientific_question": "Does selected dynamic support help compared with all-pairs non-self relational support?",
+      "exact_intervention": "Replace [8,16,16,16,24] support with [48,48,48,48,48], retaining geometry bias and all other motif-block computations.",
+      "active_modules": {
+        "pixel_descriptor": true,
+        "pixel_projection": true,
+        "pixel_gnn": true,
+        "pixel_readout": true,
+        "spatial_motif_composer": true,
+        "fixed_spatial_pool": false,
+        "motif_gnn": true,
+        "motif_readout": true,
+        "pixel_aux_head": true,
+        "motif_aux_head": true,
+        "supcon_head": true,
+        "final_classifier": true
+      },
+      "applicable_losses": {
+        "final_ce": true,
+        "pixel_aux": true,
+        "motif_aux": true,
+        "prototype_mi": true,
+        "prototype_diversity": true,
+        "consistency": true,
+        "supcon": true
+      },
+      "applicable_diagnostics": {
+        "motif_prototype_diagnostics": true,
+        "motif_routing_diagnostics": true,
+        "scale_gate": true
+      },
+      "expected_tensor_invariants": {
+        "input": [
+          -1,
+          1,
+          48,
+          48
+        ],
+        "pixel_nodes": [
+          -1,
+          2304,
+          96
+        ],
+        "occurrence_nodes": [
+          -1,
+          49,
+          192
+        ],
+        "pixel_readout": [
+          -1,
+          128
+        ],
+        "motif_readout": [
+          -1,
+          384
+        ],
+        "fusion": [
+          -1,
+          512
+        ],
+        "logits": [
+          -1,
+          7
+        ]
+      }
+    },
+    {
+      "internal_id": "NO_PIXEL_FUSION",
+      "paper_name": "w/o pixel-level fusion",
+      "scientific_question": "After the motif path is learned, does direct pixel-level readout still contribute to final classification?",
+      "exact_intervention": "Keep the pixel path and auxiliary head active; replace only the first 128 fusion dimensions with zeros.",
+      "active_modules": {
+        "pixel_descriptor": true,
+        "pixel_projection": true,
+        "pixel_gnn": true,
+        "pixel_readout": true,
+        "spatial_motif_composer": true,
+        "fixed_spatial_pool": false,
+        "motif_gnn": true,
+        "motif_readout": true,
+        "pixel_aux_head": true,
+        "motif_aux_head": true,
+        "supcon_head": true,
+        "final_classifier": true
+      },
+      "applicable_losses": {
+        "final_ce": true,
+        "pixel_aux": true,
+        "motif_aux": true,
+        "prototype_mi": true,
+        "prototype_diversity": true,
+        "consistency": true,
+        "supcon": true
+      },
+      "applicable_diagnostics": {
+        "motif_prototype_diagnostics": true,
+        "motif_routing_diagnostics": true,
+        "scale_gate": true
+      },
+      "expected_tensor_invariants": {
+        "input": [
+          -1,
+          1,
+          48,
+          48
+        ],
+        "pixel_nodes": [
+          -1,
+          2304,
+          96
+        ],
+        "occurrence_nodes": [
+          -1,
+          49,
+          192
+        ],
+        "pixel_readout": [
+          -1,
+          128
+        ],
+        "motif_readout": [
+          -1,
+          384
+        ],
+        "fusion": [
+          -1,
+          512
+        ],
+        "logits": [
+          -1,
+          7
+        ]
+      }
+    },
+    {
+      "internal_id": "FULL",
+      "paper_name": "Full MPG-FER",
+      "scientific_question": "What is the frozen full-model control under the same seed-42 protocol?",
+      "exact_intervention": "No intervention; execute the frozen MPG-FER v2.3 forward path unchanged.",
+      "active_modules": {
+        "pixel_descriptor": true,
+        "pixel_projection": true,
+        "pixel_gnn": true,
+        "pixel_readout": true,
+        "spatial_motif_composer": true,
+        "fixed_spatial_pool": false,
+        "motif_gnn": true,
+        "motif_readout": true,
+        "pixel_aux_head": true,
+        "motif_aux_head": true,
+        "supcon_head": true,
+        "final_classifier": true
+      },
+      "applicable_losses": {
+        "final_ce": true,
+        "pixel_aux": true,
+        "motif_aux": true,
+        "prototype_mi": true,
+        "prototype_diversity": true,
+        "consistency": true,
+        "supcon": true
+      },
+      "applicable_diagnostics": {
+        "motif_prototype_diagnostics": true,
+        "motif_routing_diagnostics": true,
+        "scale_gate": true
+      },
+      "expected_tensor_invariants": {
+        "input": [
+          -1,
+          1,
+          48,
+          48
+        ],
+        "pixel_nodes": [
+          -1,
+          2304,
+          96
+        ],
+        "occurrence_nodes": [
+          -1,
+          49,
+          192
+        ],
+        "pixel_readout": [
+          -1,
+          128
+        ],
+        "motif_readout": [
+          -1,
+          384
+        ],
+        "fusion": [
+          -1,
+          512
+        ],
+        "logits": [
+          -1,
+          7
+        ]
+      }
+    }
+  ]
+}

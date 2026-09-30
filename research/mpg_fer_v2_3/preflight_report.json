@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "issue": 101,
+  "base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "source_tree_sha256": "187e69b430f020794804703f7b7cf1cadc137766ab7c51403850c3f2a6766208",
+  "notebook_sha256": "8e74811b8f96a11e20ea697ceb89c8cf25452b4ed3e1763f8ba139e81d67298f",
+  "design_lock_sha256": "573ce1991e29dd45fdfdded6718dd0237f180f69b322f971dfcce01320a4991f",
+  "registry_sha256": "ded60c774c89c00b71eaf479cfc03166a7c0318952bdaba021793074c4379fe9",
+  "source_manifest_sha256": "4e83a4b4ebc4885f5a611291897e4a388cc6346dc8f3c76d1bc60076f4256ce2",
+  "notebook_code_cells_compiled": 5,
+  "official_checkpoint_compatibility": {
+    "path": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\research\\mpg_fer_v2_3\\official_runs\\segment_02\\mpg_fer_v2_3_run\\best_val_acc.pt",
+    "sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "strict_load_passed": true
+  },
+  "test_run": {
+    "command": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe -m pytest -q",
+    "exit_code": 0,
+    "output": "........................................................................ [ 54%]\n...........................................................              [100%]\n131 passed in 551.00s (0:09:10)"
+  },
+  "test_evidence": "........................................................................ [ 54%]\n...........................................................              [100%]\n131 passed in 551.00s (0:09:10)",
+  "gates": {
+    "T1_full_parity": "PASS",
+    "T2_shape_contract": "PASS",
+    "T3_forward_backward_optimizer_ema": "PASS",
+    "T4_delta_specific_assertions": "PASS",
+    "T5_official_full_checkpoint_strict_load": "PASS",
+    "T6_private_firewall": "PASS",
+    "T7_resume_determinism_full_and_single_scale_12": "PASS",
+    "T8_canonical_fp32_evaluator": "PASS",
+    "T9_registry_integrity": "PASS"
+  },
+  "private_test_accessed": false,
+  "fer2013_accessed": false,
+  "kaggle_training_launched": false,
+  "final_recipe_lock_present": false,
+  "scientific_training_authorized": false,
+  "status": "MPG_FER_ABLATION_FRAMEWORK_READY_PENDING_INDEPENDENT_REVIEW"
+}

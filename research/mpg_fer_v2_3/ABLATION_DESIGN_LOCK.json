@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "issue": 101,
+  "method": "MPG-FER",
+  "seed": 42,
+  "ablation_split": "PublicTest",
+  "table_inference": "raw_single_view_fp32",
+  "checkpoint_selection": "EMA Public horizontal-flip TTA accuracy, then higher Macro-F1, then lower CE loss",
+  "private_test_permitted": false,
+  "variant_ids": [
+    "NO_PIXEL_GNN",
+    "FIXED_POOL",
+    "NO_MOTIF_GNN",
+    "SINGLE_SCALE_12",
+    "NO_GEOM_BIAS",
+    "DENSE_MOTIF",
+    "NO_PIXEL_FUSION"
+  ],
+  "full_control_id": "FULL",
+  "base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "architecture_provenance": {
+    "name": "MPG-FER v2.3",
+    "frozen_v2_3_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+    "parameter_count": 2304528,
+    "residual_scale_schedule": [
+      0.5,
+      0.5,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "topk_schedule": [
+      8,
+      16,
+      16,
+      16,
+      24
+    ]
+  },
+  "final_recipe_lock_sha256": null,
+  "ablation_source_sha256": "187e69b430f020794804703f7b7cf1cadc137766ab7c51403850c3f2a6766208",
+  "notebook_sha256": "8e74811b8f96a11e20ea697ceb89c8cf25452b4ed3e1763f8ba139e81d67298f",
+  "scientific_training_authorized": false,
+  "authorization_blocker": "FINAL_RECIPE_LOCK.json is not yet frozen and independently reviewed"
+}
