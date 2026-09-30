@@ -426,7 +426,7 @@
       "internal_id": "NO_PIXEL_FUSION",
       "paper_name": "w/o pixel-level fusion",
       "scientific_question": "After the motif path is learned, does direct pixel-level readout still contribute to final classification?",
-      "exact_intervention": "Keep the pixel path and auxiliary head active; replace only the first 128 fusion dimensions with zeros.",
+      "exact_intervention": "Keep the pixel path, pixel auxiliary head, and full pixel-plus-motif SupCon source active; replace only the classifier input's first 128 fusion dimensions with zeros.",
       "active_modules": {
         "pixel_descriptor": true,
         "pixel_projection": true,

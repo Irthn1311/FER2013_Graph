@@ -44,6 +44,112 @@ from mpg_fer_v2_3 import train as baseline_train
 from mpg_fer_v2_3.utils import set_seed
 
 
+class RecipeEpochScheduler:
+    """Small stateful epoch scheduler for recipe families not in the baseline."""
+
+    def __init__(self, optimizer: torch.optim.Optimizer, config: AblationConfig) -> None:
+        self.optimizer = optimizer
+        self.family = config.scheduler_family
+        self.base_lr = float(config.learning_rate)
+        self.min_lr = float(config.min_learning_rate)
+        self.max_epochs = int(config.max_epochs)
+        self.last_epoch = 0
+
+    def step(self, epoch: int) -> float:
+        self.last_epoch = int(epoch)
+        if self.family == "constant":
+            lr = self.base_lr
+        elif self.family == "cosine_annealing":
+            progress = min(max((epoch - 1) / max(self.max_epochs - 1, 1), 0.0), 1.0)
+            lr = self.min_lr + 0.5 * (self.base_lr - self.min_lr) * (
+                1.0 + math.cos(math.pi * progress)
+            )
+        else:  # pragma: no cover - constructor is reached only through factory
+            raise RuntimeError(f"Unsupported scheduler family: {self.family}")
+        for group in self.optimizer.param_groups:
+            group["lr"] = lr
+        return lr
+
+    def state_dict(self) -> dict[str, Any]:
+        return {
+            "family": self.family,
+            "base_lr": self.base_lr,
+            "min_lr": self.min_lr,
+            "max_epochs": self.max_epochs,
+            "last_epoch": self.last_epoch,
+        }
+
+    def load_state_dict(self, state: dict[str, Any]) -> None:
+        expected = {
+            "family": self.family,
+            "base_lr": self.base_lr,
+            "min_lr": self.min_lr,
+            "max_epochs": self.max_epochs,
+        }
+        if any(state.get(key) != value for key, value in expected.items()):
+            raise RuntimeError("Recipe scheduler state/config mismatch")
+        self.last_epoch = int(state["last_epoch"])
+
+
+def build_recipe_optimizer(
+    model: nn.Module, config: AblationConfig
+) -> torch.optim.Optimizer:
+    """Construct only the optimizer family and kwargs frozen by the recipe."""
+    family = config.optimizer_family
+    kwargs = dict(config.optimizer_kwargs)
+    forbidden = {"lr", "weight_decay"}.intersection(kwargs)
+    if forbidden:
+        raise RuntimeError(f"Optimizer kwargs duplicate locked fields: {sorted(forbidden)}")
+    allowed = {
+        "AdamW": {"betas", "eps", "amsgrad"},
+        "Adam": {"betas", "eps", "amsgrad"},
+        "SGD": {"momentum", "dampening", "nesterov"},
+    }
+    if family not in allowed:
+        raise RuntimeError(f"Unresolved or unsupported optimizer family: {family!r}")
+    extra = set(kwargs) - allowed[family]
+    if extra:
+        raise RuntimeError(f"Unsupported {family} kwargs: {sorted(extra)}")
+    if "betas" in kwargs:
+        kwargs["betas"] = tuple(kwargs["betas"])
+    optimizer_type = {
+        "AdamW": torch.optim.AdamW,
+        "Adam": torch.optim.Adam,
+        "SGD": torch.optim.SGD,
+    }[family]
+    return optimizer_type(
+        model.parameters(),
+        lr=config.learning_rate,
+        weight_decay=config.weight_decay,
+        **kwargs,
+    )
+
+
+def build_recipe_scheduler(
+    optimizer: torch.optim.Optimizer, config: AblationConfig
+) -> Any:
+    """Construct the exact scheduler family frozen by the final recipe."""
+    if config.scheduler_kwargs:
+        raise RuntimeError(
+            f"Unsupported {config.scheduler_family} kwargs: "
+            f"{sorted(config.scheduler_kwargs)}"
+        )
+    if config.scheduler_family == "linear_warmup_cosine_then_floor":
+        return baseline_train.WarmupCosineScheduler(
+            optimizer,
+            config.learning_rate,
+            config.warmup_epochs,
+            config.lr_decay_end_epoch,
+            config.max_epochs,
+            config.min_learning_rate,
+        )
+    if config.scheduler_family in {"constant", "cosine_annealing"}:
+        return RecipeEpochScheduler(optimizer, config)
+    raise RuntimeError(
+        f"Unresolved or unsupported scheduler family: {config.scheduler_family!r}"
+    )
+
+
 def _model_factory(config: AblationConfig) -> AblationMPGFER:
     return AblationMPGFER(config, AblationMode(config.ablation_mode))
 
@@ -365,19 +471,8 @@ def _run_ablation_training_core(
     baseline_train._atomic_json_document(
         output / "ablation_model_summary.json", summary
     )
-    optimizer = AdamW(
-        model.parameters(),
-        lr=config.learning_rate,
-        weight_decay=config.weight_decay,
-    )
-    scheduler = baseline_train.WarmupCosineScheduler(
-        optimizer,
-        config.learning_rate,
-        config.warmup_epochs,
-        config.lr_decay_end_epoch,
-        config.max_epochs,
-        config.min_learning_rate,
-    )
+    optimizer = build_recipe_optimizer(model, config)
+    scheduler = build_recipe_scheduler(optimizer, config)
     scaler = (
         torch.amp.GradScaler("cuda")
         if config.use_amp and torch.cuda.is_available()
@@ -649,8 +744,8 @@ def run_ablation_training(
     resume_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Train one reviewed mode; this API has no PrivateTest construction path."""
-    train_path, public_path = validate_ablation_data_paths(train_csv, public_csv)
     recipe = validate_final_recipe_lock(final_recipe_lock, design_lock, config)
+    train_path, public_path = validate_ablation_data_paths(train_csv, public_csv)
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     source_sha = ablation_source_tree_hash()

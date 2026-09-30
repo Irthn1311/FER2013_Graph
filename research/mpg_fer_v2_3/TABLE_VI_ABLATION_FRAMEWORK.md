@@ -13,6 +13,9 @@ its state-dict key set is identical to the frozen model. The fixed-pooling mode
 initializes the full/common module set first, removes the learned Composer, and
 then installs only its 12x12 mean-pooling projection. This preserves shared
 initialization while ensuring prototype machinery is absent from that variant.
+The pixel-fusion ablation zeros only the classifier's 128-dimensional pixel
+slice. Its SupCon head still receives the same full pixel-plus-motif source as
+`FULL`.
 
 The executable registry and its generated copy are:
 
@@ -29,7 +32,8 @@ FER CSV, it requires:
 1. an attached `FINAL_RECIPE_LOCK.json`;
 2. an attached `ABLATION_DESIGN_LOCK.json` whose recipe SHA-256 matches;
 3. `scientific_training_authorized=true` in that reviewed design lock;
-4. exact equality between the recipe and the resolved optimization config;
+4. exact equality between every non-runtime resolved config field and the
+   complete recipe/base-config lock;
 5. seed 42, `train.csv` for Train, and `val.csv` for PublicTest.
 
 The current design lock intentionally has a null recipe SHA and
@@ -38,11 +42,14 @@ fail-closed until a later reviewed amendment. No variant-specific optimizer,
 schedule, batch, augmentation, checkpoint selector, or loss reweighting is
 available.
 
-The future recipe lock schema has top-level fields `method`,
-`private_test_permitted`, and `training_recipe`. `training_recipe` binds seed,
-AdamW, learning rate, weight decay, scheduler, warmup, decay horizon, minimum
-learning rate, epoch limits, EMA decay, physical batch, gradient accumulation,
-and the common EMA Public flip-TTA checkpoint selector.
+The future version-2 recipe schema separately binds the unchanged architecture
+base commit, the complete frozen scientific/base config, every authorized
+training-recipe field, an allowlisted optimizer family plus kwargs, an
+allowlisted scheduler family plus kwargs, and the common EMA Public flip-TTA
+checkpoint selector. Config construction starts from those complete sections;
+missing, extra, unsupported, or subsequently mutated non-runtime values fail
+closed. Runtime-safe differences are limited to the explicit resume-safe list
+plus device selection.
 
 ## Canonical notebook
 
@@ -55,6 +62,10 @@ Kaggle Secrets:
 - `MPG_FER_ABLATION_RUN_ID`
 - `MPG_FER_ABLATION_RESUME_MODE` (`fresh` or `required`)
 - `MPG_FER_ABLATION_SEGMENT_NUMBER`
+
+The notebook and design lock record two distinct commits: the frozen v2.3
+architecture base and the reviewed ablation implementation commit. Model/run
+source provenance uses the latter, never the architecture base.
 
 Required attached offline inputs are the Train/Public CSV dataset containing
 `train.csv` and `val.csv`, one `FINAL_RECIPE_LOCK.json`, and one
@@ -84,7 +95,6 @@ fixed semantic order.
 From this directory with the `fer-graph` interpreter and `PYTHONPATH=src`:
 
 ```powershell
-python tools/sync_ablation_notebook.py
 python tools/freeze_ablation_framework.py --official-checkpoint <seed42-best_val_acc.pt>
 python -m pytest -q
 git diff --check

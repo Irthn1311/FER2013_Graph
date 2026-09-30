@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import csv
 import hashlib
 import json
@@ -42,6 +42,44 @@ REQUIRED_RUN_ARTIFACTS = (
     "checksums.sha256",
 )
 
+SUPPORTED_OPTIMIZER_FAMILIES = frozenset({"AdamW", "Adam", "SGD"})
+SUPPORTED_SCHEDULER_FAMILIES = frozenset(
+    {"linear_warmup_cosine_then_floor", "constant", "cosine_annealing"}
+)
+RECIPE_AUTHORIZED_CONFIG_FIELDS = frozenset(
+    {
+        "pixel_dropout",
+        "pixel_drop_path_max",
+        "motif_dropout",
+        "motif_drop_path_max",
+        "classifier_dropout",
+        "supcon_temperature",
+        "aux_pixel_weight",
+        "aux_motif_weight",
+        "lambda_div",
+        "lambda_mi",
+        "mi_beta",
+        "consistency_probability",
+        "lambda_consistency",
+        "lambda_supcon",
+        "ema_decay",
+        "batch_size",
+        "gradient_accumulation_steps",
+        "learning_rate",
+        "weight_decay",
+        "max_epochs",
+        "min_epochs",
+        "warmup_epochs",
+        "lr_decay_end_epoch",
+        "min_learning_rate",
+        "early_stop_monitor_start_epoch",
+        "early_stop_patience",
+        "grad_clip",
+        "label_smoothing",
+        "use_amp",
+    }
+)
+
 
 def ablation_source_tree_hash(source_root: str | Path | None = None) -> str:
     """Hash the frozen v2.3 package plus the additive Table VI package."""
@@ -66,10 +104,16 @@ class AblationConfig(MPGConfig):
 
     ablation_mode: str = AblationMode.FULL.value
     final_recipe_lock_sha256: str | None = None
+    optimizer_family: str = "UNRESOLVED"
+    optimizer_kwargs: dict[str, Any] = field(default_factory=dict)
+    scheduler_family: str = "UNRESOLVED"
+    scheduler_kwargs: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         super().__post_init__()
         self.ablation_mode = AblationMode(self.ablation_mode).value
+        self.optimizer_kwargs = dict(self.optimizer_kwargs)
+        self.scheduler_kwargs = dict(self.scheduler_kwargs)
         if self.seed != 42:
             raise ValueError("Table VI ablation seed is frozen at 42")
 
@@ -134,23 +178,165 @@ def write_json(path: str | Path, payload: Mapping[str, Any]) -> Path:
     return target
 
 
-def _recipe_fields(config: AblationConfig) -> dict[str, Any]:
-    return {
-        "seed": config.seed,
-        "optimizer": "AdamW",
-        "learning_rate": config.learning_rate,
-        "weight_decay": config.weight_decay,
-        "scheduler": "linear_warmup_cosine_then_floor",
-        "warmup_epochs": config.warmup_epochs,
-        "lr_decay_end_epoch": config.lr_decay_end_epoch,
-        "min_learning_rate": config.min_learning_rate,
-        "max_epochs": config.max_epochs,
-        "min_epochs": config.min_epochs,
-        "ema_decay": config.ema_decay,
-        "batch_size": config.batch_size,
-        "gradient_accumulation_steps": config.gradient_accumulation_steps,
-        "checkpoint_selection": CHECKPOINT_SELECTION,
+def _canonical_base_config() -> dict[str, Any]:
+    return _finite_json(asdict(MPGConfig()))
+
+
+def _runtime_safe_fields() -> frozenset[str]:
+    return frozenset(MPGConfig().runtime_safe_resume_fields) | {"device"}
+
+
+def final_recipe_template() -> dict[str, Any]:
+    """Return a complete fail-closed recipe document for review tooling/tests."""
+    base = _canonical_base_config()
+    runtime = _runtime_safe_fields()
+    frozen = {
+        key: value
+        for key, value in base.items()
+        if key not in runtime and key not in RECIPE_AUTHORIZED_CONFIG_FIELDS
     }
+    training = {
+        key: base[key] for key in sorted(RECIPE_AUTHORIZED_CONFIG_FIELDS)
+    }
+    return {
+        "schema_version": 2,
+        "issue": 101,
+        "method": "MPG-FER",
+        "architecture_base_commit": BASE_COMMIT,
+        "private_test_permitted": False,
+        "checkpoint_selection": CHECKPOINT_SELECTION,
+        "frozen_scientific_config": frozen,
+        "training_recipe": training,
+        "optimizer": {"family": "AdamW", "kwargs": {}},
+        "scheduler": {
+            "family": "linear_warmup_cosine_then_floor",
+            "kwargs": {},
+        },
+    }
+
+
+def _validate_family(
+    value: Any, *, name: str, families: frozenset[str]
+) -> tuple[str, dict[str, Any]]:
+    if not isinstance(value, dict) or set(value) != {"family", "kwargs"}:
+        raise RuntimeError(
+            f"SCIENTIFIC_TRAINING_REFUSED: {name} must contain only family and kwargs"
+        )
+    family = value["family"]
+    kwargs = value["kwargs"]
+    if family not in families or not isinstance(kwargs, dict):
+        raise RuntimeError(
+            f"SCIENTIFIC_TRAINING_REFUSED: unsupported {name} family {family!r}"
+        )
+    allowed_kwargs = (
+        {
+            "AdamW": {"betas", "eps", "amsgrad"},
+            "Adam": {"betas", "eps", "amsgrad"},
+            "SGD": {"momentum", "dampening", "nesterov"},
+        }
+        if name == "optimizer"
+        else {family: set()}
+    )
+    extra = set(kwargs) - allowed_kwargs[family]
+    if extra:
+        raise RuntimeError(
+            f"SCIENTIFIC_TRAINING_REFUSED: unsupported {family} kwargs {sorted(extra)}"
+        )
+    if "betas" in kwargs and (
+        not isinstance(kwargs["betas"], (list, tuple))
+        or len(kwargs["betas"]) != 2
+        or any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not 0.0 <= float(value) < 1.0
+            for value in kwargs["betas"]
+        )
+    ):
+        raise RuntimeError("SCIENTIFIC_TRAINING_REFUSED: invalid optimizer betas")
+    if "eps" in kwargs and (
+        isinstance(kwargs["eps"], bool)
+        or not isinstance(kwargs["eps"], (int, float))
+        or float(kwargs["eps"]) <= 0.0
+    ):
+        raise RuntimeError("SCIENTIFIC_TRAINING_REFUSED: invalid optimizer eps")
+    if "amsgrad" in kwargs and not isinstance(kwargs["amsgrad"], bool):
+        raise RuntimeError("SCIENTIFIC_TRAINING_REFUSED: amsgrad must be boolean")
+    if family == "SGD":
+        momentum = kwargs.get("momentum", 0.0)
+        dampening = kwargs.get("dampening", 0.0)
+        nesterov = kwargs.get("nesterov", False)
+        if (
+            isinstance(momentum, bool)
+            or not isinstance(momentum, (int, float))
+            or float(momentum) < 0.0
+            or isinstance(dampening, bool)
+            or not isinstance(dampening, (int, float))
+            or float(dampening) < 0.0
+            or not isinstance(nesterov, bool)
+            or (nesterov and (float(momentum) <= 0.0 or float(dampening) != 0.0))
+        ):
+            raise RuntimeError("SCIENTIFIC_TRAINING_REFUSED: invalid SGD kwargs")
+    return family, dict(kwargs)
+
+
+def _validate_recipe_payload(recipe: Any) -> dict[str, Any]:
+    if not isinstance(recipe, dict):
+        raise RuntimeError("SCIENTIFIC_TRAINING_REFUSED: recipe must be a JSON object")
+    required = set(final_recipe_template())
+    if set(recipe) != required:
+        raise RuntimeError(
+            "SCIENTIFIC_TRAINING_REFUSED: recipe top-level fields are incomplete or extra"
+        )
+    if (
+        recipe["schema_version"] != 2
+        or recipe["issue"] != 101
+        or recipe["method"] != "MPG-FER"
+        or recipe["architecture_base_commit"] != BASE_COMMIT
+        or recipe["private_test_permitted"] is not False
+        or recipe["checkpoint_selection"] != CHECKPOINT_SELECTION
+    ):
+        raise RuntimeError("SCIENTIFIC_TRAINING_REFUSED: recipe provenance mismatch")
+    template = final_recipe_template()
+    frozen = recipe["frozen_scientific_config"]
+    if frozen != template["frozen_scientific_config"]:
+        raise RuntimeError(
+            "SCIENTIFIC_TRAINING_REFUSED: frozen scientific/base config mismatch"
+        )
+    training = recipe["training_recipe"]
+    if not isinstance(training, dict) or set(training) != set(
+        RECIPE_AUTHORIZED_CONFIG_FIELDS
+    ):
+        raise RuntimeError(
+            "SCIENTIFIC_TRAINING_REFUSED: training recipe fields are incomplete or extra"
+        )
+    optimizer_family, optimizer_kwargs = _validate_family(
+        recipe["optimizer"],
+        name="optimizer",
+        families=SUPPORTED_OPTIMIZER_FAMILIES,
+    )
+    scheduler_family, scheduler_kwargs = _validate_family(
+        recipe["scheduler"],
+        name="scheduler",
+        families=SUPPORTED_SCHEDULER_FAMILIES,
+    )
+    return {
+        **recipe,
+        "optimizer": {"family": optimizer_family, "kwargs": optimizer_kwargs},
+        "scheduler": {"family": scheduler_family, "kwargs": scheduler_kwargs},
+    }
+
+
+def _normalize_config_values(values: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = dict(values)
+    for name in (
+        "motif_window_sizes",
+        "motif_topk_schedule",
+        "motif_residual_scale_schedule",
+        "runtime_safe_resume_fields",
+    ):
+        if name in normalized:
+            normalized[name] = tuple(normalized[name])
+    return normalized
 
 
 def validate_final_recipe_lock(
@@ -183,16 +369,27 @@ def validate_final_recipe_lock(
         raise RuntimeError(
             "SCIENTIFIC_TRAINING_REFUSED: independent authorization is not frozen"
         )
-    if (
-        recipe.get("method") != "MPG-FER"
-        or recipe.get("private_test_permitted") is not False
-    ):
-        raise RuntimeError("SCIENTIFIC_TRAINING_REFUSED: recipe provenance mismatch")
-    actual = recipe.get("training_recipe")
-    expected = _recipe_fields(config)
-    if actual != expected:
+    recipe = _validate_recipe_payload(recipe)
+    expected = _config_from_recipe_payload(
+        recipe,
+        mode=AblationMode(config.ablation_mode),
+        run_id=config.run_id,
+        output_dir=config.output_dir,
+        resume_path=config.resume_path,
+        segment_number=config.segment_number,
+        recipe_sha256=recipe_sha,
+        device=config.device,
+        num_workers=config.num_workers,
+        segment_soft_limit_hours=config.segment_soft_limit_hours,
+        segment_safety_margin_minutes=config.segment_safety_margin_minutes,
+    )
+    runtime = _runtime_safe_fields()
+    actual_config = _finite_json(asdict(config))
+    expected_config = _finite_json(asdict(expected))
+    compared_fields = set(actual_config) - runtime
+    if any(actual_config[name] != expected_config[name] for name in compared_fields):
         raise RuntimeError(
-            "SCIENTIFIC_TRAINING_REFUSED: recipe values do not match resolved config"
+            "SCIENTIFIC_TRAINING_REFUSED: non-runtime config differs from the final recipe lock"
         )
     return {"path": str(recipe_file.resolve()), "sha256": recipe_sha, "payload": recipe}
 
@@ -205,38 +402,66 @@ def config_from_final_recipe(
     output_dir: str | Path,
     resume_path: str | Path | None = None,
     segment_number: int = 1,
+    device: str = "cuda",
+    num_workers: int = 2,
+    segment_soft_limit_hours: float = 10.5,
+    segment_safety_margin_minutes: float = 15.0,
 ) -> AblationConfig:
-    """Resolve optimization fields only from the separately frozen recipe."""
+    """Resolve every non-runtime config field from the separately frozen recipe."""
     recipe_file = Path(recipe_path)
-    recipe = json.loads(recipe_file.read_text(encoding="utf-8"))
-    values = recipe.get("training_recipe")
-    if not isinstance(values, dict):
-        raise RuntimeError("FINAL_RECIPE_LOCK.json lacks training_recipe")
-    field_map = {
-        "seed": "seed",
-        "learning_rate": "learning_rate",
-        "weight_decay": "weight_decay",
-        "warmup_epochs": "warmup_epochs",
-        "lr_decay_end_epoch": "lr_decay_end_epoch",
-        "min_learning_rate": "min_learning_rate",
-        "max_epochs": "max_epochs",
-        "min_epochs": "min_epochs",
-        "ema_decay": "ema_decay",
-        "batch_size": "batch_size",
-        "gradient_accumulation_steps": "gradient_accumulation_steps",
-    }
-    missing = [name for name in field_map if name not in values]
-    if missing:
-        raise RuntimeError(f"FINAL_RECIPE_LOCK.json lacks fields: {missing}")
-    kwargs = {target: values[source] for source, target in field_map.items()}
-    return AblationConfig(
-        **kwargs,
-        ablation_mode=AblationMode(mode).value,
-        final_recipe_lock_sha256=sha256_file(recipe_file),
+    recipe = _validate_recipe_payload(
+        json.loads(recipe_file.read_text(encoding="utf-8"))
+    )
+    return _config_from_recipe_payload(
+        recipe,
+        mode=mode,
         run_id=run_id,
-        output_dir=str(output_dir),
+        output_dir=output_dir,
+        resume_path=resume_path,
+        segment_number=segment_number,
+        recipe_sha256=sha256_file(recipe_file),
+        device=device,
+        num_workers=num_workers,
+        segment_soft_limit_hours=segment_soft_limit_hours,
+        segment_safety_margin_minutes=segment_safety_margin_minutes,
+    )
+
+
+def _config_from_recipe_payload(
+    recipe: Mapping[str, Any],
+    *,
+    mode: AblationMode | str,
+    run_id: str | None,
+    output_dir: str | Path | None,
+    resume_path: str | Path | None,
+    segment_number: int,
+    recipe_sha256: str,
+    device: str,
+    num_workers: int,
+    segment_soft_limit_hours: float,
+    segment_safety_margin_minutes: float,
+) -> AblationConfig:
+    values = {
+        **recipe["frozen_scientific_config"],
+        **recipe["training_recipe"],
+    }
+    values = _normalize_config_values(values)
+    return AblationConfig(
+        **values,
+        ablation_mode=AblationMode(mode).value,
+        final_recipe_lock_sha256=recipe_sha256,
+        optimizer_family=recipe["optimizer"]["family"],
+        optimizer_kwargs=recipe["optimizer"]["kwargs"],
+        scheduler_family=recipe["scheduler"]["family"],
+        scheduler_kwargs=recipe["scheduler"]["kwargs"],
+        run_id=run_id,
+        output_dir=None if output_dir is None else str(output_dir),
         resume_path=None if resume_path is None else str(resume_path),
         segment_number=segment_number,
+        device=device,
+        num_workers=num_workers,
+        segment_soft_limit_hours=segment_soft_limit_hours,
+        segment_safety_margin_minutes=segment_safety_margin_minutes,
     )
 
 

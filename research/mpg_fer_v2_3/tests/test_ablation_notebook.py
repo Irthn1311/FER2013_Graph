@@ -44,7 +44,20 @@ def test_canonical_ablation_notebook_matches_generator_and_compiles_every_cell()
     assert "evaluate_private_once" not in code
     assert "create_private_dataloader" not in code
     assert "shutil.make_archive" in code
+    implementation_commit = (
+        ROOT / "ABLATION_IMPLEMENTATION_COMMIT.txt"
+    ).read_text(encoding="utf-8").strip()
+    assert (
+        f'os.environ["MPG_FER_ABLATION_IMPLEMENTATION_COMMIT"] = '
+        f"'{implementation_commit}'"
+    ) in code
+    assert (
+        f'os.environ["MPG_FER_SOURCE_GIT_COMMIT"] = \'{implementation_commit}\''
+        in code
+    )
+    assert 'os.environ["MPG_FER_ARCHITECTURE_BASE_COMMIT"]' in code
     assert actual["metadata"]["mpg_fer_ablation_issue"] == 101
+    assert actual["metadata"]["ablation_implementation_commit"] == implementation_commit
     assert actual["metadata"]["private_test_permitted"] is False
 
 
@@ -55,7 +68,13 @@ def test_design_lock_binds_notebook_and_source_but_refuses_training() -> None:
     manifest = json.loads(
         (ROOT / "source_checksum_manifest.json").read_text(encoding="utf-8")
     )
-    assert design["base_commit"] == "232e7a9f09251e7c3353684d34351356bd2b023b"
+    implementation_commit = (
+        ROOT / "ABLATION_IMPLEMENTATION_COMMIT.txt"
+    ).read_text(encoding="utf-8").strip()
+    assert design["architecture_base_commit"] == "232e7a9f09251e7c3353684d34351356bd2b023b"
+    assert design["ablation_implementation_commit"] == implementation_commit
+    assert manifest["architecture_base_commit"] == design["architecture_base_commit"]
+    assert manifest["ablation_implementation_commit"] == implementation_commit
     assert design["ablation_source_sha256"] == manifest["ablation_source_tree_sha256"]
     assert design["notebook_sha256"] == manifest["notebook"]["sha256"]
     assert design["final_recipe_lock_sha256"] is None

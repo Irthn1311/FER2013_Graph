@@ -20,14 +20,22 @@ from mpg_fer_table_vi.protocol import (
     AblationConfig,
     TABLE_INFERENCE,
     aggregate_table_vi,
+    config_from_final_recipe,
     evaluate_canonical_public_fp32,
+    final_recipe_template,
     validate_ablation_data_paths,
     validate_final_recipe_lock,
     write_json,
 )
+from mpg_fer_v2_3.checkpoint import sha256_file
 from mpg_fer_v2_3.ema import ModelEMA
 from mpg_fer_v2_3.model import MPGFER
-from mpg_fer_table_vi.train import compute_ablation_training_loss
+from mpg_fer_table_vi.train import (
+    RecipeEpochScheduler,
+    build_recipe_optimizer,
+    build_recipe_scheduler,
+    compute_ablation_training_loss,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -166,8 +174,8 @@ def test_all_modes_forward_backward_optimizer_clip_and_ema(mode: AblationMode) -
     model = AblationMPGFER(mode=mode).train()
     ema = ModelEMA(model, decay=0.9)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
-    labels = torch.tensor([0, 0])
-    logits, outputs = model(_input(2))
+    labels = torch.tensor([0, 0, 1, 1])
+    logits, outputs = model(_input(4))
     loss, components = compute_ablation_training_loss(
         logits,
         outputs,
@@ -187,6 +195,7 @@ def test_all_modes_forward_backward_optimizer_clip_and_ema(mode: AblationMode) -
         "pixel_aux": model.aux_pixel_head.weight,
         "motif_aux": model.aux_motif_head.weight,
         "classifier": model.classifier[-1].weight,
+        "supcon_head": model.supcon_head[0].weight,
     }
     if mode is not AblationMode.FIXED_POOL:
         required["prototypes"] = model.motif_composer.prototypes
@@ -196,6 +205,59 @@ def test_all_modes_forward_backward_optimizer_clip_and_ema(mode: AblationMode) -
         assert parameter.grad is not None, name
         assert torch.isfinite(parameter.grad).all(), name
         assert torch.any(parameter.grad != 0), name
+
+    def assert_activity(name, parameter, active):
+        if active:
+            assert parameter.grad is not None, name
+            assert torch.isfinite(parameter.grad).all(), name
+            assert torch.any(parameter.grad != 0), name
+        else:
+            assert parameter.grad is None, name
+
+    pixel_gnn_active = mode is not AblationMode.NO_PIXEL_GNN
+    for name in ("q_proj", "k_proj", "v_proj"):
+        assert_activity(
+            f"pixel_gnn.{name}",
+            getattr(model.pixel_gnn[0], name).weight,
+            pixel_gnn_active,
+        )
+    assert_activity(
+        "pixel_gnn.ffn", model.pixel_gnn[0].ffn[0].weight, pixel_gnn_active
+    )
+
+    if mode is not AblationMode.FIXED_POOL:
+        composer = model.motif_composer
+        for name, parameter in {
+            "assignment_query": composer.assignment_query.weight,
+            "prototype_key": composer.prototype_key.weight,
+            "prototypes": composer.prototypes,
+            "occurrence_projection": composer.occurrence_proj[0].weight,
+        }.items():
+            assert_activity(name, parameter, True)
+        for scale in ("8", "12", "16"):
+            assert_activity(
+                f"saliency_{scale}",
+                composer.scale_saliency[scale].weight,
+                mode is not AblationMode.SINGLE_SCALE_12 or scale == "12",
+            )
+        assert_activity(
+            "scale_gate",
+            composer.scale_gate.weight,
+            mode is not AblationMode.SINGLE_SCALE_12,
+        )
+
+    motif_gnn_active = mode is not AblationMode.NO_MOTIF_GNN
+    motif_layer = model.motif_gnn[0]
+    for name in ("q_proj", "k_proj", "v_proj"):
+        assert_activity(
+            f"motif_gnn.{name}", getattr(motif_layer, name).weight, motif_gnn_active
+        )
+    assert_activity("motif_gnn.ffn", motif_layer.ffn[0].weight, motif_gnn_active)
+    assert_activity(
+        "motif_gnn.geom_proj",
+        motif_layer.geom_proj.weight,
+        motif_gnn_active and mode is not AblationMode.NO_GEOM_BIAS,
+    )
     clipped = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     assert torch.isfinite(clipped)
     optimizer.step()
@@ -324,7 +386,12 @@ def test_no_pixel_fusion_zeros_only_pixel_slice() -> None:
         expected["fusion_representation"][:, 128:],
     )
     assert torch.equal(actual["h_pixel_readout"], expected["h_pixel_readout"])
+    assert torch.equal(actual["h_motif_readout"], expected["h_motif_readout"])
     assert torch.equal(actual["pixel_logits"], expected["pixel_logits"])
+    assert torch.equal(
+        actual["supcon_source_representation"], expected["fusion_representation"]
+    )
+    assert torch.equal(actual["supcon_embeddings"], expected["supcon_embeddings"])
 
 
 def test_official_checkpoint_strict_loads_when_supplied() -> None:
@@ -415,6 +482,92 @@ def test_training_refuses_missing_or_unbound_final_recipe(tmp_path) -> None:
     recipe.write_text("{}", encoding="utf-8")
     with pytest.raises(RuntimeError, match="absent or mismatched"):
         validate_final_recipe_lock(recipe, design, config)
+
+
+def _authorized_recipe(tmp_path, *, optimizer="SGD", scheduler="constant"):
+    recipe_path = tmp_path / "FINAL_RECIPE_LOCK.json"
+    recipe = final_recipe_template()
+    recipe["optimizer"] = {
+        "family": optimizer,
+        "kwargs": {"momentum": 0.9} if optimizer == "SGD" else {},
+    }
+    recipe["scheduler"] = {"family": scheduler, "kwargs": {}}
+    write_json(recipe_path, recipe)
+    design_path = tmp_path / "ABLATION_DESIGN_LOCK.json"
+    write_json(
+        design_path,
+        {
+            "final_recipe_lock_sha256": sha256_file(recipe_path),
+            "scientific_training_authorized": True,
+        },
+    )
+    config = config_from_final_recipe(
+        recipe_path,
+        mode=AblationMode.FULL,
+        run_id="lock-test",
+        output_dir=tmp_path / "out",
+    )
+    return recipe_path, design_path, config
+
+
+def test_final_recipe_drives_optimizer_scheduler_and_binds_complete_config(
+    tmp_path,
+) -> None:
+    recipe, design, config = _authorized_recipe(tmp_path)
+    assert config.optimizer_family == "SGD"
+    assert config.optimizer_kwargs == {"momentum": 0.9}
+    assert config.scheduler_family == "constant"
+    model = nn.Linear(2, 2)
+    optimizer = build_recipe_optimizer(model, config)
+    scheduler = build_recipe_scheduler(optimizer, config)
+    assert isinstance(optimizer, torch.optim.SGD)
+    assert optimizer.param_groups[0]["momentum"] == 0.9
+    assert isinstance(scheduler, RecipeEpochScheduler)
+    assert scheduler.step(3) == config.learning_rate
+    assert validate_final_recipe_lock(recipe, design, config)["sha256"] == sha256_file(
+        recipe
+    )
+
+    # Runtime-safe values may change without altering scientific identity.
+    config.num_workers = 7
+    config.output_dir = str(tmp_path / "other-output")
+    validate_final_recipe_lock(recipe, design, config)
+
+    for field, value in (
+        ("label_smoothing", 0.123),
+        ("lambda_supcon", 0.123),
+        ("pixel_dropout", 0.123),
+        ("early_stop_patience", 99),
+    ):
+        tampered = config_from_final_recipe(
+            recipe,
+            mode=AblationMode.FULL,
+            run_id="lock-test",
+            output_dir=tmp_path / "out",
+        )
+        setattr(tampered, field, value)
+        with pytest.raises(RuntimeError, match="non-runtime config differs"):
+            validate_final_recipe_lock(recipe, design, tampered)
+
+
+def test_final_recipe_rejects_incomplete_extra_or_unsupported_family(tmp_path) -> None:
+    for mutation in ("missing", "extra", "unsupported"):
+        recipe = final_recipe_template()
+        if mutation == "missing":
+            recipe["training_recipe"].pop("label_smoothing")
+        elif mutation == "extra":
+            recipe["training_recipe"]["unregistered"] = 1
+        else:
+            recipe["optimizer"]["family"] = "UnregisteredOptimizer"
+        path = tmp_path / f"{mutation}.json"
+        write_json(path, recipe)
+        with pytest.raises(RuntimeError, match="SCIENTIFIC_TRAINING_REFUSED"):
+            config_from_final_recipe(
+                path,
+                mode=AblationMode.FULL,
+                run_id="x",
+                output_dir=tmp_path,
+            )
 
 
 def test_table_aggregator_uses_fixed_order_and_never_performance_order(

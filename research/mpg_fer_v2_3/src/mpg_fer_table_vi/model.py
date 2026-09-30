@@ -159,7 +159,7 @@ ABLATION_REGISTRY: dict[AblationMode, AblationSpec] = {
         AblationMode.NO_PIXEL_FUSION,
         "w/o pixel-level fusion",
         "After the motif path is learned, does direct pixel-level readout still contribute to final classification?",
-        "Keep the pixel path and auxiliary head active; replace only the first 128 fusion dimensions with zeros.",
+        "Keep the pixel path, pixel auxiliary head, and full pixel-plus-motif SupCon source active; replace only the classifier input's first 128 fusion dimensions with zeros.",
     ),
     AblationMode.FULL: _spec(
         AblationMode.FULL,
@@ -515,14 +515,17 @@ class AblationMPGFER(MPGFER):
             torch.cat([m_mean, m_max, m_attention], dim=-1)
         )
         motif_logits = self.aux_motif_head(motif_readout)
-        pixel_fusion = (
+        full_fusion = torch.cat([pixel_readout, motif_readout], dim=-1)
+        classifier_pixel_fusion = (
             torch.zeros_like(pixel_readout)
             if self.ablation_mode is AblationMode.NO_PIXEL_FUSION
             else pixel_readout
         )
-        fusion = torch.cat([pixel_fusion, motif_readout], dim=-1)
-        supcon_embeddings = F.normalize(self.supcon_head(fusion), dim=-1)
-        logits = self.classifier(fusion)
+        classifier_fusion = torch.cat(
+            [classifier_pixel_fusion, motif_readout], dim=-1
+        )
+        supcon_embeddings = F.normalize(self.supcon_head(full_fusion), dim=-1)
+        logits = self.classifier(classifier_fusion)
         applicability = self.diagnostic_applicability
         diagnostics.update(
             {
@@ -545,7 +548,8 @@ class AblationMPGFER(MPGFER):
             "h_motif_nodes_final": h_motif,
             "h_pixel_readout": pixel_readout,
             "h_motif_readout": motif_readout,
-            "fusion_representation": fusion,
+            "fusion_representation": classifier_fusion,
+            "supcon_source_representation": full_fusion,
             "supcon_embeddings": supcon_embeddings,
             "motif_assignments": assignments,
             "motif_geometry": geometry,

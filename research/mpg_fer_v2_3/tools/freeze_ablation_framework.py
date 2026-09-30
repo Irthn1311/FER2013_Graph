@@ -69,6 +69,7 @@ def _source_manifest(notebook: Path) -> dict[str, Any]:
         *sorted(ROOT.glob("tests/test_ablation_*.py")),
         ROOT / "tests" / "test_multiseed_protocol.py",
         ROOT / "tests" / "test_v23_contract.py",
+        ROOT / "ABLATION_IMPLEMENTATION_COMMIT.txt",
     ]
     for path in selected:
         files.append(
@@ -80,7 +81,10 @@ def _source_manifest(notebook: Path) -> dict[str, Any]:
         )
     return {
         "schema_version": 1,
-        "base_commit": BASE_COMMIT,
+        "architecture_base_commit": BASE_COMMIT,
+        "ablation_implementation_commit": (
+            ROOT / "ABLATION_IMPLEMENTATION_COMMIT.txt"
+        ).read_text(encoding="utf-8").strip(),
         "ablation_source_tree_sha256": ablation_source_tree_hash(SRC),
         "notebook": {
             "path": notebook.relative_to(ROOT).as_posix(),
@@ -141,8 +145,19 @@ def main() -> None:
     parser.add_argument("--skip-tests", action="store_true")
     args = parser.parse_args()
 
+    implementation_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    ).stdout.strip()
+    (ROOT / "ABLATION_IMPLEMENTATION_COMMIT.txt").write_text(
+        implementation_commit + "\n", encoding="utf-8"
+    )
     registry_path = write_json(ROOT / "ablation_registry.json", registry_document())
-    sync_ablation_notebook.main()
+    sync_ablation_notebook.main(implementation_commit)
     notebook = sync_ablation_notebook.NOTEBOOK
     compiled_cells = _compile_notebook(notebook)
     manifest = _source_manifest(notebook)
@@ -160,7 +175,8 @@ def main() -> None:
             mode.value for mode in TABLE_VI_ORDER if mode is not AblationMode.FULL
         ],
         "full_control_id": AblationMode.FULL.value,
-        "base_commit": BASE_COMMIT,
+        "architecture_base_commit": BASE_COMMIT,
+        "ablation_implementation_commit": implementation_commit,
         "architecture_provenance": {
             "name": "MPG-FER v2.3",
             "frozen_v2_3_source_sha256": FROZEN_V23_SOURCE_SHA256,
@@ -196,7 +212,8 @@ def main() -> None:
     report = {
         "schema_version": 1,
         "issue": 101,
-        "base_commit": BASE_COMMIT,
+        "architecture_base_commit": BASE_COMMIT,
+        "ablation_implementation_commit": implementation_commit,
         "source_tree_sha256": manifest["ablation_source_tree_sha256"],
         "notebook_sha256": manifest["notebook"]["sha256"],
         "design_lock_sha256": sha256_file(design_path),

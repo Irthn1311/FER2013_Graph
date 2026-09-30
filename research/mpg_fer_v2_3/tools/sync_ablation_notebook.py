@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE_ROOT = ROOT / "src"
 PACKAGE_NAMES = ("mpg_fer_v2_3", "mpg_fer_table_vi")
 NOTEBOOK = ROOT / "notebooks" / "MPG_FER_Table_VI_Ablation_Kaggle_T4.ipynb"
+IMPLEMENTATION_COMMIT_FILE = ROOT / "ABLATION_IMPLEMENTATION_COMMIT.txt"
 
 
 def source_payload() -> tuple[dict[str, str], str]:
@@ -38,7 +39,17 @@ def _cell(cell_type: str, source: str) -> dict:
     return cell
 
 
-def build_notebook() -> dict:
+def implementation_commit() -> str:
+    if not IMPLEMENTATION_COMMIT_FILE.is_file():
+        raise RuntimeError("ABLATION_IMPLEMENTATION_COMMIT.txt is absent")
+    value = IMPLEMENTATION_COMMIT_FILE.read_text(encoding="utf-8").strip()
+    if len(value) != 40 or any(character not in "0123456789abcdef" for character in value):
+        raise RuntimeError("Invalid ablation implementation commit lock")
+    return value
+
+
+def build_notebook(implementation_sha: str | None = None) -> dict:
+    implementation_sha = implementation_sha or implementation_commit()
     embedded, source_sha = source_payload()
     cells = [
         _cell(
@@ -93,7 +104,9 @@ for name in sorted(EMBEDDED_SOURCES):
 if source_digest.hexdigest() != EXPECTED_SOURCE_TREE_SHA256:
     raise RuntimeError("ABLATION_SOURCE_LOCK_MISMATCH")
 sys.path.insert(0, str(SOURCE_ROOT))
-os.environ["MPG_FER_SOURCE_GIT_COMMIT"] = "232e7a9f09251e7c3353684d34351356bd2b023b"
+os.environ["MPG_FER_ARCHITECTURE_BASE_COMMIT"] = "232e7a9f09251e7c3353684d34351356bd2b023b"
+os.environ["MPG_FER_ABLATION_IMPLEMENTATION_COMMIT"] = {implementation_sha!r}
+os.environ["MPG_FER_SOURCE_GIT_COMMIT"] = {implementation_sha!r}
 print("source lock verified", EXPECTED_SOURCE_TREE_SHA256)
 """,
         ),
@@ -198,6 +211,8 @@ print("artifact_zip", archive)
             "language_info": {"name": "python", "version": "3"},
             "mpg_fer_ablation_issue": 101,
             "source_tree_sha256": source_sha,
+            "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+            "ablation_implementation_commit": implementation_sha,
             "private_test_permitted": False,
         },
         "nbformat": 4,
@@ -205,9 +220,12 @@ print("artifact_zip", archive)
     }
 
 
-def main() -> None:
+def main(implementation_sha: str | None = None) -> None:
     NOTEBOOK.parent.mkdir(parents=True, exist_ok=True)
-    NOTEBOOK.write_text(json.dumps(build_notebook(), indent=1) + "\n", encoding="utf-8")
+    NOTEBOOK.write_text(
+        json.dumps(build_notebook(implementation_sha), indent=1) + "\n",
+        encoding="utf-8",
+    )
     print(NOTEBOOK)
 
 
