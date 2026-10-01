@@ -1,0 +1,312 @@
+{
+  "schema_version": 1,
+  "issue": {
+    "number": 105,
+    "url": "https://github.com/Irthn1311/FER2013_Graph/issues/105"
+  },
+  "framework_pr": {
+    "number": 104,
+    "url": "https://github.com/Irthn1311/FER2013_Graph/pull/104"
+  },
+  "reviewed_framework_head": "e7ea4f1a969d50b34b7e0930338d92f1263bdb96",
+  "reviewed_framework_design_lock_sha256": "a520c4ca7533d20715f9fdcda7f4b204bdeb8c22e7573a50349878cd5b58282c",
+  "reviewed_candidate_head": "9c8cc8804b362e13c99a240a996775dfbaf55aa0",
+  "reviewer_verdict": "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_REVIEW_PASS",
+  "review_comment_id": 5929994015,
+  "review_pr": 104,
+  "immutable_identities": {
+    "o1_implementation_commit": "b4a3563ca284dae5dc6ad5aad7023eda1253590b",
+    "o1_source_tree_sha256": "800803493415562b3d533a8631d79203a181757220f10bad7c4326387d360595",
+    "canonical_notebook_sha256": "752cec59a824092ab3286f6aa1a37a26abc81916152db04e6cf62b7c3c268a81",
+    "registry_sha256": "6a839be43ca5da9542d6bcd1f6a18d6c3c2e0326898ce59750c9c8560bb968aa",
+    "baseline_reference_sha256": "1b0aca11d49af9bb9e3ee170753666e0b446b435eecdc273a98e8f95c8c01f4e",
+    "frozen_v2_3_scientific_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+    "reviewed_framework_head": "e7ea4f1a969d50b34b7e0930338d92f1263bdb96",
+    "protected_paths_git_diff_exit_code": 0,
+    "canonical_notebook_bytes_unchanged": true,
+    "scientific_source_bytes_unchanged": true
+  },
+  "screen_stop_epoch": 65,
+  "scientific_max_epochs": 120,
+  "checkpoint_selection": "higher EMA Public horizontal-flip TTA accuracy, then higher EMA TTA Macro-F1, then lower EMA TTA CE loss",
+  "private_test_permitted": false,
+  "data_scope": "Train+PublicTest_only",
+  "required_mounted_inputs": {
+    "train_csv_count": 1,
+    "val_csv_count": 1,
+    "reviewed_design_lock_count": 1,
+    "forbidden_markers": [
+      "test.csv",
+      "PrivateTest",
+      "private_test",
+      "private-test"
+    ]
+  },
+  "canonical_notebook": {
+    "expected_local_reviewed_path": "notebooks/MPG_FER_O1_Wave1_Kaggle_T4.ipynb",
+    "expected_sha256": "752cec59a824092ab3286f6aa1a37a26abc81916152db04e6cf62b7c3c268a81",
+    "operator_requirement": "upload_and_use_only_the_byte_identical_reviewed_notebook"
+  },
+  "launch_job_count": 14,
+  "launch_jobs": [
+    {
+      "slot": "01",
+      "config_id": "O1_01",
+      "learning_rate": 0.00015,
+      "lr_decay_end_epoch": 65,
+      "run_id": "mpgfer-o1-01-lr00015-end65-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_01",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-01-lr00015-end65-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "02",
+      "config_id": "O1_02",
+      "learning_rate": 0.0002,
+      "lr_decay_end_epoch": 65,
+      "run_id": "mpgfer-o1-02-lr00020-end65-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_02",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-02-lr00020-end65-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "03",
+      "config_id": "O1_03",
+      "learning_rate": 0.00025,
+      "lr_decay_end_epoch": 65,
+      "run_id": "mpgfer-o1-03-lr00025-end65-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_03",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-03-lr00025-end65-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "04",
+      "config_id": "O1_04",
+      "learning_rate": 0.0003,
+      "lr_decay_end_epoch": 65,
+      "run_id": "mpgfer-o1-04-lr00030-end65-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_04",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-04-lr00030-end65-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "05",
+      "config_id": "O1_05",
+      "learning_rate": 0.0004,
+      "lr_decay_end_epoch": 65,
+      "run_id": "mpgfer-o1-05-lr00040-end65-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_05",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-05-lr00040-end65-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "06",
+      "config_id": "O1_06",
+      "learning_rate": 0.00015,
+      "lr_decay_end_epoch": 75,
+      "run_id": "mpgfer-o1-06-lr00015-end75-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_06",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-06-lr00015-end75-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "07",
+      "config_id": "O1_07",
+      "learning_rate": 0.0002,
+      "lr_decay_end_epoch": 75,
+      "run_id": "mpgfer-o1-07-lr00020-end75-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_07",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-07-lr00020-end75-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "08",
+      "config_id": "O1_08",
+      "learning_rate": 0.00025,
+      "lr_decay_end_epoch": 75,
+      "run_id": "mpgfer-o1-08-lr00025-end75-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_08",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-08-lr00025-end75-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "09",
+      "config_id": "O1_09",
+      "learning_rate": 0.0003,
+      "lr_decay_end_epoch": 75,
+      "run_id": "mpgfer-o1-09-lr00030-end75-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_09",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-09-lr00030-end75-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "10",
+      "config_id": "O1_10",
+      "learning_rate": 0.0004,
+      "lr_decay_end_epoch": 75,
+      "run_id": "mpgfer-o1-10-lr00040-end75-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_10",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-10-lr00040-end75-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "11",
+      "config_id": "O1_11",
+      "learning_rate": 0.00015,
+      "lr_decay_end_epoch": 85,
+      "run_id": "mpgfer-o1-11-lr00015-end85-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_11",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-11-lr00015-end85-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "12",
+      "config_id": "O1_12",
+      "learning_rate": 0.0002,
+      "lr_decay_end_epoch": 85,
+      "run_id": "mpgfer-o1-12-lr00020-end85-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_12",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-12-lr00020-end85-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "13",
+      "config_id": "O1_13",
+      "learning_rate": 0.00025,
+      "lr_decay_end_epoch": 85,
+      "run_id": "mpgfer-o1-13-lr00025-end85-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_13",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-13-lr00025-end85-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    },
+    {
+      "slot": "14",
+      "config_id": "O1_14",
+      "learning_rate": 0.0004,
+      "lr_decay_end_epoch": 85,
+      "run_id": "mpgfer-o1-14-lr00040-end85-s42",
+      "seed": 42,
+      "resume_mode": "fresh",
+      "segment_number": 1,
+      "launch_controls": {
+        "MPG_FER_O1_CONFIG_ID": "O1_14",
+        "MPG_FER_O1_RUN_ID": "mpgfer-o1-14-lr00040-end85-s42",
+        "MPG_FER_O1_RESUME_MODE": "fresh",
+        "MPG_FER_O1_SEGMENT_NUMBER": "1"
+      }
+    }
+  ],
+  "historical_control": {
+    "config_id": "O1_C0_BASELINE",
+    "launched": false,
+    "runnable": false,
+    "role": "external_historical_control_only"
+  },
+  "fresh_launch_defaults": {
+    "resume_mode": "fresh",
+    "segment_number": 1
+  },
+  "exact_resume_retry_policy": {
+    "trigger": "documented_technical_or_infrastructure_interruption_only",
+    "preserve_exactly": [
+      "config_id",
+      "run_id",
+      "scientific_config"
+    ],
+    "permitted_changes": {
+      "resume_mode": {
+        "from": "fresh",
+        "to": "required"
+      },
+      "segment_number": "increment_by_one_only",
+      "resume_artifact": "exact_prior_resume_latest.pt_plus_resume_latest.json_metadata"
+    },
+    "metric_based_rerun_forbidden": true,
+    "hyperparameter_change_after_partial_trajectory_forbidden": true,
+    "restart_with_different_config_or_run_id_forbidden": true,
+    "retain_failed_and_partial_artifacts": true
+  },
+  "metric_based_rerun_forbidden": true,
+  "scientific_field_changes": [],
+  "authorization_state": "FINAL_AUTHORIZED",
+  "wave1_execution_authorized": true,
+  "status": "MPG_FER_O1_WAVE1_FINAL_AUTHORIZED"
+}

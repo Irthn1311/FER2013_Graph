@@ -35,7 +35,7 @@ def _tree_hash(package: Path) -> str:
     digest = hashlib.sha256()
     for path in sorted(package.glob("*.py")):
         digest.update(path.name.encode("utf-8"))
-        digest.update(path.read_bytes())
+        digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
     return digest.hexdigest()
 
 

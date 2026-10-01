@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "issue": "https://github.com/Irthn1311/FER2013_Graph/issues/103",
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "frozen_scientific_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "screening_seed": 42,
+  "screen_stop_epoch": 65,
+  "allowed_scientific_delta_fields": [
+    "learning_rate",
+    "lr_decay_end_epoch"
+  ],
+  "new_job_count": 14,
+  "new_jobs": [
+    {
+      "config_id": "O1_01",
+      "learning_rate": 0.00015,
+      "lr_decay_end_epoch": 65,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_02",
+      "learning_rate": 0.0002,
+      "lr_decay_end_epoch": 65,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_03",
+      "learning_rate": 0.00025,
+      "lr_decay_end_epoch": 65,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_04",
+      "learning_rate": 0.0003,
+      "lr_decay_end_epoch": 65,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_05",
+      "learning_rate": 0.0004,
+      "lr_decay_end_epoch": 65,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_06",
+      "learning_rate": 0.00015,
+      "lr_decay_end_epoch": 75,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_07",
+      "learning_rate": 0.0002,
+      "lr_decay_end_epoch": 75,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_08",
+      "learning_rate": 0.00025,
+      "lr_decay_end_epoch": 75,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_09",
+      "learning_rate": 0.0003,
+      "lr_decay_end_epoch": 75,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_10",
+      "learning_rate": 0.0004,
+      "lr_decay_end_epoch": 75,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_11",
+      "learning_rate": 0.00015,
+      "lr_decay_end_epoch": 85,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_12",
+      "learning_rate": 0.0002,
+      "lr_decay_end_epoch": 85,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_13",
+      "learning_rate": 0.00025,
+      "lr_decay_end_epoch": 85,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    },
+    {
+      "config_id": "O1_14",
+      "learning_rate": 0.0004,
+      "lr_decay_end_epoch": 85,
+      "seed": 42,
+      "source_type": "new_screening_job"
+    }
+  ],
+  "historical_control": {
+    "config_id": "O1_C0_BASELINE",
+    "learning_rate": 0.0003,
+    "lr_decay_end_epoch": 85,
+    "seed": 42,
+    "source_type": "external_historical_control"
+  },
+  "historical_control_is_new_job": false
+}

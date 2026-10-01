@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "o1_implementation_commit": "b4a3563ca284dae5dc6ad5aad7023eda1253590b",
+  "frozen_scientific_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "o1_source_tree_sha256": "800803493415562b3d533a8631d79203a181757220f10bad7c4326387d360595",
+  "notebook": {
+    "path": "notebooks/MPG_FER_O1_Wave1_Kaggle_T4.ipynb",
+    "sha256": "752cec59a824092ab3286f6aa1a37a26abc81916152db04e6cf62b7c3c268a81"
+  },
+  "baseline_reference": {
+    "path": "O1_BASELINE_REFERENCE.json",
+    "sha256": "1b0aca11d49af9bb9e3ee170753666e0b446b435eecdc273a98e8f95c8c01f4e"
+  },
+  "gitguardian_false_positive_allowlist": {
+    "path": ".gitguardian.yaml",
+    "sha256": "36ffe1e253f8822316bc1b37caaccd38b9d8d38cea9ee1e01012900f17ff79ba",
+    "match": "MPG_FER_O1_RUN_ID",
+    "credential_handling_changed": false
+  },
+  "files": [
+    {
+      "path": "src/mpg_fer_v2_3/__init__.py",
+      "sha256": "646db9ed4f48d801e1b9ab5c67826d77622f1076d74d17f7c5de23d65cd752a3",
+      "bytes": 471
+    },
+    {
+      "path": "src/mpg_fer_v2_3/checkpoint.py",
+      "sha256": "8d08596d171c83cf2d47bb362a4c9c5a89507c22fffcdbfa4444d19ab38ea143",
+      "bytes": 10994
+    },
+    {
+      "path": "src/mpg_fer_v2_3/config.py",
+      "sha256": "0e3e6b50efb50193055288e0e62a0347f6dcbd00bacf7e6614aab3865797b3b3",
+      "bytes": 4475
+    },
+    {
+      "path": "src/mpg_fer_v2_3/data.py",
+      "sha256": "17d74c9b3672ad281629aeda8fb16936d61cb8daac5873058e371a000cdb3d6e",
+      "bytes": 12843
+    },
+    {
+      "path": "src/mpg_fer_v2_3/ema.py",
+      "sha256": "abfb6543100a6e628f95607351a998711b6d53062c3fb3ad91555510d9651957",
+      "bytes": 1837
+    },
+    {
+      "path": "src/mpg_fer_v2_3/evaluate.py",
+      "sha256": "3cdfca32172288cf51784840cfdac62e65f35aaee79bb9e004065652ccbe1b19",
+      "bytes": 3924
+    },
+    {
+      "path": "src/mpg_fer_v2_3/features.py",
+      "sha256": "2a39fe1aed2450b99ef65eaaae4b4f78837204e71757aaf31a73211934aa3c6c",
+      "bytes": 5100
+    },
+    {
+      "path": "src/mpg_fer_v2_3/graph.py",
+      "sha256": "4a417b2cc7aa48bc79d9cb6249776a8f8e6d8d08f48aa57db065c4aa7237a60a",
+      "bytes": 4776
+    },
+    {
+      "path": "src/mpg_fer_v2_3/kaggle.py",
+      "sha256": "29b765ef4d13ead6e2959e0878b148f77ce62683f770447ba8010e2793f23dc8",
+      "bytes": 5341
+    },
+    {
+      "path": "src/mpg_fer_v2_3/losses.py",
+      "sha256": "fc7d9ca1c1230125a4ca0cc4b6c51879e9c76dcd4c6089fe511b272b6641c66c",
+      "bytes": 3769
+    },
+    {
+      "path": "src/mpg_fer_v2_3/model.py",
+      "sha256": "aa1422749ba250c21eeb9135933cc9656690e052bd64c4245a89c1065f2bd217",
+      "bytes": 18810
+    },
+    {
+      "path": "src/mpg_fer_v2_3/motif.py",
+      "sha256": "25bdcfaee69b59abe95a3a57c415911ec81a7e542f53a0abe9462e24d9aefc43",
+      "bytes": 12424
+    },
+    {
+      "path": "src/mpg_fer_v2_3/train.py",
+      "sha256": "eaf0e03533a44c0576099df3acce2698bad6440fc4c6dd14092e2473ec7236e5",
+      "bytes": 40583
+    },
+    {
+      "path": "src/mpg_fer_v2_3/utils.py",
+      "sha256": "a7825cdc1cfc2d10363b4cd3de6aa5962830991093b106f2eb10255595cde9c9",
+      "bytes": 1956
+    },
+    {
+      "path": "src/mpg_fer_o1/__init__.py",
+      "sha256": "bfc5780967f858be62dccad02dc84e1a56d75ff52e7895f6b08092b8daf4b0a7",
+      "bytes": 284
+    },
+    {
+      "path": "src/mpg_fer_o1/protocol.py",
+      "sha256": "60d563f703111f79a800a5a874348c76a111f6c85340999fda1bd138608f1136",
+      "bytes": 33375
+    },
+    {
+      "path": "src/mpg_fer_o1/train.py",
+      "sha256": "c2d7c9125ee08606590dd5b3d737311e550964cddea9de78c16546136fdadb01",
+      "bytes": 13992
+    },
+    {
+      "path": "tools/sync_o1_notebook.py",
+      "sha256": "c7c29b7ef646fd00e99cd7d7a8009065f8673d3e006dac858fa75b7cacd0d0c8",
+      "bytes": 7612
+    },
+    {
+      "path": "tools/build_o1_baseline_reference.py",
+      "sha256": "1adf77528e1e8aad4ec30fd62bf03eda5938266defebfccb173460b6dfe39d8d",
+      "bytes": 4562
+    },
+    {
+      "path": "tools/freeze_o1_framework.py",
+      "sha256": "f729289c103e47bf9b7a36361a061e33bce7d52323300be7db8310c37dacba6b",
+      "bytes": 9476
+    },
+    {
+      "path": "tests/test_o1_notebook.py",
+      "sha256": "728679add44d5d3834658d92fa50ec4264523d71769287ddd6fae4e5bb049720",
+      "bytes": 2357
+    },
+    {
+      "path": "tests/test_o1_protocol.py",
+      "sha256": "e219c513c5054e2580bc74cc5efde727c61236c41f12bfc955e186d4bfaa6bc3",
+      "bytes": 18570
+    },
+    {
+      "path": "tests/test_o1_resume.py",
+      "sha256": "da88919b277d22420ed2a030321ef1bd5a393e21138873635ae1bef84117ca80",
+      "bytes": 9169
+    },
+    {
+      "path": "O1_IMPLEMENTATION_COMMIT.txt",
+      "sha256": "d26018d91bdaaf2b9e781f6b5e2a08f6b0cb4b03692e8e008425b8f48f9daf6b",
+      "bytes": 42
+    },
+    {
+      "path": "O1_BASELINE_REFERENCE.json",
+      "sha256": "bfbcf2cf4bb7547e9597f6e0e44ab4963c4a6c691a900d599d041de2cee25f72",
+      "bytes": 1511
+    }
+  ]
+}

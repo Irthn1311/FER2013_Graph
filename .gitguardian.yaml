@@ -1,0 +1,8 @@
+version: 2
+
+secret:
+  ignored_matches:
+    # False positive reviewed on PR #104: this is a Kaggle secret-name lookup,
+    # never a credential value. Keep UserSecretsClient handling unchanged.
+    - name: MPG-FER O1 run-id secret name
+      match: MPG_FER_O1_RUN_ID

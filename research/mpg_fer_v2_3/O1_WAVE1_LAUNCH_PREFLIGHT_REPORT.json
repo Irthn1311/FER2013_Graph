@@ -1,0 +1,51 @@
+{
+  "schema_version": 2,
+  "issue": 105,
+  "framework_pr": 104,
+  "reviewed_framework_head": "e7ea4f1a969d50b34b7e0930338d92f1263bdb96",
+  "reviewed_candidate_head": "9c8cc8804b362e13c99a240a996775dfbaf55aa0",
+  "reviewer_verdict": "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_REVIEW_PASS",
+  "review_comment_id": 5929994015,
+  "review_pr": 104,
+  "launch_authorization_sha256": "516e65e8fee58a19d9ac36527135dd562d7d5288a25404e1442c328d4378725f",
+  "design_lock_sha256": "e3ae57dcf7e5d53b9e1635f3ad5faa6b2ecdbd52fee6f98153ebd441b1c4fd0a",
+  "immutable_identities": {
+    "o1_implementation_commit": "b4a3563ca284dae5dc6ad5aad7023eda1253590b",
+    "o1_source_tree_sha256": "800803493415562b3d533a8631d79203a181757220f10bad7c4326387d360595",
+    "canonical_notebook_sha256": "752cec59a824092ab3286f6aa1a37a26abc81916152db04e6cf62b7c3c268a81",
+    "registry_sha256": "6a839be43ca5da9542d6bcd1f6a18d6c3c2e0326898ce59750c9c8560bb968aa",
+    "baseline_reference_sha256": "1b0aca11d49af9bb9e3ee170753666e0b446b435eecdc273a98e8f95c8c01f4e",
+    "frozen_v2_3_scientific_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+    "reviewed_framework_head": "e7ea4f1a969d50b34b7e0930338d92f1263bdb96",
+    "protected_paths_git_diff_exit_code": 0,
+    "canonical_notebook_bytes_unchanged": true,
+    "scientific_source_bytes_unchanged": true
+  },
+  "launch_job_count": 14,
+  "launch_matrix_semantic_sha256": "64671f8ae52ff72061feff3390c43214cad1b81a131cf9aca2552c4314424771",
+  "authorization_state": "FINAL_AUTHORIZED",
+  "wave1_execution_authorized": true,
+  "test_run": {
+    "command": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe -m pytest -q",
+    "exit_code": 0,
+    "output": "........................................................................ [ 53%]\n..............................................................           [100%]\n134 passed in 374.45s (0:06:14)"
+  },
+  "gates": {
+    "O1-LA1": "PASS",
+    "O1-LA2": "PASS",
+    "O1-LA3": "PASS",
+    "O1-LA4": "PASS",
+    "O1-LA5": "PASS",
+    "O1-LA6": "PASS",
+    "O1-LA7": "PASS",
+    "O1-LA8": "PASS",
+    "O1-LA9": "PASS",
+    "O1-LA10": "PASS",
+    "O1-LA11": "PASS",
+    "O1-LA12": "PASS"
+  },
+  "fer2013_accessed": false,
+  "private_test_accessed": false,
+  "kaggle_launched": false,
+  "status": "MPG_FER_O1_WAVE1_FINAL_AUTHORIZATION_READY_PENDING_DIFF_VERIFICATION"
+}
