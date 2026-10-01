@@ -22,11 +22,12 @@ from mpg_fer_table_vi.protocol import (
     TABLE_INFERENCE,
     aggregate_table_vi,
     config_from_final_recipe,
+    evaluate_canonical_private_fp32,
     evaluate_canonical_public_fp32,
     final_recipe_template,
     validate_ablation_data_paths,
     validate_final_recipe_lock,
-    validate_kaggle_mounted_input_firewall,
+    validate_kaggle_mounted_input_contract,
     write_json,
 )
 from mpg_fer_v2_3.checkpoint import sha256_file
@@ -37,6 +38,7 @@ from mpg_fer_table_vi.train import (
     build_recipe_optimizer,
     build_recipe_scheduler,
     compute_ablation_training_loss,
+    evaluate_ablation_private_once,
 )
 
 
@@ -413,20 +415,22 @@ def test_private_firewall_rejects_test_private_and_ambiguous_roles(tmp_path) -> 
     private = tmp_path / "test.csv"
     for path in (train, public, private):
         path.write_text("emotion,pixels\n", encoding="utf-8")
-    assert validate_ablation_data_paths(train, public) == (train, public)
-    with pytest.raises(RuntimeError, match="PRIVATE_FIREWALL"):
-        validate_ablation_data_paths(train, private)
+    assert validate_ablation_data_paths(train, public, private) == (
+        train,
+        public,
+        private,
+    )
     private_dir = tmp_path / "PrivateTest"
     private_dir.mkdir()
     disguised = private_dir / "val.csv"
     disguised.write_text("emotion,pixels\n", encoding="utf-8")
-    with pytest.raises(RuntimeError, match="PRIVATE_FIREWALL"):
-        validate_ablation_data_paths(train, disguised)
+    with pytest.raises(RuntimeError, match="DATA_ROLE_GUARD"):
+        validate_ablation_data_paths(train, public, disguised)
     with pytest.raises(ValueError, match="requires basename"):
-        validate_ablation_data_paths(public, train)
+        validate_ablation_data_paths(public, train, private)
 
 
-def test_kaggle_mounted_input_firewall_accepts_train_public_by_name_only(
+def test_kaggle_mounted_input_contract_accepts_one_of_each_split_by_name_only(
     tmp_path,
 ) -> None:
     mounted = tmp_path / "input"
@@ -434,22 +438,26 @@ def test_kaggle_mounted_input_firewall_accepts_train_public_by_name_only(
     dataset.mkdir(parents=True)
     (dataset / "train.csv").write_text("not opened", encoding="utf-8")
     (dataset / "val.csv").write_text("not opened", encoding="utf-8")
+    (dataset / "test.csv").write_text("not opened", encoding="utf-8")
     with patch.object(Path, "open", side_effect=AssertionError("file opened")):
-        result = validate_kaggle_mounted_input_firewall(mounted)
-    assert result["forbidden_private_markers_found"] is False
-    assert result["entries_inspected_by_name_only"] == 3
+        result = validate_kaggle_mounted_input_contract(mounted)
+    assert result["split_name_counts"] == {
+        "train.csv": 1,
+        "val.csv": 1,
+        "test.csv": 1,
+    }
+    assert result["files_opened"] is False
 
 
 @pytest.mark.parametrize(
     "forbidden_relative",
     (
-        Path("fer13-split/test.csv"),
         Path("PrivateTest/labels.csv"),
         Path("private_test/labels.csv"),
         Path("private-test/labels.csv"),
     ),
 )
-def test_kaggle_mounted_input_firewall_rejects_forbidden_coexisting_path_without_open(
+def test_kaggle_mounted_input_contract_rejects_ambiguous_private_path_without_open(
     tmp_path, forbidden_relative
 ) -> None:
     mounted = tmp_path / "input"
@@ -457,12 +465,26 @@ def test_kaggle_mounted_input_firewall_rejects_forbidden_coexisting_path_without
     dataset.mkdir(parents=True)
     (dataset / "train.csv").write_text("not opened", encoding="utf-8")
     (dataset / "val.csv").write_text("not opened", encoding="utf-8")
+    (dataset / "test.csv").write_text("not opened", encoding="utf-8")
     forbidden = mounted / forbidden_relative
     forbidden.parent.mkdir(parents=True, exist_ok=True)
     forbidden.write_text("must never be opened", encoding="utf-8")
     with patch.object(Path, "open", side_effect=AssertionError("private file opened")):
-        with pytest.raises(RuntimeError, match="PRIVATE_FIREWALL"):
-            validate_kaggle_mounted_input_firewall(mounted)
+        with pytest.raises(RuntimeError, match="DATA_ROLE_GUARD"):
+            validate_kaggle_mounted_input_contract(mounted)
+
+
+def test_kaggle_mounted_input_contract_rejects_missing_or_duplicate_split(tmp_path) -> None:
+    mounted = tmp_path / "input"
+    first = mounted / "first"
+    second = mounted / "second"
+    first.mkdir(parents=True)
+    second.mkdir(parents=True)
+    for name in ("train.csv", "val.csv", "test.csv"):
+        (first / name).write_text("not opened", encoding="utf-8")
+    (second / "test.csv").write_text("not opened", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="expected exactly one"):
+        validate_kaggle_mounted_input_contract(mounted)
 
 
 class _TinyClassifier(nn.Module):
@@ -505,6 +527,51 @@ def test_canonical_fp32_public_evaluator_is_repeatable_and_single_view() -> None
         )
 
 
+def test_canonical_private_evaluator_is_fp32_single_pass_and_role_locked() -> None:
+    images = torch.tensor([0.0, 1.0, 0.5, 0.25]).view(4, 1, 1, 1).expand(-1, 1, 48, 48)
+    labels = torch.tensor([1, 0, 0, 0])
+    loader = DataLoader(TensorDataset(images, labels), batch_size=2, shuffle=False)
+    result = evaluate_canonical_private_fp32(
+        _TinyClassifier(),
+        loader,
+        "cpu",
+        dataset_role="PrivateTest",
+        source_path="test.csv",
+    )
+    assert result["dataset_role"] == "PrivateTest"
+    assert result["physical_loader_passes"] == 1
+    assert result["selection_or_training_use"] is False
+    assert set(result["views"]) == {"raw", "horizontal_flip_tta"}
+    with pytest.raises(RuntimeError, match="FINAL_TEST_GUARD"):
+        evaluate_canonical_private_fp32(
+            _TinyClassifier(),
+            loader,
+            "cpu",
+            dataset_role="PublicTest",
+            source_path="val.csv",
+        )
+
+
+def test_private_one_shot_refuses_before_completion_and_after_record(tmp_path) -> None:
+    manifest = tmp_path / "execution_manifest.json"
+    write_json(manifest, {"status": "NEEDS_RESUME", "PRIVATE_EVALUATED": False})
+    with pytest.raises(RuntimeError, match="training is not complete"):
+        evaluate_ablation_private_once(
+            tmp_path / "test.csv",
+            tmp_path,
+            config=AblationConfig(),
+            expected_checkpoint_sha256="0" * 64,
+        )
+    write_json(manifest, {"status": "TRAINING_COMPLETED", "PRIVATE_EVALUATED": True})
+    with pytest.raises(RuntimeError, match="already recorded"):
+        evaluate_ablation_private_once(
+            tmp_path / "test.csv",
+            tmp_path,
+            config=AblationConfig(),
+            expected_checkpoint_sha256="0" * 64,
+        )
+
+
 def test_training_refuses_missing_or_unbound_final_recipe(tmp_path) -> None:
     config = AblationConfig()
     design = tmp_path / "ABLATION_DESIGN_LOCK.json"
@@ -540,6 +607,8 @@ def _authorized_recipe(tmp_path, *, optimizer="SGD", scheduler="constant"):
         {
             "final_recipe_lock_sha256": sha256_file(recipe_path),
             "scientific_training_authorized": True,
+            "final_test_reporting_authorized": True,
+            "private_test_selection_permitted": False,
         },
     )
     config = config_from_final_recipe(
@@ -623,15 +692,23 @@ def test_table_aggregator_uses_fixed_order_and_never_performance_order(
             {
                 "ablation_mode": mode.value,
                 "seed": 42,
-                "private_test_permitted": False,
+                "private_test_permitted": True,
+                "private_test_selection_permitted": False,
             },
         )
         write_json(
-            root / "canonical_public_metrics.json",
+            root / "canonical_private_metrics.json",
             {
-                "dataset_role": "PublicTest",
-                "inference": TABLE_INFERENCE,
-                "metrics": {"accuracy": index / 10, "macro_f1": index / 20},
+                "dataset_role": "PrivateTest",
+                "inference": "canonical_fp32_no_autocast_tf32_disabled",
+                "selection_or_training_use": False,
+                "views": {
+                    "raw": {"accuracy": index / 10, "macro_f1": index / 20},
+                    "horizontal_flip_tta": {
+                        "accuracy": index / 10,
+                        "macro_f1": index / 20,
+                    },
+                },
             },
         )
         runs.append(root)

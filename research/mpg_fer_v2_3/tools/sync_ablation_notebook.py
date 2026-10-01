@@ -54,11 +54,11 @@ def build_notebook(implementation_sha: str | None = None) -> dict:
     cells = [
         _cell(
             "markdown",
-            "# MPG-FER Table VI ablation (Issue #101)\n\n"
+            "# MPG-FER seven-run ablation execution (Issue #106)\n\n"
             "One canonical source-locked notebook for all seven variants and FULL. "
-            "It refuses scientific training until a separately reviewed final recipe "
-            "and design-lock authorization are attached. PrivateTest is not resolved "
-            "or evaluated by this notebook.\n",
+            "Train and checkpoint selection use only Train/PublicTest. After training "
+            "completes and the selected checkpoint SHA-256 is frozen, the notebook "
+            "evaluates PrivateTest once for final paper reporting.\n",
         ),
         _cell(
             "code",
@@ -117,7 +117,7 @@ from mpg_fer_table_vi.protocol import (
     config_from_final_recipe,
     validate_ablation_data_paths,
     validate_final_recipe_lock,
-    validate_kaggle_mounted_input_firewall,
+    validate_kaggle_mounted_input_contract,
 )
 from mpg_fer_table_vi.train import (
     run_ablation_micro_overfit_preflight,
@@ -126,8 +126,8 @@ from mpg_fer_table_vi.train import (
 from mpg_fer_v2_3.checkpoint import sha256_file
 
 INPUT_ROOT = Path("/kaggle/input")
-mounted_input_firewall = validate_kaggle_mounted_input_firewall(INPUT_ROOT)
-print(mounted_input_firewall)
+mounted_input_contract = validate_kaggle_mounted_input_contract(INPUT_ROOT)
+print(mounted_input_contract)
 
 def exactly_one(filename):
     matches = sorted(INPUT_ROOT.rglob(filename))
@@ -166,11 +166,13 @@ config = config_from_final_recipe(
 authorization = validate_final_recipe_lock(recipe_path, design_lock_path, config)
 train_csv = exactly_one("train.csv")
 public_csv = exactly_one("val.csv")
-validate_ablation_data_paths(train_csv, public_csv)
+private_csv = exactly_one("test.csv")
+validate_ablation_data_paths(train_csv, public_csv, private_csv)
 print({
     "recipe_sha256": authorization["sha256"],
     "train_csv": str(train_csv),
     "public_csv": str(public_csv),
+    "private_csv": str(private_csv),
     "resume_path": None if resume_path is None else str(resume_path),
 })
 """,
@@ -184,6 +186,7 @@ else:
 result = run_ablation_training(
     train_csv,
     public_csv,
+    private_csv,
     OUTPUT_DIR,
     preflight,
     config=config,
@@ -212,11 +215,12 @@ print("artifact_zip", archive)
                 "name": "python3",
             },
             "language_info": {"name": "python", "version": "3"},
-            "mpg_fer_ablation_issue": 101,
+            "mpg_fer_ablation_issue": 106,
             "source_tree_sha256": source_sha,
             "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
             "ablation_implementation_commit": implementation_sha,
-            "private_test_permitted": False,
+            "private_test_permitted": True,
+            "private_test_use": "one_shot_final_reporting_after_checkpoint_sha_freeze",
         },
         "nbformat": 4,
         "nbformat_minor": 5,

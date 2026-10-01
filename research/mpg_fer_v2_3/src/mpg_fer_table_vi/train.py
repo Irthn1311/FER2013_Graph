@@ -20,6 +20,7 @@ from .model import AblationMPGFER, AblationMode
 from .protocol import (
     AblationConfig,
     ablation_source_tree_hash,
+    evaluate_canonical_private_fp32,
     evaluate_canonical_public_fp32,
     validate_ablation_data_paths,
     validate_final_recipe_lock,
@@ -35,7 +36,7 @@ from mpg_fer_v2_3.checkpoint import (
     save_periodic_snapshot,
     sha256_file,
 )
-from mpg_fer_v2_3.data import create_training_dataloaders
+from mpg_fer_v2_3.data import create_private_dataloader, create_training_dataloaders
 from mpg_fer_v2_3.data import FER2013Dataset, validate_split_path
 from mpg_fer_v2_3.ema import ModelEMA
 from mpg_fer_v2_3.evaluate import evaluate_raw_and_tta
@@ -734,6 +735,7 @@ def _run_ablation_training_core(
 def run_ablation_training(
     train_csv: str | Path,
     public_csv: str | Path,
+    private_csv: str | Path,
     output_dir: str | Path,
     preflight_result: dict[str, Any],
     *,
@@ -743,9 +745,12 @@ def run_ablation_training(
     resume_path: str | Path | None = None,
     resume_sha256: str | None = None,
 ) -> dict[str, Any]:
-    """Train one reviewed mode; this API has no PrivateTest construction path."""
+    """Train/select on Train/PublicTest, then report PrivateTest exactly once."""
     recipe = validate_final_recipe_lock(final_recipe_lock, design_lock, config)
-    train_path, public_path = validate_ablation_data_paths(train_csv, public_csv)
+    # This validates path roles only. PrivateTest content is not opened here.
+    train_path, public_path, private_path = validate_ablation_data_paths(
+        train_csv, public_csv, private_csv
+    )
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     source_sha = ablation_source_tree_hash()
@@ -799,7 +804,6 @@ def run_ablation_training(
         }
     )
     write_json(output / "canonical_public_metrics.json", canonical)
-    write_checksums(output)
     result["canonical_public_metrics"] = canonical
     execution = output / "execution_manifest.json"
     manifest = json.loads(execution.read_text(encoding="utf-8"))
@@ -811,9 +815,84 @@ def run_ablation_training(
                 output / "canonical_public_metrics.json"
             ),
             "PRIVATE_EVALUATED": False,
+            "private_test_selection_or_training_use": False,
         }
     )
     write_json(execution, manifest)
-    # execution_manifest changed after the first checksum pass.
-    write_checksums(output)
+    private_metrics = evaluate_ablation_private_once(
+        private_path,
+        output,
+        config=config,
+        expected_checkpoint_sha256=result["best_checkpoint_sha256"],
+    )
+    result["canonical_private_metrics"] = private_metrics
     return result
+
+
+def evaluate_ablation_private_once(
+    private_csv: str | Path,
+    output_dir: str | Path,
+    *,
+    config: AblationConfig,
+    expected_checkpoint_sha256: str,
+) -> dict[str, Any]:
+    """Open PrivateTest only after completion and checkpoint SHA freeze."""
+    output = Path(output_dir)
+    execution = output / "execution_manifest.json"
+    manifest = json.loads(execution.read_text(encoding="utf-8"))
+    if manifest.get("status") != "TRAINING_COMPLETED":
+        raise RuntimeError("FINAL_TEST_REFUSED: training is not complete")
+    if manifest.get("PRIVATE_EVALUATED"):
+        raise RuntimeError("FINAL_TEST_REFUSED: PrivateTest one-shot already recorded")
+    public_metrics_path = output / "canonical_public_metrics.json"
+    if not public_metrics_path.is_file():
+        raise RuntimeError("FINAL_TEST_REFUSED: frozen PublicTest report is absent")
+    checkpoint = Path(manifest["best_checkpoint"])
+    checkpoint_sha = sha256_file(checkpoint)
+    if (
+        checkpoint_sha != expected_checkpoint_sha256
+        or checkpoint_sha != manifest.get("best_checkpoint_sha256")
+    ):
+        raise RuntimeError("FINAL_TEST_REFUSED: frozen checkpoint SHA-256 mismatch")
+
+    # This is the first operation that constructs a dataset from test.csv.
+    loader = create_private_dataloader(
+        private_csv, config.batch_size, config.num_workers
+    )
+    payload = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    model = _model_factory(config)
+    model.load_state_dict(payload["model_state_dict"], strict=True)
+    device = torch.device(config.device if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    canonical = evaluate_canonical_private_fp32(
+        model,
+        loader,
+        device,
+        dataset_role="PrivateTest",
+        source_path=private_csv,
+    )
+    canonical.update(
+        {
+            "ablation_mode": config.ablation_mode,
+            "seed": config.seed,
+            "weights_type": "EMA",
+            "selected_epoch": payload["epoch"],
+            "checkpoint_sha256": checkpoint_sha,
+            "evaluated_only_after_training_completed": True,
+            "evaluated_only_after_checkpoint_sha_freeze": True,
+        }
+    )
+    private_metrics_path = write_json(
+        output / "canonical_private_metrics.json", canonical
+    )
+    manifest.update(
+        {
+            "canonical_private_metrics_sha256": sha256_file(private_metrics_path),
+            "private_test_selection_or_training_use": False,
+            "private_evaluated_only_after_freeze": True,
+            "PRIVATE_EVALUATED": True,
+        }
+    )
+    write_json(execution, manifest)
+    write_checksums(output)
+    return canonical

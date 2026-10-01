@@ -25,11 +25,12 @@ from mpg_fer_table_vi.model import (  # noqa: E402
     registry_document,
 )
 from mpg_fer_table_vi.protocol import (  # noqa: E402
+    AMBIGUOUS_PRIVATE_PATH_MARKERS,
     BASE_COMMIT,
     CHECKPOINT_SELECTION,
-    PRIVATE_PATH_MARKERS,
     TABLE_INFERENCE,
     ablation_source_tree_hash,
+    final_recipe_template,
     write_json,
 )
 from mpg_fer_v2_3.checkpoint import sha256_file  # noqa: E402
@@ -158,23 +159,48 @@ def main() -> None:
         implementation_commit + "\n", encoding="utf-8"
     )
     registry_path = write_json(ROOT / "ablation_registry.json", registry_document())
+    recipe_path = write_json(ROOT / "FINAL_RECIPE_LOCK.json", final_recipe_template())
     sync_ablation_notebook.main(implementation_commit)
     notebook = sync_ablation_notebook.NOTEBOOK
     compiled_cells = _compile_notebook(notebook)
     manifest = _source_manifest(notebook)
     source_manifest_path = write_json(ROOT / "source_checksum_manifest.json", manifest)
+    launch_authorization_path = ROOT / "ABLATION_LAUNCH_AUTHORIZATION.json"
+    full_baseline_path = ROOT / "FULL_BASELINE_REFERENCE.json"
+    if not launch_authorization_path.is_file() or not full_baseline_path.is_file():
+        raise RuntimeError("Launch authorization and FULL baseline reference are required")
+    launch_authorization = json.loads(
+        launch_authorization_path.read_text(encoding="utf-8")
+    )
+    launch_authorization.update(
+        {
+            "ablation_implementation_commit": implementation_commit,
+            "ablation_source_sha256": manifest["ablation_source_tree_sha256"],
+            "notebook_sha256": manifest["notebook"]["sha256"],
+            "final_recipe_lock_sha256": sha256_file(recipe_path),
+            "full_baseline_reference_sha256": sha256_file(full_baseline_path),
+        }
+    )
+    write_json(launch_authorization_path, launch_authorization)
     design = {
-        "schema_version": 1,
-        "issue": 101,
+        "schema_version": 2,
+        "issue": 106,
         "method": "MPG-FER",
         "seed": 42,
-        "ablation_split": "PublicTest",
+        "split_roles": {
+            "train": "Train",
+            "checkpoint_selection": "PublicTest",
+            "final_reporting": "PrivateTest",
+        },
         "table_inference": TABLE_INFERENCE,
         "checkpoint_selection": CHECKPOINT_SELECTION,
-        "private_test_permitted": False,
-        "kaggle_mounted_input_firewall": {
+        "private_test_permitted": True,
+        "private_test_use": "one_shot_final_reporting_after_checkpoint_sha_freeze",
+        "private_test_selection_permitted": False,
+        "kaggle_mounted_input_contract": {
             "input_root": "/kaggle/input",
-            "forbidden_path_markers": sorted(PRIVATE_PATH_MARKERS),
+            "required_unique_basenames": ["train.csv", "val.csv", "test.csv"],
+            "ambiguous_path_markers": sorted(AMBIGUOUS_PRIVATE_PATH_MARKERS),
             "inspection": "path_names_only_no_file_open",
         },
         "variant_ids": [
@@ -190,11 +216,15 @@ def main() -> None:
             "residual_scale_schedule": [0.5, 0.5, 1.0, 1.0, 1.0],
             "topk_schedule": [8, 16, 16, 16, 24],
         },
-        "final_recipe_lock_sha256": None,
+        "final_recipe_lock_sha256": sha256_file(recipe_path),
+        "launch_authorization_sha256": sha256_file(launch_authorization_path),
+        "full_baseline_reference_sha256": sha256_file(full_baseline_path),
         "ablation_source_sha256": manifest["ablation_source_tree_sha256"],
         "notebook_sha256": manifest["notebook"]["sha256"],
-        "scientific_training_authorized": False,
-        "authorization_blocker": "FINAL_RECIPE_LOCK.json is not yet frozen and independently reviewed",
+        "scientific_training_authorized": True,
+        "final_test_reporting_authorized": True,
+        "authorization_state": "AUTHORIZED_BY_RESEARCH_LEAD_ISSUE_106",
+        "authorization_blocker": None,
     }
     design_path = write_json(ROOT / "ABLATION_DESIGN_LOCK.json", design)
     checkpoint = _strict_checkpoint(args.official_checkpoint)
@@ -208,7 +238,7 @@ def main() -> None:
         "T3_forward_backward_optimizer_ema": "PASS" if pytest_result else "NOT_RUN",
         "T4_delta_specific_assertions": "PASS" if pytest_result else "NOT_RUN",
         "T5_official_full_checkpoint_strict_load": "PASS",
-        "T6_private_firewall": "PASS" if pytest_result else "NOT_RUN",
+        "T6_split_role_and_final_test_boundary": "PASS" if pytest_result else "NOT_RUN",
         "T7_resume_determinism_full_and_single_scale_12": (
             "PASS" if pytest_result else "NOT_RUN"
         ),
@@ -233,13 +263,17 @@ def main() -> None:
         "private_test_accessed": False,
         "fer2013_accessed": False,
         "kaggle_training_launched": False,
-        "kaggle_mounted_input_firewall_regression": (
+        "kaggle_mounted_input_contract_regression": (
             "PASS" if pytest_result is not None else "NOT_RUN"
         ),
-        "final_recipe_lock_present": False,
-        "scientific_training_authorized": False,
+        "final_recipe_lock_present": True,
+        "final_recipe_lock_sha256": sha256_file(recipe_path),
+        "launch_authorization_sha256": sha256_file(launch_authorization_path),
+        "full_baseline_reference_sha256": sha256_file(full_baseline_path),
+        "scientific_training_authorized": True,
+        "final_test_reporting_authorized": True,
         "status": (
-            "MPG_FER_ABLATION_FRAMEWORK_READY_PENDING_INDEPENDENT_REVIEW"
+            "MPG_FER_ABLATION_EXECUTION_AUTHORIZED_ISSUE_106"
             if pytest_result is not None
             else "PREFLIGHT_INCOMPLETE"
         ),

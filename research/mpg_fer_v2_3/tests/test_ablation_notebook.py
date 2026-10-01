@@ -36,17 +36,18 @@ def test_canonical_ablation_notebook_matches_generator_and_compiles_every_cell()
     assert 'secrets.get_secret("MPG_FER_ABLATION_MODE")' in code
     assert 'secrets.get_secret("MPG_FER_ABLATION_RUN_ID")' in code
     assert "run_ablation_training(" in code
-    assert "validate_kaggle_mounted_input_firewall(INPUT_ROOT)" in code
-    assert code.index("validate_kaggle_mounted_input_firewall(INPUT_ROOT)") < code.index(
+    assert "validate_kaggle_mounted_input_contract(INPUT_ROOT)" in code
+    assert code.index("validate_kaggle_mounted_input_contract(INPUT_ROOT)") < code.index(
         'exactly_one("FINAL_RECIPE_LOCK.json")'
     )
     assert 'exactly_one("FINAL_RECIPE_LOCK.json")' in code
     assert 'exactly_one("ABLATION_DESIGN_LOCK.json")' in code
     assert 'exactly_one("train.csv")' in code
     assert 'exactly_one("val.csv")' in code
-    assert 'exactly_one("test.csv")' not in code
-    assert "evaluate_private_once" not in code
-    assert "create_private_dataloader" not in code
+    assert 'exactly_one("test.csv")' in code
+    assert code.index('exactly_one("test.csv")') < code.index(
+        "run_ablation_training("
+    )
     assert "shutil.make_archive" in code
     implementation_commit = (
         ROOT / "ABLATION_IMPLEMENTATION_COMMIT.txt"
@@ -60,12 +61,12 @@ def test_canonical_ablation_notebook_matches_generator_and_compiles_every_cell()
         in code
     )
     assert 'os.environ["MPG_FER_ARCHITECTURE_BASE_COMMIT"]' in code
-    assert actual["metadata"]["mpg_fer_ablation_issue"] == 101
+    assert actual["metadata"]["mpg_fer_ablation_issue"] == 106
     assert actual["metadata"]["ablation_implementation_commit"] == implementation_commit
-    assert actual["metadata"]["private_test_permitted"] is False
+    assert actual["metadata"]["private_test_permitted"] is True
 
 
-def test_design_lock_binds_notebook_and_source_but_refuses_training() -> None:
+def test_design_lock_binds_notebook_source_recipe_and_authorizes_seven_jobs() -> None:
     design = json.loads(
         (ROOT / "ABLATION_DESIGN_LOCK.json").read_text(encoding="utf-8")
     )
@@ -81,16 +82,25 @@ def test_design_lock_binds_notebook_and_source_but_refuses_training() -> None:
     assert manifest["ablation_implementation_commit"] == implementation_commit
     assert design["ablation_source_sha256"] == manifest["ablation_source_tree_sha256"]
     assert design["notebook_sha256"] == manifest["notebook"]["sha256"]
-    assert design["final_recipe_lock_sha256"] is None
-    assert design["scientific_training_authorized"] is False
-    assert design["private_test_permitted"] is False
-    assert design["kaggle_mounted_input_firewall"] == {
+    assert design["final_recipe_lock_sha256"]
+    assert design["scientific_training_authorized"] is True
+    assert design["final_test_reporting_authorized"] is True
+    assert design["private_test_permitted"] is True
+    assert design["private_test_selection_permitted"] is False
+    assert design["kaggle_mounted_input_contract"] == {
         "input_root": "/kaggle/input",
-        "forbidden_path_markers": [
+        "required_unique_basenames": ["train.csv", "val.csv", "test.csv"],
+        "ambiguous_path_markers": [
             "private-test",
             "private_test",
             "privatetest",
-            "test.csv",
         ],
         "inspection": "path_names_only_no_file_open",
     }
+    authorization = json.loads(
+        (ROOT / "ABLATION_LAUNCH_AUTHORIZATION.json").read_text(encoding="utf-8")
+    )
+    assert len(authorization["jobs"]) == 7
+    assert len({job["mode"] for job in authorization["jobs"]}) == 7
+    assert len({job["run_id"] for job in authorization["jobs"]}) == 7
+    assert authorization["full_control_launched"] is False

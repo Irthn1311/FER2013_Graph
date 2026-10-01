@@ -16,15 +16,17 @@ from sklearn.metrics import f1_score
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+import torchvision.transforms.functional as TF
 
 from .model import ABLATION_REGISTRY, TABLE_VI_ORDER, AblationMode
 from mpg_fer_v2_3.checkpoint import sha256_file
 from mpg_fer_v2_3.config import MPGConfig
-from mpg_fer_v2_3.data import validate_split_path
+from mpg_fer_v2_3.data import validate_split_path, validate_split_paths
 
 
 BASE_COMMIT = "232e7a9f09251e7c3353684d34351356bd2b023b"
 ISSUE_URL = "https://github.com/Irthn1311/FER2013_Graph/issues/101"
+EXECUTION_ISSUE_URL = "https://github.com/Irthn1311/FER2013_Graph/issues/106"
 TABLE_INFERENCE = "raw_single_view_fp32"
 CHECKPOINT_SELECTION = (
     "EMA Public horizontal-flip TTA accuracy, then higher Macro-F1, "
@@ -38,12 +40,13 @@ REQUIRED_RUN_ARTIFACTS = (
     "best_val_acc.pt",
     "execution_manifest.json",
     "canonical_public_metrics.json",
+    "canonical_private_metrics.json",
     "segment_manifest.json",
     "resume_latest.pt",
     "checksums.sha256",
 )
-PRIVATE_PATH_MARKERS = frozenset(
-    {"test.csv", "privatetest", "private_test", "private-test"}
+AMBIGUOUS_PRIVATE_PATH_MARKERS = frozenset(
+    {"privatetest", "private_test", "private-test"}
 )
 
 SUPPORTED_OPTIMIZER_FAMILIES = frozenset({"AdamW", "Adam", "SGD"})
@@ -123,25 +126,26 @@ class AblationConfig(MPGConfig):
 
 
 def _contains_private_marker(path: Path) -> bool:
-    return any(part.lower() in PRIVATE_PATH_MARKERS for part in path.parts)
+    return any(part.lower() in AMBIGUOUS_PRIVATE_PATH_MARKERS for part in path.parts)
 
 
-def validate_kaggle_mounted_input_firewall(
+def validate_kaggle_mounted_input_contract(
     input_root: str | Path = "/kaggle/input",
 ) -> dict[str, Any]:
-    """Reject forbidden mounted paths by name only, without opening any file."""
+    """Require one unambiguous Train/Public/Private mount without opening files."""
     root = Path(input_root)
     if not root.is_dir():
         raise RuntimeError(
-            f"PRIVATE_FIREWALL: mounted input root is absent or not a directory: {root}"
+            f"DATA_ROLE_GUARD: mounted input root is absent or not a directory: {root}"
         )
 
     def fail_scan(error: OSError) -> None:
         raise RuntimeError(
-            f"PRIVATE_FIREWALL: unable to enumerate mounted input paths: {error}"
+            f"DATA_ROLE_GUARD: unable to enumerate mounted input paths: {error}"
         ) from error
 
     inspected = 0
+    split_counts = {"train.csv": 0, "val.csv": 0, "test.csv": 0}
     for current, directories, files in os.walk(
         root, topdown=True, onerror=fail_scan, followlinks=False
     ):
@@ -151,28 +155,34 @@ def validate_kaggle_mounted_input_firewall(
             inspected += 1
             if _contains_private_marker(relative):
                 raise RuntimeError(
-                    "PRIVATE_FIREWALL: forbidden mounted input path marker: "
+                    "DATA_ROLE_GUARD: ambiguous PrivateTest path marker: "
                     f"{relative.as_posix()}"
                 )
+            if name.lower() in split_counts:
+                split_counts[name.lower()] += 1
+    if split_counts != {"train.csv": 1, "val.csv": 1, "test.csv": 1}:
+        raise RuntimeError(
+            "DATA_ROLE_GUARD: expected exactly one train.csv, val.csv, and test.csv; "
+            f"found {split_counts}"
+        )
     return {
         "input_root": str(root),
         "entries_inspected_by_name_only": inspected,
-        "forbidden_private_markers_found": False,
+        "split_name_counts": split_counts,
+        "files_opened": False,
     }
 
 
 def validate_ablation_data_paths(
-    train_csv: str | Path, public_csv: str | Path
-) -> tuple[Path, Path]:
-    """Accept only explicit Train and PublicTest roles; PrivateTest is impossible."""
-    candidates = (Path(train_csv), Path(public_csv))
+    train_csv: str | Path, public_csv: str | Path, private_csv: str | Path
+) -> tuple[Path, Path, Path]:
+    """Bind explicit Train/PublicTest/PrivateTest roles without reading CSV data."""
+    candidates = (Path(train_csv), Path(public_csv), Path(private_csv))
     if any(_contains_private_marker(path) for path in candidates):
-        raise RuntimeError("PRIVATE_FIREWALL: PrivateTest/test.csv is forbidden")
-    train = validate_split_path(candidates[0], "train")
-    public = validate_split_path(candidates[1], "val")
-    if train.resolve() == public.resolve():
-        raise RuntimeError("PRIVATE_FIREWALL: ambiguous or duplicated split role")
-    return train, public
+        raise RuntimeError("DATA_ROLE_GUARD: ambiguous PrivateTest path marker")
+    train, public, private = validate_split_paths(*candidates)
+    assert private is not None
+    return train, public, private
 
 
 def validate_public_role(
@@ -188,6 +198,19 @@ def validate_public_role(
             raise RuntimeError(
                 "PRIVATE_FIREWALL: canonical evaluator accepts only val.csv as PublicTest"
             )
+
+
+def validate_private_role(
+    dataset_role: str, source_path: str | Path | None = None
+) -> None:
+    if dataset_role != "PrivateTest":
+        raise RuntimeError(
+            "FINAL_TEST_GUARD: final evaluator requires explicit PrivateTest role"
+        )
+    if source_path is not None and Path(source_path).name.lower() != "test.csv":
+        raise RuntimeError(
+            "FINAL_TEST_GUARD: final evaluator accepts only test.csv as PrivateTest"
+        )
 
 
 def _finite_json(value: Any) -> Any:
@@ -238,10 +261,12 @@ def final_recipe_template() -> dict[str, Any]:
     }
     return {
         "schema_version": 2,
-        "issue": 101,
+        "issue": 106,
         "method": "MPG-FER",
         "architecture_base_commit": BASE_COMMIT,
-        "private_test_permitted": False,
+        "private_test_permitted": True,
+        "private_test_use": "one_shot_final_reporting_after_checkpoint_sha_freeze",
+        "private_test_selection_permitted": False,
         "checkpoint_selection": CHECKPOINT_SELECTION,
         "frozen_scientific_config": frozen,
         "training_recipe": training,
@@ -327,10 +352,13 @@ def _validate_recipe_payload(recipe: Any) -> dict[str, Any]:
         )
     if (
         recipe["schema_version"] != 2
-        or recipe["issue"] != 101
+        or recipe["issue"] != 106
         or recipe["method"] != "MPG-FER"
         or recipe["architecture_base_commit"] != BASE_COMMIT
-        or recipe["private_test_permitted"] is not False
+        or recipe["private_test_permitted"] is not True
+        or recipe["private_test_use"]
+        != "one_shot_final_reporting_after_checkpoint_sha_freeze"
+        or recipe["private_test_selection_permitted"] is not False
         or recipe["checkpoint_selection"] != CHECKPOINT_SELECTION
     ):
         raise RuntimeError("SCIENTIFIC_TRAINING_REFUSED: recipe provenance mismatch")
@@ -406,6 +434,13 @@ def validate_final_recipe_lock(
     if design.get("scientific_training_authorized") is not True:
         raise RuntimeError(
             "SCIENTIFIC_TRAINING_REFUSED: independent authorization is not frozen"
+        )
+    if (
+        design.get("final_test_reporting_authorized") is not True
+        or design.get("private_test_selection_permitted") is not False
+    ):
+        raise RuntimeError(
+            "SCIENTIFIC_TRAINING_REFUSED: final Test reporting policy is not frozen"
         )
     recipe = _validate_recipe_payload(recipe)
     expected = _config_from_recipe_payload(
@@ -559,6 +594,77 @@ def evaluate_canonical_public_fp32(
     }
 
 
+@torch.no_grad()
+def evaluate_canonical_private_fp32(
+    model: nn.Module,
+    dataloader: DataLoader,
+    device: str | torch.device,
+    *,
+    dataset_role: str,
+    source_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Evaluate frozen weights once on PrivateTest, reporting raw and flip-TTA."""
+    validate_private_role(dataset_role, source_path)
+    model.eval()
+    resolved = torch.device(device)
+    raw_predictions: list[int] = []
+    tta_predictions: list[int] = []
+    targets_all: list[int] = []
+    raw_loss_total = 0.0
+    tta_loss_total = 0.0
+    criterion = nn.CrossEntropyLoss()
+    prior_matmul = torch.backends.cuda.matmul.allow_tf32
+    prior_cudnn = torch.backends.cudnn.allow_tf32
+    try:
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        for images, targets in dataloader:
+            images = images.to(resolved, dtype=torch.float32)
+            targets = targets.to(resolved)
+            with torch.amp.autocast("cuda", enabled=False):
+                raw_logits, _ = model(images)
+                flipped_logits, _ = model(TF.hflip(images))
+                tta_logits = 0.5 * (raw_logits + flipped_logits)
+                raw_loss = criterion(raw_logits.float(), targets)
+                tta_loss = criterion(tta_logits.float(), targets)
+            count = len(targets)
+            raw_loss_total += float(raw_loss) * count
+            tta_loss_total += float(tta_loss) * count
+            raw_predictions.extend(raw_logits.argmax(dim=-1).cpu().tolist())
+            tta_predictions.extend(tta_logits.argmax(dim=-1).cpu().tolist())
+            targets_all.extend(targets.cpu().tolist())
+    finally:
+        torch.backends.cuda.matmul.allow_tf32 = prior_matmul
+        torch.backends.cudnn.allow_tf32 = prior_cudnn
+    if not targets_all:
+        raise ValueError("Cannot evaluate an empty PrivateTest dataloader")
+    truth = np.asarray(targets_all, dtype=np.int64)
+
+    def metrics(predictions: list[int], total_loss: float) -> dict[str, float]:
+        predicted = np.asarray(predictions, dtype=np.int64)
+        return {
+            "loss": total_loss / len(truth),
+            "accuracy": float(np.mean(truth == predicted)),
+            "macro_f1": float(
+                f1_score(truth, predicted, average="macro", zero_division=0)
+            ),
+        }
+
+    return {
+        "dataset_role": "PrivateTest",
+        "inference": "canonical_fp32_no_autocast_tf32_disabled",
+        "autocast_enabled": False,
+        "tf32_enabled": False,
+        "physical_loader_passes": 1,
+        "views": {
+            "raw": metrics(raw_predictions, raw_loss_total),
+            "horizontal_flip_tta": metrics(tta_predictions, tta_loss_total),
+        },
+        "sample_count": int(len(truth)),
+        "selection_or_training_use": False,
+    }
+
+
 def write_ablation_manifest(
     output_dir: str | Path,
     config: AblationConfig,
@@ -572,6 +678,7 @@ def write_ablation_manifest(
         {
             "schema_version": 1,
             "issue": ISSUE_URL,
+            "execution_issue": EXECUTION_ISSUE_URL,
             "method": "MPG-FER",
             "seed": config.seed,
             "ablation_mode": spec.internal_id,
@@ -585,7 +692,9 @@ def write_ablation_manifest(
             "ablation_split": "PublicTest",
             "table_inference": TABLE_INFERENCE,
             "checkpoint_selection": CHECKPOINT_SELECTION,
-            "private_test_permitted": False,
+            "private_test_permitted": True,
+            "private_test_use": "one_shot_final_reporting_after_checkpoint_sha_freeze",
+            "private_test_selection_permitted": False,
             "source_sha256": source_sha256,
             "final_recipe_lock_sha256": recipe_sha256,
         },
@@ -608,9 +717,12 @@ def write_checksums(output_dir: str | Path) -> Path:
 
 
 def aggregate_table_vi(
-    run_directories: Iterable[str | Path], output_dir: str | Path
+    run_directories: Iterable[str | Path],
+    output_dir: str | Path,
+    *,
+    full_baseline_reference: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Aggregate canonical metrics in preregistered semantic order only."""
+    """Aggregate final raw PrivateTest metrics in fixed semantic order."""
     by_mode: dict[AblationMode, dict[str, Any]] = {}
     for raw_root in run_directories:
         root = Path(raw_root)
@@ -618,22 +730,37 @@ def aggregate_table_vi(
             (root / "ablation_manifest.json").read_text(encoding="utf-8")
         )
         metrics = json.loads(
-            (root / "canonical_public_metrics.json").read_text(encoding="utf-8")
+            (root / "canonical_private_metrics.json").read_text(encoding="utf-8")
         )
         mode = AblationMode(manifest["ablation_mode"])
         if mode in by_mode:
             raise RuntimeError(f"Duplicate Table VI mode: {mode.value}")
         if (
             manifest.get("seed") != 42
-            or manifest.get("private_test_permitted") is not False
+            or manifest.get("private_test_permitted") is not True
+            or manifest.get("private_test_selection_permitted") is not False
         ):
             raise RuntimeError(f"Invalid scientific manifest for {mode.value}")
         if (
-            metrics.get("inference") != TABLE_INFERENCE
-            or metrics.get("dataset_role") != "PublicTest"
+            metrics.get("inference")
+            != "canonical_fp32_no_autocast_tf32_disabled"
+            or metrics.get("dataset_role") != "PrivateTest"
+            or metrics.get("selection_or_training_use") is not False
         ):
             raise RuntimeError(f"Non-canonical metrics for {mode.value}")
-        by_mode[mode] = metrics["metrics"]
+        by_mode[mode] = metrics["views"]["raw"]
+    if AblationMode.FULL not in by_mode and full_baseline_reference is not None:
+        baseline = json.loads(
+            Path(full_baseline_reference).read_text(encoding="utf-8")
+        )
+        if (
+            baseline.get("mode") != "FULL"
+            or baseline.get("seed") != 42
+            or baseline.get("private_evaluated_only_after_freeze") is not True
+            or baseline.get("private_test_selection_or_training_use") is not False
+        ):
+            raise RuntimeError("Invalid frozen FULL baseline reference")
+        by_mode[AblationMode.FULL] = baseline["canonical_fp32"]["private_raw"]
     missing = [mode.value for mode in TABLE_VI_ORDER if mode not in by_mode]
     if missing:
         raise RuntimeError(f"Incomplete Table VI inputs: {missing}")
@@ -652,7 +779,8 @@ def aggregate_table_vi(
     document = {
         "schema_version": 1,
         "seed": 42,
-        "inference": TABLE_INFERENCE,
+        "dataset_role": "PrivateTest",
+        "inference": "raw_single_view_canonical_fp32",
         "row_order": [mode.value for mode in TABLE_VI_ORDER],
         "rows": rows,
     }
