@@ -43,5 +43,13 @@
     "inspection": "path_names_only_no_file_open"
   },
   "wave1_execution_authorized": false,
-  "authorization_blocker": "independent review has not authorized Wave 1"
+  "authorization_blocker": "independent review has not authorized Wave 1",
+  "launch_authorization_issue": {
+    "number": 105,
+    "url": "https://github.com/Irthn1311/FER2013_Graph/issues/105"
+  },
+  "launch_authorization_path": "O1_WAVE1_LAUNCH_AUTHORIZATION.json",
+  "launch_authorization_sha256": "a400347c4e511c66e70162e9c118a33c5f8c6e9677917182243ca234dee8c31d",
+  "launch_job_count": 14,
+  "authorization_state": "CANDIDATE_PENDING_FINAL_REVIEW"
 }
