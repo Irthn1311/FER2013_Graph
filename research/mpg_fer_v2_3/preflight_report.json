@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "issue": 106,
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "ablation_implementation_commit": "05cc979e47fcf61f12e821ffd59233fa7c2e2377",
+  "source_tree_sha256": "f1e11eab85361061065baa87906749c0a31b19e08e1b121bfd25aa5cd298d59c",
+  "notebook_sha256": "b76948162c36434b2ee3a374c55085b299f43e1bb44f95d35bceb9ac4c1130c2",
+  "design_lock_sha256": "6432d6e92327613dcd445d3c05622c7b8d7996c03e2fc1f8e050f8a77f6717b0",
+  "registry_sha256": "b4fac50947cb6d13a5d116a45bddcc46b2d668bcb5add9e5bb0b711ebad6232f",
+  "source_manifest_sha256": "99578dc8c93079276d1d22688f190acbc6e21543cd3a92a87ae9fd2fe002234c",
+  "notebook_code_cells_compiled": 5,
+  "official_checkpoint_compatibility": {
+    "path": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\research\\mpg_fer_v2_3\\official_runs\\segment_02\\mpg_fer_v2_3_run\\best_val_acc.pt",
+    "sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+    "missing_keys": [],
+    "unexpected_keys": [],
+    "strict_load_passed": true
+  },
+  "test_run": {
+    "command": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe -m pytest -q",
+    "exit_code": 0,
+    "output": "........................................................................ [ 51%]\n....................................................................     [100%]\n140 passed in 267.84s (0:04:27)"
+  },
+  "test_evidence": "........................................................................ [ 51%]\n....................................................................     [100%]\n140 passed in 267.84s (0:04:27)",
+  "gates": {
+    "T1_full_parity": "PASS",
+    "T2_shape_contract": "PASS",
+    "T3_forward_backward_optimizer_ema": "PASS",
+    "T4_delta_specific_assertions": "PASS",
+    "T5_official_full_checkpoint_strict_load": "PASS",
+    "T6_split_role_and_final_test_boundary": "PASS",
+    "T7_resume_determinism_full_and_single_scale_12": "PASS",
+    "T8_canonical_fp32_evaluator": "PASS",
+    "T9_registry_integrity": "PASS"
+  },
+  "private_test_accessed": false,
+  "fer2013_accessed": false,
+  "kaggle_training_launched": false,
+  "kaggle_mounted_input_contract_regression": "PASS",
+  "final_recipe_lock_present": true,
+  "final_recipe_lock_sha256": "c694c707c2e953d0a5cd0c4900f97f1f30ed64a47797bf29e61d6fcd6d44502d",
+  "launch_authorization_sha256": "2b7cf0f8fbd69016e09c8dcc80c58526b659e3b20cc4d9f8b7f8477f3b6bf70a",
+  "full_baseline_reference_sha256": "7b90390052300583633a11ceecbcb3f7ca4addc22ecfb76a784c2171c0e99288",
+  "scientific_training_authorized": true,
+  "final_test_reporting_authorized": true,
+  "status": "MPG_FER_ABLATION_EXECUTION_AUTHORIZED_ISSUE_106"
+}

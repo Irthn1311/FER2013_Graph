@@ -1,0 +1,70 @@
+{
+  "schema_version": 2,
+  "issue": 106,
+  "method": "MPG-FER",
+  "seed": 42,
+  "split_roles": {
+    "train": "Train",
+    "checkpoint_selection": "PublicTest",
+    "final_reporting": "PrivateTest"
+  },
+  "table_inference": "raw_single_view_fp32",
+  "checkpoint_selection": "EMA Public horizontal-flip TTA accuracy, then higher Macro-F1, then lower CE loss",
+  "private_test_permitted": true,
+  "private_test_use": "one_shot_final_reporting_after_checkpoint_sha_freeze",
+  "private_test_selection_permitted": false,
+  "kaggle_mounted_input_contract": {
+    "input_root": "/kaggle/input",
+    "required_unique_basenames": [
+      "train.csv",
+      "val.csv",
+      "test.csv"
+    ],
+    "ambiguous_path_markers": [
+      "private-test",
+      "private_test",
+      "privatetest"
+    ],
+    "inspection": "path_names_only_no_file_open"
+  },
+  "variant_ids": [
+    "NO_PIXEL_GNN",
+    "FIXED_POOL",
+    "NO_MOTIF_GNN",
+    "SINGLE_SCALE_12",
+    "NO_GEOM_BIAS",
+    "DENSE_MOTIF",
+    "NO_PIXEL_FUSION"
+  ],
+  "full_control_id": "FULL",
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "ablation_implementation_commit": "05cc979e47fcf61f12e821ffd59233fa7c2e2377",
+  "architecture_provenance": {
+    "name": "MPG-FER v2.3",
+    "frozen_v2_3_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+    "parameter_count": 2304528,
+    "residual_scale_schedule": [
+      0.5,
+      0.5,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "topk_schedule": [
+      8,
+      16,
+      16,
+      16,
+      24
+    ]
+  },
+  "final_recipe_lock_sha256": "c694c707c2e953d0a5cd0c4900f97f1f30ed64a47797bf29e61d6fcd6d44502d",
+  "launch_authorization_sha256": "2b7cf0f8fbd69016e09c8dcc80c58526b659e3b20cc4d9f8b7f8477f3b6bf70a",
+  "full_baseline_reference_sha256": "7b90390052300583633a11ceecbcb3f7ca4addc22ecfb76a784c2171c0e99288",
+  "ablation_source_sha256": "f1e11eab85361061065baa87906749c0a31b19e08e1b121bfd25aa5cd298d59c",
+  "notebook_sha256": "b76948162c36434b2ee3a374c55085b299f43e1bb44f95d35bceb9ac4c1130c2",
+  "scientific_training_authorized": true,
+  "final_test_reporting_authorized": true,
+  "authorization_state": "AUTHORIZED_BY_RESEARCH_LEAD_ISSUE_106",
+  "authorization_blocker": null
+}
