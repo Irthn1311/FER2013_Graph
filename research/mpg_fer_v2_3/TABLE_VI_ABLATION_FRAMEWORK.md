@@ -1,8 +1,9 @@
 # MPG-FER Table VI ablation framework
 
-This directory contains the implementation-only deliverables for GitHub Issue
-#101. It does not authorize or contain a Kaggle ablation run. `PrivateTest` is
-not an input to the ablation API or notebook.
+This directory contains the reviewed framework from GitHub Issue #101 and the
+seven-run execution amendment in Issue #106. The amendment freezes the current
+MPG-FER v2.3 recipe and authorizes the seven registered variants. It does not
+change any variant definition or retrain the existing seed-42 FULL control.
 
 ## Source boundary
 
@@ -26,21 +27,20 @@ The registry order is the paper order and must never be performance-sorted.
 
 ## Training authorization
 
-`run_ablation_training` has no PrivateTest argument. Before it resolves either
-FER CSV, it requires:
+Before the notebook resolves any FER CSV, it requires:
 
 1. an attached `FINAL_RECIPE_LOCK.json`;
 2. an attached `ABLATION_DESIGN_LOCK.json` whose recipe SHA-256 matches;
-3. `scientific_training_authorized=true` in that reviewed design lock;
+3. `scientific_training_authorized=true` and
+   `final_test_reporting_authorized=true` in the design lock;
 4. exact equality between every non-runtime resolved config field and the
    complete recipe/base-config lock;
-5. seed 42, `train.csv` for Train, and `val.csv` for PublicTest.
+5. seed 42, `train.csv` for Train, `val.csv` for PublicTest checkpoint
+   selection, and `test.csv` for final reporting only.
 
-The current design lock intentionally has a null recipe SHA and
-`scientific_training_authorized=false`. Therefore scientific training is
-fail-closed until a later reviewed amendment. No variant-specific optimizer,
-schedule, batch, augmentation, checkpoint selector, or loss reweighting is
-available.
+`FINAL_RECIPE_LOCK.json` freezes the exact MPG-FER v2.3 defaults. No
+variant-specific optimizer, schedule, batch, augmentation, checkpoint selector,
+or loss reweighting is available.
 
 The future version-2 recipe schema separately binds the unchanged architecture
 base commit, the complete frozen scientific/base config, every authorized
@@ -67,8 +67,8 @@ The notebook and design lock record two distinct commits: the frozen v2.3
 architecture base and the reviewed ablation implementation commit. Model/run
 source provenance uses the latter, never the architecture base.
 
-Required attached offline inputs are the Train/Public CSV dataset containing
-`train.csv` and `val.csv`, one `FINAL_RECIPE_LOCK.json`, and one
+Required attached offline inputs contain `train.csv`, `val.csv`, and
+`test.csv`, one `FINAL_RECIPE_LOCK.json`, and one
 `ABLATION_DESIGN_LOCK.json`. A required resume additionally uses exactly one
 dataset whose path contains `mpg-fer-table-vi-resume-` and whose
 `resume_latest.pt` matches `resume_latest.json`. The notebook does not clone
@@ -77,10 +77,11 @@ source and does not require Internet for source acquisition. It writes under
 `/kaggle/working/<RUN_ID>-artifacts.zip`.
 
 Before resolving any mounted input, the notebook enumerates path names under
-`/kaggle/input` and refuses the session if it sees a `test.csv` basename or a
-`PrivateTest`, `private_test`, or `private-test` path component. The guard does
-not open mounted files. Thus valid Train/Public inputs cannot coexist with a
-mounted private marker.
+`/kaggle/input` without opening files. It requires exactly one basename each of
+`train.csv`, `val.csv`, and `test.csv`, and rejects ambiguous PrivateTest path
+markers. PrivateTest content is first opened only after training completes,
+the selected checkpoint SHA-256 is verified, and PublicTest reporting is
+written. A second PrivateTest evaluation is refused.
 
 ## Eventual artifacts
 
@@ -91,10 +92,11 @@ Every completed future run must contain:
 `canonical_public_metrics.json`, `segment_manifest.json`, `resume_latest.pt`,
 and `checksums.sha256`.
 
-`canonical_public_metrics.json` is produced by a raw single-view FP32 evaluator
-with autocast and TF32 disabled. The Table VI aggregator accepts all eight
-machine-readable run directories and writes JSON, CSV, and Markdown in the
-fixed semantic order.
+`canonical_public_metrics.json` and `canonical_private_metrics.json` use FP32
+with autocast and TF32 disabled. PrivateTest raw and horizontal-flip-TTA metrics
+are obtained in one physical loader traversal. The Table VI aggregator combines
+the seven new runs with `FULL_BASELINE_REFERENCE.json` and writes the raw
+PrivateTest table in fixed semantic order.
 
 ## Regeneration and verification
 

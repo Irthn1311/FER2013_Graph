@@ -94,13 +94,17 @@ EXPECTED_SOURCE_TREE_SHA256 = {source_sha!r}
 SOURCE_ROOT = Path("/kaggle/working/mpg_fer_table_vi_source")
 SOURCE_ROOT.mkdir(parents=True, exist_ok=True)
 source_digest = hashlib.sha256()
-for name in sorted(EMBEDDED_SOURCES):
-    payload = base64.b64decode(EMBEDDED_SOURCES[name])
-    source_digest.update(name.encode("utf-8"))
-    source_digest.update(payload)
-    target = SOURCE_ROOT / name
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(payload)
+for package_name in ("mpg_fer_v2_3", "mpg_fer_table_vi"):
+    package_sources = sorted(
+        name for name in EMBEDDED_SOURCES if name.startswith(package_name + "/")
+    )
+    for name in package_sources:
+        payload = base64.b64decode(EMBEDDED_SOURCES[name])
+        source_digest.update(name.encode("utf-8"))
+        source_digest.update(payload)
+        target = SOURCE_ROOT / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(payload)
 if source_digest.hexdigest() != EXPECTED_SOURCE_TREE_SHA256:
     raise RuntimeError("ABLATION_SOURCE_LOCK_MISMATCH")
 sys.path.insert(0, str(SOURCE_ROOT))

@@ -36,6 +36,8 @@ def test_canonical_ablation_notebook_matches_generator_and_compiles_every_cell()
     assert 'secrets.get_secret("MPG_FER_ABLATION_MODE")' in code
     assert 'secrets.get_secret("MPG_FER_ABLATION_RUN_ID")' in code
     assert "run_ablation_training(" in code
+    assert 'for package_name in ("mpg_fer_v2_3", "mpg_fer_table_vi")' in code
+    assert "for name in sorted(EMBEDDED_SOURCES)" not in code
     assert "validate_kaggle_mounted_input_contract(INPUT_ROOT)" in code
     assert code.index("validate_kaggle_mounted_input_contract(INPUT_ROOT)") < code.index(
         'exactly_one("FINAL_RECIPE_LOCK.json")'

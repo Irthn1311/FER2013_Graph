@@ -247,7 +247,7 @@ def main() -> None:
     }
     report = {
         "schema_version": 1,
-        "issue": 101,
+        "issue": 106,
         "architecture_base_commit": BASE_COMMIT,
         "ablation_implementation_commit": implementation_commit,
         "source_tree_sha256": manifest["ablation_source_tree_sha256"],
