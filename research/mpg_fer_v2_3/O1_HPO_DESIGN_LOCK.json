@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "issue": 103,
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "o1_implementation_commit": "2949f7b45901a7832260b3bbb105a27cc6092369",
+  "frozen_scientific_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "o1_source_tree_sha256": "76d7fc4c58dbcf80f195269c00b44f466e0fcb232c94ed133c48897ca44ad4c1",
+  "notebook_sha256": "a999fa49f43b7ee2dccd25cb3096a4c870a2fcbe42cd5b94eae0c13723020c7d",
+  "registry_sha256": "6a839be43ca5da9542d6bcd1f6a18d6c3c2e0326898ce59750c9c8560bb968aa",
+  "baseline_reference_sha256": "68352c038e3dea4f99a196fc94d4e499ffa7be9a22244aaa25a4f5e51c117973",
+  "new_config_ids": [
+    "O1_01",
+    "O1_02",
+    "O1_03",
+    "O1_04",
+    "O1_05",
+    "O1_06",
+    "O1_07",
+    "O1_08",
+    "O1_09",
+    "O1_10",
+    "O1_11",
+    "O1_12",
+    "O1_13",
+    "O1_14"
+  ],
+  "historical_control_id": "O1_C0_BASELINE",
+  "screen_stop_epoch": 65,
+  "scientific_max_epochs": 120,
+  "checkpoint_selection": "higher EMA Public horizontal-flip TTA accuracy, then higher EMA TTA Macro-F1, then lower EMA TTA CE loss",
+  "private_test_permitted": false,
+  "mounted_input_firewall": {
+    "root": "/kaggle/input",
+    "forbidden_markers": [
+      "private-test",
+      "private_test",
+      "privatetest",
+      "test.csv"
+    ],
+    "inspection": "path_names_only_no_file_open"
+  },
+  "wave1_execution_authorized": false,
+  "authorization_blocker": "independent review has not authorized Wave 1"
+}

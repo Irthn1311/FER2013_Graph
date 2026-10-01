@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "issue": 103,
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "o1_implementation_commit": "2949f7b45901a7832260b3bbb105a27cc6092369",
+  "source_tree_sha256": "76d7fc4c58dbcf80f195269c00b44f466e0fcb232c94ed133c48897ca44ad4c1",
+  "notebook_sha256": "a999fa49f43b7ee2dccd25cb3096a4c870a2fcbe42cd5b94eae0c13723020c7d",
+  "hpo_design_lock_sha256": "e1460de2ea636bbb8212ecd4b79f2f26db4307b8f01e31c9cd7eaa7ca9ae412a",
+  "registry_sha256": "6a839be43ca5da9542d6bcd1f6a18d6c3c2e0326898ce59750c9c8560bb968aa",
+  "source_manifest_sha256": "c200fa01f4124eeabba194115678bc614c52ed130200d23d5ff81a18429f9668",
+  "baseline_reference_sha256": "68352c038e3dea4f99a196fc94d4e499ffa7be9a22244aaa25a4f5e51c117973",
+  "baseline_reference_status": "VERIFIED",
+  "notebook_code_cells_compiled": 5,
+  "official_checkpoint_compatibility": {
+    "sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+    "strict_load_passed": true,
+    "missing_keys": [],
+    "unexpected_keys": []
+  },
+  "test_run": {
+    "command": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe -m pytest -q",
+    "exit_code": 0,
+    "output": "........................................................................ [ 56%]\n........................................................                 [100%]\n128 passed in 414.29s (0:06:54)"
+  },
+  "gates": {
+    "O1-T1": "PASS",
+    "O1-T2": "PASS",
+    "O1-T3": "PASS",
+    "O1-T4": "PASS",
+    "O1-T5": "PASS",
+    "O1-T6": "PASS",
+    "O1-T7": "PASS",
+    "O1-T8": "PASS",
+    "O1-T9": "PASS",
+    "O1-T10": "PASS",
+    "O1-T11": "PASS"
+  },
+  "private_test_accessed": false,
+  "fer2013_accessed": false,
+  "kaggle_launched": false,
+  "wave1_execution_authorized": false,
+  "status": "MPG_FER_O1_FRAMEWORK_READY_PENDING_INDEPENDENT_REVIEW"
+}

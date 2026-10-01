@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "VERIFIED",
+  "usable_for_o1_aggregation": true,
+  "config_id": "O1_C0_BASELINE",
+  "frozen_scientific_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "seed": 42,
+  "learning_rate": 0.0003,
+  "lr_decay_end_epoch": 85,
+  "checkpoint_provenance": {
+    "run_id": "1bf17ed3-d602-42f9-98c8-09df32422c4b",
+    "artifact_name": "best_val_acc.pt",
+    "public_results_sha256": "da99889dd993da18c57f2e0f74afd6921abb052e9705a452e543d840df6a9363"
+  },
+  "checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+  "history_provenance": {
+    "run_id": "1bf17ed3-d602-42f9-98c8-09df32422c4b",
+    "artifact_name": "v23_training_history.json",
+    "epoch_count": 99,
+    "first_epoch": 1,
+    "last_epoch": 99
+  },
+  "history_sha256": "0c3c00e2a31060157a8fdeaaa678721af7de57e3b0942740ea04a56c86a2324d",
+  "selected_epoch": 57,
+  "public_metrics": {
+    "raw": {
+      "loss": 1.102189275340869,
+      "accuracy": 0.6773474505433268,
+      "macro_f1": 0.6589852424818236
+    },
+    "tta": {
+      "loss": 0.9933287715406994,
+      "accuracy": 0.694901086653664,
+      "macro_f1": 0.6766324919440808
+    }
+  },
+  "private_test_artifacts_read": false
+}
