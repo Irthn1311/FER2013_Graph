@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import torch
@@ -25,6 +26,7 @@ from mpg_fer_table_vi.protocol import (
     final_recipe_template,
     validate_ablation_data_paths,
     validate_final_recipe_lock,
+    validate_kaggle_mounted_input_firewall,
     write_json,
 )
 from mpg_fer_v2_3.checkpoint import sha256_file
@@ -422,6 +424,45 @@ def test_private_firewall_rejects_test_private_and_ambiguous_roles(tmp_path) -> 
         validate_ablation_data_paths(train, disguised)
     with pytest.raises(ValueError, match="requires basename"):
         validate_ablation_data_paths(public, train)
+
+
+def test_kaggle_mounted_input_firewall_accepts_train_public_by_name_only(
+    tmp_path,
+) -> None:
+    mounted = tmp_path / "input"
+    dataset = mounted / "fer13-split"
+    dataset.mkdir(parents=True)
+    (dataset / "train.csv").write_text("not opened", encoding="utf-8")
+    (dataset / "val.csv").write_text("not opened", encoding="utf-8")
+    with patch.object(Path, "open", side_effect=AssertionError("file opened")):
+        result = validate_kaggle_mounted_input_firewall(mounted)
+    assert result["forbidden_private_markers_found"] is False
+    assert result["entries_inspected_by_name_only"] == 3
+
+
+@pytest.mark.parametrize(
+    "forbidden_relative",
+    (
+        Path("fer13-split/test.csv"),
+        Path("PrivateTest/labels.csv"),
+        Path("private_test/labels.csv"),
+        Path("private-test/labels.csv"),
+    ),
+)
+def test_kaggle_mounted_input_firewall_rejects_forbidden_coexisting_path_without_open(
+    tmp_path, forbidden_relative
+) -> None:
+    mounted = tmp_path / "input"
+    dataset = mounted / "fer13-split"
+    dataset.mkdir(parents=True)
+    (dataset / "train.csv").write_text("not opened", encoding="utf-8")
+    (dataset / "val.csv").write_text("not opened", encoding="utf-8")
+    forbidden = mounted / forbidden_relative
+    forbidden.parent.mkdir(parents=True, exist_ok=True)
+    forbidden.write_text("must never be opened", encoding="utf-8")
+    with patch.object(Path, "open", side_effect=AssertionError("private file opened")):
+        with pytest.raises(RuntimeError, match="PRIVATE_FIREWALL"):
+            validate_kaggle_mounted_input_firewall(mounted)
 
 
 class _TinyClassifier(nn.Module):

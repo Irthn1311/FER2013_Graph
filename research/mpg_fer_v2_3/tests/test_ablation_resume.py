@@ -44,8 +44,10 @@ def _deterministic_cpu_backend():
 class _SyntheticEpochDataset(Dataset):
     def __init__(self) -> None:
         generator = torch.Generator().manual_seed(101)
-        self.images = torch.rand(2, 1, 48, 48, generator=generator)
-        self.labels = torch.tensor([0, 0])
+        self.images = torch.rand(4, 1, 48, 48, generator=generator)
+        # Every physical microbatch has valid positive pairs for the in-batch
+        # SupCon objective; accumulation still spans exactly two microbatches.
+        self.labels = torch.tensor([0, 0, 0, 0])
         self.epoch = 0
 
     def __len__(self) -> int:
@@ -116,7 +118,7 @@ def _config(mode: AblationMode) -> AblationConfig:
     return AblationConfig(
         ablation_mode=mode.value,
         use_amp=False,
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=2,
         optimizer_family="AdamW",
         optimizer_kwargs={},
         scheduler_family="linear_warmup_cosine_then_floor",
@@ -157,9 +159,12 @@ def _initial_state():
 def _run_actual_lifecycle(objects, config: AblationConfig, epochs, state):
     model, optimizer, scheduler, ema, generator, scaler, sampler, dataset, loader = objects
     criterion = nn.CrossEntropyLoss(label_smoothing=config.label_smoothing)
+    assert len(loader) == 2
+    assert config.gradient_accumulation_steps == 2
     for epoch in epochs:
         sampler.epoch = dataset.epoch = epoch
         lr = scheduler.step(epoch)
+        prior_global_step = state["global_step"]
         stats, state["global_step"] = train_ablation_one_epoch(
             model,
             loader,
@@ -171,6 +176,18 @@ def _run_actual_lifecycle(objects, config: AblationConfig, epochs, state):
             ema=ema,
             epoch=epoch,
             global_optimizer_step=state["global_step"],
+        )
+        assert state["global_step"] == prior_global_step + 1
+        expected_consistency = (
+            [0]
+            if baseline_train.consistency_selected(
+                config.seed, epoch, 0, config.consistency_probability
+            )
+            else []
+        )
+        assert stats["consistency_groups"] == expected_consistency
+        assert stats["consistency_group_fraction"] == float(
+            bool(expected_consistency)
         )
         candidate = {
             "accuracy": stats["train_accuracy"],
@@ -289,6 +306,9 @@ def test_real_epoch_lifecycle_is_identical_across_exact_epoch_2_resume(
     assert continuous[6].state_dict() == resumed[6].state_dict()
     assert continuous[7].state_dict() == resumed[7].state_dict()
     assert continuous_state == resumed_state
+    assert continuous_state["global_step"] == 3
+    assert continuous[3].num_updates == 3
+    assert continuous[5].state_dict()["updates"] == 3
 
 
 def test_resume_identity_rejects_cross_variant_checkpoint(tmp_path) -> None:

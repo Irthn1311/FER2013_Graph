@@ -117,6 +117,7 @@ from mpg_fer_table_vi.protocol import (
     config_from_final_recipe,
     validate_ablation_data_paths,
     validate_final_recipe_lock,
+    validate_kaggle_mounted_input_firewall,
 )
 from mpg_fer_table_vi.train import (
     run_ablation_micro_overfit_preflight,
@@ -125,6 +126,8 @@ from mpg_fer_table_vi.train import (
 from mpg_fer_v2_3.checkpoint import sha256_file
 
 INPUT_ROOT = Path("/kaggle/input")
+mounted_input_firewall = validate_kaggle_mounted_input_firewall(INPUT_ROOT)
+print(mounted_input_firewall)
 
 def exactly_one(filename):
     matches = sorted(INPUT_ROOT.rglob(filename))

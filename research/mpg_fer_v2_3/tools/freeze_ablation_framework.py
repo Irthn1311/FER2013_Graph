@@ -27,6 +27,7 @@ from mpg_fer_table_vi.model import (  # noqa: E402
 from mpg_fer_table_vi.protocol import (  # noqa: E402
     BASE_COMMIT,
     CHECKPOINT_SELECTION,
+    PRIVATE_PATH_MARKERS,
     TABLE_INFERENCE,
     ablation_source_tree_hash,
     write_json,
@@ -171,6 +172,11 @@ def main() -> None:
         "table_inference": TABLE_INFERENCE,
         "checkpoint_selection": CHECKPOINT_SELECTION,
         "private_test_permitted": False,
+        "kaggle_mounted_input_firewall": {
+            "input_root": "/kaggle/input",
+            "forbidden_path_markers": sorted(PRIVATE_PATH_MARKERS),
+            "inspection": "path_names_only_no_file_open",
+        },
         "variant_ids": [
             mode.value for mode in TABLE_VI_ORDER if mode is not AblationMode.FULL
         ],
@@ -227,6 +233,9 @@ def main() -> None:
         "private_test_accessed": False,
         "fer2013_accessed": False,
         "kaggle_training_launched": False,
+        "kaggle_mounted_input_firewall_regression": (
+            "PASS" if pytest_result is not None else "NOT_RUN"
+        ),
         "final_recipe_lock_present": False,
         "scientific_training_authorized": False,
         "status": (

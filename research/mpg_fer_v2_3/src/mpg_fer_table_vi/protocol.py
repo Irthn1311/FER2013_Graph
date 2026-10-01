@@ -7,6 +7,7 @@ import csv
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -40,6 +41,9 @@ REQUIRED_RUN_ARTIFACTS = (
     "segment_manifest.json",
     "resume_latest.pt",
     "checksums.sha256",
+)
+PRIVATE_PATH_MARKERS = frozenset(
+    {"test.csv", "privatetest", "private_test", "private-test"}
 )
 
 SUPPORTED_OPTIMIZER_FAMILIES = frozenset({"AdamW", "Adam", "SGD"})
@@ -119,8 +123,42 @@ class AblationConfig(MPGConfig):
 
 
 def _contains_private_marker(path: Path) -> bool:
-    markers = {"test.csv", "privatetest", "private_test", "private-test"}
-    return any(part.lower() in markers for part in path.parts)
+    return any(part.lower() in PRIVATE_PATH_MARKERS for part in path.parts)
+
+
+def validate_kaggle_mounted_input_firewall(
+    input_root: str | Path = "/kaggle/input",
+) -> dict[str, Any]:
+    """Reject forbidden mounted paths by name only, without opening any file."""
+    root = Path(input_root)
+    if not root.is_dir():
+        raise RuntimeError(
+            f"PRIVATE_FIREWALL: mounted input root is absent or not a directory: {root}"
+        )
+
+    def fail_scan(error: OSError) -> None:
+        raise RuntimeError(
+            f"PRIVATE_FIREWALL: unable to enumerate mounted input paths: {error}"
+        ) from error
+
+    inspected = 0
+    for current, directories, files in os.walk(
+        root, topdown=True, onerror=fail_scan, followlinks=False
+    ):
+        relative_parent = Path(current).relative_to(root)
+        for name in (*directories, *files):
+            relative = relative_parent / name
+            inspected += 1
+            if _contains_private_marker(relative):
+                raise RuntimeError(
+                    "PRIVATE_FIREWALL: forbidden mounted input path marker: "
+                    f"{relative.as_posix()}"
+                )
+    return {
+        "input_root": str(root),
+        "entries_inspected_by_name_only": inspected,
+        "forbidden_private_markers_found": False,
+    }
 
 
 def validate_ablation_data_paths(

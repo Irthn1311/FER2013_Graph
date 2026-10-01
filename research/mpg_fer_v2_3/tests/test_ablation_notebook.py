@@ -36,6 +36,10 @@ def test_canonical_ablation_notebook_matches_generator_and_compiles_every_cell()
     assert 'secrets.get_secret("MPG_FER_ABLATION_MODE")' in code
     assert 'secrets.get_secret("MPG_FER_ABLATION_RUN_ID")' in code
     assert "run_ablation_training(" in code
+    assert "validate_kaggle_mounted_input_firewall(INPUT_ROOT)" in code
+    assert code.index("validate_kaggle_mounted_input_firewall(INPUT_ROOT)") < code.index(
+        'exactly_one("FINAL_RECIPE_LOCK.json")'
+    )
     assert 'exactly_one("FINAL_RECIPE_LOCK.json")' in code
     assert 'exactly_one("ABLATION_DESIGN_LOCK.json")' in code
     assert 'exactly_one("train.csv")' in code
@@ -80,3 +84,13 @@ def test_design_lock_binds_notebook_and_source_but_refuses_training() -> None:
     assert design["final_recipe_lock_sha256"] is None
     assert design["scientific_training_authorized"] is False
     assert design["private_test_permitted"] is False
+    assert design["kaggle_mounted_input_firewall"] == {
+        "input_root": "/kaggle/input",
+        "forbidden_path_markers": [
+            "private-test",
+            "private_test",
+            "privatetest",
+            "test.csv",
+        ],
+        "inspection": "path_names_only_no_file_open",
+    }

@@ -76,6 +76,12 @@ source and does not require Internet for source acquisition. It writes under
 `/kaggle/working/mpg-fer-table-vi/<RUN_ID>` and creates
 `/kaggle/working/<RUN_ID>-artifacts.zip`.
 
+Before resolving any mounted input, the notebook enumerates path names under
+`/kaggle/input` and refuses the session if it sees a `test.csv` basename or a
+`PrivateTest`, `private_test`, or `private-test` path component. The guard does
+not open mounted files. Thus valid Train/Public inputs cannot coexist with a
+mounted private marker.
+
 ## Eventual artifacts
 
 Every completed future run must contain:
@@ -104,3 +110,8 @@ The freeze tool compiles every notebook code cell, verifies the official
 seed-42 v2.3 checkpoint SHA and strict FULL load, runs the complete test suite,
 and rewrites `preflight_report.json`. It never opens FER2013 and never launches
 Kaggle.
+
+T7 uses four synthetic samples as two physical microbatches of two samples,
+with `gradient_accumulation_steps=2`. Each epoch therefore performs exactly one
+optimizer/EMA/scaler update while exercising group-level consistency selection
+for both FULL and SINGLE_SCALE_12 across continuous and exact-resume paths.
