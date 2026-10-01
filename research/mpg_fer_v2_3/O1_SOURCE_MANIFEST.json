@@ -1,16 +1,22 @@
 {
   "schema_version": 1,
   "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
-  "o1_implementation_commit": "2949f7b45901a7832260b3bbb105a27cc6092369",
+  "o1_implementation_commit": "b4a3563ca284dae5dc6ad5aad7023eda1253590b",
   "frozen_scientific_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
-  "o1_source_tree_sha256": "76d7fc4c58dbcf80f195269c00b44f466e0fcb232c94ed133c48897ca44ad4c1",
+  "o1_source_tree_sha256": "800803493415562b3d533a8631d79203a181757220f10bad7c4326387d360595",
   "notebook": {
     "path": "notebooks/MPG_FER_O1_Wave1_Kaggle_T4.ipynb",
-    "sha256": "a999fa49f43b7ee2dccd25cb3096a4c870a2fcbe42cd5b94eae0c13723020c7d"
+    "sha256": "752cec59a824092ab3286f6aa1a37a26abc81916152db04e6cf62b7c3c268a81"
   },
   "baseline_reference": {
     "path": "O1_BASELINE_REFERENCE.json",
-    "sha256": "68352c038e3dea4f99a196fc94d4e499ffa7be9a22244aaa25a4f5e51c117973"
+    "sha256": "1b0aca11d49af9bb9e3ee170753666e0b446b435eecdc273a98e8f95c8c01f4e"
+  },
+  "gitguardian_false_positive_allowlist": {
+    "path": ".gitguardian.yaml",
+    "sha256": "36ffe1e253f8822316bc1b37caaccd38b9d8d38cea9ee1e01012900f17ff79ba",
+    "match": "MPG_FER_O1_RUN_ID",
+    "credential_handling_changed": false
   },
   "files": [
     {
@@ -90,8 +96,8 @@
     },
     {
       "path": "src/mpg_fer_o1/protocol.py",
-      "sha256": "f36cd9236532ac52ff5b46eeca0a6b64b9ebc383e09d528cab999cec8c8495f5",
-      "bytes": 26284
+      "sha256": "60d563f703111f79a800a5a874348c76a111f6c85340999fda1bd138608f1136",
+      "bytes": 33375
     },
     {
       "path": "src/mpg_fer_o1/train.py",
@@ -105,13 +111,13 @@
     },
     {
       "path": "tools/build_o1_baseline_reference.py",
-      "sha256": "7634a4526fbc6d4a9cbfb979d8ea5d4f118b7352169a6a3865c555c3416fe2ec",
-      "bytes": 4386
+      "sha256": "1adf77528e1e8aad4ec30fd62bf03eda5938266defebfccb173460b6dfe39d8d",
+      "bytes": 4562
     },
     {
       "path": "tools/freeze_o1_framework.py",
-      "sha256": "28b72db1f5062ef7ce08cba7169a201fe5899920ea95346c3081ded3cdc2cdfd",
-      "bytes": 8545
+      "sha256": "f729289c103e47bf9b7a36361a061e33bce7d52323300be7db8310c37dacba6b",
+      "bytes": 9476
     },
     {
       "path": "tests/test_o1_notebook.py",
@@ -120,8 +126,8 @@
     },
     {
       "path": "tests/test_o1_protocol.py",
-      "sha256": "6e5ad6ceb3603ca41404d82e935555b5bce1f1ae85f88caf05bd343c0158be1d",
-      "bytes": 13688
+      "sha256": "e219c513c5054e2580bc74cc5efde727c61236c41f12bfc955e186d4bfaa6bc3",
+      "bytes": 18570
     },
     {
       "path": "tests/test_o1_resume.py",
@@ -130,13 +136,13 @@
     },
     {
       "path": "O1_IMPLEMENTATION_COMMIT.txt",
-      "sha256": "60e60d0f67ad052f03a2cf1ee8660c9c201b486abeb58ff4426a551ba2449ba5",
+      "sha256": "d26018d91bdaaf2b9e781f6b5e2a08f6b0cb4b03692e8e008425b8f48f9daf6b",
       "bytes": 42
     },
     {
       "path": "O1_BASELINE_REFERENCE.json",
-      "sha256": "208791e538c95df89c38121e018276090dec3de7af6afb200ef85d6e323c2bc0",
-      "bytes": 1282
+      "sha256": "bfbcf2cf4bb7547e9597f6e0e44ab4963c4a6c691a900d599d041de2cee25f72",
+      "bytes": 1511
     }
   ]
 }

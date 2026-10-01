@@ -2,14 +2,20 @@
   "schema_version": 1,
   "issue": 103,
   "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
-  "o1_implementation_commit": "2949f7b45901a7832260b3bbb105a27cc6092369",
-  "source_tree_sha256": "76d7fc4c58dbcf80f195269c00b44f466e0fcb232c94ed133c48897ca44ad4c1",
-  "notebook_sha256": "a999fa49f43b7ee2dccd25cb3096a4c870a2fcbe42cd5b94eae0c13723020c7d",
-  "hpo_design_lock_sha256": "e1460de2ea636bbb8212ecd4b79f2f26db4307b8f01e31c9cd7eaa7ca9ae412a",
+  "o1_implementation_commit": "b4a3563ca284dae5dc6ad5aad7023eda1253590b",
+  "source_tree_sha256": "800803493415562b3d533a8631d79203a181757220f10bad7c4326387d360595",
+  "notebook_sha256": "752cec59a824092ab3286f6aa1a37a26abc81916152db04e6cf62b7c3c268a81",
+  "hpo_design_lock_sha256": "a520c4ca7533d20715f9fdcda7f4b204bdeb8c22e7573a50349878cd5b58282c",
   "registry_sha256": "6a839be43ca5da9542d6bcd1f6a18d6c3c2e0326898ce59750c9c8560bb968aa",
-  "source_manifest_sha256": "c200fa01f4124eeabba194115678bc614c52ed130200d23d5ff81a18429f9668",
-  "baseline_reference_sha256": "68352c038e3dea4f99a196fc94d4e499ffa7be9a22244aaa25a4f5e51c117973",
+  "source_manifest_sha256": "61433e45af2d90bf86dee80769e2c1ec44fee7d6a01f954744d357083d60f629",
+  "baseline_reference_sha256": "1b0aca11d49af9bb9e3ee170753666e0b446b435eecdc273a98e8f95c8c01f4e",
   "baseline_reference_status": "VERIFIED",
+  "gitguardian_false_positive_allowlist": {
+    "path": ".gitguardian.yaml",
+    "sha256": "36ffe1e253f8822316bc1b37caaccd38b9d8d38cea9ee1e01012900f17ff79ba",
+    "match": "MPG_FER_O1_RUN_ID",
+    "credential_handling_changed": false
+  },
   "notebook_code_cells_compiled": 5,
   "official_checkpoint_compatibility": {
     "sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
@@ -20,7 +26,7 @@
   "test_run": {
     "command": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe -m pytest -q",
     "exit_code": 0,
-    "output": "........................................................................ [ 56%]\n........................................................                 [100%]\n128 passed in 414.29s (0:06:54)"
+    "output": "........................................................................ [ 55%]\n.........................................................                [100%]\n129 passed in 350.29s (0:05:50)"
   },
   "gates": {
     "O1-T1": "PASS",

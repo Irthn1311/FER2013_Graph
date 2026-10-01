@@ -7,10 +7,16 @@
   "seed": 42,
   "learning_rate": 0.0003,
   "lr_decay_end_epoch": 85,
+  "metric_dataset_role": "PublicTest",
+  "public_results_provenance": {
+    "dataset_role": "PublicTest",
+    "artifact_name": "v23_public_results.json",
+    "artifact_sha256": "da99889dd993da18c57f2e0f74afd6921abb052e9705a452e543d840df6a9363",
+    "identity_basis": "exact_reviewed_public_results_name_and_sha256"
+  },
   "checkpoint_provenance": {
     "run_id": "1bf17ed3-d602-42f9-98c8-09df32422c4b",
-    "artifact_name": "best_val_acc.pt",
-    "public_results_sha256": "da99889dd993da18c57f2e0f74afd6921abb052e9705a452e543d840df6a9363"
+    "artifact_name": "best_val_acc.pt"
   },
   "checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
   "history_provenance": {
