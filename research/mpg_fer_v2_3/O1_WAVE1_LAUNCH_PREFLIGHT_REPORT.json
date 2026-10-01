@@ -1,11 +1,14 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "issue": 105,
   "framework_pr": 104,
   "reviewed_framework_head": "e7ea4f1a969d50b34b7e0930338d92f1263bdb96",
-  "candidate_preparation_commit": "c749f1bfdbb96d7edd43200703a322f44c51e388",
-  "launch_authorization_sha256": "a400347c4e511c66e70162e9c118a33c5f8c6e9677917182243ca234dee8c31d",
-  "design_lock_sha256": "80dc1cd5697c8ac2fe63f9084ccfa1fbc986875a2732456729ce9a07eb865841",
+  "reviewed_candidate_head": "9c8cc8804b362e13c99a240a996775dfbaf55aa0",
+  "reviewer_verdict": "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_REVIEW_PASS",
+  "review_comment_id": 5929994015,
+  "review_pr": 104,
+  "launch_authorization_sha256": "516e65e8fee58a19d9ac36527135dd562d7d5288a25404e1442c328d4378725f",
+  "design_lock_sha256": "e3ae57dcf7e5d53b9e1635f3ad5faa6b2ecdbd52fee6f98153ebd441b1c4fd0a",
   "immutable_identities": {
     "o1_implementation_commit": "b4a3563ca284dae5dc6ad5aad7023eda1253590b",
     "o1_source_tree_sha256": "800803493415562b3d533a8631d79203a181757220f10bad7c4326387d360595",
@@ -19,12 +22,13 @@
     "scientific_source_bytes_unchanged": true
   },
   "launch_job_count": 14,
-  "authorization_state": "CANDIDATE_PENDING_FINAL_REVIEW",
-  "wave1_execution_authorized": false,
+  "launch_matrix_semantic_sha256": "64671f8ae52ff72061feff3390c43214cad1b81a131cf9aca2552c4314424771",
+  "authorization_state": "FINAL_AUTHORIZED",
+  "wave1_execution_authorized": true,
   "test_run": {
     "command": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe -m pytest -q",
     "exit_code": 0,
-    "output": "........................................................................ [ 53%]\n..............................................................           [100%]\n134 passed in 429.77s (0:07:09)"
+    "output": "........................................................................ [ 53%]\n..............................................................           [100%]\n134 passed in 374.45s (0:06:14)"
   },
   "gates": {
     "O1-LA1": "PASS",
@@ -43,5 +47,5 @@
   "fer2013_accessed": false,
   "private_test_accessed": false,
   "kaggle_launched": false,
-  "status": "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_READY_PENDING_FINAL_REVIEW"
+  "status": "MPG_FER_O1_WAVE1_FINAL_AUTHORIZATION_READY_PENDING_DIFF_VERIFICATION"
 }

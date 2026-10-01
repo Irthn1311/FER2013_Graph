@@ -22,7 +22,9 @@ REVIEWED_NOTEBOOK = "752cec59a824092ab3286f6aa1a37a26abc81916152db04e6cf62b7c3c2
 REVIEWED_REGISTRY = "6a839be43ca5da9542d6bcd1f6a18d6c3c2e0326898ce59750c9c8560bb968aa"
 REVIEWED_BASELINE = "1b0aca11d49af9bb9e3ee170753666e0b446b435eecdc273a98e8f95c8c01f4e"
 REVIEWED_IMPLEMENTATION = "b4a3563ca284dae5dc6ad5aad7023eda1253590b"
-AUTHORIZATION_STATE = "CANDIDATE_PENDING_FINAL_REVIEW"
+AUTHORIZATION_STATE = "FINAL_AUTHORIZED"
+REVIEW_VERDICT = "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_REVIEW_PASS"
+REVIEW_COMMENT_ID = 5929994015
 
 EXPECTED_ROWS = (
     ("01", "O1_01", 1.5e-4, 65, "mpgfer-o1-01-lr00015-end65-s42"),
@@ -169,7 +171,7 @@ def test_reviewed_hashes_and_protected_bytes_are_unchanged() -> None:
     assert identities["scientific_source_bytes_unchanged"] is True
 
 
-def test_notebook_upload_identity_and_design_lock_remain_fail_closed() -> None:
+def test_notebook_identity_and_final_review_authorization_are_bound() -> None:
     authorization_path = ROOT / "O1_WAVE1_LAUNCH_AUTHORIZATION.json"
     authorization = _load(authorization_path)
     design = _load(ROOT / "O1_HPO_DESIGN_LOCK.json")
@@ -183,9 +185,11 @@ def test_notebook_upload_identity_and_design_lock_remain_fail_closed() -> None:
         ),
     }
     assert authorization["authorization_state"] == AUTHORIZATION_STATE
-    assert authorization["wave1_execution_authorized"] is False
+    assert authorization["wave1_execution_authorized"] is True
+    assert authorization["status"] == "MPG_FER_O1_WAVE1_FINAL_AUTHORIZED"
     assert design["authorization_state"] == AUTHORIZATION_STATE
-    assert design["wave1_execution_authorized"] is False
+    assert design["wave1_execution_authorized"] is True
+    assert design["authorization_blocker"] is None
     assert design["launch_authorization_issue"]["number"] == 105
     assert design["launch_authorization_path"] == authorization_path.name
     assert design["launch_authorization_sha256"] == sha256_file(authorization_path)
@@ -194,3 +198,12 @@ def test_notebook_upload_identity_and_design_lock_remain_fail_closed() -> None:
     assert design["notebook_sha256"] == REVIEWED_NOTEBOOK
     assert design["registry_sha256"] == REVIEWED_REGISTRY
     assert design["baseline_reference_sha256"] == REVIEWED_BASELINE
+    final_review = {
+        "reviewed_candidate_head": "9c8cc8804b362e13c99a240a996775dfbaf55aa0",
+        "reviewer_verdict": REVIEW_VERDICT,
+        "review_comment_id": REVIEW_COMMENT_ID,
+        "review_pr": 104,
+    }
+    for key, value in final_review.items():
+        assert authorization[key] == value
+        assert design[key] == value

@@ -10,6 +10,10 @@
   },
   "reviewed_framework_head": "e7ea4f1a969d50b34b7e0930338d92f1263bdb96",
   "reviewed_framework_design_lock_sha256": "a520c4ca7533d20715f9fdcda7f4b204bdeb8c22e7573a50349878cd5b58282c",
+  "reviewed_candidate_head": "9c8cc8804b362e13c99a240a996775dfbaf55aa0",
+  "reviewer_verdict": "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_REVIEW_PASS",
+  "review_comment_id": 5929994015,
+  "review_pr": 104,
   "immutable_identities": {
     "o1_implementation_commit": "b4a3563ca284dae5dc6ad5aad7023eda1253590b",
     "o1_source_tree_sha256": "800803493415562b3d533a8631d79203a181757220f10bad7c4326387d360595",
@@ -302,7 +306,7 @@
   },
   "metric_based_rerun_forbidden": true,
   "scientific_field_changes": [],
-  "authorization_state": "CANDIDATE_PENDING_FINAL_REVIEW",
-  "wave1_execution_authorized": false,
-  "status": "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_READY_PENDING_FINAL_REVIEW"
+  "authorization_state": "FINAL_AUTHORIZED",
+  "wave1_execution_authorized": true,
+  "status": "MPG_FER_O1_WAVE1_FINAL_AUTHORIZED"
 }

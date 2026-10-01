@@ -42,14 +42,18 @@
     ],
     "inspection": "path_names_only_no_file_open"
   },
-  "wave1_execution_authorized": false,
-  "authorization_blocker": "independent review has not authorized Wave 1",
+  "wave1_execution_authorized": true,
+  "authorization_blocker": null,
   "launch_authorization_issue": {
     "number": 105,
     "url": "https://github.com/Irthn1311/FER2013_Graph/issues/105"
   },
   "launch_authorization_path": "O1_WAVE1_LAUNCH_AUTHORIZATION.json",
-  "launch_authorization_sha256": "a400347c4e511c66e70162e9c118a33c5f8c6e9677917182243ca234dee8c31d",
+  "launch_authorization_sha256": "516e65e8fee58a19d9ac36527135dd562d7d5288a25404e1442c328d4378725f",
   "launch_job_count": 14,
-  "authorization_state": "CANDIDATE_PENDING_FINAL_REVIEW"
+  "authorization_state": "FINAL_AUTHORIZED",
+  "reviewed_candidate_head": "9c8cc8804b362e13c99a240a996775dfbaf55aa0",
+  "reviewer_verdict": "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_REVIEW_PASS",
+  "review_comment_id": 5929994015,
+  "review_pr": 104
 }

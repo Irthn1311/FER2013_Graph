@@ -43,7 +43,7 @@ def test_canonical_o1_notebook_matches_generator_and_compiles() -> None:
     assert actual["metadata"]["private_test_permitted"] is False
 
 
-def test_o1_design_lock_binds_source_notebook_and_refuses_wave1() -> None:
+def test_o1_design_lock_binds_source_notebook_and_final_authorization() -> None:
     design = json.loads((ROOT / "O1_HPO_DESIGN_LOCK.json").read_text(encoding="utf-8"))
     manifest = json.loads((ROOT / "O1_SOURCE_MANIFEST.json").read_text(encoding="utf-8"))
     implementation = (ROOT / "O1_IMPLEMENTATION_COMMIT.txt").read_text(encoding="utf-8").strip()
@@ -51,6 +51,15 @@ def test_o1_design_lock_binds_source_notebook_and_refuses_wave1() -> None:
     assert manifest["o1_implementation_commit"] == implementation
     assert design["o1_source_tree_sha256"] == manifest["o1_source_tree_sha256"]
     assert design["notebook_sha256"] == manifest["notebook"]["sha256"]
-    assert design["wave1_execution_authorized"] is False
+    assert design["wave1_execution_authorized"] is True
+    assert design["authorization_state"] == "FINAL_AUTHORIZED"
+    assert design["reviewed_candidate_head"] == (
+        "9c8cc8804b362e13c99a240a996775dfbaf55aa0"
+    )
+    assert design["reviewer_verdict"] == (
+        "MPG_FER_O1_WAVE1_AUTHORIZATION_CANDIDATE_REVIEW_PASS"
+    )
+    assert design["review_comment_id"] == 5929994015
+    assert design["review_pr"] == 104
     assert design["private_test_permitted"] is False
     assert design["screen_stop_epoch"] == 65
