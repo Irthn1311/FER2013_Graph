@@ -7,6 +7,16 @@
   "table_inference": "raw_single_view_fp32",
   "checkpoint_selection": "EMA Public horizontal-flip TTA accuracy, then higher Macro-F1, then lower CE loss",
   "private_test_permitted": false,
+  "kaggle_mounted_input_firewall": {
+    "input_root": "/kaggle/input",
+    "forbidden_path_markers": [
+      "private-test",
+      "private_test",
+      "privatetest",
+      "test.csv"
+    ],
+    "inspection": "path_names_only_no_file_open"
+  },
   "variant_ids": [
     "NO_PIXEL_GNN",
     "FIXED_POOL",
@@ -18,7 +28,7 @@
   ],
   "full_control_id": "FULL",
   "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
-  "ablation_implementation_commit": "f382e5783b298b82ca6ddb44be4a3bed8ea564ee",
+  "ablation_implementation_commit": "554d6d598eaa528a7b62cc3b26ae57f790a96777",
   "architecture_provenance": {
     "name": "MPG-FER v2.3",
     "frozen_v2_3_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
@@ -39,8 +49,8 @@
     ]
   },
   "final_recipe_lock_sha256": null,
-  "ablation_source_sha256": "1fee8f756251b76fef889f43ffb748d7820a1ef6cff5aa12db7fc994ee0b929c",
-  "notebook_sha256": "efba9049a7cd7be89a953b39c4b7fee431e5338604c46d6c13b21656168d6d4b",
+  "ablation_source_sha256": "f79ab82e70591ef3e75797b5711431e42eebecb3a37a5e5f6a17ff9d40478216",
+  "notebook_sha256": "676d135f8817863ae529e12747297ab21ca09c34f344755ead6547e98d7db33d",
   "scientific_training_authorized": false,
   "authorization_blocker": "FINAL_RECIPE_LOCK.json is not yet frozen and independently reviewed"
 }

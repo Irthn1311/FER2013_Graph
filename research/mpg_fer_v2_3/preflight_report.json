@@ -2,12 +2,12 @@
   "schema_version": 1,
   "issue": 101,
   "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
-  "ablation_implementation_commit": "f382e5783b298b82ca6ddb44be4a3bed8ea564ee",
-  "source_tree_sha256": "1fee8f756251b76fef889f43ffb748d7820a1ef6cff5aa12db7fc994ee0b929c",
-  "notebook_sha256": "efba9049a7cd7be89a953b39c4b7fee431e5338604c46d6c13b21656168d6d4b",
-  "design_lock_sha256": "87ceb811029a87264760eb52303fdb5edc4d649bb9f7951668dcb37a86cec862",
+  "ablation_implementation_commit": "554d6d598eaa528a7b62cc3b26ae57f790a96777",
+  "source_tree_sha256": "f79ab82e70591ef3e75797b5711431e42eebecb3a37a5e5f6a17ff9d40478216",
+  "notebook_sha256": "676d135f8817863ae529e12747297ab21ca09c34f344755ead6547e98d7db33d",
+  "design_lock_sha256": "b8fb2ca1ca4c932cf22f1d94bd7a13e628ccb599345d2a3336512645819fdb94",
   "registry_sha256": "b4fac50947cb6d13a5d116a45bddcc46b2d668bcb5add9e5bb0b711ebad6232f",
-  "source_manifest_sha256": "96f5004126d64f6744c61ba8e43889f07925fa6a7f2f3d14ec9cbdf8b1683539",
+  "source_manifest_sha256": "f91344c24b850a39a3dc5c9364b54510b38cfbeb07d72ae696240784f19f7bc4",
   "notebook_code_cells_compiled": 5,
   "official_checkpoint_compatibility": {
     "path": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\research\\mpg_fer_v2_3\\official_runs\\segment_02\\mpg_fer_v2_3_run\\best_val_acc.pt",
@@ -19,9 +19,9 @@
   "test_run": {
     "command": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe -m pytest -q",
     "exit_code": 0,
-    "output": "........................................................................ [ 54%]\n.............................................................            [100%]\n133 passed in 456.42s (0:07:36)"
+    "output": "........................................................................ [ 52%]\n..................................................................       [100%]\n138 passed in 584.25s (0:09:44)"
   },
-  "test_evidence": "........................................................................ [ 54%]\n.............................................................            [100%]\n133 passed in 456.42s (0:07:36)",
+  "test_evidence": "........................................................................ [ 52%]\n..................................................................       [100%]\n138 passed in 584.25s (0:09:44)",
   "gates": {
     "T1_full_parity": "PASS",
     "T2_shape_contract": "PASS",
@@ -36,6 +36,7 @@
   "private_test_accessed": false,
   "fer2013_accessed": false,
   "kaggle_training_launched": false,
+  "kaggle_mounted_input_firewall_regression": "PASS",
   "final_recipe_lock_present": false,
   "scientific_training_authorized": false,
   "status": "MPG_FER_ABLATION_FRAMEWORK_READY_PENDING_INDEPENDENT_REVIEW"
