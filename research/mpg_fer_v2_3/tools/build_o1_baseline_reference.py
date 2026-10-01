@@ -16,6 +16,7 @@ from mpg_fer_o1.protocol import (  # noqa: E402
     BASELINE_ID,
     FROZEN_SCIENTIFIC_SOURCE_SHA256,
     validate_baseline_reference,
+    validate_historical_public_results_artifact,
     write_json,
 )
 from mpg_fer_v2_3.checkpoint import sha256_file  # noqa: E402
@@ -29,7 +30,8 @@ def build_reference(
     public_path = Path(public_results_path)
     history_path = Path(history_summary_path)
     checkpoint = Path(checkpoint_path)
-    for path in (public_path, history_path, checkpoint):
+    public_provenance = validate_historical_public_results_artifact(public_path)
+    for path in (history_path, checkpoint):
         if any(
             marker in part.lower()
             for part in path.parts
@@ -81,10 +83,11 @@ def build_reference(
         "seed": 42,
         "learning_rate": 3.0e-4,
         "lr_decay_end_epoch": 85,
+        "metric_dataset_role": public_provenance["dataset_role"],
+        "public_results_provenance": public_provenance,
         "checkpoint_provenance": {
             "run_id": public_identity["run_id"],
             "artifact_name": checkpoint.name,
-            "public_results_sha256": sha256_file(public_path),
         },
         "checkpoint_sha256": checkpoint_sha,
         "history_provenance": {

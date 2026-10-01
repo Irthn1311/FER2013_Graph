@@ -15,6 +15,7 @@ import torch
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT.parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 sys.path.insert(0, str(ROOT / "tools"))
@@ -74,6 +75,13 @@ def _strict_checkpoint(checkpoint: Path, expected_sha: str) -> dict[str, Any]:
 
 
 def _source_manifest(notebook: Path, baseline: Path) -> dict[str, Any]:
+    allowlist = REPO_ROOT / ".gitguardian.yaml"
+    allowlist_text = allowlist.read_text(encoding="utf-8")
+    if (
+        "match: MPG_FER_O1_RUN_ID" not in allowlist_text
+        or "ignored_paths" in allowlist_text
+    ):
+        raise RuntimeError("GitGuardian false-positive allowlist is missing or too broad")
     selected = [
         *sorted((SRC / "mpg_fer_v2_3").glob("*.py")),
         *sorted((SRC / "mpg_fer_o1").glob("*.py")),
@@ -99,6 +107,12 @@ def _source_manifest(notebook: Path, baseline: Path) -> dict[str, Any]:
         "baseline_reference": {
             "path": baseline.relative_to(ROOT).as_posix(),
             "sha256": sha256_file(baseline),
+        },
+        "gitguardian_false_positive_allowlist": {
+            "path": allowlist.relative_to(REPO_ROOT).as_posix(),
+            "sha256": sha256_file(allowlist),
+            "match": "MPG_FER_O1_RUN_ID",
+            "credential_handling_changed": False,
         },
         "files": [
             {
@@ -176,8 +190,11 @@ def main() -> None:
         "o1_implementation_commit": implementation_commit,
         "frozen_scientific_source_sha256": FROZEN_SCIENTIFIC_SOURCE_SHA256,
         "o1_source_tree_sha256": manifest["o1_source_tree_sha256"],
+        "notebook_path": manifest["notebook"]["path"],
         "notebook_sha256": manifest["notebook"]["sha256"],
+        "registry_path": registry_path.relative_to(ROOT).as_posix(),
         "registry_sha256": sha256_file(registry_path),
+        "baseline_reference_path": baseline_path.relative_to(ROOT).as_posix(),
         "baseline_reference_sha256": manifest["baseline_reference"]["sha256"],
         "new_config_ids": list(O1_CONFIG_ORDER),
         "historical_control_id": "O1_C0_BASELINE",
@@ -214,6 +231,9 @@ def main() -> None:
         "source_manifest_sha256": sha256_file(manifest_path),
         "baseline_reference_sha256": sha256_file(baseline_path),
         "baseline_reference_status": "VERIFIED",
+        "gitguardian_false_positive_allowlist": manifest[
+            "gitguardian_false_positive_allowlist"
+        ],
         "notebook_code_cells_compiled": compiled_cells,
         "official_checkpoint_compatibility": checkpoint,
         "test_run": tests,

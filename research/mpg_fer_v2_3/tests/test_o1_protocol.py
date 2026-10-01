@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -14,11 +15,15 @@ from mpg_fer_o1.protocol import (
     BASELINE_ID,
     CHECKPOINT_SELECTION,
     FROZEN_SCIENTIFIC_SOURCE_SHA256,
+    HISTORICAL_METRIC_DATASET_ROLE,
+    HISTORICAL_PUBLIC_RESULTS_NAME,
+    HISTORICAL_PUBLIC_RESULTS_SHA256,
     O1_CONFIG_ORDER,
     O1_REGISTRY,
     SCREEN_STOP_EPOCH,
     aggregate_o1,
     frozen_baseline_config,
+    o1_source_tree_hash,
     raw_guardrail,
     registry_document,
     resolve_o1_config,
@@ -26,6 +31,7 @@ from mpg_fer_o1.protocol import (
     screen_stop_identity,
     scientific_diff,
     validate_baseline_reference,
+    validate_historical_public_results_artifact,
     validate_mounted_input_firewall,
     verify_single_delta,
     write_hpo_manifest,
@@ -53,6 +59,13 @@ def _baseline_reference() -> dict:
         "seed": 42,
         "learning_rate": 3.0e-4,
         "lr_decay_end_epoch": 85,
+        "metric_dataset_role": HISTORICAL_METRIC_DATASET_ROLE,
+        "public_results_provenance": {
+            "dataset_role": HISTORICAL_METRIC_DATASET_ROLE,
+            "artifact_name": HISTORICAL_PUBLIC_RESULTS_NAME,
+            "artifact_sha256": HISTORICAL_PUBLIC_RESULTS_SHA256,
+            "identity_basis": "exact_reviewed_public_results_name_and_sha256",
+        },
         "checkpoint_provenance": {"run_id": "historical"},
         "checkpoint_sha256": "a" * 64,
         "history_provenance": {"run_id": "historical"},
@@ -244,81 +257,190 @@ def test_baseline_reference_fails_closed_unless_complete_and_verified() -> None:
         validate_baseline_reference(invalid)
 
 
+def test_baseline_public_identity_refuses_same_run_nonreviewed_metric_artifact(
+    tmp_path,
+) -> None:
+    candidate = tmp_path / HISTORICAL_PUBLIC_RESULTS_NAME
+    write_json(
+        candidate,
+        {
+            "identity": {
+                "run_id": "same-reviewed-run",
+                "source_sha256": FROZEN_SCIENTIFIC_SOURCE_SHA256,
+                "config_sha256": BASELINE_CONFIG_SHA256,
+                "best_checkpoint_sha256": "a" * 64,
+            },
+            "dataset_role": "PrivateTest",
+        },
+    )
+    with pytest.raises(RuntimeError, match="exact reviewed PublicTest artifact"):
+        validate_historical_public_results_artifact(candidate)
+
+
+def _authorized_aggregation_design(tmp_path, baseline_path):
+    registry_path = tmp_path / "O1_REGISTRY.json"
+    write_json(registry_path, registry_document())
+    notebook_path = tmp_path / "notebooks" / "MPG_FER_O1_Wave1_Kaggle_T4.ipynb"
+    notebook_path.parent.mkdir()
+    notebook_path.write_text("synthetic reviewed notebook\n", encoding="utf-8")
+    design_path = tmp_path / "O1_HPO_DESIGN_LOCK.json"
+    design = {
+        "wave1_execution_authorized": True,
+        "private_test_permitted": False,
+        "frozen_scientific_source_sha256": FROZEN_SCIENTIFIC_SOURCE_SHA256,
+        "o1_source_tree_sha256": o1_source_tree_hash(),
+        "new_config_ids": list(O1_CONFIG_ORDER),
+        "historical_control_id": BASELINE_ID,
+        "screen_stop_epoch": 65,
+        "scientific_max_epochs": 120,
+        "registry_path": registry_path.name,
+        "registry_sha256": sha256_file(registry_path),
+        "notebook_path": notebook_path.relative_to(tmp_path).as_posix(),
+        "notebook_sha256": sha256_file(notebook_path),
+        "baseline_reference_sha256": sha256_file(baseline_path),
+    }
+    write_json(design_path, design)
+    return design_path, design
+
+
+def _completed_synthetic_run(
+    tmp_path, config_id, index, design, *, exact_resumed=False
+):
+    spec = O1_REGISTRY[config_id]
+    root = tmp_path / config_id
+    root.mkdir()
+    config = resolve_o1_config(config_id, run_id=f"run-{config_id}")
+    write_resolved_config(root / "resolved_config.json", config)
+    write_hpo_manifest(
+        root,
+        config_id=config_id,
+        config=config,
+        source_sha256=design["o1_source_tree_sha256"],
+        notebook_sha256=design["notebook_sha256"],
+    )
+    (root / "best_val_acc.pt").write_bytes(f"checkpoint-{config_id}".encode())
+    checkpoint_sha = sha256_file(root / "best_val_acc.pt")
+    score = 0.60 + index / 1000
+    write_json(
+        root / "selected_public_metrics.json",
+        {
+            "config_id": config_id,
+            "selected_epoch": 50,
+            "public": {
+                "raw": {"loss": 1.1, "accuracy": score, "macro_f1": score},
+                "tta": {"loss": 1.0, "accuracy": score, "macro_f1": score},
+            },
+            "right_censor": {
+                "right_censored": config_id == "O1_02",
+                "status": "synthetic",
+            },
+            "checkpoint_sha256": checkpoint_sha,
+            "PRIVATE_EVALUATED": False,
+        },
+    )
+    write_json(root / "history.json", {"synthetic": True})
+    (root / "history.csv").write_text("epoch\n65\n", encoding="utf-8")
+    write_json(
+        root / "execution_manifest.json",
+        {
+            "config_id": config_id,
+            "source_sha256": design["o1_source_tree_sha256"],
+            "scientific_config_sha256": config_hash(config),
+            "status": "SCREENING_COMPLETED",
+            "screen_stop_epoch": 65,
+            "scientific_max_epochs": 120,
+            "best_checkpoint_sha256": checkpoint_sha,
+            "resumed_from": (
+                f"/reviewed/resume/{config_id}/resume_latest.pt"
+                if exact_resumed
+                else None
+            ),
+            "PRIVATE_EVALUATED": False,
+        },
+    )
+    write_json(root / "segment_manifest.json", {"status": "SCREENING_COMPLETED"})
+    (root / "resume_latest.pt").write_bytes(b"synthetic exact-resume checkpoint")
+    write_run_checksums(root)
+    return root
+
+
 def test_o1_t11_aggregator_fixed_order_surface_and_promotion_separation(tmp_path) -> None:
     baseline_path = tmp_path / "baseline.json"
     write_json(baseline_path, _baseline_reference())
-    runs = []
-    for index, config_id in enumerate(reversed(O1_CONFIG_ORDER)):
-        spec = O1_REGISTRY[config_id]
-        root = tmp_path / config_id
-        root.mkdir()
-        (root / "best_val_acc.pt").write_bytes(f"checkpoint-{config_id}".encode())
-        checkpoint_sha = sha256_file(root / "best_val_acc.pt")
-        write_json(
-            root / "hpo_manifest.json",
-            {
-                "config_id": config_id,
-                "seed": 42,
-                "learning_rate": spec.learning_rate,
-                "lr_decay_end_epoch": spec.lr_decay_end_epoch,
-                "source_sha256": "c" * 64,
-                "scientific_config_sha256": f"{index + 100:064x}",
-                "notebook_sha256": "d" * 64,
-                "screen_stop_epoch": 65,
-                "scientific_max_epochs": 120,
-                "checkpoint_selection": CHECKPOINT_SELECTION,
-                "PRIVATE_EVALUATED": False,
-            },
+    design_path, design = _authorized_aggregation_design(tmp_path, baseline_path)
+    runs = [
+        _completed_synthetic_run(
+            tmp_path,
+            config_id,
+            index,
+            design,
+            exact_resumed=config_id == "O1_02",
         )
-        score = 0.60 + index / 1000
-        write_json(
-            root / "selected_public_metrics.json",
-            {
-                "config_id": config_id,
-                "selected_epoch": 50,
-                "public": {
-                    "raw": {"loss": 1.1, "accuracy": score, "macro_f1": score},
-                    "tta": {"loss": 1.0, "accuracy": score, "macro_f1": score},
-                },
-                "right_censor": {"right_censored": config_id == "O1_02", "status": "synthetic"},
-                "checkpoint_sha256": checkpoint_sha,
-                "PRIVATE_EVALUATED": False,
-            },
-        )
-        write_json(root / "resolved_config.json", {"synthetic": True})
-        write_json(root / "history.json", {"synthetic": True})
-        (root / "history.csv").write_text("epoch\n65\n", encoding="utf-8")
-        write_json(
-            root / "execution_manifest.json",
-            {
-                "status": "SCREENING_COMPLETED",
-                "screen_stop_epoch": 65,
-                "scientific_max_epochs": 120,
-                "best_checkpoint_sha256": checkpoint_sha,
-                "PRIVATE_EVALUATED": False,
-            },
-        )
-        write_json(root / "segment_manifest.json", {"status": "SCREENING_COMPLETED"})
-        (root / "resume_latest.pt").write_bytes(b"synthetic exact-resume checkpoint")
-        write_run_checksums(root)
-        runs.append(root)
+        for index, config_id in enumerate(reversed(O1_CONFIG_ORDER))
+    ]
     output = tmp_path / "aggregate"
-    result = aggregate_o1(runs, baseline_path, output)
+    result = aggregate_o1(runs, baseline_path, design_path, output)
     assert result["canonical_order"] == [*O1_CONFIG_ORDER, BASELINE_ID]
     assert result["right_censored_not_safely_eliminable"] == ["O1_02"]
+    assert result["completed_exact_resume_config_ids"] == ["O1_02"]
     registry_lines = (output / "o1_registry.csv").read_text(encoding="utf-8").splitlines()
     assert registry_lines[1].startswith("O1_01,")
     surface = (output / "o1_response_surface.csv").read_text(encoding="utf-8")
     assert len(surface.splitlines()) == 16
     assert "0.0003,85,O1_C0_BASELINE,external_historical_control" in surface
-    assert "Provisional top 3 novel configs" in (output / "o1_promotion_report.md").read_text(encoding="utf-8")
+    promotion = (output / "o1_promotion_report.md").read_text(encoding="utf-8")
+    assert "Provisional top 3 novel configs" in promotion
+    assert "Completed exact-resume jobs accepted: O1_02" in promotion
+    assert "Incomplete/partial run artifacts: refused" in promotion
     assert (output / "o1_checksums.sha256").is_file()
 
+    tampered_baseline = tmp_path / "tampered-baseline.json"
+    tampered_reference = _baseline_reference()
+    tampered_reference["selected_epoch"] = 56
+    write_json(tampered_baseline, tampered_reference)
+    with pytest.raises(RuntimeError, match="reviewed artifact hash mismatch"):
+        aggregate_o1(
+            runs,
+            tampered_baseline,
+            design_path,
+            tmp_path / "baseline-refused",
+        )
 
-def test_o1_t11_aggregator_refuses_partial_or_resumed_run(tmp_path) -> None:
+    corrupted = runs[0]
+    manifest_path = corrupted / "hpo_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["source_sha256"] = "e" * 64
+    write_json(manifest_path, manifest)
+    write_run_checksums(corrupted)
+    with pytest.raises(RuntimeError, match="reviewed design identity"):
+        aggregate_o1(runs, baseline_path, design_path, tmp_path / "source-refused")
+
+    manifest["source_sha256"] = design["o1_source_tree_sha256"]
+    resolved_path = corrupted / "resolved_config.json"
+    resolved = json.loads(resolved_path.read_text(encoding="utf-8"))
+    resolved["scientific_config"]["learning_rate"] = 9.0e-4
+    encoded = json.dumps(
+        resolved["scientific_config"], sort_keys=True, separators=(",", ":")
+    )
+    drifted_hash = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    resolved["scientific_config_sha256"] = drifted_hash
+    manifest["scientific_config_sha256"] = drifted_hash
+    execution_path = corrupted / "execution_manifest.json"
+    execution = json.loads(execution_path.read_text(encoding="utf-8"))
+    execution["scientific_config_sha256"] = drifted_hash
+    write_json(resolved_path, resolved)
+    write_json(manifest_path, manifest)
+    write_json(execution_path, execution)
+    write_run_checksums(corrupted)
+    with pytest.raises(RuntimeError, match="resolved config identity mismatch"):
+        aggregate_o1(runs, baseline_path, design_path, tmp_path / "config-refused")
+
+
+def test_o1_t11_aggregator_refuses_partial_run(tmp_path) -> None:
     baseline_path = tmp_path / "baseline.json"
     write_json(baseline_path, _baseline_reference())
+    design_path, _ = _authorized_aggregation_design(tmp_path, baseline_path)
     partial = tmp_path / "O1_01"
     partial.mkdir()
     with pytest.raises(RuntimeError, match="refuses partial run"):
-        aggregate_o1([partial], baseline_path, tmp_path / "aggregate")
+        aggregate_o1([partial], baseline_path, design_path, tmp_path / "aggregate")

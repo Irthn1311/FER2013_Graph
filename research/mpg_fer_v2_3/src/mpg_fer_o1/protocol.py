@@ -28,6 +28,11 @@ FROZEN_SCIENTIFIC_SOURCE_SHA256 = (
 BASELINE_CONFIG_SHA256 = (
     "8f14b91e95663833248fd8cd40bb1b63234dea58cc4bc554e96710d822fb64c2"
 )
+HISTORICAL_PUBLIC_RESULTS_NAME = "v23_public_results.json"
+HISTORICAL_PUBLIC_RESULTS_SHA256 = (
+    "da99889dd993da18c57f2e0f74afd6921abb052e9705a452e543d840df6a9363"
+)
+HISTORICAL_METRIC_DATASET_ROLE = "PublicTest"
 BASELINE_ID = "O1_C0_BASELINE"
 SCREEN_STOP_EPOCH = 65
 RIGHT_CENSORED_STATUS = "RIGHT_CENSORED_AT_SCREEN_LIMIT"
@@ -200,6 +205,32 @@ def _contains_private_marker(path: Path) -> bool:
     return any(part.lower() in PRIVATE_PATH_MARKERS for part in path.parts)
 
 
+def validate_historical_public_results_artifact(
+    public_results_path: str | Path,
+) -> dict[str, str]:
+    """Bind baseline metrics to the exact already-reviewed PublicTest artifact."""
+    path = Path(public_results_path)
+    if _contains_private_marker(path):
+        raise RuntimeError("BASELINE_PUBLIC_REFUSED: forbidden split/path marker")
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    actual_sha256 = sha256_file(path)
+    if (
+        path.name != HISTORICAL_PUBLIC_RESULTS_NAME
+        or actual_sha256 != HISTORICAL_PUBLIC_RESULTS_SHA256
+    ):
+        raise RuntimeError(
+            "BASELINE_PUBLIC_REFUSED: metrics are not the exact reviewed "
+            "PublicTest artifact"
+        )
+    return {
+        "dataset_role": HISTORICAL_METRIC_DATASET_ROLE,
+        "artifact_name": HISTORICAL_PUBLIC_RESULTS_NAME,
+        "artifact_sha256": HISTORICAL_PUBLIC_RESULTS_SHA256,
+        "identity_basis": "exact_reviewed_public_results_name_and_sha256",
+    }
+
+
 def validate_mounted_input_firewall(
     input_root: str | Path = "/kaggle/input",
 ) -> dict[str, Any]:
@@ -338,6 +369,8 @@ def validate_baseline_reference(reference: Mapping[str, Any]) -> dict[str, Any]:
         "seed",
         "learning_rate",
         "lr_decay_end_epoch",
+        "metric_dataset_role",
+        "public_results_provenance",
         "checkpoint_provenance",
         "checkpoint_sha256",
         "history_provenance",
@@ -357,9 +390,18 @@ def validate_baseline_reference(reference: Mapping[str, Any]) -> dict[str, Any]:
         or reference["seed"] != 42
         or reference["learning_rate"] != 3.0e-4
         or reference["lr_decay_end_epoch"] != 85
+        or reference["metric_dataset_role"] != HISTORICAL_METRIC_DATASET_ROLE
         or reference["private_test_artifacts_read"] is not False
     ):
         raise RuntimeError("BASELINE_REFERENCE_REFUSED: provenance/identity mismatch")
+    public_provenance = reference["public_results_provenance"]
+    if public_provenance != {
+        "dataset_role": HISTORICAL_METRIC_DATASET_ROLE,
+        "artifact_name": HISTORICAL_PUBLIC_RESULTS_NAME,
+        "artifact_sha256": HISTORICAL_PUBLIC_RESULTS_SHA256,
+        "identity_basis": "exact_reviewed_public_results_name_and_sha256",
+    }:
+        raise RuntimeError("BASELINE_REFERENCE_REFUSED: PublicTest identity mismatch")
     for field in ("checkpoint_sha256", "history_sha256"):
         value = reference[field]
         if not isinstance(value, str) or len(value) != 64:
@@ -447,7 +489,70 @@ def _strictly_monotone(keys: Sequence[tuple[float, float, float]]) -> bool:
     return len(keys) >= 2 and all(a > b for a, b in zip(keys, keys[1:]))
 
 
-def _validate_completed_run_artifacts(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+def _canonical_mapping_hash(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _locked_relative_artifact(design_path: Path, relative: Any, label: str) -> Path:
+    if not isinstance(relative, str):
+        raise RuntimeError(f"O1 aggregation design lacks {label} path")
+    root = design_path.parent.resolve()
+    candidate = (root / relative).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise RuntimeError(f"O1 aggregation design {label} path escapes lock root") from exc
+    if not candidate.is_file():
+        raise RuntimeError(f"O1 aggregation design {label} artifact is absent")
+    return candidate
+
+
+def validate_aggregation_design_lock(
+    design_lock_path: str | Path,
+    baseline_reference_path: str | Path,
+) -> dict[str, Any]:
+    """Verify the authorized design and every immutable artifact it binds."""
+    design_path = Path(design_lock_path)
+    if not design_path.is_file():
+        raise RuntimeError("O1 aggregation requires a reviewed design lock")
+    design = json.loads(design_path.read_text(encoding="utf-8"))
+    if (
+        design.get("wave1_execution_authorized") is not True
+        or design.get("private_test_permitted") is not False
+        or design.get("frozen_scientific_source_sha256")
+        != FROZEN_SCIENTIFIC_SOURCE_SHA256
+        or design.get("o1_source_tree_sha256") != o1_source_tree_hash()
+        or design.get("new_config_ids") != list(O1_CONFIG_ORDER)
+        or design.get("historical_control_id") != BASELINE_ID
+        or design.get("screen_stop_epoch") != SCREEN_STOP_EPOCH
+        or design.get("scientific_max_epochs") != 120
+    ):
+        raise RuntimeError("O1 aggregation reviewed design identity mismatch")
+
+    registry_path = _locked_relative_artifact(
+        design_path, design.get("registry_path"), "registry"
+    )
+    notebook_path = _locked_relative_artifact(
+        design_path, design.get("notebook_path"), "notebook"
+    )
+    baseline_path = Path(baseline_reference_path)
+    if (
+        sha256_file(registry_path) != design.get("registry_sha256")
+        or sha256_file(notebook_path) != design.get("notebook_sha256")
+        or not baseline_path.is_file()
+        or sha256_file(baseline_path) != design.get("baseline_reference_sha256")
+    ):
+        raise RuntimeError("O1 aggregation reviewed artifact hash mismatch")
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    if registry != _finite_json(registry_document()):
+        raise RuntimeError("O1 aggregation registry content mismatch")
+    return design
+
+
+def _validate_completed_run_artifacts(
+    root: Path, design: Mapping[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     missing = [name for name in REQUIRED_RUN_ARTIFACTS if not (root / name).is_file()]
     if missing:
         raise RuntimeError(f"O1 aggregation refuses partial run {root}: missing {missing}")
@@ -469,6 +574,7 @@ def _validate_completed_run_artifacts(root: Path) -> tuple[dict[str, Any], dict[
             raise RuntimeError(f"O1 artifact checksum mismatch: {root / name}")
 
     manifest = json.loads((root / "hpo_manifest.json").read_text(encoding="utf-8"))
+    resolved = json.loads((root / "resolved_config.json").read_text(encoding="utf-8"))
     selected = json.loads(
         (root / "selected_public_metrics.json").read_text(encoding="utf-8")
     )
@@ -476,6 +582,32 @@ def _validate_completed_run_artifacts(root: Path) -> tuple[dict[str, Any], dict[
         (root / "execution_manifest.json").read_text(encoding="utf-8")
     )
     segment = json.loads((root / "segment_manifest.json").read_text(encoding="utf-8"))
+    config_id = manifest.get("config_id")
+    if config_id not in O1_REGISTRY:
+        raise RuntimeError(f"Unexpected O1 config: {config_id}")
+    expected_config = resolve_o1_config(config_id)
+    expected_scientific = canonical_config(expected_config)
+    expected_runtime_fields = set(expected_config.runtime_safe_resume_fields)
+    if (
+        set(resolved) != {
+            "schema_version",
+            "scientific_config_sha256",
+            "scientific_config",
+            "runtime_config",
+        }
+        or resolved.get("schema_version") != 1
+        or not isinstance(resolved.get("scientific_config"), dict)
+        or not isinstance(resolved.get("runtime_config"), dict)
+        or set(resolved["runtime_config"]) != expected_runtime_fields
+    ):
+        raise RuntimeError(f"O1 resolved config schema mismatch: {root}")
+    resolved_hash = _canonical_mapping_hash(resolved["scientific_config"])
+    if (
+        resolved.get("scientific_config_sha256") != resolved_hash
+        or resolved["scientific_config"] != _finite_json(expected_scientific)
+        or manifest.get("scientific_config_sha256") != resolved_hash
+    ):
+        raise RuntimeError(f"O1 resolved config identity mismatch: {root}")
     if (
         execution.get("status") != "SCREENING_COMPLETED"
         or segment.get("status") != "SCREENING_COMPLETED"
@@ -485,30 +617,44 @@ def _validate_completed_run_artifacts(root: Path) -> tuple[dict[str, Any], dict[
         or selected.get("PRIVATE_EVALUATED") is not False
     ):
         raise RuntimeError(f"O1 aggregation refuses incomplete/non-public run: {root}")
+    if (
+        manifest.get("source_sha256") != design.get("o1_source_tree_sha256")
+        or manifest.get("notebook_sha256") != design.get("notebook_sha256")
+        or execution.get("source_sha256") != design.get("o1_source_tree_sha256")
+        or execution.get("scientific_config_sha256") != resolved_hash
+        or execution.get("config_id") != config_id
+        or selected.get("config_id") != config_id
+    ):
+        raise RuntimeError(f"O1 run does not match reviewed design identity: {root}")
     checkpoint_sha = sha256_file(root / "best_val_acc.pt")
     if (
         execution.get("best_checkpoint_sha256") != checkpoint_sha
         or selected.get("checkpoint_sha256") != checkpoint_sha
     ):
         raise RuntimeError(f"O1 selected checkpoint provenance mismatch: {root}")
-    return manifest, selected
+    resumed_from = execution.get("resumed_from")
+    if resumed_from is not None and (
+        not isinstance(resumed_from, str) or not resumed_from.strip()
+    ):
+        raise RuntimeError(f"O1 exact-resume provenance mismatch: {root}")
+    return manifest, selected, execution
 
 
 def aggregate_o1(
     run_directories: Iterable[str | Path],
     baseline_reference_path: str | Path,
+    design_lock_path: str | Path,
     output_dir: str | Path,
 ) -> dict[str, Any]:
     baseline_path = Path(baseline_reference_path)
+    design = validate_aggregation_design_lock(design_lock_path, baseline_path)
     baseline = validate_baseline_reference(
         json.loads(baseline_path.read_text(encoding="utf-8"))
     )
     records: dict[str, dict[str, Any]] = {}
-    source_identities: set[str] = set()
-    notebook_identities: set[str] = set()
     for raw in run_directories:
         root = Path(raw)
-        manifest, metrics = _validate_completed_run_artifacts(root)
+        manifest, metrics, execution = _validate_completed_run_artifacts(root, design)
         config_id = manifest["config_id"]
         if config_id not in O1_REGISTRY or config_id in records:
             raise RuntimeError(f"Unexpected or duplicate O1 config: {config_id}")
@@ -524,36 +670,25 @@ def aggregate_o1(
             or metrics.get("config_id") != config_id
         ):
             raise RuntimeError(f"Scientific manifest mismatch: {config_id}")
-        for identity_field in (
-            "source_sha256",
-            "scientific_config_sha256",
-            "notebook_sha256",
-        ):
-            identity = manifest.get(identity_field)
-            if not isinstance(identity, str) or len(identity) != 64:
-                raise RuntimeError(
-                    f"Missing O1 provenance {identity_field}: {config_id}"
-                )
-        source_identities.add(manifest["source_sha256"])
-        notebook_identities.add(manifest["notebook_sha256"])
         records[config_id] = {
             "config_id": config_id,
             "source_type": "new_screening_job",
             "learning_rate": spec.learning_rate,
             "lr_decay_end_epoch": spec.lr_decay_end_epoch,
+            "completion_status": "SCREENING_COMPLETED",
+            "exact_resume_used": execution.get("resumed_from") is not None,
+            "resumed_from": execution.get("resumed_from"),
             **metrics,
         }
     missing = [key for key in O1_CONFIG_ORDER if key not in records]
     if missing:
         raise RuntimeError(f"O1 aggregation incomplete: {missing}")
-    if len(source_identities) != 1 or len(notebook_identities) != 1:
-        raise RuntimeError("O1 aggregation source/notebook identity mismatch")
-
     baseline_record = {
         "config_id": BASELINE_ID,
         "source_type": "external_historical_control",
         "learning_rate": 3.0e-4,
         "lr_decay_end_epoch": 85,
+        "metric_dataset_role": HISTORICAL_METRIC_DATASET_ROLE,
         "selected_epoch": baseline["selected_epoch"],
         "public": baseline["public_metrics"],
         "right_censor": {
@@ -597,6 +732,13 @@ def aggregate_o1(
     output.mkdir(parents=True, exist_ok=True)
     result = {
         "schema_version": 1,
+        "reviewed_design_lock_sha256": sha256_file(design_lock_path),
+        "reviewed_source_sha256": design["o1_source_tree_sha256"],
+        "reviewed_notebook_sha256": design["notebook_sha256"],
+        "reviewed_registry_sha256": design["registry_sha256"],
+        "reviewed_baseline_reference_sha256": design[
+            "baseline_reference_sha256"
+        ],
         "canonical_order": [*O1_CONFIG_ORDER, BASELINE_ID],
         "results": canonical_rows,
         "performance_ranking_is_separate": True,
@@ -642,19 +784,30 @@ def aggregate_o1(
     warnings = [
         item["config_id"] for item in ranking if item["raw_guardrail"]["warning"]
     ]
+    exact_resumed = [
+        item["config_id"] for item in canonical_rows if item.get("exact_resume_used")
+    ]
+    fresh_completed = len(O1_CONFIG_ORDER) - len(exact_resumed)
     report = [
         "# MPG-FER O1 provisional promotion report",
         "",
         "Historical control: O1_C0_BASELINE (external; not a new job).",
         "New screening jobs: 14.",
-        "Completed new jobs accepted: 14.",
-        "Partial/resumed inputs accepted: 0 (such inputs are refused before aggregation).",
+        (
+            "Completed new jobs accepted: 14 "
+            f"(fresh: {fresh_completed}; exact-resumed: {len(exact_resumed)})."
+        ),
+        (
+            "Completed exact-resume jobs accepted: "
+            f"{', '.join(exact_resumed) if exact_resumed else 'none'}."
+        ),
+        "Incomplete/partial run artifacts: refused before aggregation.",
         f"Provisional top 3 novel configs: {', '.join(item['config_id'] for item in ranking[:3])}.",
         f"Right-censored (not safely eliminable): {', '.join(censored) if censored else 'none'}.",
         f"Raw guardrail warnings (explicit review required): {', '.join(warnings) if warnings else 'none'}.",
         f"Boundary-extension status: {', '.join(boundary) if boundary else 'NO_BOUNDARY_EXTENSION_SIGNAL'}.",
         "",
-        "Partial/resumed runs are not accepted by this final aggregator.",
+        "Exact-resumed runs are accepted only after reaching SCREENING_COMPLETED.",
         "No extension values are invented by this report.",
     ]
     (output / "o1_promotion_report.md").write_text(
@@ -677,4 +830,5 @@ def aggregate_o1(
         "right_censored_not_safely_eliminable": censored,
         "raw_guardrail_warnings": warnings,
         "boundary_extension_status": boundary,
+        "completed_exact_resume_config_ids": exact_resumed,
     }

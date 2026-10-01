@@ -46,18 +46,24 @@ and operational account/kernel naming) do not alter scientific identity.
 
 `O1_BASELINE_REFERENCE.json` is generated only from explicitly named public
 results, training-history summary, and checkpoint artifacts. The builder
-requires exact agreement on run, frozen source, frozen config, selected epoch,
-completed epoch, and checkpoint hash, and strictly loads the checkpoint into
-the frozen model. Paths carrying PrivateTest markers are refused. No missing
-control value is synthesized.
+requires the exact already-reviewed `v23_public_results.json` filename and
+SHA-256 and records its role as `PublicTest`. It also requires exact agreement
+on run, frozen source, frozen config, selected epoch, completed epoch, and
+checkpoint hash, and strictly loads the checkpoint into the frozen model.
+Paths carrying PrivateTest markers are refused. No missing control value is
+synthesized.
 
 ## Future run and aggregation contracts
 
 Each future O1 job must emit the ten artifacts listed by
 `mpg_fer_o1.protocol.REQUIRED_RUN_ARTIFACTS`. The final aggregator refuses an
-incomplete 14-job set, preserves semantic registry order in `o1_results.json`,
-places the historical control in the `(3e-4, 85)` response-surface cell, and
-keeps performance ordering only in `o1_promotion_report.md`.
+incomplete 14-job set and binds every completed run to the authorized design
+lock's source, notebook, registry, baseline-reference, and canonical resolved
+config identities. A completed exact-resume run is accepted and explicitly
+labeled; an incomplete/partial run is refused. The aggregator preserves
+semantic registry order in `o1_results.json`, places the historical control in
+the `(3e-4, 85)` response-surface cell, and keeps performance ordering only in
+`o1_promotion_report.md`.
 
 Right-censor, raw guardrail, comparator, and boundary-extension decisions are
 mechanical. A right-censored configuration requires extension under the same
@@ -67,6 +73,11 @@ new LR or horizon values.
 Retries are permitted only for documented technical/infrastructure failure,
 prefer exact resume, retain partial artifacts, and must never be initiated
 because a score is disappointing.
+
+The repository `.gitguardian.yaml` narrowly allowlists only the reviewed
+`MPG_FER_O1_RUN_ID` secret-name string. That occurrence is a
+`UserSecretsClient` lookup, not a credential value; credential handling is
+unchanged and no file/path-wide exclusion is used.
 
 ## Frozen review artifacts
 
