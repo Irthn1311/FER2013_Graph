@@ -17,7 +17,8 @@
     "NO_PIXEL_FUSION"
   ],
   "full_control_id": "FULL",
-  "base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "ablation_implementation_commit": "f382e5783b298b82ca6ddb44be4a3bed8ea564ee",
   "architecture_provenance": {
     "name": "MPG-FER v2.3",
     "frozen_v2_3_source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
@@ -38,8 +39,8 @@
     ]
   },
   "final_recipe_lock_sha256": null,
-  "ablation_source_sha256": "187e69b430f020794804703f7b7cf1cadc137766ab7c51403850c3f2a6766208",
-  "notebook_sha256": "8e74811b8f96a11e20ea697ceb89c8cf25452b4ed3e1763f8ba139e81d67298f",
+  "ablation_source_sha256": "1fee8f756251b76fef889f43ffb748d7820a1ef6cff5aa12db7fc994ee0b929c",
+  "notebook_sha256": "efba9049a7cd7be89a953b39c4b7fee431e5338604c46d6c13b21656168d6d4b",
   "scientific_training_authorized": false,
   "authorization_blocker": "FINAL_RECIPE_LOCK.json is not yet frozen and independently reviewed"
 }

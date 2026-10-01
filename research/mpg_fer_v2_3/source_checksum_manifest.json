@@ -1,10 +1,11 @@
 {
   "schema_version": 1,
-  "base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
-  "ablation_source_tree_sha256": "187e69b430f020794804703f7b7cf1cadc137766ab7c51403850c3f2a6766208",
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "ablation_implementation_commit": "f382e5783b298b82ca6ddb44be4a3bed8ea564ee",
+  "ablation_source_tree_sha256": "1fee8f756251b76fef889f43ffb748d7820a1ef6cff5aa12db7fc994ee0b929c",
   "notebook": {
     "path": "notebooks/MPG_FER_Table_VI_Ablation_Kaggle_T4.ipynb",
-    "sha256": "8e74811b8f96a11e20ea697ceb89c8cf25452b4ed3e1763f8ba139e81d67298f"
+    "sha256": "efba9049a7cd7be89a953b39c4b7fee431e5338604c46d6c13b21656168d6d4b"
   },
   "files": [
     {
@@ -84,43 +85,43 @@
     },
     {
       "path": "src/mpg_fer_table_vi/model.py",
-      "sha256": "643942678f4fb528e507dc0406331e685f68d3f38b80b275c55e6e4bce9db86d",
-      "bytes": 22531
+      "sha256": "ff5f87704dd8fa9341dbe5c814ffef17be3f24d69d349127e09eac7e5716c7f1",
+      "bytes": 22805
     },
     {
       "path": "src/mpg_fer_table_vi/protocol.py",
-      "sha256": "2c9b5f5366f06110418810d25bbfb5058d48a54550c905316eea7932d810bfe2",
-      "bytes": 15413
+      "sha256": "a1c6badf91476beaf16bc2c83b7b6b093de4c5595aff5074d6b2581f6ab787ca",
+      "bytes": 23228
     },
     {
       "path": "src/mpg_fer_table_vi/train.py",
-      "sha256": "bb6b95eb10a05a0c5a910a8048b6d06ee4c0fb852f27488e30d390bb3285d0bd",
-      "bytes": 26627
+      "sha256": "129b1c6533a24d2c0b23040d6864b372e3bad7f4b3f453dbdbf0e61f50762d29",
+      "bytes": 30358
     },
     {
       "path": "tools/sync_ablation_notebook.py",
-      "sha256": "e41fa5a01c36a0bd3b980b57584ac769b2f970ba3027363b65dce398482d62da",
-      "bytes": 7121
+      "sha256": "0f0f98e78cd9ad3eec7af09079b8a71e3534315b93680919715394394ba170c5",
+      "bytes": 8100
     },
     {
       "path": "tools/freeze_ablation_framework.py",
-      "sha256": "697e31d880812e14868e0a9cf288a1738d85c5abb7b079e8e7a582f189f39824",
-      "bytes": 7969
+      "sha256": "3a57183b06395175470ccbfbd31c1fc1ebfef339193961e78d69cfa0af64eedc",
+      "bytes": 8706
     },
     {
       "path": "tests/test_ablation_framework.py",
-      "sha256": "a24458099f90b4d74011deaaacfd8293465069a424c36ae72306acb0eae902d8",
-      "bytes": 16833
+      "sha256": "2ef4a81b0bf767e05076863222944c3ffe0064be2bec1f969f37310068111516",
+      "bytes": 22544
     },
     {
       "path": "tests/test_ablation_notebook.py",
-      "sha256": "a0dd552b2bef2c3f236214212e2d6d257ba9a68a29c255bad168eda3d4a283e6",
-      "bytes": 2522
+      "sha256": "4502ba0b68daaa34137520c00fbda82973898ab1dd7d27f92fba431c0105307d",
+      "bytes": 3429
     },
     {
       "path": "tests/test_ablation_resume.py",
-      "sha256": "dc9f86beb07e7e6096a38dc8eda89966c3944a6a9bb23048507dbb9fefada446",
-      "bytes": 7696
+      "sha256": "5785ceb5fe62b90637d53c80458e7268473056e8e9eddaba385a3631e4f28744",
+      "bytes": 10943
     },
     {
       "path": "tests/test_multiseed_protocol.py",
@@ -131,6 +132,11 @@
       "path": "tests/test_v23_contract.py",
       "sha256": "224c1838da3952f45596c312c19e24aa3d719520e6ae127e9b71bbe93ac2e295",
       "bytes": 3084
+    },
+    {
+      "path": "ABLATION_IMPLEMENTATION_COMMIT.txt",
+      "sha256": "45ed5f28b54a832b27ca08a791821cebe9f9ef69416266f0f053f914193a6568",
+      "bytes": 42
     }
   ]
 }

@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
   "issue": 101,
-  "base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
-  "source_tree_sha256": "187e69b430f020794804703f7b7cf1cadc137766ab7c51403850c3f2a6766208",
-  "notebook_sha256": "8e74811b8f96a11e20ea697ceb89c8cf25452b4ed3e1763f8ba139e81d67298f",
-  "design_lock_sha256": "573ce1991e29dd45fdfdded6718dd0237f180f69b322f971dfcce01320a4991f",
-  "registry_sha256": "ded60c774c89c00b71eaf479cfc03166a7c0318952bdaba021793074c4379fe9",
-  "source_manifest_sha256": "4e83a4b4ebc4885f5a611291897e4a388cc6346dc8f3c76d1bc60076f4256ce2",
+  "architecture_base_commit": "232e7a9f09251e7c3353684d34351356bd2b023b",
+  "ablation_implementation_commit": "f382e5783b298b82ca6ddb44be4a3bed8ea564ee",
+  "source_tree_sha256": "1fee8f756251b76fef889f43ffb748d7820a1ef6cff5aa12db7fc994ee0b929c",
+  "notebook_sha256": "efba9049a7cd7be89a953b39c4b7fee431e5338604c46d6c13b21656168d6d4b",
+  "design_lock_sha256": "87ceb811029a87264760eb52303fdb5edc4d649bb9f7951668dcb37a86cec862",
+  "registry_sha256": "b4fac50947cb6d13a5d116a45bddcc46b2d668bcb5add9e5bb0b711ebad6232f",
+  "source_manifest_sha256": "96f5004126d64f6744c61ba8e43889f07925fa6a7f2f3d14ec9cbdf8b1683539",
   "notebook_code_cells_compiled": 5,
   "official_checkpoint_compatibility": {
     "path": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\research\\mpg_fer_v2_3\\official_runs\\segment_02\\mpg_fer_v2_3_run\\best_val_acc.pt",
@@ -18,9 +19,9 @@
   "test_run": {
     "command": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe -m pytest -q",
     "exit_code": 0,
-    "output": "........................................................................ [ 54%]\n...........................................................              [100%]\n131 passed in 551.00s (0:09:10)"
+    "output": "........................................................................ [ 54%]\n.............................................................            [100%]\n133 passed in 456.42s (0:07:36)"
   },
-  "test_evidence": "........................................................................ [ 54%]\n...........................................................              [100%]\n131 passed in 551.00s (0:09:10)",
+  "test_evidence": "........................................................................ [ 54%]\n.............................................................            [100%]\n133 passed in 456.42s (0:07:36)",
   "gates": {
     "T1_full_parity": "PASS",
     "T2_shape_contract": "PASS",
