@@ -8,11 +8,11 @@
   "resume_mode": "fresh",
   "segment_number": 1,
   "full_control_launched": false,
-  "ablation_implementation_commit": "PENDING_FREEZE",
-  "ablation_source_sha256": "PENDING_FREEZE",
-  "notebook_sha256": "PENDING_FREEZE",
-  "final_recipe_lock_sha256": "PENDING_FREEZE",
-  "full_baseline_reference_sha256": "PENDING_FREEZE",
+  "ablation_implementation_commit": "05cc979e47fcf61f12e821ffd59233fa7c2e2377",
+  "ablation_source_sha256": "f1e11eab85361061065baa87906749c0a31b19e08e1b121bfd25aa5cd298d59c",
+  "notebook_sha256": "b76948162c36434b2ee3a374c55085b299f43e1bb44f95d35bceb9ac4c1130c2",
+  "final_recipe_lock_sha256": "c694c707c2e953d0a5cd0c4900f97f1f30ed64a47797bf29e61d6fcd6d44502d",
+  "full_baseline_reference_sha256": "7b90390052300583633a11ceecbcb3f7ca4addc22ecfb76a784c2171c0e99288",
   "jobs": [
     {
       "mode": "NO_PIXEL_GNN",
