@@ -27,7 +27,7 @@ def test_canonical_o1_notebook_matches_generator_and_compiles() -> None:
         for cell in actual["cells"]
         if cell["cell_type"] == "code"
     ]
-    assert len(code_cells) == 6
+    assert len(code_cells) == 5
     for index, code in enumerate(code_cells):
         compile(code, f"o1-notebook-cell-{index}", "exec")
     code = "\n".join(code_cells)

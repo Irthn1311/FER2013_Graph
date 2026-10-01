@@ -28,8 +28,8 @@ resume identity, and pre-stop behavior retain their full-recipe semantics.
 
 ## Execution lock
 
-The canonical notebook is `notebooks/mpg_fer_o1_wave1.ipynb`. It resolves the
-single selector `MPG_FER_O1_CONFIG_ID` only through the immutable registry.
+The canonical notebook is `notebooks/MPG_FER_O1_Wave1_Kaggle_T4.ipynb`. It
+resolves the single selector `MPG_FER_O1_CONFIG_ID` only through the immutable registry.
 Before resolving any data path, it enumerates mounted path names under
 `/kaggle/input` and refuses execution if `test.csv`, `PrivateTest`,
 `private_test`, or `private-test` is present. It does not open a forbidden
