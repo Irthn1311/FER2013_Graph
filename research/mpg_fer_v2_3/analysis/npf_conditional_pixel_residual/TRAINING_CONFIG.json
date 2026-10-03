@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "variants": [
+    "R1",
+    "R2"
+  ],
+  "anchor": "NO_PIXEL_FUSION",
+  "npf_checkpoint_sha256": "f301895cd174f8adf998d7f622279510e45bf210e2cc52ebc25376db49e5f972",
+  "frozen_backbone_state_sha256": "6378a504e397f68d9fe4d36febd6d39174617d5e51c0a4ece467bbce359b3a16",
+  "optimizer": {
+    "family": "AdamW",
+    "learning_rate": 0.0003,
+    "weight_decay": 0.001
+  },
+  "loss": {
+    "cross_entropy": true,
+    "lambda_delta": 0.0001,
+    "delta_term": "mean(sum(delta**2, dim=class))"
+  },
+  "epochs": 30,
+  "warmup_epochs": 2,
+  "scheduler": "linear_warmup_then_cosine_to_zero",
+  "early_stop_patience": 8,
+  "checkpoint_selection": "highest PublicTest horizontal-flip TTA Accuracy, tie-break Macro-F1",
+  "batch_size": 16,
+  "frozen_backbone_microbatch_size": 16,
+  "gradient_accumulation_steps": 2,
+  "training_amp": true,
+  "evaluation": "FP32, autocast off, TF32 off, raw and logit-average horizontal-flip TTA",
+  "private_test_policy": "opened once only after R1 and R2 best checkpoints are selected and frozen",
+  "dataset": {
+    "train": {
+      "role": "train",
+      "path": "/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv",
+      "rows": 28709,
+      "expected_rows": 28709,
+      "content_validated": true
+    },
+    "public": {
+      "role": "val",
+      "path": "/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/val.csv",
+      "rows": 3589,
+      "expected_rows": 3589,
+      "content_validated": true
+    },
+    "private_before_selection": {
+      "role": "test",
+      "path": "/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/test.csv",
+      "accessed": false
+    }
+  },
+  "dataset_sha256": {
+    "train_sha256": "deb82c4b4e01b90776a718c34934666b0bdde6696ca1d0149f8fe807a8ff4ba8",
+    "public_sha256": "412036d077c6ec203047b2935ab14bc858d8136ee26e8db3e23023f1fc9dee08",
+    "private_sha256_expected_not_read": "be385344b93606c75cb65cac3d39b13cdedb5b91621640ee08f73b9a551fbd9d"
+  }
+}

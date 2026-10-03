@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "COMPLETE_AND_VALIDATED",
+  "kernel": {
+    "ref": "irthn1311/mpg-fer-npf-residual-stage1-seed42",
+    "version": 1,
+    "url": "https://www.kaggle.com/code/irthn1311/mpg-fer-npf-residual-stage1-seed42",
+    "notebook_sha256": "8239a7110930dceaf6cf5f4e66ccbfc84477cc13d9b2e9d0e5f0e56ebd3f87c8",
+    "log_sha256": "977921519b7d71a35187edc9610edbe4ba96839cf6f6df5d50d147305f07167d",
+    "training_stage1_runtime_seconds": 1309.4495296799998
+  },
+  "private_input": {
+    "dataset_ref": "irthn1311/mpg-fer-npf-residual-stage1-input",
+    "input_manifest_sha256": "84a304374f4558f8abb5a7a99983c2d6644f46f433440a94b3e7fe8949051a58",
+    "credential_in_input_or_artifacts": false
+  },
+  "data_input": "doduyquynii/fer13-split",
+  "complete_archive": {
+    "local_path": "D:\\KaggleStaging\\mpg-fer-npf-residual-20261003\\downloaded_v1\\npf_conditional_pixel_residual_artifacts.zip",
+    "size_bytes": 31804135,
+    "sha256": "d7b8d6d68145d61c39006ada518c0c72beabb3249664206ae3401debfe5ed74d"
+  },
+  "validation": {
+    "status": "PASS",
+    "files_verified": 13,
+    "public_samples": 3589,
+    "private_samples": 3589,
+    "selected_epochs": {
+      "R1": 2,
+      "R2": 2
+    }
+  },
+  "decision": "NO_GO_STOP_STAGE_1",
+  "selected_variant_by_public": "R2",
+  "selected_public_gain_pp": 0.0,
+  "selected_private_tta_accuracy": 0.7040958484257454,
+  "stage2_run": false
+}

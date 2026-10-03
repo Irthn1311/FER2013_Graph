@@ -1,0 +1,12 @@
+{
+  "python": "3.13.15",
+  "platform": "Linux-6.18.48+-x86_64-with-glibc2.39",
+  "torch": "2.11.0+cu128",
+  "torchvision": "0.26.0+cu128",
+  "numpy": "2.1.3",
+  "scipy": "1.16.3",
+  "scikit_learn": "1.6.1",
+  "cuda": "12.8",
+  "gpu": "Tesla T4",
+  "command": "/kaggle/working/npf-residual-stage1-runtime/experiment/run_experiment.py --repo /kaggle/working/npf-residual-stage1-runtime --source-root /kaggle/working/npf-residual-stage1-runtime/src --train-csv /kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv --public-csv /kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/val.csv --private-csv /kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/test.csv --full-checkpoint /kaggle/input/datasets/irthn1311/mpg-fer-npf-residual-stage1-input/checkpoints/full_best_val_acc.pt --npf-checkpoint /kaggle/input/datasets/irthn1311/mpg-fer-npf-residual-stage1-input/checkpoints/npf_best_val_acc.pt --output /kaggle/working/npf_conditional_pixel_residual --batch-size 16 --eval-batch-size 16 --backbone-microbatch-size 16 --num-workers 2 --device cuda --max-epochs 30 --resume-phase0"
+}

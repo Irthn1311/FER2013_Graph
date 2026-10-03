@@ -1,0 +1,174 @@
+{
+  "metrics": {
+    "FULL": {
+      "raw": {
+        "loss": 1.102853148592911,
+        "accuracy": 0.6804123711340206,
+        "macro_f1": 0.6640844754593144,
+        "per_class_recall": [
+          0.6231263383297645,
+          0.5714285714285714,
+          0.5241935483870968,
+          0.8446927374301676,
+          0.554364471669219,
+          0.8240963855421687,
+          0.657331136738056
+        ],
+        "correct_count": 2442
+      },
+      "tta": {
+        "loss": 0.9953614046150024,
+        "accuracy": 0.6918361660629702,
+        "macro_f1": 0.6733461344388773,
+        "per_class_recall": [
+          0.6466809421841542,
+          0.5892857142857143,
+          0.5201612903225806,
+          0.8558659217877095,
+          0.5758039816232772,
+          0.8361445783132531,
+          0.6606260296540363
+        ],
+        "correct_count": 2483
+      }
+    },
+    "NO_PIXEL_FUSION": {
+      "raw": {
+        "loss": 0.9697545905081346,
+        "accuracy": 0.6818055168570633,
+        "macro_f1": 0.6613138418485993,
+        "per_class_recall": [
+          0.6231263383297645,
+          0.5535714285714286,
+          0.4798387096774194,
+          0.852513966480447,
+          0.5742725880551302,
+          0.8337349397590361,
+          0.6639209225700164
+        ],
+        "correct_count": 2447
+      },
+      "tta": {
+        "loss": 0.9095010414730154,
+        "accuracy": 0.6962942323767066,
+        "macro_f1": 0.6799464795376695,
+        "per_class_recall": [
+          0.6359743040685225,
+          0.5892857142857143,
+          0.49193548387096775,
+          0.8569832402234637,
+          0.5972434915773354,
+          0.8602409638554217,
+          0.6771004942339374
+        ],
+        "correct_count": 2499
+      }
+    }
+  },
+  "views": {
+    "raw": {
+      "disagreement": {
+        "N_CC": 2155,
+        "N_CW": 287,
+        "N_WC": 292,
+        "N_WW": 855,
+        "prediction_agreement_count": 2789,
+        "prediction_disagreement_count": 800,
+        "prediction_disagreement_rate": 0.22290331568682084,
+        "correctness_disagreement_count": 579,
+        "either_correct_count": 2734,
+        "either_correct_accuracy": 0.7617720813597102
+      },
+      "equal_logit_fusion": {
+        "loss": 0.9372847262145517,
+        "accuracy": 0.6932293117860128,
+        "macro_f1": 0.6765589778853346,
+        "per_class_recall": [
+          0.6509635974304069,
+          0.5892857142857143,
+          0.5,
+          0.8569832402234637,
+          0.5972434915773354,
+          0.8289156626506025,
+          0.6622734761120264
+        ],
+        "correct_count": 2488
+      },
+      "scalar_fusion": {
+        "label": "DESCRIPTIVE_IN_SAMPLE_FUSION_UPPER_DIAGNOSTIC",
+        "maximum_accuracy": 0.6985232655335748,
+        "tied_alpha_full": [
+          0.19,
+          0.23
+        ],
+        "macro_f1_at_tied_alphas": [
+          0.679943609988925,
+          0.6806986982550786
+        ]
+      }
+    },
+    "tta": {
+      "disagreement": {
+        "N_CC": 2254,
+        "N_CW": 229,
+        "N_WC": 245,
+        "N_WW": 861,
+        "prediction_agreement_count": 2909,
+        "prediction_disagreement_count": 680,
+        "prediction_disagreement_rate": 0.18946781833379772,
+        "correctness_disagreement_count": 474,
+        "either_correct_count": 2728,
+        "either_correct_accuracy": 0.7601003064920591
+      },
+      "equal_logit_fusion": {
+        "loss": 0.8892186517413018,
+        "accuracy": 0.7035385901365283,
+        "macro_f1": 0.6854160743731759,
+        "per_class_recall": [
+          0.6659528907922913,
+          0.6071428571428571,
+          0.5080645161290323,
+          0.8581005586592179,
+          0.6156202143950995,
+          0.8433734939759037,
+          0.6721581548599671
+        ],
+        "correct_count": 2525
+      },
+      "scalar_fusion": {
+        "label": "DESCRIPTIVE_IN_SAMPLE_FUSION_UPPER_DIAGNOSTIC",
+        "maximum_accuracy": 0.7071607690164391,
+        "tied_alpha_full": [
+          0.29
+        ],
+        "macro_f1_at_tied_alphas": [
+          0.6934660076613225
+        ]
+      }
+    }
+  },
+  "schema_version": 1,
+  "status": "PASS",
+  "scope": {
+    "training": false,
+    "dataset_role": "PublicTest",
+    "selection_use": true,
+    "private_opened": false
+  },
+  "identity": {
+    "train_sha256": "deb82c4b4e01b90776a718c34934666b0bdde6696ca1d0149f8fe807a8ff4ba8",
+    "public_sha256": "412036d077c6ec203047b2935ab14bc858d8136ee26e8db3e23023f1fc9dee08",
+    "full_checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+    "npf_checkpoint_sha256": "f301895cd174f8adf998d7f622279510e45bf210e2cc52ebc25376db49e5f972",
+    "config_sha256": "8f14b91e95663833248fd8cd40bb1b63234dea58cc4bc554e96710d822fb64c2",
+    "row_order": "canonical PublicTest CSV order"
+  },
+  "immutability": {
+    "FULL": true,
+    "NO_PIXEL_FUSION": true
+  },
+  "runtime_seconds": {
+    "FULL": 330.3280000000377,
+    "NO_PIXEL_FUSION": 345.28100000001723
+  }
+}
