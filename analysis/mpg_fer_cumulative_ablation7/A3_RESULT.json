@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "configuration": "A3",
+  "display_name": "+ Geometry Bias",
+  "vietnamese_name": "+ Geometry Bias",
+  "status": "TRAINING_COMPLETED",
+  "seed": 42,
+  "checkpoint_sha256": "83d1b2269e45fc8377c6ef7a15f071b0d26f9b0d2e15883137c2b94eb2a4323d",
+  "selected_epoch": 75,
+  "weights_type": "EMA",
+  "checkpoint_selection": "EMA Public horizontal-flip TTA accuracy, then higher Macro-F1, then lower CE loss",
+  "dataset_hashes": {
+    "train.csv": "deb82c4b4e01b90776a718c34934666b0bdde6696ca1d0149f8fe807a8ff4ba8",
+    "val.csv": "412036d077c6ec203047b2935ab14bc858d8136ee26e8db3e23023f1fc9dee08",
+    "test.csv": "be385344b93606c75cb65cac3d39b13cdedb5b91621640ee08f73b9a551fbd9d"
+  },
+  "public_metrics": {
+    "loss": 1.6139788572155158,
+    "accuracy": 0.6065756478127612,
+    "macro_f1": 0.5731285799196487
+  },
+  "private_metrics": {
+    "raw": {
+      "accuracy": 0.6166062970186682,
+      "macro_f1": 0.5906276406527359
+    },
+    "tta": {
+      "accuracy": 0.653106714962385,
+      "macro_f1": 0.6353058052768301
+    },
+    "sample_count": 3589
+  },
+  "canonical_evaluation": {
+    "inference": "canonical_fp32_no_autocast_tf32_disabled",
+    "sample_count": 3589,
+    "evaluated_only_after_freeze": true
+  }
+}

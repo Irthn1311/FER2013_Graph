@@ -1,0 +1,15 @@
+{
+  "id": "nadkli2704/mpg-fer-cumabl7-opus-a4",
+  "title": "mpg fer cumabl7 opus a4",
+  "code_file": "mpg-fer-cumabl7-opus-a4.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": [
+    "doduyquynii/fer13-split"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

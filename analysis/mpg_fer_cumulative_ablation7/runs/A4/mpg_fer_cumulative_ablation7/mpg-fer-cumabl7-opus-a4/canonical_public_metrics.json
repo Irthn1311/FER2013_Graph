@@ -1,0 +1,18 @@
+{
+  "dataset_role": "PublicTest",
+  "inference": "raw_single_view_fp32",
+  "autocast_enabled": false,
+  "tf32_enabled": false,
+  "single_view": true,
+  "metrics": {
+    "loss": 1.5500025915282454,
+    "accuracy": 0.6074115352465868,
+    "macro_f1": 0.5699160615033938
+  },
+  "sample_count": 3589,
+  "configuration": "A4",
+  "seed": 42,
+  "weights_type": "EMA",
+  "selected_epoch": 79,
+  "checkpoint_sha256": "751583270170a22c8942f1a20d449b555557ddbd6cabf107cfe4a5bee580f11d"
+}

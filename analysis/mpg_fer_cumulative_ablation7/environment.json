@@ -1,0 +1,13 @@
+{
+  "platform": "Windows-10-10.0.26200-SP0",
+  "python_version": "3.11.15",
+  "python_executable": "C:\\Users\\ADMIN\\anaconda3\\envs\\fer-graph\\python.exe",
+  "torch_version": "2.11.0+cu126",
+  "cuda_available": true,
+  "cuda_version": "12.6",
+  "device_count": 1,
+  "device_name": "NVIDIA GeForce RTX 3050 Ti Laptop GPU",
+  "base_commit": "c143ba2c2eeee5ed088984461f0ad9be42d373bb",
+  "branch": "research/mpg-fer-cumulative-ablation7-opus",
+  "artifact_namespace": "analysis/mpg_fer_cumulative_ablation7/"
+}

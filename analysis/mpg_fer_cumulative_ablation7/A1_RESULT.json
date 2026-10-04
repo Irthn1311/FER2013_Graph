@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "configuration": "A1",
+  "display_name": "+ Spatial Motif Composer",
+  "vietnamese_name": "+ Spatial Motif Composer",
+  "status": "TRAINING_COMPLETED",
+  "seed": 42,
+  "checkpoint_sha256": "103958895c6ee16e556f32ce8b34c755cf16cee2703ccd838ba739350f525eab",
+  "selected_epoch": 34,
+  "weights_type": "EMA",
+  "checkpoint_selection": "EMA Public horizontal-flip TTA accuracy, then higher Macro-F1, then lower CE loss",
+  "dataset_hashes": {
+    "train.csv": "deb82c4b4e01b90776a718c34934666b0bdde6696ca1d0149f8fe807a8ff4ba8",
+    "val.csv": "412036d077c6ec203047b2935ab14bc858d8136ee26e8db3e23023f1fc9dee08",
+    "test.csv": "be385344b93606c75cb65cac3d39b13cdedb5b91621640ee08f73b9a551fbd9d"
+  },
+  "public_metrics": {
+    "loss": 1.2274273686104746,
+    "accuracy": 0.609083310114238,
+    "macro_f1": 0.5736915853411884
+  },
+  "private_metrics": {
+    "raw": {
+      "accuracy": 0.6129841181387573,
+      "macro_f1": 0.5891553874428104
+    },
+    "tta": {
+      "accuracy": 0.6391752577319587,
+      "macro_f1": 0.6140937260110257
+    },
+    "sample_count": 3589
+  },
+  "canonical_evaluation": {
+    "inference": "canonical_fp32_no_autocast_tf32_disabled",
+    "sample_count": 3589,
+    "evaluated_only_after_freeze": true
+  }
+}
