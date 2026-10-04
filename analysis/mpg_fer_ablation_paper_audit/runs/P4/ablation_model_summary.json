@@ -1,0 +1,45 @@
+{
+  "version": "MPG-FER v2.3",
+  "total_parameters": 2304528,
+  "trainable_parameters": 2304528,
+  "early_depth_intervention": {
+    "mechanism": "fixed_residual_branch_scaling",
+    "motif_residual_scale_schedule": [
+      0.5,
+      0.5,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "target_layers": [
+      1,
+      2
+    ],
+    "coefficient_sweep": false
+  },
+  "motif_topk_schedule": [
+    8,
+    16,
+    16,
+    16,
+    24
+  ],
+  "source_git_commit": "05cc979e47fcf61f12e821ffd59233fa7c2e2377",
+  "source_sha256": "f1e11eab85361061065baa87906749c0a31b19e08e1b121bfd25aa5cd298d59c",
+  "ablation_mode": "DENSE_MOTIF",
+  "paper_name": "Dense motif attention",
+  "loss_applicability": {
+    "final_ce": true,
+    "pixel_aux": true,
+    "motif_aux": true,
+    "prototype_mi": true,
+    "prototype_diversity": true,
+    "consistency": true,
+    "supcon": true
+  },
+  "diagnostic_applicability": {
+    "motif_prototype_diagnostics": true,
+    "motif_routing_diagnostics": true,
+    "scale_gate": true
+  }
+}

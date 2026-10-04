@@ -1,0 +1,8 @@
+{
+  "python": "3.11.15",
+  "torch": "2.11.0+cu126",
+  "base_commit": "c143ba2c2eeee5ed088984461f0ad9be42d373bb",
+  "cumulative_head": "7d7fc28328ea4e4cb21e428c037b51b7a9aaeb9d",
+  "branch": "research/mpg-fer-ablation-paper-audit",
+  "audit_namespace": "analysis/mpg_fer_ablation_paper_audit/"
+}

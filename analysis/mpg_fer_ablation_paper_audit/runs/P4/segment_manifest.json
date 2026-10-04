@@ -1,0 +1,12 @@
+{
+  "run_id": "mpgfer-ablation-dense-motif-s42",
+  "segment_number": 2,
+  "start_epoch": 87,
+  "end_epoch": 99,
+  "next_epoch": 100,
+  "wallclock_seconds": 5681.028706233,
+  "resume_sha256": "6ea4ed83cceb52a1263b558d8747d726a0f17fff15fc94aa19ce2ad5e8d9d553",
+  "best_epoch": 59,
+  "best_public_tta_accuracy": 0.6965728615213151,
+  "status": "TRAINING_COMPLETED"
+}
