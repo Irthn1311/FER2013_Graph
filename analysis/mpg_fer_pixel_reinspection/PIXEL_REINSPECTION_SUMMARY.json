@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "title": "MPG-FER Contextual Local Pixel Reinspection Diagnostic Summary",
+  "decision_classification": "CASE PIX-C (NO-GO. Late evidence-recovery family is exhausted)",
+  "decision_status_string": "PIXEL_REINSPECTION_NO_GO",
+  "p0_baseline": {
+    "val_accuracy": 0.6776260796879353,
+    "val_macro_f1": 0.6671189875977296,
+    "val_ce_loss": 1.299466012081551,
+    "selected_epoch": 2,
+    "parameter_count": 225224
+  },
+  "p1_local_reinjection": {
+    "val_accuracy": 0.6748397882418501,
+    "val_macro_f1": 0.6604844548163153,
+    "val_ce_loss": 1.4562484729784915,
+    "selected_epoch": 6,
+    "parameter_count": 281289
+  },
+  "p2_contextual_reinspection": {
+    "val_accuracy": 0.6748397882418501,
+    "val_macro_f1": 0.661639765231105,
+    "val_ce_loss": 1.3732245220849693,
+    "selected_epoch": 2,
+    "parameter_count": 308937
+  },
+  "pairwise_deltas_pp": {
+    "p1_minus_p0": -0.27862914460851584,
+    "p2_minus_p0": -0.27862914460851584,
+    "p2_minus_p1": 0.0
+  },
+  "p1_diagnostics": {
+    "mean_gate_activation": 0.8503599166870117,
+    "std_gate_activation": 0.19941656291484833,
+    "min_gate_activation": 0.0005318474723026156,
+    "max_gate_activation": 0.9999982118606567,
+    "mean_norm_ratio": 0.2768502116203308,
+    "gate_percentiles": {
+      "p10": 0.5648601651191711,
+      "p25": 0.7967061400413513,
+      "p50": 0.934093713760376,
+      "p75": 0.9862448573112488,
+      "p90": 0.9987976551055908
+    }
+  },
+  "p2_diagnostics": {
+    "mean_gate_activation": 0.7004868984222412,
+    "std_gate_activation": 0.3096618056297302,
+    "mean_norm_ratio": 0.4301403596483428,
+    "attention_entropy": 2.3914170265197754,
+    "normalized_entropy": 0.43126068560718883,
+    "effective_attended_pixels": 10.928969615512274,
+    "mean_kl_a_p": 2.857497215270996,
+    "mean_absolute_difference": 0.006293248850852251,
+    "argmax_pixel_change_rate": 0.9515469670295715
+  }
+}

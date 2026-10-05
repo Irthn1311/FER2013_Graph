@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "source_checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+  "train_samples": 28709,
+  "val_samples": 3589,
+  "feature_storage": "memmap_disk_FP16_source_forward_FP32",
+  "max_quantization_error": 0.0,
+  "mean_quantization_error": 0.0,
+  "shapes": {
+    "H_P_memmap": [
+      2304,
+      96
+    ],
+    "p_m_i_prior": [
+      49,
+      256
+    ],
+    "h_m_L": [
+      49,
+      192
+    ],
+    "h_bar_P_prior_weighted": [
+      49,
+      96
+    ]
+  },
+  "train_h_m_L_sha256": "5ae078393789c19847d320d7792f2d68d13f0e7201e7731eae276192ae615e33",
+  "val_h_m_L_sha256": "909525e394d9be9b7ee911b21e2e22f28bcbed2c4a912eb8030407507f12b450"
+}

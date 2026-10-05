@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "checkpoint_path": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\research\\mpg_fer_v2_3\\official_runs\\segment_02\\mpg_fer_v2_3_run\\best_val_acc.pt",
+  "checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+  "canonical_seed": 42,
+  "extracted_tensors": {
+    "H_P": {
+      "description": "Contextualized pixel node embeddings after 4 Edge-Aware Pixel GNN layers",
+      "source_point": "self.pixel_gnn forward loop completion",
+      "shape": [
+        -1,
+        2304,
+        96
+      ]
+    },
+    "w_m_s_i": {
+      "description": "Per-occurrence per-scale spatial softmax weights from SMC",
+      "source_point": "weights[scale] in SpatialMotifComposer._pool_scale",
+      "shapes": {
+        "scale_8": [
+          -1,
+          49,
+          64
+        ],
+        "scale_12": [
+          -1,
+          49,
+          144
+        ],
+        "scale_16": [
+          -1,
+          49,
+          256
+        ]
+      }
+    },
+    "alpha_m_s": {
+      "description": "Canonical scale weights from learned scale gate",
+      "source_point": "F.softmax(self.scale_gate(candidate_stack).squeeze(-1), dim=-1)",
+      "shape": [
+        -1,
+        49,
+        3
+      ]
+    },
+    "h_m_L": {
+      "description": "Final post-Motif-Graph occurrence states after 5 Geometry-Aware Motif Transformer Blocks",
+      "source_point": "self.motif_gnn forward loop completion immediately before motif readout",
+      "shape": [
+        -1,
+        49,
+        192
+      ]
+    },
+    "p_m_i": {
+      "description": "Canonical pixel prior constructed by scattering alpha_(m,s) * w_(m,s,i) over union support S_m",
+      "support_size_per_occurrence": 256,
+      "shape": [
+        -1,
+        49,
+        256
+      ],
+      "normalization": "sum_i p_(m,i) = 1.0 exactly"
+    }
+  },
+  "canonical_dimensions": {
+    "num_pixels": 2304,
+    "d_pixel": 96,
+    "num_occurrences_M": 49,
+    "support_size_max": 256,
+    "d_motif": 192,
+    "num_classes": 7
+  },
+  "status": "PASS"
+}

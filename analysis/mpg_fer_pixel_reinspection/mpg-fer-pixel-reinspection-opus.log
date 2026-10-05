@@ -1,0 +1,78 @@
+[{"stream_name":"stderr","time":5.655671944,"data":"/usr/local/lib/python3.13/dist-packages/nbformat/validator.py:434: MissingIDFieldWarning: Cell is missing an id field, this will become a hard error in future nbformat versions. You may want to use `normalize()` on your notebooks before validations (available since nbformat 5.1.4). Previous versions of nbformat are fixing this issue transparently, and will stop doing so in the future.\n"}
+,{"stream_name":"stderr","time":5.655718841,"data":"  _validate(nbdict, ref, version, version_minor, relax_add_props)\n"}
+,{"stream_name":"stderr","time":6.50655036,"data":"0.00s - Debugger warning: It seems that frozen modules are being used, which may\n"}
+,{"stream_name":"stderr","time":6.506589149,"data":"0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off\n"}
+,{"stream_name":"stderr","time":6.506594355,"data":"0.00s - to python to disable frozen modules.\n"}
+,{"stream_name":"stderr","time":6.5065986030000005,"data":"0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.\n"}
+,{"stream_name":"stderr","time":7.116221669,"data":"0.00s - Debugger warning: It seems that frozen modules are being used, which may\n"}
+,{"stream_name":"stderr","time":7.116267836,"data":"0.00s - make the debugger miss breakpoints. Please pass -Xfrozen_modules=off\n"}
+,{"stream_name":"stderr","time":7.116276646,"data":"0.00s - to python to disable frozen modules.\n"}
+,{"stream_name":"stderr","time":7.116281281,"data":"0.00s - Note: Debugging will proceed. Set PYDEVD_DISABLE_FILE_VALIDATION=1 to disable this validation.\n"}
+,{"stream_name":"stdout","time":8.206952306,"data":"Pixel Reinspection Diagnostic output directory: /kaggle/working/mpg_fer_pixel_reinspection\n"}
+,{"stream_name":"stdout","time":8.282576489,"data":"Source unpacked successfully: 619ac8d424ea0ba8dc4ac20a67fd9a635483deeb8ab86ddb004875495ceaf218\n"}
+,{"stream_name":"stdout","time":22.580210696,"data":"Verified Canonical Seed-42 Checkpoint SHA256: 23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e\n"}
+,{"stream_name":"stdout","time":25.330355593,"data":"Train CSV: /kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv (SHA: deb82c4b4e01b90776a718c34934666b0bdde6696ca1d0149f8fe807a8ff4ba8)\n"}
+,{"stream_name":"stdout","time":25.330397922,"data":"Val CSV:   /kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/val.csv (SHA: 412036d077c6ec203047b2935ab14bc858d8136ee26e8db3e23023f1fc9dee08)\n"}
+,{"stream_name":"stdout","time":25.330401963,"data":"Confirmed Test CSV is present on disk but will strictly NOT be accessed or read.\n"}
+,{"stream_name":"stdout","time":25.617891997,"data":"Execution device: cuda\n"}
+,{"stream_name":"stdout","time":26.991751216,"data":"Backbone strictly loaded and all parameters frozen.\n"}
+,{"stream_name":"stdout","time":27.203002731,"data":"Support mappings initialized successfully.\n"}
+,{"stream_name":"stdout","time":33.223815288,"data":"Extracting Train features to memmap...\n"}
+,{"stream_name":"stdout","time":64.130330882,"data":"  Train: 6400 samples extracted...\n"}
+,{"stream_name":"stdout","time":94.810582612,"data":"  Train: 12800 samples extracted...\n"}
+,{"stream_name":"stdout","time":126.074400817,"data":"  Train: 19200 samples extracted...\n"}
+,{"stream_name":"stdout","time":156.287728971,"data":"  Train: 25600 samples extracted...\n"}
+,{"stream_name":"stdout","time":177.201305298,"data":"Train completed in 143.8s\n"}
+,{"stream_name":"stdout","time":177.637939111,"data":"Extracting Val features to memmap...\n"}
+,{"stream_name":"stdout","time":198.387399049,"data":"Val completed in 20.2s\n"}
+,{"stream_name":"stdout","time":198.387430096,"data":"Train shapes: p_m_i=torch.Size([28709, 49, 256]), h_m_L=torch.Size([28709, 49, 192]), h_bar_P=torch.Size([28709, 49, 96])\n"}
+,{"stream_name":"stdout","time":198.387469371,"data":"Val shapes:   p_m_i=torch.Size([3589, 49, 256]), h_m_L=torch.Size([3589, 49, 192]), h_bar_P=torch.Size([3589, 49, 96])\n"}
+,{"stream_name":"stdout","time":198.387474656,"data":"Quantization audit: max error = 0.000000e+00, mean error = 0.000000e+00\n"}
+,{"stream_name":"stdout","time":200.038460767,"data":"Wrote FEATURE_MANIFEST.json\n"}
+,{"stream_name":"stdout","time":200.239329308,"data":"\n"}
+,{"stream_name":"stdout","time":200.239374796,"data":"=== Training P0 (225,224 parameters) ===\n"}
+,{"stream_name":"stdout","time":201.395838844,"data":"Epoch 01 | Train Acc: 93.66% | Val Acc: 67.51% (Best: 67.51%) | Patience: 0\n"}
+,{"stream_name":"stdout","time":202.429422835,"data":"Epoch 02 | Train Acc: 96.03% | Val Acc: 67.76% (Best: 67.76%) | Patience: 0\n"}
+,{"stream_name":"stdout","time":204.926385006,"data":"Epoch 05 | Train Acc: 96.59% | Val Acc: 67.21% (Best: 67.76%) | Patience: 3\n"}
+,{"stream_name":"stdout","time":209.041907944,"data":"Epoch 10 | Train Acc: 97.02% | Val Acc: 66.82% (Best: 67.76%) | Patience: 8\n"}
+,{"stream_name":"stdout","time":209.041950709,"data":"Early stopping at epoch 10!\n"}
+,{"stream_name":"stdout","time":209.041956238,"data":"\n"}
+,{"stream_name":"stdout","time":209.041959898,"data":"=== Training P1 (281,289 parameters) ===\n"}
+,{"stream_name":"stdout","time":210.197013262,"data":"Epoch 01 | Train Acc: 93.06% | Val Acc: 67.21% (Best: 67.21%) | Patience: 0\n"}
+,{"stream_name":"stdout","time":211.23612247,"data":"Epoch 02 | Train Acc: 95.96% | Val Acc: 67.23% (Best: 67.23%) | Patience: 0\n"}
+,{"stream_name":"stdout","time":213.348772881,"data":"Epoch 04 | Train Acc: 96.31% | Val Acc: 67.43% (Best: 67.43%) | Patience: 0\n"}
+,{"stream_name":"stdout","time":214.408669528,"data":"Epoch 05 | Train Acc: 96.62% | Val Acc: 67.34% (Best: 67.43%) | Patience: 1\n"}
+,{"stream_name":"stdout","time":215.456576623,"data":"Epoch 06 | Train Acc: 96.72% | Val Acc: 67.48% (Best: 67.48%) | Patience: 0\n"}
+,{"stream_name":"stdout","time":219.725452108,"data":"Epoch 10 | Train Acc: 97.16% | Val Acc: 67.07% (Best: 67.48%) | Patience: 4\n"}
+,{"stream_name":"stdout","time":223.955377598,"data":"Early stopping at epoch 14!\n"}
+,{"stream_name":"stdout","time":223.955428306,"data":"\n"}
+,{"stream_name":"stdout","time":223.955434446,"data":"=== Training P2 Contextual Reinspection (308,937 parameters) ===\n"}
+,{"stream_name":"stdout","time":262.781824392,"data":"Epoch 01 | Train Acc: 93.74% | Val Acc: 67.12% (Best: 67.12%) | Patience: 0\n"}
+,{"stream_name":"stdout","time":300.411161854,"data":"Epoch 02 | Train Acc: 95.89% | Val Acc: 67.48% (Best: 67.48%) | Patience: 0\n"}
+,{"stream_name":"stdout","time":414.480280257,"data":"Epoch 05 | Train Acc: 96.69% | Val Acc: 67.43% (Best: 67.48%) | Patience: 3\n"}
+,{"stream_name":"stdout","time":604.443382322,"data":"Epoch 10 | Train Acc: 97.74% | Val Acc: 66.62% (Best: 67.48%) | Patience: 8\n"}
+,{"stream_name":"stdout","time":604.443429295,"data":"Early stopping at epoch 10!\n"}
+,{"stream_name":"stdout","time":604.443435819,"data":"\n"}
+,{"stream_name":"stdout","time":604.443440527,"data":"=== PIXEL REINSPECTION METRICS ===\n"}
+,{"stream_name":"stdout","time":604.443445606,"data":"P0 Baseline:    Acc = 67.76%, F1 = 66.71% (Epoch 2)\n"}
+,{"stream_name":"stdout","time":604.443450102,"data":"P1 Reinjection: Acc = 67.48%, F1 = 66.05% (Epoch 6)\n"}
+,{"stream_name":"stdout","time":604.443454797,"data":"P2 Contextual:  Acc = 67.48%, F1 = 66.16% (Epoch 2)\n"}
+,{"stream_name":"stdout","time":604.894371716,"data":"Wrote P1_GATE_DIAGNOSTICS.json\n"}
+,{"stream_name":"stdout","time":608.42610747,"data":"Wrote P2_REINSPECTION_DIAGNOSTICS.json\n"}
+,{"stream_name":"stdout","time":608.450937749,"data":"\n"}
+,{"stream_name":"stdout","time":608.45097299,"data":"=== DECISION LOGIC AUDIT ===\n"}
+,{"stream_name":"stdout","time":608.450978567,"data":"P1 - P0: -0.28 pp\n"}
+,{"stream_name":"stdout","time":608.450982542,"data":"P2 - P0: -0.28 pp\n"}
+,{"stream_name":"stdout","time":608.450986107,"data":"P2 - P1: +0.00 pp\n"}
+,{"stream_name":"stdout","time":608.450989669,"data":"Decision Classification: CASE PIX-C (NO-GO. Late evidence-recovery family is exhausted)\n"}
+,{"stream_name":"stdout","time":608.450993694,"data":"GO / NO-GO String:       PIXEL_REINSPECTION_NO_GO\n"}
+,{"stream_name":"stdout","time":608.450997492,"data":"All Pixel Reinspection diagnostic artifacts archived successfully to /kaggle/working/pixel-reinspection-artifacts.zip\n"}
+,{"stream_name":"stderr","time":614.171128461,"data":"/usr/local/lib/python3.13/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":614.171156171,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":614.333808832,"data":"/usr/local/lib/python3.13/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":614.333834986,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":615.073538088,"data":"[NbConvertApp] Converting notebook __notebook__.ipynb to notebook\n"}
+,{"stream_name":"stderr","time":615.155721303,"data":"[NbConvertApp] Writing 218575 bytes to __notebook__.ipynb\n"}
+,{"stream_name":"stderr","time":617.595255847,"data":"[NbConvertApp] Converting notebook __notebook__.ipynb to html\n"}
+,{"stream_name":"stderr","time":618.247830324,"data":"[NbConvertApp] Writing 620612 bytes to __results__.html\n"}
+]
