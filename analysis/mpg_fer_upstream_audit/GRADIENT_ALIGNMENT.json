@@ -1,0 +1,142 @@
+[
+  {
+    "parameter_group": "1_pixel_backbone",
+    "cos_cls_motif": {
+      "mean": 0.9617615975439548,
+      "median": 0.978571742773056,
+      "std": 0.05192734753864375,
+      "p10": 0.9203533470630646,
+      "p25": 0.9582999050617218,
+      "p75": 0.988936111330986,
+      "p90": 0.9939005136489868,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "cos_cls_pixel": {
+      "mean": 0.05195244082278805,
+      "median": 0.0542735829949379,
+      "std": 0.07148023403665243,
+      "fraction_negative": 0.1875,
+      "fraction_below_minus_01": 0.0
+    },
+    "mean_gradient_norms": {
+      "G_cls": 4.505328478757292,
+      "G_motif": 4.30086129065603,
+      "G_pixel": 7.460852071642876,
+      "norm_ratio_motif_to_cls": 0.95461658587908,
+      "norm_ratio_pixel_to_cls": 1.6560062394605135
+    }
+  },
+  {
+    "parameter_group": "2_spatial_motif_composer",
+    "cos_cls_motif": {
+      "mean": 0.9686032384634018,
+      "median": 0.9830784499645233,
+      "std": 0.04868372898447927,
+      "p10": 0.9479719400405884,
+      "p25": 0.9669386595487595,
+      "p75": 0.9889241755008698,
+      "p90": 0.995336788892746,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "cos_cls_pixel": {
+      "mean": 0.0,
+      "median": 0.0,
+      "std": 0.0,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "mean_gradient_norms": {
+      "G_cls": 2.4074273160658777,
+      "G_motif": 2.3092109840363264,
+      "G_pixel": 0.0,
+      "norm_ratio_motif_to_cls": 0.9592027840778131,
+      "norm_ratio_pixel_to_cls": 0.0
+    }
+  },
+  {
+    "parameter_group": "3_motif_gnn",
+    "cos_cls_motif": {
+      "mean": 0.9650776870548725,
+      "median": 0.982296496629715,
+      "std": 0.053827793259700746,
+      "p10": 0.938714987039566,
+      "p25": 0.9651600271463394,
+      "p75": 0.9870106726884842,
+      "p90": 0.9937893748283386,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "cos_cls_pixel": {
+      "mean": 0.0,
+      "median": 0.0,
+      "std": 0.0,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "mean_gradient_norms": {
+      "G_cls": 2.712116362527013,
+      "G_motif": 2.6236493792384863,
+      "G_pixel": 0.0,
+      "norm_ratio_motif_to_cls": 0.9673808305160384,
+      "norm_ratio_pixel_to_cls": 0.0
+    }
+  },
+  {
+    "parameter_group": "4_motif_readout",
+    "cos_cls_motif": {
+      "mean": 0.7308231433853507,
+      "median": 0.7796317636966705,
+      "std": 0.14082661834909097,
+      "p10": 0.5554854989051818,
+      "p25": 0.690465047955513,
+      "p75": 0.8160145580768585,
+      "p90": 0.8611793577671052,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "cos_cls_pixel": {
+      "mean": 0.0,
+      "median": 0.0,
+      "std": 0.0,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "mean_gradient_norms": {
+      "G_cls": 0.27133020001929253,
+      "G_motif": 0.31682744808495045,
+      "G_pixel": 0.0,
+      "norm_ratio_motif_to_cls": 1.1676822117893815,
+      "norm_ratio_pixel_to_cls": 0.0
+    }
+  },
+  {
+    "parameter_group": "5_final_classifier",
+    "cos_cls_motif": {
+      "mean": 0.0,
+      "median": 0.0,
+      "std": 0.0,
+      "p10": 0.0,
+      "p25": 0.0,
+      "p75": 0.0,
+      "p90": 0.0,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "cos_cls_pixel": {
+      "mean": 0.0,
+      "median": 0.0,
+      "std": 0.0,
+      "fraction_negative": 0.0,
+      "fraction_below_minus_01": 0.0
+    },
+    "mean_gradient_norms": {
+      "G_cls": 0.5570240705274045,
+      "G_motif": 0.0,
+      "G_pixel": 0.0,
+      "norm_ratio_motif_to_cls": 0.0,
+      "norm_ratio_pixel_to_cls": 0.0
+    }
+  }
+]
