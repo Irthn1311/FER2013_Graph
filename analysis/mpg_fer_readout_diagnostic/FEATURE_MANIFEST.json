@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "source_checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+  "train_samples": 28709,
+  "val_samples": 3589,
+  "h_m_shape": [
+    49,
+    192
+  ],
+  "train_h_m_sha256": "bc3fbe84da29b25c55b930b9927dc91068bd2cca7ad95a94f639fe8b56cbb628",
+  "val_h_m_sha256": "a186bd226aa3c03fe65601a34dd0cd5f2400ab2cfacf5a1a909db0bdda497c24"
+}

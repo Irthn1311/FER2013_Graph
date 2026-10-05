@@ -1,0 +1,7 @@
+{
+  "raw_accuracy": 0.679019225410978,
+  "raw_macro_f1": 0.6619261437806003,
+  "tta_accuracy": 0.6921147952075787,
+  "tta_macro_f1": 0.674219231966381,
+  "checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e"
+}
