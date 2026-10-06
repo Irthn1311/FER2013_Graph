@@ -447,6 +447,12 @@ Future work, if resumed, should be treated as a **new research cycle** rather th
 
 ---
 
+## Repository maintainer
+
+This canonical MPG-FER repository and its current `main` branch are maintained by **[@Irthn1311](https://github.com/Irthn1311)**.
+
+---
+
 ## Acknowledgements
 
 This project is built with [PyTorch](https://pytorch.org/) and evaluates on the FER2013 facial-expression benchmark. Official experimental runs were executed on Kaggle Tesla T4 infrastructure.
