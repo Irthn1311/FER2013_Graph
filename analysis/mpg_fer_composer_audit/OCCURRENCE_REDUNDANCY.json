@@ -1,0 +1,9 @@
+{
+  "mean_pairwise_similarity": 0.3835792541503906,
+  "nearest_neighbor_similarity": 0.8683121800422668,
+  "local_neighbor_similarity_cheb1": 0.6993037462234497,
+  "distant_neighbor_similarity_cheb3": 0.30096742510795593,
+  "local_to_distant_ratio": 2.323519716362289,
+  "effective_rank_at_M0": 21.987966537475586,
+  "mean_sample_variance": 0.22365644087596814
+}

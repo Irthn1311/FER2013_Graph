@@ -1,0 +1,17 @@
+{
+  "id": "irthn1311/mpg-fer-composer-audit-opus",
+  "title": "mpg fer composer audit opus",
+  "code_file": "mpg_fer_composer_audit.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": [
+    "doduyquynii/fer13-split",
+    "irthn1311/mpg-fer-v2-3-seed42-official-checkpoint",
+    "irthn1311/mpg-fer-npf-seed42-checkpoint"
+  ],
+  "competition_sources": [],
+  "kernel_sources": []
+}

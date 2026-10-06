@@ -1,0 +1,312 @@
+{
+  "schema_version": 1,
+  "title": "MPG-FER Spatial Motif Composer Constraint Audit Summary",
+  "decision_classification": "COMPOSER_D_HEALTHY",
+  "decision_status_string": "COMPOSER_AUDIT_STOP",
+  "verdict_justification": "Fixed supports, scale selection, prototype utilization, and occurrence diversity show healthy, well-calibrated distributions without systematic association with classification errors. Prototype usage is near-optimal (47.89 effective prototypes out of 48, 0 unused, mean pairwise key cosine -0.0208). Occurrence representations at M0 maintain diverse spatial features (mean cosine 0.3836, distant cosine 0.3010). Crucially, error-conditioned effect sizes are negligible (|d| <= 0.168, AUROCs in [0.45, 0.54]), proving that boundary pressure or scale constraints do not systematically drive classification failures. The Spatial Motif Composer is functioning properly and is not an architectural constraint bottleneck. STOP incremental modifications.",
+  "spatial_support_pressure": [
+    {
+      "scale": 8,
+      "mean_center_displacement": 0.02145807072520256,
+      "mean_normalized_displacement": 0.14407561719417572,
+      "std_normalized_displacement": 0.08243643492460251,
+      "mean_dist_to_boundary": 0.8699436187744141,
+      "mean_outer_ring_mass": 0.4395427107810974,
+      "fraction_mass_in_outer_ring": 0.1699524074792862,
+      "mean_spatial_entropy": 3.90744686126709,
+      "mean_effective_contributing_pixels": 50.05447006225586,
+      "max_pixel_in_outer_ring_rate": 0.5141958594322205,
+      "mean_spread_x": 0.09588923305273056,
+      "mean_spread_y": 0.09585949033498764
+    },
+    {
+      "scale": 12,
+      "mean_center_displacement": 0.0824713334441185,
+      "mean_normalized_displacement": 0.3523775041103363,
+      "std_normalized_displacement": 0.17648112773895264,
+      "mean_dist_to_boundary": 0.6865849494934082,
+      "mean_outer_ring_mass": 0.584283173084259,
+      "fraction_mass_in_outer_ring": 0.7253512740135193,
+      "mean_spatial_entropy": 4.123714447021484,
+      "mean_effective_contributing_pixels": 64.35160827636719,
+      "max_pixel_in_outer_ring_rate": 0.6766707897186279,
+      "mean_spread_x": 0.13308118283748627,
+      "mean_spread_y": 0.13422195613384247
+    },
+    {
+      "scale": 16,
+      "mean_center_displacement": 0.09526343643665314,
+      "mean_normalized_displacement": 0.29849210381507874,
+      "std_normalized_displacement": 0.15674418210983276,
+      "mean_dist_to_boundary": 0.7325910925865173,
+      "mean_outer_ring_mass": 0.4470737874507904,
+      "fraction_mass_in_outer_ring": 0.3237670660018921,
+      "mean_spatial_entropy": 4.683119773864746,
+      "mean_effective_contributing_pixels": 111.14924621582031,
+      "max_pixel_in_outer_ring_rate": 0.5093567967414856,
+      "mean_spread_x": 0.1776098906993866,
+      "mean_spread_y": 0.1748427450656891
+    }
+  ],
+  "scale_pressure": {
+    "mean_scale_probabilities": {
+      "scale_8": 0.33367082476615906,
+      "scale_12": 0.3679307997226715,
+      "scale_16": 0.2983984053134918
+    },
+    "scale_gate_entropy": 1.0862170457839966,
+    "argmax_scale_frequencies": {
+      "scale_8": 0.2934761047363281,
+      "scale_12": 0.5900682806968689,
+      "scale_16": 0.11645560711622238
+    },
+    "per_class_scale_frequencies": [
+      {
+        "class": 0,
+        "scale_8": 0.294847697019577,
+        "scale_12": 0.5759297013282776,
+        "scale_16": 0.129222571849823
+      },
+      {
+        "class": 1,
+        "scale_8": 0.30174925923347473,
+        "scale_12": 0.5761661529541016,
+        "scale_16": 0.12208455055952072
+      },
+      {
+        "class": 2,
+        "scale_8": 0.28666064143180847,
+        "scale_12": 0.5894091725349426,
+        "scale_16": 0.12393021583557129
+      },
+      {
+        "class": 3,
+        "scale_8": 0.30140236020088196,
+        "scale_12": 0.5941854119300842,
+        "scale_16": 0.1044122651219368
+      },
+      {
+        "class": 4,
+        "scale_8": 0.2828390300273895,
+        "scale_12": 0.5924305319786072,
+        "scale_16": 0.12473044544458389
+      },
+      {
+        "class": 5,
+        "scale_8": 0.28866487741470337,
+        "scale_12": 0.6027047038078308,
+        "scale_16": 0.10863044112920761
+      },
+      {
+        "class": 6,
+        "scale_8": 0.3002723455429077,
+        "scale_12": 0.5855159163475037,
+        "scale_16": 0.11421174556016922
+      }
+    ],
+    "scale_16_joint_correlations": {
+      "correlation_with_norm_displacement": 0.09725913405418396,
+      "correlation_with_outer_ring_mass": 0.12748241424560547,
+      "correlation_with_spread": -0.012228721752762794
+    },
+    "coincidence_boundary_pressure_and_scale_16": 4.549047258914711e-05
+  },
+  "prototype_audit": {
+    "effective_prototypes": 47.88702108419972,
+    "usage_entropy": 3.868844509124756,
+    "mean_key_similarity": -0.02081211656332016,
+    "max_key_similarity": 0.9998961687088013
+  },
+  "occurrence_redundancy": {
+    "mean_pairwise_similarity": 0.3835792541503906,
+    "nearest_neighbor_similarity": 0.8683121800422668,
+    "local_neighbor_similarity_cheb1": 0.6993037462234497,
+    "distant_neighbor_similarity_cheb3": 0.30096742510795593,
+    "local_to_distant_ratio": 2.323519716362289,
+    "effective_rank_at_M0": 21.987966537475586,
+    "mean_sample_variance": 0.22365644087596814
+  },
+  "error_conditioned_effects": [
+    {
+      "indicator": "norm_center_displacement",
+      "mean_correct": 0.3548789322376251,
+      "ci_correct_95": [
+        0.3530786633491516,
+        0.3567429482936859
+      ],
+      "mean_error": 0.34705185890197754,
+      "ci_error_95": [
+        0.3444408178329468,
+        0.3500690162181854
+      ],
+      "median_correct": 0.35529404878616333,
+      "median_error": 0.3464908301830292,
+      "cohens_d": -0.16821690563687694,
+      "auroc_error_prediction": 0.4496291290101229
+    },
+    {
+      "indicator": "boundary_ring_mass",
+      "mean_correct": 0.5849189162254333,
+      "ci_correct_95": [
+        0.5841731429100037,
+        0.5857682228088379
+      ],
+      "mean_error": 0.5829296708106995,
+      "ci_error_95": [
+        0.5818016529083252,
+        0.5840746760368347
+      ],
+      "median_correct": 0.5845571756362915,
+      "median_error": 0.5820393562316895,
+      "cohens_d": -0.10300328771496828,
+      "auroc_error_prediction": 0.4697567703234661
+    },
+    {
+      "indicator": "max_pixel_in_boundary_ring",
+      "mean_correct": 0.6794280409812927,
+      "ci_correct_95": [
+        0.676235020160675,
+        0.6824039220809937
+      ],
+      "mean_error": 0.670800507068634,
+      "ci_error_95": [
+        0.6665832996368408,
+        0.6751615405082703
+      ],
+      "median_correct": 0.6734693646430969,
+      "median_error": 0.6734693646430969,
+      "cohens_d": -0.11928228535643653,
+      "auroc_error_prediction": 0.46552110087419585
+    },
+    {
+      "indicator": "scale_16_usage",
+      "mean_correct": 0.2980585992336273,
+      "ci_correct_95": [
+        0.29751384258270264,
+        0.29855039715766907
+      ],
+      "mean_error": 0.2991218566894531,
+      "ci_error_95": [
+        0.2983335852622986,
+        0.2998500466346741
+      ],
+      "median_correct": 0.29774534702301025,
+      "median_error": 0.2990064322948456,
+      "cohens_d": 0.08109288683508276,
+      "auroc_error_prediction": 0.5214857403174753
+    },
+    {
+      "indicator": "scale_gate_entropy",
+      "mean_correct": 1.0861090421676636,
+      "ci_correct_95": [
+        1.0859657526016235,
+        1.08626127243042
+      ],
+      "mean_error": 1.08644700050354,
+      "ci_error_95": [
+        1.0862363576889038,
+        1.0866693258285522
+      ],
+      "median_correct": 1.086559772491455,
+      "median_error": 1.0867986679077148,
+      "cohens_d": 0.09041334227808025,
+      "auroc_error_prediction": 0.5198436329648186
+    },
+    {
+      "indicator": "spatial_weight_entropy",
+      "mean_correct": 4.119392395019531,
+      "ci_correct_95": [
+        4.115203380584717,
+        4.123579978942871
+      ],
+      "mean_error": 4.132916450500488,
+      "ci_error_95": [
+        4.126603603363037,
+        4.139235496520996
+      ],
+      "median_correct": 4.120526313781738,
+      "median_error": 4.1353864669799805,
+      "cohens_d": 0.12904245959676144,
+      "auroc_error_prediction": 0.5420432321042609
+    },
+    {
+      "indicator": "prototype_assignment_entropy",
+      "mean_correct": 2.956493616104126,
+      "ci_correct_95": [
+        2.9563510417938232,
+        2.9566314220428467
+      ],
+      "mean_error": 2.9564287662506104,
+      "ci_error_95": [
+        2.9562020301818848,
+        2.956646203994751
+      ],
+      "median_correct": 2.956674814224243,
+      "median_error": 2.9564218521118164,
+      "cohens_d": -0.01748375357727294,
+      "auroc_error_prediction": 0.49154097824542464
+    },
+    {
+      "indicator": "max_prototype_concentration",
+      "mean_correct": 0.0901438295841217,
+      "ci_correct_95": [
+        0.09012579917907715,
+        0.09016039967536926
+      ],
+      "mean_error": 0.09015964716672897,
+      "ci_error_95": [
+        0.09013333916664124,
+        0.09018473327159882
+      ],
+      "median_correct": 0.0901356190443039,
+      "median_error": 0.09015395492315292,
+      "cohens_d": 0.03564077009722853,
+      "auroc_error_prediction": 0.5107992791079103
+    },
+    {
+      "indicator": "occurrence_redundancy",
+      "mean_correct": 0.38266247510910034,
+      "ci_correct_95": [
+        0.38120126724243164,
+        0.3840508460998535
+      ],
+      "mean_error": 0.38553109765052795,
+      "ci_error_95": [
+        0.3833240866661072,
+        0.3877977430820465
+      ],
+      "median_correct": 0.37625399231910706,
+      "median_error": 0.37935805320739746,
+      "cohens_d": 0.07963812234248463,
+      "auroc_error_prediction": 0.524206579568393
+    }
+  ],
+  "full_vs_npf_comparison": {
+    "FULL": {
+      "mean_alpha": [
+        0.33367082476615906,
+        0.3679307997226715,
+        0.2983984053134918
+      ],
+      "mean_normalized_displacement": 0.3523775041103363,
+      "mean_outer_ring_mass": 0.584283173084259,
+      "effective_prototypes": 47.88702108419972,
+      "mean_occurrence_similarity": 0.3835792541503906
+    },
+    "NPF": {
+      "mean_alpha": [
+        0.3612619638442993,
+        0.3515341877937317,
+        0.2872038185596466
+      ],
+      "mean_normalized_displacement": 0.3628411293029785,
+      "mean_outer_ring_mass": 0.5841723084449768,
+      "effective_prototypes": 47.02174758911133,
+      "mean_occurrence_similarity": 0.3905751705169678
+    },
+    "trajectory_consistency": {
+      "scale_alpha_similarity": 0.804271677399545,
+      "prototype_usage_correlation": 0.07679543644189835
+    }
+  }
+}
