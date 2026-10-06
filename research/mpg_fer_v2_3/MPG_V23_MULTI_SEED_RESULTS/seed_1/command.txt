@@ -1,0 +1,5 @@
+Kaggle kernel=trngthngcnhi/mpg-fer-v2-3-seed-1-official-t4-segment-02
+seed=1
+segment=2
+resume_mode=required
+account_alias=A

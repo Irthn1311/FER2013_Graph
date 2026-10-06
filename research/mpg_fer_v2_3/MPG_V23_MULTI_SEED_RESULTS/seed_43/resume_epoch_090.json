@@ -1,0 +1,10 @@
+{
+  "checkpoint_sha256": "d9b29aff96682e37fb4509952dd53ae3491436213a452c7fcf70554eb79bc740",
+  "resume_schema_version": 3,
+  "run_id": "debad58e-805b-4356-80f0-f890cc1c5553",
+  "source_hash": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "config_hash": "97f594b19295822946e5632cff9535d630a3b505a2a0375cf04fc9a36dbece4e",
+  "completed_epoch": 90,
+  "next_epoch": 91,
+  "status": "IMMUTABLE_FALLBACK"
+}

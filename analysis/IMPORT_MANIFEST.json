@@ -1,0 +1,176 @@
+{
+  "archive_ref": "archive/mpg-fer-research-closure-2026-10-06",
+  "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+  "files": [
+    {
+      "path": "analysis/final_ablation/PAPER_ABLATION_TABLE.md",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/PAPER_ABLATION_TABLE.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "bd610b7cbb50f5d779179a33bb7e8a028cad6eac25e73c89e47eec25fd2cd457",
+      "size": 1894,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/PAPER_ABLATION_TABLE.tex",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/PAPER_ABLATION_TABLE.tex",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "9098c3204784463c9cfb24e47d5b0bb4c9070145dd7b2c9c01d57ffdd7955c05",
+      "size": 613,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/PAPER_ABLATION_RESULTS.json",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/PAPER_ABLATION_RESULTS.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "96236c432480317b805ceba1ca5919d573113f83a8fb546ab5c1ec75a0bd4843",
+      "size": 3432,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/PAPER_LADDER_DEFINITION.json",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/PAPER_LADDER_DEFINITION.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "bc66b65827e3fef2babb9f404f6f130da3ac407073fb65294310238c0177e82a",
+      "size": 4140,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/PAPER_LADDER_DEFINITION.md",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/PAPER_LADDER_DEFINITION.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "df78e5b97c3af9d21a1ad91d589c67d6722efe32f681ebdd839ce5f1d66ca6af",
+      "size": 1770,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/A5_VS_OLD_FIXED_FORWARD_DIFF.json",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/A5_VS_OLD_FIXED_FORWARD_DIFF.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "fd3a516c81853ce4ce264255ccc4dfb18825d23eeb99770861ec3023582d57f3",
+      "size": 5276,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/A5_VS_OLD_FIXED_FORWARD_DIFF.md",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/A5_VS_OLD_FIXED_FORWARD_DIFF.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "74f1a5c08a27899f87ce79246f0b1ed6bea6aac4af6f0d38db6b2ac68c41603f",
+      "size": 2735,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/ABLATION_AUDIT_FINAL_REPORT.json",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/ABLATION_AUDIT_FINAL_REPORT.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "d65347160d6f5566805f1e8eff31c7691e09d509aae5234079499f80dc9473fd",
+      "size": 4827,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/ABLATION_AUDIT_FINAL_REPORT.md",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/ABLATION_AUDIT_FINAL_REPORT.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "befd3830a1fb9580fabb529a24d920ab263b689b6b31bfde439f9f7e2b79af42",
+      "size": 2958,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_ablation/CONFIG_FORENSICS.json",
+      "archive_path": "analysis/mpg_fer_ablation_paper_audit/CONFIG_FORENSICS.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "sha256": "45cf65a6103798d692fed8ac245f87233b16029bc5eac1e9a2c2ccb964026889",
+      "size": 12593,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/READOUT_DIAGNOSTIC_SUMMARY.md",
+      "archive_path": "analysis/mpg_fer_readout_diagnostic/READOUT_DIAGNOSTIC_SUMMARY.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "d8ecc4da7c53b1cf5f37c01e36fb284e8290b032a4161ef8cf1c20938d157898",
+      "sha256": "d8ecc4da7c53b1cf5f37c01e36fb284e8290b032a4161ef8cf1c20938d157898",
+      "size": 978,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/READOUT_DIAGNOSTIC_SUMMARY.json",
+      "archive_path": "analysis/mpg_fer_readout_diagnostic/READOUT_DIAGNOSTIC_SUMMARY.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "a86e98dcc2a7e65eff5a38104692f984298ef900f55385f2fcc4ab4af976400d",
+      "sha256": "a86e98dcc2a7e65eff5a38104692f984298ef900f55385f2fcc4ab4af976400d",
+      "size": 1607,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/CSR_DIAGNOSTIC_SUMMARY.md",
+      "archive_path": "analysis/mpg_fer_contextual_recomposition/CSR_DIAGNOSTIC_SUMMARY.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "ef3a80aa920d93e8d8f485cd414067aa18df0cf3679d3bd2209f43073a4a705b",
+      "sha256": "ef3a80aa920d93e8d8f485cd414067aa18df0cf3679d3bd2209f43073a4a705b",
+      "size": 985,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/CSR_DIAGNOSTIC_SUMMARY.json",
+      "archive_path": "analysis/mpg_fer_contextual_recomposition/CSR_DIAGNOSTIC_SUMMARY.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "eeaf928c9f7e75a8d6bb4df6981a9852f1e83c9866a9923cc348bdb634746d52",
+      "sha256": "eeaf928c9f7e75a8d6bb4df6981a9852f1e83c9866a9923cc348bdb634746d52",
+      "size": 3392,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/PIXEL_REINSPECTION_SUMMARY.md",
+      "archive_path": "analysis/mpg_fer_pixel_reinspection/PIXEL_REINSPECTION_SUMMARY.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "1b4f3fc92cd0d1924a1ee3e1f6a07a4f86e15e2aea84a22d8e33cf8f5c7cd138",
+      "sha256": "1b4f3fc92cd0d1924a1ee3e1f6a07a4f86e15e2aea84a22d8e33cf8f5c7cd138",
+      "size": 950,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/PIXEL_REINSPECTION_SUMMARY.json",
+      "archive_path": "analysis/mpg_fer_pixel_reinspection/PIXEL_REINSPECTION_SUMMARY.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "5daa94d929e7ccbbce8c349252ec65be31af0607310db3a681c613526c61fdca",
+      "sha256": "5daa94d929e7ccbbce8c349252ec65be31af0607310db3a681c613526c61fdca",
+      "size": 1916,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/UPSTREAM_AUDIT_SUMMARY.md",
+      "archive_path": "analysis/mpg_fer_upstream_audit/UPSTREAM_AUDIT_SUMMARY.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "0767b3c5855763e6b8650007aa20da213f3bd8ba30809c4d9850d5fcc72e87c9",
+      "sha256": "0767b3c5855763e6b8650007aa20da213f3bd8ba30809c4d9850d5fcc72e87c9",
+      "size": 1732,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/UPSTREAM_AUDIT_SUMMARY.json",
+      "archive_path": "analysis/mpg_fer_upstream_audit/UPSTREAM_AUDIT_SUMMARY.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "1c09ae858ece2a974a708bd42f5fbd3fad781c92593d2e2b6107a12196d2c6e5",
+      "sha256": "1c09ae858ece2a974a708bd42f5fbd3fad781c92593d2e2b6107a12196d2c6e5",
+      "size": 1162,
+      "transformation": "byte-identical"
+    },
+    {
+      "path": "analysis/final_research_closure/COMPOSER_AUDIT_SUMMARY.md",
+      "archive_path": "analysis/mpg_fer_composer_audit/COMPOSER_AUDIT_SUMMARY.md",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "47e177ab2d602611df582e9e66371337b5eb30c03911d08b6bf86df3b7e53fe2",
+      "sha256": "ac92f8be2be5c9c3cf4db02d437aadc3e527b360ef531f1caa6409c96058a6f6",
+      "size": 3335,
+      "transformation": "Documentation qualification only: measured values and STOP verdict preserved; causal overstatement and prospective experiment recommendation removed"
+    },
+    {
+      "path": "analysis/final_research_closure/COMPOSER_AUDIT_SUMMARY.json",
+      "archive_path": "analysis/mpg_fer_composer_audit/COMPOSER_AUDIT_SUMMARY.json",
+      "archive_commit": "44daeefe3a1816220b2bb7149295ab85b77d7504",
+      "archive_sha256": "c0163c57419121e27aec4f12fc90c3153446176d6aa3817a966e4f819b305b28",
+      "sha256": "efd74045389818649b78cb51d30574dbc1d1f4e9d47619d0d29af5978010b4a7",
+      "size": 10672,
+      "transformation": "Documentation qualification only: measured values and STOP verdict preserved; causal overstatement and prospective experiment recommendation removed"
+    }
+  ]
+}

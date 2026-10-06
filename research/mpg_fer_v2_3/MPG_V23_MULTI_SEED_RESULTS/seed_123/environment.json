@@ -1,0 +1,14 @@
+{
+  "torch_cuda_available": true,
+  "gpu_name": "Tesla T4",
+  "cuda_version": "12.8",
+  "torch_version": "2.10.0+cu128",
+  "seed": 123,
+  "python_version": "3.12.13",
+  "cudnn_deterministic": true,
+  "cudnn_benchmark": false,
+  "account_alias": "B",
+  "kernel_ref": "thanhhhgng/mpg-fer-v2-3-seed-123-official-t4-segment-02",
+  "platform": "Linux-6.12.90+-x86_64-with-glibc2.35",
+  "cudnn_version": 91002
+}

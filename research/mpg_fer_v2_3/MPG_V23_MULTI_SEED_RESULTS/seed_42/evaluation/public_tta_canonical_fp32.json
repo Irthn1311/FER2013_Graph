@@ -1,0 +1,8 @@
+{
+  "split": "PublicTest",
+  "view": "tta",
+  "evaluation_precision": "canonical_fp32_no_autocast_tf32_disabled",
+  "weights_type": "EMA",
+  "accuracy": 0.6918361660629702,
+  "macro_f1": 0.6733461344388773
+}

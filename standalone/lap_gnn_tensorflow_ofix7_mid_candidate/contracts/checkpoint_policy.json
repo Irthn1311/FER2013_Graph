@@ -1,9 +1,0 @@
-{
-  "lock": "VAL_ACCURACY_SINGLE_CHECKPOINT",
-  "primary": "best_val_accuracy.keras",
-  "best_alias": null,
-  "secondary": null,
-  "scheduler_monitor": "val_loss",
-  "early_stopping_monitor": "val_loss",
-  "strict_improvement_tie_break": "earliest epoch"
-}

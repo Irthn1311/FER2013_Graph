@@ -1,3 +1,5 @@
-standalone/lap_gnn_tensorflow_ofix7_mid_candidate/** -text
-notebooks/kaggle-end-to-end.ipynb -text
-notebooks/kaggle-end-to-end-pytorch.ipynb -text
+# Frozen source and evidence hashes use original file bytes on every platform.
+research/mpg_fer_v2_3/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
+research/mpg_fer_v2_2/src/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
+analysis/final_ablation/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
+analysis/final_research_closure/** -text whitespace=trailing-space,space-before-tab,cr-at-eol
