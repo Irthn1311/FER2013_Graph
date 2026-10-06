@@ -1,0 +1,398 @@
+{
+  "public": {
+    "raw": {
+      "per_class_f1": [
+        {
+          "class": "Angry",
+          "v22_f1": 0.6031088082901555,
+          "v23_f1": 0.6022845275181724,
+          "delta_f1": -0.0008242807719830436,
+          "v22_support": 467,
+          "v23_support": 467
+        },
+        {
+          "class": "Disgust",
+          "v22_f1": 0.6213592233009708,
+          "v23_f1": 0.6274509803921569,
+          "delta_f1": 0.006091757091186034,
+          "v22_support": 56,
+          "v23_support": 56
+        },
+        {
+          "class": "Fear",
+          "v22_f1": 0.5371549893842887,
+          "v23_f1": 0.5308254963427377,
+          "delta_f1": -0.00632949304155106,
+          "v22_support": 496,
+          "v23_support": 496
+        },
+        {
+          "class": "Happy",
+          "v22_f1": 0.8467153284671532,
+          "v23_f1": 0.8524957936062816,
+          "delta_f1": 0.005780465139128332,
+          "v22_support": 895,
+          "v23_support": 895
+        },
+        {
+          "class": "Sad",
+          "v22_f1": 0.5841509433962264,
+          "v23_f1": 0.5691446842525979,
+          "delta_f1": -0.01500625914362852,
+          "v22_support": 653,
+          "v23_support": 653
+        },
+        {
+          "class": "Surprise",
+          "v22_f1": 0.8181818181818182,
+          "v23_f1": 0.8061831153388823,
+          "delta_f1": -0.011998702842935915,
+          "v22_support": 415,
+          "v23_support": 415
+        },
+        {
+          "class": "Neutral",
+          "v22_f1": 0.6035889070146819,
+          "v23_f1": 0.624512099921936,
+          "delta_f1": 0.020923192907254085,
+          "v22_support": 607,
+          "v23_support": 607
+        }
+      ],
+      "requested_confusions": [
+        {
+          "direction": "Fear -> Sad",
+          "v22_count": 86,
+          "v23_count": 85,
+          "delta_count": -1
+        },
+        {
+          "direction": "Fear -> Neutral",
+          "v22_count": 60,
+          "v23_count": 55,
+          "delta_count": -5
+        },
+        {
+          "direction": "Fear -> Angry",
+          "v22_count": 48,
+          "v23_count": 49,
+          "delta_count": 1
+        },
+        {
+          "direction": "Sad -> Neutral",
+          "v22_count": 86,
+          "v23_count": 103,
+          "delta_count": 17
+        },
+        {
+          "direction": "Neutral -> Sad",
+          "v22_count": 105,
+          "v23_count": 83,
+          "delta_count": -22
+        },
+        {
+          "direction": "Angry -> Sad",
+          "v22_count": 53,
+          "v23_count": 50,
+          "delta_count": -3
+        }
+      ]
+    },
+    "tta": {
+      "per_class_f1": [
+        {
+          "class": "Angry",
+          "v22_f1": 0.6116910229645094,
+          "v23_f1": 0.6228160328879754,
+          "delta_f1": 0.01112500992346599,
+          "v22_support": 467,
+          "v23_support": 467
+        },
+        {
+          "class": "Disgust",
+          "v22_f1": 0.6346153846153846,
+          "v23_f1": 0.6407766990291263,
+          "delta_f1": 0.006161314413741681,
+          "v22_support": 56,
+          "v23_support": 56
+        },
+        {
+          "class": "Fear",
+          "v22_f1": 0.5574837310195228,
+          "v23_f1": 0.5504782146652497,
+          "delta_f1": -0.007005516354273045,
+          "v22_support": 496,
+          "v23_support": 496
+        },
+        {
+          "class": "Happy",
+          "v22_f1": 0.8627232142857143,
+          "v23_f1": 0.8682432432432432,
+          "delta_f1": 0.0055200289575289,
+          "v22_support": 895,
+          "v23_support": 895
+        },
+        {
+          "class": "Sad",
+          "v22_f1": 0.6059701492537314,
+          "v23_f1": 0.5798908807482464,
+          "delta_f1": -0.02607926850548503,
+          "v22_support": 653,
+          "v23_support": 653
+        },
+        {
+          "class": "Surprise",
+          "v22_f1": 0.8246445497630331,
+          "v23_f1": 0.8266033254156769,
+          "delta_f1": 0.001958775652643796,
+          "v22_support": 415,
+          "v23_support": 415
+        },
+        {
+          "class": "Neutral",
+          "v22_f1": 0.6403940886699507,
+          "v23_f1": 0.6476190476190476,
+          "delta_f1": 0.007224958949096916,
+          "v22_support": 607,
+          "v23_support": 607
+        }
+      ],
+      "requested_confusions": [
+        {
+          "direction": "Fear -> Sad",
+          "v22_count": 91,
+          "v23_count": 86,
+          "delta_count": -5
+        },
+        {
+          "direction": "Fear -> Neutral",
+          "v22_count": 50,
+          "v23_count": 50,
+          "delta_count": 0
+        },
+        {
+          "direction": "Fear -> Angry",
+          "v22_count": 50,
+          "v23_count": 47,
+          "delta_count": -3
+        },
+        {
+          "direction": "Sad -> Neutral",
+          "v22_count": 80,
+          "v23_count": 95,
+          "delta_count": 15
+        },
+        {
+          "direction": "Neutral -> Sad",
+          "v22_count": 96,
+          "v23_count": 88,
+          "delta_count": -8
+        },
+        {
+          "direction": "Angry -> Sad",
+          "v22_count": 54,
+          "v23_count": 54,
+          "delta_count": 0
+        }
+      ]
+    }
+  },
+  "private": {
+    "raw": {
+      "per_class_f1": [
+        {
+          "class": "Angry",
+          "v22_f1": 0.6066066066066066,
+          "v23_f1": 0.5951417004048583,
+          "delta_f1": -0.011464906201748337,
+          "v22_support": 491,
+          "v23_support": 491
+        },
+        {
+          "class": "Disgust",
+          "v22_f1": 0.7090909090909091,
+          "v23_f1": 0.6779661016949152,
+          "delta_f1": -0.03112480739599388,
+          "v22_support": 55,
+          "v23_support": 55
+        },
+        {
+          "class": "Fear",
+          "v22_f1": 0.5292929292929293,
+          "v23_f1": 0.5368731563421829,
+          "delta_f1": 0.007580227049253652,
+          "v22_support": 528,
+          "v23_support": 528
+        },
+        {
+          "class": "Happy",
+          "v22_f1": 0.8692175899486008,
+          "v23_f1": 0.8707093821510298,
+          "delta_f1": 0.0014917922024290098,
+          "v22_support": 879,
+          "v23_support": 879
+        },
+        {
+          "class": "Sad",
+          "v22_f1": 0.5333333333333333,
+          "v23_f1": 0.5616666666666666,
+          "delta_f1": 0.02833333333333332,
+          "v22_support": 594,
+          "v23_support": 594
+        },
+        {
+          "class": "Surprise",
+          "v22_f1": 0.8164251207729468,
+          "v23_f1": 0.816969696969697,
+          "delta_f1": 0.0005445761967501905,
+          "v22_support": 416,
+          "v23_support": 416
+        },
+        {
+          "class": "Neutral",
+          "v22_f1": 0.667704280155642,
+          "v23_f1": 0.6599063962558502,
+          "delta_f1": -0.0077978838997917466,
+          "v22_support": 626,
+          "v23_support": 626
+        }
+      ],
+      "requested_confusions": [
+        {
+          "direction": "Fear -> Sad",
+          "v22_count": 90,
+          "v23_count": 86,
+          "delta_count": -4
+        },
+        {
+          "direction": "Fear -> Neutral",
+          "v22_count": 50,
+          "v23_count": 50,
+          "delta_count": 0
+        },
+        {
+          "direction": "Fear -> Angry",
+          "v22_count": 71,
+          "v23_count": 64,
+          "delta_count": -7
+        },
+        {
+          "direction": "Sad -> Neutral",
+          "v22_count": 101,
+          "v23_count": 87,
+          "delta_count": -14
+        },
+        {
+          "direction": "Neutral -> Sad",
+          "v22_count": 91,
+          "v23_count": 87,
+          "delta_count": -4
+        },
+        {
+          "direction": "Angry -> Sad",
+          "v22_count": 77,
+          "v23_count": 62,
+          "delta_count": -15
+        }
+      ]
+    },
+    "tta": {
+      "per_class_f1": [
+        {
+          "class": "Angry",
+          "v22_f1": 0.613682092555332,
+          "v23_f1": 0.6293706293706294,
+          "delta_f1": 0.01568853681529736,
+          "v22_support": 491,
+          "v23_support": 491
+        },
+        {
+          "class": "Disgust",
+          "v22_f1": 0.7169811320754716,
+          "v23_f1": 0.7307692307692307,
+          "delta_f1": 0.013788098693759077,
+          "v22_support": 55,
+          "v23_support": 55
+        },
+        {
+          "class": "Fear",
+          "v22_f1": 0.5491803278688525,
+          "v23_f1": 0.5654345654345654,
+          "delta_f1": 0.01625423756571287,
+          "v22_support": 528,
+          "v23_support": 528
+        },
+        {
+          "class": "Happy",
+          "v22_f1": 0.8778538812785388,
+          "v23_f1": 0.8802776171197224,
+          "delta_f1": 0.002423735841183605,
+          "v22_support": 879,
+          "v23_support": 879
+        },
+        {
+          "class": "Sad",
+          "v22_f1": 0.5491803278688525,
+          "v23_f1": 0.5723793677204659,
+          "delta_f1": 0.023199039851613423,
+          "v22_support": 594,
+          "v23_support": 594
+        },
+        {
+          "class": "Surprise",
+          "v22_f1": 0.8359281437125748,
+          "v23_f1": 0.8397129186602871,
+          "delta_f1": 0.0037847749477122328,
+          "v22_support": 416,
+          "v23_support": 416
+        },
+        {
+          "class": "Neutral",
+          "v22_f1": 0.6671814671814672,
+          "v23_f1": 0.6804597701149425,
+          "delta_f1": 0.013278302933475317,
+          "v22_support": 626,
+          "v23_support": 626
+        }
+      ],
+      "requested_confusions": [
+        {
+          "direction": "Fear -> Sad",
+          "v22_count": 94,
+          "v23_count": 92,
+          "delta_count": -2
+        },
+        {
+          "direction": "Fear -> Neutral",
+          "v22_count": 52,
+          "v23_count": 52,
+          "delta_count": 0
+        },
+        {
+          "direction": "Fear -> Angry",
+          "v22_count": 60,
+          "v23_count": 63,
+          "delta_count": 3
+        },
+        {
+          "direction": "Sad -> Neutral",
+          "v22_count": 105,
+          "v23_count": 91,
+          "delta_count": -14
+        },
+        {
+          "direction": "Neutral -> Sad",
+          "v22_count": 85,
+          "v23_count": 79,
+          "delta_count": -6
+        },
+        {
+          "direction": "Angry -> Sad",
+          "v22_count": 74,
+          "v23_count": 58,
+          "delta_count": -16
+        }
+      ]
+    }
+  }
+}

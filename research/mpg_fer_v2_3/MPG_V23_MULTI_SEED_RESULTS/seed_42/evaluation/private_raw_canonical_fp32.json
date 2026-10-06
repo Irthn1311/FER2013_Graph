@@ -1,0 +1,8 @@
+{
+  "split": "PrivateTest",
+  "view": "raw",
+  "evaluation_precision": "canonical_fp32_no_autocast_tf32_disabled",
+  "weights_type": "EMA",
+  "accuracy": 0.6876567288938423,
+  "macro_f1": 0.6734818933345407
+}

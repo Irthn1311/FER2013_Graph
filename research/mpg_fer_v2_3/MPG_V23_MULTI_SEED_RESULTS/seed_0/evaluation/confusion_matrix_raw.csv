@@ -1,0 +1,8 @@
+true_class,Angry,Disgust,Fear,Happy,Sad,Surprise,Neutral
+Angry,301,7,37,16,75,9,46
+Disgust,9,38,2,1,4,1,0
+Fear,66,3,258,18,89,46,48
+Happy,21,1,12,761,33,16,35
+Sad,51,2,57,23,352,4,105
+Surprise,8,0,31,19,8,343,7
+Neutral,31,0,24,30,88,10,443

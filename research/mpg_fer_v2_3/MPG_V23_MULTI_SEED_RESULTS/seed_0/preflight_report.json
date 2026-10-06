@@ -1,0 +1,72 @@
+{
+  "status": "RESUME_VERIFIED",
+  "resume_compatibility_passed": true,
+  "resume_checkpoint_sha256": "fa8449bb04f14502892dd97fb7f86ac09eeb29517c65ea28aeb4ffe9043f90ad",
+  "resume_verification": {
+    "checks": {
+      "run_id": true,
+      "source_hash": true,
+      "config_hash": true,
+      "epoch_boundary": true,
+      "history_length": true,
+      "previous_status": true
+    },
+    "run_id": "a12b2fc1-45f2-4e8f-8748-9c30be26cbee",
+    "segment_number": 2,
+    "source_hash": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+    "scientific_config_hash": "fc57b7c057df4226ac2eadddb3b902ad157bd426710c6dc413ab80feaf920565",
+    "completed_epoch": 84,
+    "next_epoch": 85,
+    "restored_lr": 1.1152590820119262e-06,
+    "restored_optimizer_step": 75399,
+    "restored_grad_scaler_scale": 16384.0,
+    "restored_ema_updates": 75399,
+    "restored_tau": 0.30000001192092896,
+    "best_epoch": 45,
+    "best_public_tta_accuracy": 0.694901086653664,
+    "patience_counter": 0,
+    "early_stop_monitor_state": {
+      "start_epoch": 85,
+      "active": false,
+      "patience": 0
+    },
+    "history_length": 84
+  },
+  "environment": {
+    "torch_cuda_available": true,
+    "gpu_name": "Tesla T4",
+    "cuda_version": "12.8",
+    "torch_version": "2.10.0+cu128",
+    "seed": 0,
+    "python_version": "3.12.13 (main, Mar  4 2026, 09:23:07) [GCC 11.4.0]",
+    "cudnn_deterministic": true,
+    "cudnn_benchmark": false,
+    "account_alias": "A",
+    "kernel_ref": "trngthngcnhi/mpg-fer-v2-3-seed-0-official-t4-segment-02"
+  },
+  "dataset": {
+    "train": {
+      "role": "train",
+      "path": "/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/train.csv",
+      "rows": 28709,
+      "expected_rows": 28709,
+      "content_validated": true
+    },
+    "public": {
+      "role": "val",
+      "path": "/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/val.csv",
+      "rows": 3589,
+      "expected_rows": 3589,
+      "content_validated": true
+    },
+    "private": {
+      "role": "test",
+      "path": "/kaggle/input/datasets/doduyquynii/fer13-split/fer13-split/test.csv",
+      "rows": 3589,
+      "expected_rows": 3589,
+      "content_validated": false
+    }
+  },
+  "parameter_count": 2304528,
+  "source_sha256": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87"
+}

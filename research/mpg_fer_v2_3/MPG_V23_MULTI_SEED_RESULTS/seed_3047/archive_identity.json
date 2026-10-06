@@ -1,0 +1,7 @@
+{
+  "source_archive": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\research\\mpg_fer_v2_3\\official_runs\\multiseed\\seed_3047\\segment_02\\mpg_v2_3_seed_3047_artifacts.zip",
+  "archive_sha256": "3e29f3bf9ed4f269ffb22e5b539df25ca6742cb4f09cd315ca4bbb3c2f00f187",
+  "verified_internal_files": 39,
+  "checkpoint_omitted_from_handoff": true,
+  "checkpoint_sha256": "2e7c415ec8b4730b342e22d960ee881a7fdfe93ae0b16c9ac5576cd5d570237d"
+}

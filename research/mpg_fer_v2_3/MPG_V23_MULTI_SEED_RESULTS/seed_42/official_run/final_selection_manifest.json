@@ -1,0 +1,12 @@
+{
+  "run_id": "1bf17ed3-d602-42f9-98c8-09df32422c4b",
+  "weights_type": "EMA",
+  "best_epoch": 57,
+  "checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+  "selection_metric": "EMA Public flip-TTA accuracy",
+  "selection_tiebreak": [
+    "higher EMA TTA macro-F1",
+    "lower EMA TTA loss"
+  ],
+  "private_evaluated_only_after_freeze": true
+}

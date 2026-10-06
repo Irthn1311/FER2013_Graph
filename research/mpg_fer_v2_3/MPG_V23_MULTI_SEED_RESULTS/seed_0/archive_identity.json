@@ -1,0 +1,7 @@
+{
+  "source_archive": "D:\\SGU\\CNTT\\DIP\\FER_2013_GRAPH\\fer_d5\\research\\mpg_fer_v2_3\\official_runs\\multiseed\\seed_0\\segment_02\\mpg_v2_3_seed_0_artifacts.zip",
+  "archive_sha256": "4d94870450e400b260fa37128395b15bc67ca650485ecc423b7e4ff8c05e55c7",
+  "verified_internal_files": 39,
+  "checkpoint_omitted_from_handoff": true,
+  "checkpoint_sha256": "5ab881bd097dbcbc1e1e011f8e0de7343f5ec2b9553d1bf10de53ead1b80e876"
+}

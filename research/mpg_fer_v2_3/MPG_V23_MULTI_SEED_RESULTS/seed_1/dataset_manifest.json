@@ -1,0 +1,22 @@
+{
+  "dataset": "doduyquynii/fer13-split",
+  "files": {
+    "train.csv": {
+      "role": "Train",
+      "rows": 28709,
+      "sha256": "deb82c4b4e01b90776a718c34934666b0bdde6696ca1d0149f8fe807a8ff4ba8"
+    },
+    "val.csv": {
+      "role": "PublicTest",
+      "rows": 3589,
+      "sha256": "412036d077c6ec203047b2935ab14bc858d8136ee26e8db3e23023f1fc9dee08"
+    },
+    "test.csv": {
+      "role": "PrivateTest",
+      "rows": 3589,
+      "sha256": "be385344b93606c75cb65cac3d39b13cdedb5b91621640ee08f73b9a551fbd9d"
+    }
+  },
+  "dataset_manifest_sha256": "82c4c7d2adca5f9a7a2e63a5236f2e52ae8129dcf7caf863028a1740780b0733",
+  "private_content_used_for_selection": false
+}

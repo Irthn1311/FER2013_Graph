@@ -1,0 +1,8 @@
+# Runtime ranges cover recorded official Torch 2.10 and local validation Torch 2.11.
+# Exact per-seed runtime provenance is retained in MPG_V23_MULTI_SEED_RESULTS.
+torch>=2.10,<2.12
+torchvision>=0.25,<0.27
+numpy>=1.26,<3
+scikit-learn>=1.5,<2
+pytest>=8,<10
+# Kaggle supplies kaggle_secrets; attach the dataset for offline notebook execution.

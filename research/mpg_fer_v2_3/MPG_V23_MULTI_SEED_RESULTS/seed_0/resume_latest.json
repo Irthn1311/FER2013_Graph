@@ -1,0 +1,10 @@
+{
+  "run_id": "a12b2fc1-45f2-4e8f-8748-9c30be26cbee",
+  "epoch": 99,
+  "next_epoch": 100,
+  "checkpoint_sha256": "975253171ab4d59920343843acad6ee0a6594df84c03fac7da5d6c580f5274ee",
+  "source_hash": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "config_hash": "fc57b7c057df4226ac2eadddb3b902ad157bd426710c6dc413ab80feaf920565",
+  "timestamp": "2026-09-28T08:12:45.950330+00:00",
+  "status": "TRAINING_COMPLETED"
+}

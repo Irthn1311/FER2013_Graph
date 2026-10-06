@@ -1,0 +1,48 @@
+{
+  "run_id": "7dd80952-96ca-46ab-acb2-096bdfa626b2",
+  "segment_number": 2,
+  "start_epoch": 85,
+  "end_epoch": 99,
+  "next_epoch": 100,
+  "wallclock_seconds": 6266.836364078999,
+  "resume_sha256": "ac0ce096b86458f782d20b8f14db6d5caadf72c2ac92c39ced895522eecade35",
+  "best_epoch": 44,
+  "best_public_tta_accuracy": 0.6912789077737531,
+  "status": "TRAINING_COMPLETED",
+  "source_hash": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "config_hash": "e85608767dc1b4c57897c6273b6014089b7df9f80005345c4da9b595a21823f8",
+  "gpu": "Tesla T4",
+  "kernel_ref": "thanhhhgng/mpg-fer-v2-3-seed-123-official-t4-segment-02",
+  "git_commit_sha": "136315128468a9c37acfa875e5e8008fbfec86a4",
+  "parameter_count": 2304528,
+  "resume_verification": {
+    "checks": {
+      "run_id": true,
+      "source_hash": true,
+      "config_hash": true,
+      "epoch_boundary": true,
+      "history_length": true,
+      "previous_status": true
+    },
+    "run_id": "7dd80952-96ca-46ab-acb2-096bdfa626b2",
+    "segment_number": 2,
+    "source_hash": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+    "scientific_config_hash": "e85608767dc1b4c57897c6273b6014089b7df9f80005345c4da9b595a21823f8",
+    "completed_epoch": 84,
+    "next_epoch": 85,
+    "restored_lr": 1.1152590820119262e-06,
+    "restored_optimizer_step": 75399,
+    "restored_grad_scaler_scale": 16384.0,
+    "restored_ema_updates": 75399,
+    "restored_tau": 0.30000001192092896,
+    "best_epoch": 44,
+    "best_public_tta_accuracy": 0.6912789077737531,
+    "patience_counter": 0,
+    "early_stop_monitor_state": {
+      "start_epoch": 85,
+      "active": false,
+      "patience": 0
+    },
+    "history_length": 84
+  }
+}

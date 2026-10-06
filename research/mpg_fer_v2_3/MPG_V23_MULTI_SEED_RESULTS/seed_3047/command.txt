@@ -1,0 +1,5 @@
+Kaggle kernel=irthn1311/mpg-fer-v2-3-seed-3047-official-t4-segment-02
+seed=3047
+segment=2
+resume_mode=required
+account_alias=C

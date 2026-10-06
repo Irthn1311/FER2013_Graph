@@ -1,0 +1,10 @@
+{
+  "checkpoint_sha256": "2e7c415ec8b4730b342e22d960ee881a7fdfe93ae0b16c9ac5576cd5d570237d",
+  "weights_type": "EMA",
+  "run_id": "f17b2267-f909-4fa2-b893-42c088df3754",
+  "source_hash": "1e63aadd13d53024c1b279dd4cc9bbc943048a6751899d8ecbabea3b12082f87",
+  "config_hash": "895abb86818e7ac77c31186bac12efc2353ac79265715e14387fbc0ab135f779",
+  "best_epoch": 42,
+  "best_public_tta_accuracy": 0.6907216494845361,
+  "scheduled_tau": 0.30000001192092896
+}
