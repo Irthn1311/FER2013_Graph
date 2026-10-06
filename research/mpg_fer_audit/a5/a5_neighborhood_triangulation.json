@@ -1,0 +1,310 @@
+{
+  "public": {
+    "v2_1_fusion": {
+      "ALL_CORRECT": {
+        "count": 1988,
+        "mean_purity": 0.9478873256481509,
+        "mean_entropy": 0.07958523052580906,
+        "modal_matches_true_fraction": 0.9703219315895373
+      },
+      "MOSTLY_CORRECT": {
+        "count": 375,
+        "mean_purity": 0.6565333378712336,
+        "mean_entropy": 0.27957862598156713,
+        "modal_matches_true_fraction": 0.6933333333333334
+      },
+      "SPLIT_DECISION": {
+        "count": 571,
+        "mean_purity": 0.35236427686364763,
+        "mean_entropy": 0.3448718299552817,
+        "modal_matches_true_fraction": 0.3607705779334501
+      },
+      "ALL_WRONG_SAME_LABEL": {
+        "count": 133,
+        "mean_purity": 0.10225564039739451,
+        "mean_entropy": 0.27028235005397216,
+        "modal_matches_true_fraction": 0.06015037593984962
+      },
+      "ALL_WRONG_MIXED_LABEL": {
+        "count": 281,
+        "mean_purity": 0.07758007227738133,
+        "mean_entropy": 0.3280741740180192,
+        "modal_matches_true_fraction": 0.05693950177935943
+      },
+      "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+        "count": 241,
+        "mean_purity": 0.03402489664890954,
+        "mean_entropy": 0.13933492969353425,
+        "modal_matches_true_fraction": 0.012448132780082987
+      }
+    },
+    "v2_2_fusion": {
+      "ALL_CORRECT": {
+        "count": 1988,
+        "mean_purity": 0.9514084519889633,
+        "mean_entropy": 0.06291875608161629,
+        "modal_matches_true_fraction": 0.9652917505030181
+      },
+      "MOSTLY_CORRECT": {
+        "count": 375,
+        "mean_purity": 0.6848000034093856,
+        "mean_entropy": 0.23301896807376982,
+        "modal_matches_true_fraction": 0.712
+      },
+      "SPLIT_DECISION": {
+        "count": 571,
+        "mean_purity": 0.3457092847120532,
+        "mean_entropy": 0.28827337110783896,
+        "modal_matches_true_fraction": 0.35376532399299476
+      },
+      "ALL_WRONG_SAME_LABEL": {
+        "count": 133,
+        "mean_purity": 0.14436090418270656,
+        "mean_entropy": 0.2466451005500865,
+        "modal_matches_true_fraction": 0.12030075187969924
+      },
+      "ALL_WRONG_MIXED_LABEL": {
+        "count": 281,
+        "mean_purity": 0.06619217159272937,
+        "mean_entropy": 0.2783108947157072,
+        "modal_matches_true_fraction": 0.05693950177935943
+      },
+      "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+        "count": 241,
+        "mean_purity": 0.030705394772078485,
+        "mean_entropy": 0.06888898718431538,
+        "modal_matches_true_fraction": 0.029045643153526972
+      }
+    },
+    "raw_pixel": {
+      "ALL_CORRECT": {
+        "count": 1988,
+        "mean_purity": 0.37313884007978726,
+        "mean_entropy": 0.9541785115339397,
+        "modal_matches_true_fraction": 0.45875251509054327
+      },
+      "MOSTLY_CORRECT": {
+        "count": 375,
+        "mean_purity": 0.21440000470479328,
+        "mean_entropy": 1.017991843051008,
+        "modal_matches_true_fraction": 0.25333333333333335
+      },
+      "SPLIT_DECISION": {
+        "count": 571,
+        "mean_purity": 0.18669002131280046,
+        "mean_entropy": 1.0489864035938803,
+        "modal_matches_true_fraction": 0.19439579684763572
+      },
+      "ALL_WRONG_SAME_LABEL": {
+        "count": 133,
+        "mean_purity": 0.23458647100548996,
+        "mean_entropy": 1.0254540810791204,
+        "modal_matches_true_fraction": 0.23308270676691728
+      },
+      "ALL_WRONG_MIXED_LABEL": {
+        "count": 281,
+        "mean_purity": 0.1580071205876476,
+        "mean_entropy": 1.0472123962076019,
+        "modal_matches_true_fraction": 0.18149466192170818
+      },
+      "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+        "count": 241,
+        "mean_purity": 0.17261411125976514,
+        "mean_entropy": 0.9531329147652919,
+        "modal_matches_true_fraction": 0.1825726141078838
+      }
+    },
+    "gradient_pca": {
+      "ALL_CORRECT": {
+        "count": 1988,
+        "mean_purity": 0.3840040315010058,
+        "mean_entropy": 0.977963493889215,
+        "modal_matches_true_fraction": 0.4864185110663984
+      },
+      "MOSTLY_CORRECT": {
+        "count": 375,
+        "mean_purity": 0.2538666718006134,
+        "mean_entropy": 1.0744718502999273,
+        "modal_matches_true_fraction": 0.28
+      },
+      "SPLIT_DECISION": {
+        "count": 571,
+        "mean_purity": 0.21155867319808533,
+        "mean_entropy": 1.0893128982977356,
+        "modal_matches_true_fraction": 0.21541155866900175
+      },
+      "ALL_WRONG_SAME_LABEL": {
+        "count": 133,
+        "mean_purity": 0.1954887255017919,
+        "mean_entropy": 1.087455776860583,
+        "modal_matches_true_fraction": 0.17293233082706766
+      },
+      "ALL_WRONG_MIXED_LABEL": {
+        "count": 281,
+        "mean_purity": 0.1765124588886614,
+        "mean_entropy": 1.0973666559092004,
+        "modal_matches_true_fraction": 0.14590747330960854
+      },
+      "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+        "count": 241,
+        "mean_purity": 0.1717842356668963,
+        "mean_entropy": 1.0168845781753064,
+        "modal_matches_true_fraction": 0.15352697095435686
+      }
+    }
+  },
+  "private": {
+    "v2_1_fusion": {
+      "ALL_CORRECT": {
+        "count": 1995,
+        "mean_purity": 0.9386466183832713,
+        "mean_entropy": 0.08846269515306115,
+        "modal_matches_true_fraction": 0.9634085213032582
+      },
+      "MOSTLY_CORRECT": {
+        "count": 384,
+        "mean_purity": 0.6479166710826879,
+        "mean_entropy": 0.3105046913054876,
+        "modal_matches_true_fraction": 0.6692708333333334
+      },
+      "SPLIT_DECISION": {
+        "count": 566,
+        "mean_purity": 0.36572438552185843,
+        "mean_entropy": 0.3646515387591107,
+        "modal_matches_true_fraction": 0.3710247349823322
+      },
+      "ALL_WRONG_SAME_LABEL": {
+        "count": 144,
+        "mean_purity": 0.12083333565129174,
+        "mean_entropy": 0.29335753337270076,
+        "modal_matches_true_fraction": 0.125
+      },
+      "ALL_WRONG_MIXED_LABEL": {
+        "count": 299,
+        "mean_purity": 0.08561873052231843,
+        "mean_entropy": 0.33915005196894554,
+        "modal_matches_true_fraction": 0.08695652173913043
+      },
+      "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+        "count": 201,
+        "mean_purity": 0.04676616970282882,
+        "mean_entropy": 0.10981872422573109,
+        "modal_matches_true_fraction": 0.029850746268656716
+      }
+    },
+    "v2_2_fusion": {
+      "ALL_CORRECT": {
+        "count": 1995,
+        "mean_purity": 0.9551879710646202,
+        "mean_entropy": 0.053684574873629695,
+        "modal_matches_true_fraction": 0.9704260651629073
+      },
+      "MOSTLY_CORRECT": {
+        "count": 384,
+        "mean_purity": 0.6640625034536546,
+        "mean_entropy": 0.24222254554583875,
+        "modal_matches_true_fraction": 0.6744791666666666
+      },
+      "SPLIT_DECISION": {
+        "count": 566,
+        "mean_purity": 0.38197880164578607,
+        "mean_entropy": 0.28580439607491165,
+        "modal_matches_true_fraction": 0.37985865724381623
+      },
+      "ALL_WRONG_SAME_LABEL": {
+        "count": 144,
+        "mean_purity": 0.15416666875696844,
+        "mean_entropy": 0.2605576420526225,
+        "modal_matches_true_fraction": 0.1527777777777778
+      },
+      "ALL_WRONG_MIXED_LABEL": {
+        "count": 299,
+        "mean_purity": 0.06488294411064391,
+        "mean_entropy": 0.28855069749777384,
+        "modal_matches_true_fraction": 0.05351170568561873
+      },
+      "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+        "count": 201,
+        "mean_purity": 0.03184079649436533,
+        "mean_entropy": 0.0970506111941765,
+        "modal_matches_true_fraction": 0.014925373134328358
+      }
+    },
+    "raw_pixel": {
+      "ALL_CORRECT": {
+        "count": 1995,
+        "mean_purity": 0.3793483782008776,
+        "mean_entropy": 0.9553733752878939,
+        "modal_matches_true_fraction": 0.46215538847117793
+      },
+      "MOSTLY_CORRECT": {
+        "count": 384,
+        "mean_purity": 0.2447916715949153,
+        "mean_entropy": 1.050800543181655,
+        "modal_matches_true_fraction": 0.28125
+      },
+      "SPLIT_DECISION": {
+        "count": 566,
+        "mean_purity": 0.2081272126086609,
+        "mean_entropy": 1.0293651988745318,
+        "modal_matches_true_fraction": 0.23851590106007067
+      },
+      "ALL_WRONG_SAME_LABEL": {
+        "count": 144,
+        "mean_purity": 0.16388889153798422,
+        "mean_entropy": 1.0717722159155463,
+        "modal_matches_true_fraction": 0.1597222222222222
+      },
+      "ALL_WRONG_MIXED_LABEL": {
+        "count": 299,
+        "mean_purity": 0.15719063874072453,
+        "mean_entropy": 1.0368183342662263,
+        "modal_matches_true_fraction": 0.15719063545150502
+      },
+      "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+        "count": 201,
+        "mean_purity": 0.15522388379965255,
+        "mean_entropy": 1.0170445651718683,
+        "modal_matches_true_fraction": 0.15422885572139303
+      }
+    },
+    "gradient_pca": {
+      "ALL_CORRECT": {
+        "count": 1995,
+        "mean_purity": 0.3788471251502073,
+        "mean_entropy": 0.9660016589894138,
+        "modal_matches_true_fraction": 0.47017543859649125
+      },
+      "MOSTLY_CORRECT": {
+        "count": 384,
+        "mean_purity": 0.25208333840904135,
+        "mean_entropy": 1.0751632021082969,
+        "modal_matches_true_fraction": 0.296875
+      },
+      "SPLIT_DECISION": {
+        "count": 566,
+        "mean_purity": 0.218374562795297,
+        "mean_entropy": 1.085891317325844,
+        "modal_matches_true_fraction": 0.24381625441696114
+      },
+      "ALL_WRONG_SAME_LABEL": {
+        "count": 144,
+        "mean_purity": 0.2208333376588093,
+        "mean_entropy": 1.074386716524057,
+        "modal_matches_true_fraction": 0.25
+      },
+      "ALL_WRONG_MIXED_LABEL": {
+        "count": 299,
+        "mean_purity": 0.1438127116714433,
+        "mean_entropy": 1.1192526863794676,
+        "modal_matches_true_fraction": 0.13377926421404682
+      },
+      "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+        "count": 201,
+        "mean_purity": 0.15024875905086746,
+        "mean_entropy": 1.0215834640319414,
+        "modal_matches_true_fraction": 0.14427860696517414
+      }
+    }
+  }
+}

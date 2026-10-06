@@ -1,0 +1,74 @@
+{
+  "v1": {
+    "files": {
+      "__init__.py": "435f13a6a45fb18949751cd0fa15253258dc61b4e0e8ff5a4ac7c8811e9aeda4",
+      "config.py": "e447c174f76a62307d2ebb0b3cfd7132529091f342b3c1afaf2d12bf1f0458df",
+      "data.py": "1322bdc78c6d656aa1235dbe3e63262b01aa931ed6a1608829db69a9558e3cf3",
+      "evaluate.py": "3cdfca32172288cf51784840cfdac62e65f35aaee79bb9e004065652ccbe1b19",
+      "features.py": "2a39fe1aed2450b99ef65eaaae4b4f78837204e71757aaf31a73211934aa3c6c",
+      "graph.py": "4a417b2cc7aa48bc79d9cb6249776a8f8e6d8d08f48aa57db065c4aa7237a60a",
+      "kaggle.py": "6978e3a9860ca27f2a20d0629f072d8fea77fc4b70d80eb4822b92ef71f27048",
+      "model.py": "c17dbfd792db4dd4aad6ebb6938b5067df1b9987727b385dc81a9229d7f1f70a",
+      "motif.py": "f237a274481f757a8e9b218e0f2f41aaf53e63a7925420bec063fe7e58b22096",
+      "train.py": "966f5e787712f7da37d18fcbcc60cb17aec701199b7ef95b9f13a3133faaf02e",
+      "utils.py": "a7825cdc1cfc2d10363b4cd3de6aa5962830991093b106f2eb10255595cde9c9"
+    },
+    "package_tree_hash": "bf88bce5cf2223816e3708a6bf6b3da6120674c9535863f57110217d6664cac6",
+    "provenance_status": "PROVENANCE_BOUND_BY_EXECUTION_ARTIFACT",
+    "provenance_evidence": {
+      "official_submitted_notebook": "research/mpg_fer_v1/notebooks/MPG_FER_final_one_shot_kaggle_T4.ipynb",
+      "official_submitted_notebook_sha256": "296e118ebbea3a77cc9cdca51fe8ec2317f3d247b800ebad8b277aafe444c069",
+      "embedded_source_dictionary": "EMBEDDED_SOURCES in notebook cell 1",
+      "embedded_source_tree_hash": "bf88bce5cf2223816e3708a6bf6b3da6120674c9535863f57110217d6664cac6",
+      "downloaded_embedded_directory": "research/mpg_fer_v1/outputs/kaggle_t4_final/mpg_fer_v1_embedded/mpg_fer_v1",
+      "downloaded_embedded_files_match": true,
+      "kernel_execution_report": "research/mpg_fer_v1/KAGGLE_T4_EXECUTION_REPORT.md",
+      "kaggle_kernel_ref": "irthn1311/mpg-fer-v1-final-t4-2026-09-20"
+    },
+    "location": "research/mpg_fer_v1/src/mpg_fer_v1"
+  },
+  "v2": {
+    "files": {
+      "__init__.py": "de7b8aab90f3f014ea91ceec9380e81298fb32ca5097aacef93c78b635012dfb",
+      "checkpoint.py": "1ae6eed1d9d5d0a2164a7bf1d7905ff29268d365751bc57efd753bfc747b4434",
+      "config.py": "4e6deedafec5e69604749a12fe3cc3ff71cef03f5d64d0aa1b37e128e0b285c3",
+      "data.py": "17d74c9b3672ad281629aeda8fb16936d61cb8daac5873058e371a000cdb3d6e",
+      "ema.py": "30128bf98779219461fcefc779474fcda82293ffadac9c6aadadec34e7ffa72b",
+      "evaluate.py": "3cdfca32172288cf51784840cfdac62e65f35aaee79bb9e004065652ccbe1b19",
+      "features.py": "2a39fe1aed2450b99ef65eaaae4b4f78837204e71757aaf31a73211934aa3c6c",
+      "graph.py": "4a417b2cc7aa48bc79d9cb6249776a8f8e6d8d08f48aa57db065c4aa7237a60a",
+      "kaggle.py": "912f23521058a3de411e3d43ec1c4a81522002d1909e255cc0da04f07e3539cc",
+      "losses.py": "3318b279583c625d0a03a98bbb2952a53ec85d16e5751eea3113f2625e1dc969",
+      "model.py": "5af6a3a2766c0a05d6383ae6520edf85ce78b5e372b169054315399ee57051d4",
+      "motif.py": "9a3147a7264a2a2269dafcc85439c4818453faae3a126b3048f9db7f0324425f",
+      "train.py": "380ef6e077622ed7c070a7143024f1b94ccabffebe61cb6d53d438d576df3bf4",
+      "utils.py": "a7825cdc1cfc2d10363b4cd3de6aa5962830991093b106f2eb10255595cde9c9"
+    },
+    "package_tree_hash": "f9a06cd4f7482c6a6e37d58844c1a30022602e9fc825eff73240f71740b0af1c",
+    "provenance_status": "PROVENANCE_BOUND_BY_GIT_COMMIT",
+    "git_commit": "96e5aec27cde315038965ee525b14043cc5ab29a",
+    "location": "research/mpg_fer_v2/src/mpg_fer_v2"
+  },
+  "v2_1": {
+    "files": {
+      "__init__.py": "1dceb96fa42f888db3734db751565de1f257b5cf88d76f8957b7514bd034f28e",
+      "checkpoint.py": "9a500835fed567397fc77d00b856b28fec0f65e856088344f9df1d4ca6178dca",
+      "config.py": "5025451fbcd68639118c1eea6c457107ee10e724ff5e0183e2969647b73e2887",
+      "data.py": "17d74c9b3672ad281629aeda8fb16936d61cb8daac5873058e371a000cdb3d6e",
+      "ema.py": "abfb6543100a6e628f95607351a998711b6d53062c3fb3ad91555510d9651957",
+      "evaluate.py": "3cdfca32172288cf51784840cfdac62e65f35aaee79bb9e004065652ccbe1b19",
+      "features.py": "2a39fe1aed2450b99ef65eaaae4b4f78837204e71757aaf31a73211934aa3c6c",
+      "graph.py": "4a417b2cc7aa48bc79d9cb6249776a8f8e6d8d08f48aa57db065c4aa7237a60a",
+      "kaggle.py": "6544493c6dc4c66f35aeeed7cf25139e31de65b1124cdf8092e3f5c96e80b18e",
+      "losses.py": "76be06c69c4a7b3c52854cfd6793cf3420f4b93ca7513dd93ad0a752fbd264e2",
+      "model.py": "0d16763b02d72b3d6cb880b567013c9a8c1703fedfa017af5e208654f925d9b6",
+      "motif.py": "694886e7e2438c96c9bf7b8edcb83d24339eed0bae33285b2ac01d20b305a6e2",
+      "train.py": "96742599e21973b8102028bda046d18defc71087637f336eff91f6a303364ab5",
+      "utils.py": "a7825cdc1cfc2d10363b4cd3de6aa5962830991093b106f2eb10255595cde9c9"
+    },
+    "package_tree_hash": "d86d93655c83810d36c89a632baee0745f1de0f0e701b762b719d44445a6e679",
+    "provenance_status": "PROVENANCE_BOUND_BY_GIT_COMMIT",
+    "git_commit": "4967cc5dac3495be2300210215f72422f6f97aa4",
+    "location": "research/mpg_fer_v2_1/src/mpg_fer_v2_1"
+  }
+}

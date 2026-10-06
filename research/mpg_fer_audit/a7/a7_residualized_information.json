@@ -1,0 +1,72 @@
+{
+  "v22": {
+    "L5+PRE_res": {
+      "early_stage": "PRE",
+      "late_stage": "L5",
+      "dim": 384,
+      "train_acc": 0.9592810616879724,
+      "public_acc": 0.6522708275285595,
+      "public_macro_f1": 0.637693872235734,
+      "delta_acc_vs_l5": -0.0033435497353023758,
+      "shuffled_control_public_acc": 0.651992198383951,
+      "shuffled_control_delta_acc": -0.003622178879910898
+    },
+    "L5+L1_res": {
+      "early_stage": "L1",
+      "late_stage": "L5",
+      "dim": 384,
+      "train_acc": 0.9603260301647567,
+      "public_acc": 0.6556143772638618,
+      "public_macro_f1": 0.6404695099109967,
+      "delta_acc_vs_l5": 0.0,
+      "shuffled_control_public_acc": 0.6480913903594316,
+      "shuffled_control_delta_acc": -0.007522986904430207
+    },
+    "L5+L2_res": {
+      "early_stage": "L2",
+      "late_stage": "L5",
+      "dim": 384,
+      "train_acc": 0.9610923403810652,
+      "public_acc": 0.6528280858177765,
+      "public_macro_f1": 0.6437512534112592,
+      "delta_acc_vs_l5": -0.0027862914460853316,
+      "shuffled_control_public_acc": 0.6544998606854276,
+      "shuffled_control_delta_acc": -0.0011145165784341993
+    }
+  },
+  "v23": {
+    "L5+PRE_res": {
+      "early_stage": "PRE",
+      "late_stage": "L5",
+      "dim": 384,
+      "train_acc": 0.9638440907032638,
+      "public_acc": 0.6589579269991641,
+      "public_macro_f1": 0.6453890104734076,
+      "delta_acc_vs_l5": -0.004179437169127942,
+      "shuffled_control_public_acc": 0.6595151852883812,
+      "shuffled_control_delta_acc": -0.003622178879910898
+    },
+    "L5+L1_res": {
+      "early_stage": "L1",
+      "late_stage": "L5",
+      "dim": 384,
+      "train_acc": 0.9638789229858232,
+      "public_acc": 0.6556143772638618,
+      "public_macro_f1": 0.6373191911565793,
+      "delta_acc_vs_l5": -0.007522986904430207,
+      "shuffled_control_public_acc": 0.6570075229869045,
+      "shuffled_control_delta_acc": -0.006129841181387596
+    },
+    "L5+L2_res": {
+      "early_stage": "L2",
+      "late_stage": "L5",
+      "dim": 384,
+      "train_acc": 0.9655508725486781,
+      "public_acc": 0.6581220395653385,
+      "public_macro_f1": 0.6434576842453684,
+      "delta_acc_vs_l5": -0.005015324602953508,
+      "shuffled_control_public_acc": 0.6575647812761215,
+      "shuffled_control_delta_acc": -0.005572582892170552
+    }
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "v2.2": {
+    "fusion": {
+      "dimensions": 512,
+      "fit_duration_sec": 93.97951889038086,
+      "iterations": 879,
+      "converged": true,
+      "splits": {
+        "train": {
+          "raw": {
+            "accuracy": 0.9827928524156188,
+            "macro_f1": 0.9840951611860694
+          },
+          "tta": {
+            "accuracy": 0.9827231878504998,
+            "macro_f1": 0.9831024676035595
+          }
+        },
+        "public": {
+          "raw": {
+            "accuracy": 0.6636946224575091,
+            "macro_f1": 0.6424067114308218
+          },
+          "tta": {
+            "accuracy": 0.679019225410978,
+            "macro_f1": 0.6620623174778822
+          }
+        },
+        "private": {
+          "raw": {
+            "accuracy": 0.6701030927835051,
+            "macro_f1": 0.6640908917597805
+          },
+          "tta": {
+            "accuracy": 0.6826414042908888,
+            "macro_f1": 0.6695423951357993
+          }
+        }
+      },
+      "train_public_gap": 0.3037039624395218,
+      "train_private_gap": 0.300081783559611
+    },
+    "motif_readout": {
+      "dimensions": 384,
+      "fit_duration_sec": 147.42791485786438,
+      "iterations": 774,
+      "converged": true,
+      "splits": {
+        "train": {
+          "raw": {
+            "accuracy": 0.9785433139433627,
+            "macro_f1": 0.9795563353468962
+          },
+          "tta": {
+            "accuracy": 0.9814343933957992,
+            "macro_f1": 0.9811940235560596
+          }
+        },
+        "public": {
+          "raw": {
+            "accuracy": 0.6695458344942881,
+            "macro_f1": 0.6542029256127269
+          },
+          "tta": {
+            "accuracy": 0.6834772917247144,
+            "macro_f1": 0.6601884088201518
+          }
+        },
+        "private": {
+          "raw": {
+            "accuracy": 0.6720534967957649,
+            "macro_f1": 0.663440070371711
+          },
+          "tta": {
+            "accuracy": 0.6820841460016718,
+            "macro_f1": 0.675147616379688
+          }
+        }
+      },
+      "train_public_gap": 0.2979571016710848,
+      "train_private_gap": 0.2993502473941274
+    }
+  },
+  "v2.1": {
+    "motif_readout": {
+      "dimensions": 384,
+      "fit_duration_sec": 183.23528623580933,
+      "iterations": 992,
+      "converged": true,
+      "splits": {
+        "train": {
+          "raw": {
+            "accuracy": 0.9621373088578494,
+            "macro_f1": 0.9645439218557443
+          },
+          "tta": {
+            "accuracy": 0.9695914173255773,
+            "macro_f1": 0.970313617182204
+          }
+        },
+        "public": {
+          "raw": {
+            "accuracy": 0.6634159933129006,
+            "macro_f1": 0.6417324514773411
+          },
+          "tta": {
+            "accuracy": 0.6809696294232377,
+            "macro_f1": 0.6601924286497816
+          }
+        },
+        "private": {
+          "raw": {
+            "accuracy": 0.6687099470604625,
+            "macro_f1": 0.6601336844615338
+          },
+          "tta": {
+            "accuracy": 0.6812482585678462,
+            "macro_f1": 0.6747890676621042
+          }
+        }
+      },
+      "train_public_gap": 0.2886217879023396,
+      "train_private_gap": 0.2883431587577311
+    },
+    "fusion": {
+      "dimensions": 512,
+      "fit_duration_sec": 280.26959681510925,
+      "iterations": 1098,
+      "converged": true,
+      "splits": {
+        "train": {
+          "raw": {
+            "accuracy": 0.9681632937406388,
+            "macro_f1": 0.9705791677221033
+          },
+          "tta": {
+            "accuracy": 0.9711240377581943,
+            "macro_f1": 0.9718274369281691
+          }
+        },
+        "public": {
+          "raw": {
+            "accuracy": 0.6595151852883812,
+            "macro_f1": 0.6429318842277734
+          },
+          "tta": {
+            "accuracy": 0.6801337419894121,
+            "macro_f1": 0.6639090037355739
+          }
+        },
+        "private": {
+          "raw": {
+            "accuracy": 0.6678740596266369,
+            "macro_f1": 0.6589467011667693
+          },
+          "tta": {
+            "accuracy": 0.6851490665923655,
+            "macro_f1": 0.6796020334822652
+          }
+        }
+      },
+      "train_public_gap": 0.2909902957687822,
+      "train_private_gap": 0.2859749711658288
+    }
+  }
+}

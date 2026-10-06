@@ -1,0 +1,16 @@
+{
+  "model": "v21",
+  "stage": "R5",
+  "dimensions": 192,
+  "fit_duration_sec": 66.99679827690125,
+  "iterations": 543,
+  "converged": true,
+  "train_accuracy": 0.9082866000208993,
+  "train_macro_f1": 0.9093113742579492,
+  "public_accuracy": 0.6606297018668152,
+  "public_macro_f1": 0.6353071343244011,
+  "private_accuracy": 0.6533853441069936,
+  "private_macro_f1": 0.6357188620411192,
+  "train_public_gap": 0.2476568981540841,
+  "train_private_gap": 0.2549012559139058
+}

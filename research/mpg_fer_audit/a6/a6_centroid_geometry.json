@@ -1,0 +1,126 @@
+{
+  "V21_CORRECT_V22_WRONG": {
+    "R0": {
+      "correct_model_margin_mean": -0.2501185097413099,
+      "wrong_model_margin_mean": -0.2944763645692844,
+      "delta_margin_mean": 0.04435785482797455,
+      "delta_margin_median": 0.02969831220381991
+    },
+    "R1": {
+      "correct_model_margin_mean": -0.4131677536598688,
+      "wrong_model_margin_mean": -0.43096482553426174,
+      "delta_margin_mean": 0.01779707187439295,
+      "delta_margin_median": 0.009949079058866772
+    },
+    "R2": {
+      "correct_model_margin_mean": -0.10836534779683134,
+      "wrong_model_margin_mean": -0.33248826446397406,
+      "delta_margin_mean": 0.22412291666714268,
+      "delta_margin_median": 0.14827414627937685
+    },
+    "R3": {
+      "correct_model_margin_mean": 0.35644021688087263,
+      "wrong_model_margin_mean": -0.7762500228691883,
+      "delta_margin_mean": 1.132690239750061,
+      "delta_margin_median": 0.9143430700159314
+    },
+    "R4": {
+      "correct_model_margin_mean": 0.45003278768120847,
+      "wrong_model_margin_mean": -1.067265644524593,
+      "delta_margin_mean": 1.5172984322058014,
+      "delta_margin_median": 1.051915934366944
+    },
+    "R5": {
+      "correct_model_margin_mean": 0.4936828342441962,
+      "wrong_model_margin_mean": -1.1651606531184844,
+      "delta_margin_mean": 1.6588434873626805,
+      "delta_margin_median": 1.2288177876814625
+    },
+    "R6": {
+      "correct_model_margin_mean": 0.5094092306089875,
+      "wrong_model_margin_mean": -1.3022763491385556,
+      "delta_margin_mean": 1.811685579747543,
+      "delta_margin_median": 1.3695490670728372
+    },
+    "R7": {
+      "correct_model_margin_mean": 4.912315626337639,
+      "wrong_model_margin_mean": -4.990826614491278,
+      "delta_margin_mean": 9.903142240828917,
+      "delta_margin_median": 9.318088771919765
+    },
+    "R8": {
+      "correct_model_margin_mean": 4.263894063336121,
+      "wrong_model_margin_mean": -4.192963543277986,
+      "delta_margin_mean": 8.456857606614108,
+      "delta_margin_median": 8.007323945056285
+    },
+    "R9": {
+      "correct_model_margin_mean": 7.2963802523042,
+      "wrong_model_margin_mean": -7.76523586643792,
+      "delta_margin_mean": 15.06161611874212,
+      "delta_margin_median": 14.837559312724805
+    }
+  },
+  "V22_CORRECT_V21_WRONG": {
+    "R0": {
+      "correct_model_margin_mean": -0.2893934816151001,
+      "wrong_model_margin_mean": -0.3826379571473666,
+      "delta_margin_mean": 0.09324447553226643,
+      "delta_margin_median": 0.061773260918533524
+    },
+    "R1": {
+      "correct_model_margin_mean": -0.40671924236594365,
+      "wrong_model_margin_mean": -0.43047545937440107,
+      "delta_margin_mean": 0.023756217008457408,
+      "delta_margin_median": 0.029102697026380575
+    },
+    "R2": {
+      "correct_model_margin_mean": -0.05747765065642276,
+      "wrong_model_margin_mean": -0.45839060035935536,
+      "delta_margin_mean": 0.4009129497029326,
+      "delta_margin_median": 0.36171560388276003
+    },
+    "R3": {
+      "correct_model_margin_mean": 0.2770110675214183,
+      "wrong_model_margin_mean": -0.7750945802490214,
+      "delta_margin_mean": 1.0521056477704398,
+      "delta_margin_median": 0.9417141745733852
+    },
+    "R4": {
+      "correct_model_margin_mean": 0.3516879162674689,
+      "wrong_model_margin_mean": -0.9345671432969755,
+      "delta_margin_mean": 1.2862550595644446,
+      "delta_margin_median": 1.1097649140884203
+    },
+    "R5": {
+      "correct_model_margin_mean": 0.5138358704276126,
+      "wrong_model_margin_mean": -0.95690468763285,
+      "delta_margin_mean": 1.4707405580604624,
+      "delta_margin_median": 1.236616568662769
+    },
+    "R6": {
+      "correct_model_margin_mean": 0.6961620398415422,
+      "wrong_model_margin_mean": -1.0026664527141407,
+      "delta_margin_mean": 1.6988284925556831,
+      "delta_margin_median": 1.4455944557567468
+    },
+    "R7": {
+      "correct_model_margin_mean": 5.404151932656881,
+      "wrong_model_margin_mean": -4.644273516608006,
+      "delta_margin_mean": 10.048425449264887,
+      "delta_margin_median": 9.649505066237685
+    },
+    "R8": {
+      "correct_model_margin_mean": 4.692154620064625,
+      "wrong_model_margin_mean": -3.9320094065485334,
+      "delta_margin_mean": 8.62416402661316,
+      "delta_margin_median": 8.112277099559613
+    },
+    "R9": {
+      "correct_model_margin_mean": 8.333473253482358,
+      "wrong_model_margin_mean": -6.8753655422580495,
+      "delta_margin_mean": 15.208838795740407,
+      "delta_margin_median": 15.109111533775204
+    }
+  }
+}

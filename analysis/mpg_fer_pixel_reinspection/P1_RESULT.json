@@ -1,7 +1,0 @@
-{
-  "val_accuracy": 0.6748397882418501,
-  "val_macro_f1": 0.6604844548163153,
-  "val_ce_loss": 1.4562484729784915,
-  "selected_epoch": 6,
-  "parameter_count": 281289
-}

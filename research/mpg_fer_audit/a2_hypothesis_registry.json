@@ -1,0 +1,27 @@
+{
+  "H1_LOCAL_CROSS": {
+    "hypothesis": "Local facial relations and cross-region relations require meaningfully different reasoning.",
+    "decision": "DEPRIORITIZE",
+    "evidence_summary": "When combined with NODE_PRE summaries, adding local, meso, or far relation pools yields negligible held-out gain (<0.5 pp, with all 95% CIs bounding or touching zero). Isolated REL_LOCAL and REL_FAR linear probes achieve nearly identical performance (~33-34% accuracy), and combination adds virtually nothing on held-out test splits."
+  },
+  "H2_RICH_EDGE": {
+    "hypothesis": "Pairwise relational content contains FER information not already available from node summaries.",
+    "decision": "DEPRIORITIZE",
+    "evidence_summary": "Falsified by linear probe diagnostics. Adding pairwise relation content descriptors to node summaries produces delta accuracy within [-0.005, +0.005] on both Public and Private splits, with 95% bootstrap CIs firmly containing zero across v1, v2, and v2.1. Furthermore, symmetric relation descriptors perform identically to directed descriptors."
+  },
+  "H3_STRUCTURED_TOPOLOGY": {
+    "hypothesis": "The complete 49-node graph contains unnecessary/noisy connectivity, and structured sparse connectivity preserves useful FER signal.",
+    "decision": "SUPPORTED_FOR_CONTROLLED_EXPERIMENT",
+    "evidence_summary": "Strong empirical support. Attention entropy reveals that each node effectively attends to only ~11-16 of its 48 neighbors across all layers (top-8 neighbors capture >80% of attention mass). In functional replay, removing all local edges (NO_LOCAL) drops accuracy by only ~1.2-1.6 pp, and restricting connectivity to local+meso (NO_FAR, removing 1,032 far edges) retains 66.7% accuracy with 0.917 readout cosine similarity. A structured sparse topology is well motivated."
+  },
+  "H4_INSTANCE_ADAPTIVE": {
+    "hypothesis": "The useful relational graph varies meaningfully across facial instances beyond a static connectivity pattern.",
+    "decision": "SUPPORTED_FOR_CONTROLLED_EXPERIMENT",
+    "evidence_summary": "Strong empirical support. Replacing sample-specific dynamic attention weights with the static Train-derived mean attention template causes a severe, catastrophic drop of over 9.3 percentage points on PrivateTest (accuracy collapses from 69.94% to 60.60%, and macro-F1 drops by 12.4 pp). Instance-dependent attention routing is essential for expression recognition."
+  },
+  "H5_HIGHER_ORDER": {
+    "hypothesis": "Higher-order/relation-centric reasoning is justified only if pairwise relation evidence survives H2 tests.",
+    "decision": "CLOSED",
+    "evidence_summary": "Per pre-registered protocol, H5 is gated on H2. Because pairwise relational content failed to provide held-out gain beyond node summaries (H2 DEPRIORITIZED), H5 remains strictly closed. Hypergraph and complex higher-order relation modeling are not justified for FER2013."
+  }
+}

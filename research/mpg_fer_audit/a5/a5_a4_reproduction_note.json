@@ -1,0 +1,30 @@
+{
+  "audit": "MPG-FER A5",
+  "topic": "A4 Numerical Reproduction Note & Canonical FP32 Inference Policy",
+  "official_v2_2_public_raw_accuracy": {
+    "correct_count": 2429,
+    "total_count": 3589,
+    "ratio": 0.6767901922541097,
+    "note": "Official registered Kaggle T4 execution manifest result"
+  },
+  "a4_amp_observation": {
+    "observed_raw_accuracy": 0.6765115631095012,
+    "observed_raw_correct": 2428,
+    "observed_tta_correct": 2502,
+    "observed_tta_accuracy": 0.6971301198105322,
+    "root_cause": "FP16 accumulation and hardware tensor core scheduling difference between NVIDIA Turing (sm_75) and NVIDIA Ampere (sm_86)"
+  },
+  "canonical_fp32_reproduction": {
+    "fp32_raw_correct": 2429,
+    "fp32_raw_accuracy": 0.6767901922541097,
+    "fp32_tta_correct": 2500,
+    "fp32_tta_accuracy": 0.6965728615213151,
+    "parity": "Exact 16-decimal reproduction of both RAW and TTA official metrics under full FP32 inference"
+  },
+  "a5_inference_policy": {
+    "precision": "FP32",
+    "use_amp": false,
+    "device": "cuda",
+    "rationale": "To prevent floating-point accumulation discrepancies across hardware platforms and guarantee exact determinism for sample categorization, consensus voting, and blinded review sampling."
+  }
+}

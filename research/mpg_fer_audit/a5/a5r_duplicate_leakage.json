@@ -1,0 +1,44 @@
+{
+  "public": {
+    "total_test_rows": 3589,
+    "rows_with_exact_train_duplicate": 280,
+    "percent_with_exact_train_duplicate": 7.8016160490387305,
+    "exact_train_duplicate_same_label_count": 267,
+    "exact_train_duplicate_same_label_percent": 7.439398161047646,
+    "exact_train_duplicate_conflicting_label_count": 13,
+    "exact_train_duplicate_conflicting_label_percent": 0.3622178879910839,
+    "no_train_duplicate_count": 3309,
+    "no_train_duplicate_percent": 92.19838395096127,
+    "unique_train_duplicate_groups_involved": 270,
+    "class_distribution_of_leaked_rows": {
+      "Angry": 29,
+      "Disgust": 15,
+      "Fear": 47,
+      "Happy": 29,
+      "Sad": 27,
+      "Surprise": 114,
+      "Neutral": 19
+    }
+  },
+  "private": {
+    "total_test_rows": 3589,
+    "rows_with_exact_train_duplicate": 288,
+    "percent_with_exact_train_duplicate": 8.02451936472555,
+    "exact_train_duplicate_same_label_count": 273,
+    "exact_train_duplicate_same_label_percent": 7.60657564781276,
+    "exact_train_duplicate_conflicting_label_count": 15,
+    "exact_train_duplicate_conflicting_label_percent": 0.4179437169127891,
+    "no_train_duplicate_count": 3301,
+    "no_train_duplicate_percent": 91.97548063527445,
+    "unique_train_duplicate_groups_involved": 278,
+    "class_distribution_of_leaked_rows": {
+      "Angry": 37,
+      "Disgust": 16,
+      "Fear": 47,
+      "Happy": 28,
+      "Sad": 17,
+      "Surprise": 118,
+      "Neutral": 25
+    }
+  }
+}

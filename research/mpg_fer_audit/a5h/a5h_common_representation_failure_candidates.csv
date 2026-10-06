@@ -1,0 +1,12 @@
+review_id,tier,split,row_index,dataset_label,dataset_class,model_consensus_label,model_consensus_class,claude_label,claude_confidence,gemini_label,gemini_confidence,mean_reviewer_confidence,exact_train_duplicate,train_duplicate_conflict
+REV_001,Tier_B,private,616,6,Neutral,4,Sad,Neutral,3,Neutral,3,3.0,False,False
+REV_010,Tier_A,public,1952,3,Happy,6,Neutral,Happy,4,Happy,4,4.0,False,False
+REV_065,Tier_B,private,1157,3,Happy,2,Fear,Happy,3,Happy,4,3.5,False,False
+REV_093,Tier_B,public,2153,5,Surprise,6,Neutral,Surprise,3,Surprise,3,3.0,False,False
+REV_114,Tier_B,public,431,4,Sad,6,Neutral,Sad,3,Sad,4,3.5,False,False
+REV_122,Tier_A,private,2678,3,Happy,5,Surprise,Happy,5,Happy,4,4.5,False,False
+REV_124,Tier_A,public,1763,6,Neutral,4,Sad,Neutral,4,Neutral,5,4.5,False,False
+REV_145,Tier_B,public,1359,5,Surprise,0,Angry,Surprise,3,Surprise,4,3.5,False,False
+REV_170,Tier_B,private,1832,6,Neutral,2,Fear,Neutral,2,Neutral,3,2.5,False,False
+REV_182,Tier_A,public,1134,3,Happy,6,Neutral,Happy,4,Happy,4,4.0,False,False
+REV_190,Tier_B,public,1980,3,Happy,6,Neutral,Happy,4,Happy,3,3.5,False,False

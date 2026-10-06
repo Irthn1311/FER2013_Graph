@@ -1,0 +1,56 @@
+{
+  "v1": {
+    "public": {
+      "mean_l2_norm_z_pixel": 6.673206329345703,
+      "mean_l2_norm_z_motif": 40.390602111816406,
+      "ratio_motif_to_pixel": 6.052652970460541,
+      "normalized_per_input_dim_pixel": 0.052134424448013306,
+      "normalized_per_input_dim_motif": 0.10518385966618855,
+      "ratio_per_dim_motif_to_pixel": 2.017550990115117
+    },
+    "private": {
+      "mean_l2_norm_z_pixel": 6.690483093261719,
+      "mean_l2_norm_z_motif": 40.34687042236328,
+      "ratio_motif_to_pixel": 6.030486866186444,
+      "normalized_per_input_dim_pixel": 0.05226939916610718,
+      "normalized_per_input_dim_motif": 0.10506997505823772,
+      "ratio_per_dim_motif_to_pixel": 2.010162288690658
+    }
+  },
+  "v2": {
+    "public": {
+      "mean_l2_norm_z_pixel": 15.025131225585938,
+      "mean_l2_norm_z_motif": 55.195735931396484,
+      "ratio_motif_to_pixel": 3.6735609894309147,
+      "normalized_per_input_dim_pixel": 0.11738383769989014,
+      "normalized_per_input_dim_motif": 0.14373889565467834,
+      "ratio_per_dim_motif_to_pixel": 1.2245203297999547
+    },
+    "private": {
+      "mean_l2_norm_z_pixel": 15.041158676147461,
+      "mean_l2_norm_z_motif": 54.831520080566406,
+      "ratio_motif_to_pixel": 3.645431928559837,
+      "normalized_per_input_dim_pixel": 0.11750905215740204,
+      "normalized_per_input_dim_motif": 0.142790416876475,
+      "ratio_per_dim_motif_to_pixel": 1.215143976176352
+    }
+  },
+  "v2_1": {
+    "public": {
+      "mean_l2_norm_z_pixel": 13.434926986694336,
+      "mean_l2_norm_z_motif": 44.38533020019531,
+      "ratio_motif_to_pixel": 3.3037269383116326,
+      "normalized_per_input_dim_pixel": 0.1049603670835495,
+      "normalized_per_input_dim_motif": 0.11558679739634196,
+      "ratio_per_dim_motif_to_pixel": 1.1012423127601343
+    },
+    "private": {
+      "mean_l2_norm_z_pixel": 13.457131385803223,
+      "mean_l2_norm_z_motif": 44.31235885620117,
+      "ratio_motif_to_pixel": 3.292853252733029,
+      "normalized_per_input_dim_pixel": 0.10513383895158768,
+      "normalized_per_input_dim_motif": 0.11539676785469055,
+      "ratio_per_dim_motif_to_pixel": 1.097617750900651
+    }
+  }
+}

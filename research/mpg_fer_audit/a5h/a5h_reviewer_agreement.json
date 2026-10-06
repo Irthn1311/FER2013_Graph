@@ -1,0 +1,107 @@
+{
+  "inter_rater_agreement": {
+    "total_samples": 200,
+    "raw_exact_agreement_count": 94,
+    "raw_exact_agreement_rate": 0.47,
+    "cohens_kappa_all_9_states": 0.3811122463873887,
+    "both_select_7_fer_classes_count": 175,
+    "both_select_7_fer_classes_rate": 0.875,
+    "exact_agreement_on_7_fer_classes_count": 94,
+    "exact_agreement_on_7_fer_classes_rate": 0.5371428571428571,
+    "cohens_kappa_7_fer_classes": 0.4431786934831283,
+    "both_choose_same_fer_class_count": 94,
+    "one_or_both_ambiguous_count": 6,
+    "one_or_both_cannot_judge_count": 19,
+    "both_abstain_count": 0
+  },
+  "reviewer_style_differences": {
+    "reviewer_c_claude": {
+      "class_usage_counts": {
+        "Angry": 23,
+        "Disgust": 1,
+        "Fear": 9,
+        "Happy": 39,
+        "Sad": 14,
+        "Surprise": 33,
+        "Neutral": 58,
+        "Ambiguous": 4,
+        "CannotJudge": 19
+      },
+      "ambiguous_count": 4,
+      "ambiguous_rate": 0.02,
+      "cannot_judge_count": 19,
+      "cannot_judge_rate": 0.095,
+      "total_abstention_count": 23,
+      "total_abstention_rate": 0.115,
+      "multiple_emotion_plausible_count": 52,
+      "multiple_emotion_plausible_rate": 0.26,
+      "pose_issue_count": 18,
+      "pose_issue_rate": 0.09,
+      "occlusion_issue_count": 42,
+      "occlusion_issue_rate": 0.21,
+      "crop_alignment_issue_count": 6,
+      "crop_alignment_issue_rate": 0.03,
+      "confidence_distribution": {
+        "1": 8,
+        "2": 25,
+        "3": 83,
+        "4": 68,
+        "5": 16
+      },
+      "mean_confidence": 3.295,
+      "median_confidence": 3.0,
+      "expression_intensity_distribution": {
+        "Strong": 38,
+        "Moderate": 51,
+        "Weak": 111
+      }
+    },
+    "reviewer_g_gemini_r2": {
+      "class_usage_counts": {
+        "Angry": 20,
+        "Disgust": 24,
+        "Fear": 16,
+        "Happy": 43,
+        "Sad": 37,
+        "Surprise": 18,
+        "Neutral": 40,
+        "Ambiguous": 2,
+        "CannotJudge": 0
+      },
+      "ambiguous_count": 2,
+      "ambiguous_rate": 0.01,
+      "cannot_judge_count": 0,
+      "cannot_judge_rate": 0.0,
+      "total_abstention_count": 2,
+      "total_abstention_rate": 0.01,
+      "multiple_emotion_plausible_count": 163,
+      "multiple_emotion_plausible_rate": 0.815,
+      "pose_issue_count": 66,
+      "pose_issue_rate": 0.33,
+      "occlusion_issue_count": 63,
+      "occlusion_issue_rate": 0.315,
+      "crop_alignment_issue_count": 7,
+      "crop_alignment_issue_rate": 0.035,
+      "confidence_distribution": {
+        "1": 0,
+        "2": 3,
+        "3": 65,
+        "4": 101,
+        "5": 31
+      },
+      "mean_confidence": 3.8,
+      "median_confidence": 4.0,
+      "expression_intensity_distribution": {
+        "Strong": 58,
+        "Moderate": 84,
+        "Weak": 58
+      }
+    },
+    "style_notes": [
+      "Reviewer C abstained in 23 cases (19 CannotJudge, 4 Ambiguous; 11.5% abstention rate).",
+      "Reviewer G abstained in only 2 cases (0 CannotJudge, 2 Ambiguous; 1.0% abstention rate).",
+      "Reviewer G reported higher mean confidence (3.59 vs 3.26) and identified multiple plausible emotions in 28.5% of cases (vs 16.5% for C).",
+      "Both reviewers assigned highest frequencies to Neutral (C: 43, G: 49) and lowest to Disgust (C: 13, G: 11)."
+    ]
+  }
+}

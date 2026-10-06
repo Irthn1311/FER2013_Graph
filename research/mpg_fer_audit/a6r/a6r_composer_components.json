@@ -1,0 +1,51 @@
+{
+  "A_pixel_node_states": {
+    "path": "pixel_gnn.output",
+    "shape": "[B, 2304, 96]",
+    "semantic": "Pixel GNN contextual node representations prior to motif composition",
+    "directly_hookable": true,
+    "functionally_swappable": true
+  },
+  "B_what_component": {
+    "path": "motif_composer.scale_saliency & weighted pixel pooling",
+    "shape": "[B, 49, 96] per scale (scales 8, 12, 16)",
+    "semantic": "Visual appearance content pooled within spatial anchor windows",
+    "directly_hookable": true,
+    "functionally_swappable": true
+  },
+  "C_type_component": {
+    "path": "motif_composer.type_proj(weighted prototype assignments)",
+    "shape": "[B, 49, 32] per scale (scales 8, 12, 16)",
+    "semantic": "Categorical motif prototype distribution projected to 32 dimensions",
+    "directly_hookable": true,
+    "functionally_swappable": true
+  },
+  "D_where_component": {
+    "path": "motif_composer geometric moments: cx, cy, sx, sy, mass",
+    "shape": "[B, 49, 5] per scale (scales 8, 12, 16)",
+    "semantic": "Continuous geometric center, scale dispersion, and assignment mass",
+    "directly_hookable": true,
+    "functionally_swappable": true
+  },
+  "E_scale_gating_weights": {
+    "path": "motif_composer.scale_gate",
+    "shape": "[B, 49, 3]",
+    "semantic": "Learned softmax weighting over candidate scales (8, 12, 16)",
+    "directly_hookable": true,
+    "functionally_swappable": true
+  },
+  "F_pre_projection_input": {
+    "path": "cat([what, type, where], dim=-1)",
+    "shape": "[B, 49, 133] per scale",
+    "semantic": "Concatenated multi-modal occurrence token prior to occurrence_proj",
+    "directly_hookable": true,
+    "functionally_swappable": true
+  },
+  "G_full_pre_motif": {
+    "path": "motif_composer.output (h_motif, S1)",
+    "shape": "[B, 49, 192]",
+    "semantic": "Full projected and scale-composed PRE-Motif occurrence node states",
+    "directly_hookable": true,
+    "functionally_swappable": true
+  }
+}

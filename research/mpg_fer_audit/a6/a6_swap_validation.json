@@ -1,0 +1,78 @@
+{
+  "v2.1": {
+    "S0": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S1": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S2": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S3": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S4": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S5": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S6": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S7": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S8": {
+      "max_abs_error": 0.0,
+      "valid": true
+    }
+  },
+  "v2.2": {
+    "S0": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S1": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S2": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S3": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S4": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S5": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S6": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S7": {
+      "max_abs_error": 0.0,
+      "valid": true
+    },
+    "S8": {
+      "max_abs_error": 0.0,
+      "valid": true
+    }
+  }
+}

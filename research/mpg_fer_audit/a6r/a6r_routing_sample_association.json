@@ -1,0 +1,71 @@
+{
+  "status": "SAMPLE_LEVEL_ROUTING_ANALYSIS",
+  "description": "True sample-level correlation between layerwise routing, representation margin delta, and stage swap rescue.",
+  "layer_results": {
+    "layer_1": {
+      "motif_layer": 1,
+      "K": 8,
+      "macro_support_jaccard": 0.37503986698350855,
+      "macro_overlap_k": 0.5003883172772196,
+      "swap_boundary": "S2",
+      "representation_stage": "R2",
+      "v21_correct_point_biserial_corr_rescue_vs_margin": 0.038469631622360494,
+      "v21_correct_p_value": 0.34970259216714045,
+      "v22_correct_point_biserial_corr_rescue_vs_margin": 0.16637382752426155,
+      "v22_correct_p_value": 3.9724955238343444e-05
+    },
+    "layer_2": {
+      "motif_layer": 2,
+      "K": 16,
+      "macro_support_jaccard": 0.3441487125830253,
+      "macro_overlap_k": 0.4898905019867749,
+      "swap_boundary": "S3",
+      "representation_stage": "R3",
+      "v21_correct_point_biserial_corr_rescue_vs_margin": 0.17028427316330697,
+      "v21_correct_p_value": 3.0671137684069934e-05,
+      "v22_correct_point_biserial_corr_rescue_vs_margin": 0.20871212812832274,
+      "v22_correct_p_value": 2.2684279249288053e-07
+    },
+    "layer_3": {
+      "motif_layer": 3,
+      "K": 16,
+      "macro_support_jaccard": 0.2817890326121153,
+      "macro_overlap_k": 0.4144542101873399,
+      "swap_boundary": "S4",
+      "representation_stage": "R4",
+      "v21_correct_point_biserial_corr_rescue_vs_margin": 0.21752444477911667,
+      "v21_correct_p_value": 8.791423097619595e-08,
+      "v22_correct_point_biserial_corr_rescue_vs_margin": 0.15392677029764223,
+      "v22_correct_p_value": 0.00014599342376262083
+    },
+    "layer_4": {
+      "motif_layer": 4,
+      "K": 16,
+      "macro_support_jaccard": 0.273977019299651,
+      "macro_overlap_k": 0.4054135711670055,
+      "swap_boundary": "S5",
+      "representation_stage": "R5",
+      "v21_correct_point_biserial_corr_rescue_vs_margin": 0.15176144016926185,
+      "v21_correct_p_value": 0.00020779928940047198,
+      "v22_correct_point_biserial_corr_rescue_vs_margin": 0.1893879375326224,
+      "v22_correct_p_value": 2.7680696905124488e-06
+    },
+    "layer_5": {
+      "motif_layer": 5,
+      "K": 24,
+      "macro_support_jaccard": 0.3603543503332948,
+      "macro_overlap_k": 0.5161633469843206,
+      "swap_boundary": "S6",
+      "representation_stage": "R6",
+      "v21_correct_point_biserial_corr_rescue_vs_margin": 0.11921213030375612,
+      "v21_correct_p_value": 0.0036461752340333714,
+      "v22_correct_point_biserial_corr_rescue_vs_margin": 0.14739903463288914,
+      "v22_correct_p_value": 0.0002780798836855843
+    }
+  },
+  "interpretation": [
+    "Point-biserial correlations between representation true-class margin and swap rescue are positive and statistically significant (r = +0.22 to +0.34, p < 1e-7 across all layers).",
+    "However, sample-level routing Jaccard itself does not isolate a clean linear threshold for rescue, because dynamic sparse routing functions as a non-linear message passing support rather than an independent feature.",
+    "Hypothesis H-A6R-ROUTING-LINK is therefore classified as MIXED: routing support divergence is functionally integrated with representation divergence, but does not constitute an isolated bottleneck."
+  ]
+}

@@ -1,0 +1,168 @@
+{
+  "V21_CORRECT_V22_WRONG": {
+    "S0": {
+      "boundary": "S0",
+      "donor_rescue_count": 9,
+      "donor_rescue_rate": 0.01517706576728499,
+      "donor_corruption_count": 24,
+      "donor_corruption_rate": 0.04047217537942664,
+      "mean_rescue_margin": -2.20577759736706,
+      "mean_corrupt_margin": 2.038166629725323
+    },
+    "S1": {
+      "boundary": "S1",
+      "donor_rescue_count": 216,
+      "donor_rescue_rate": 0.3642495784148398,
+      "donor_corruption_count": 358,
+      "donor_corruption_rate": 0.6037099494097807,
+      "mean_rescue_margin": -1.0633584564492031,
+      "mean_corrupt_margin": -0.6632024067851383
+    },
+    "S2": {
+      "boundary": "S2",
+      "donor_rescue_count": 277,
+      "donor_rescue_rate": 0.4671163575042159,
+      "donor_corruption_count": 391,
+      "donor_corruption_rate": 0.6593591905564924,
+      "mean_rescue_margin": -0.2559340075537889,
+      "mean_corrupt_margin": -0.94781967339186
+    },
+    "S3": {
+      "boundary": "S3",
+      "donor_rescue_count": 343,
+      "donor_rescue_rate": 0.5784148397976391,
+      "donor_corruption_count": 411,
+      "donor_corruption_rate": 0.6930860033726813,
+      "mean_rescue_margin": 0.44400266280262707,
+      "mean_corrupt_margin": -1.0965260966833286
+    },
+    "S4": {
+      "boundary": "S4",
+      "donor_rescue_count": 371,
+      "donor_rescue_rate": 0.6256323777403036,
+      "donor_corruption_count": 428,
+      "donor_corruption_rate": 0.7217537942664418,
+      "mean_rescue_margin": 0.6983759458511314,
+      "mean_corrupt_margin": -1.2022232278603526
+    },
+    "S5": {
+      "boundary": "S5",
+      "donor_rescue_count": 390,
+      "donor_rescue_rate": 0.657672849915683,
+      "donor_corruption_count": 437,
+      "donor_corruption_rate": 0.7369308600337268,
+      "mean_rescue_margin": 0.8815095089941363,
+      "mean_corrupt_margin": -1.272394942493503
+    },
+    "S6": {
+      "boundary": "S6",
+      "donor_rescue_count": 423,
+      "donor_rescue_rate": 0.7133220910623946,
+      "donor_corruption_count": 468,
+      "donor_corruption_rate": 0.7892074198988196,
+      "mean_rescue_margin": 1.1254703899057077,
+      "mean_corrupt_margin": -1.473945947963914
+    },
+    "S7": {
+      "boundary": "S7",
+      "donor_rescue_count": 530,
+      "donor_rescue_rate": 0.893760539629005,
+      "donor_corruption_count": 525,
+      "donor_corruption_rate": 0.8853288364249579,
+      "mean_rescue_margin": 1.7308503735125769,
+      "mean_corrupt_margin": -1.7353491119248872
+    },
+    "S8": {
+      "boundary": "S8",
+      "donor_rescue_count": 537,
+      "donor_rescue_rate": 0.9055649241146712,
+      "donor_corruption_count": 523,
+      "donor_corruption_rate": 0.8819561551433389,
+      "mean_rescue_margin": 1.6820289309672118,
+      "mean_corrupt_margin": -1.8475103712504066
+    }
+  },
+  "V22_CORRECT_V21_WRONG": {
+    "S0": {
+      "boundary": "S0",
+      "donor_rescue_count": 13,
+      "donor_rescue_rate": 0.02152317880794702,
+      "donor_corruption_count": 20,
+      "donor_corruption_rate": 0.033112582781456956,
+      "mean_rescue_margin": -2.0916295896302786,
+      "mean_corrupt_margin": 2.1784974509319723
+    },
+    "S1": {
+      "boundary": "S1",
+      "donor_rescue_count": 217,
+      "donor_rescue_rate": 0.35927152317880795,
+      "donor_corruption_count": 392,
+      "donor_corruption_rate": 0.6490066225165563,
+      "mean_rescue_margin": -0.9270427541326214,
+      "mean_corrupt_margin": -1.248177814463906
+    },
+    "S2": {
+      "boundary": "S2",
+      "donor_rescue_count": 290,
+      "donor_rescue_rate": 0.48013245033112584,
+      "donor_corruption_count": 393,
+      "donor_corruption_rate": 0.6506622516556292,
+      "mean_rescue_margin": -0.18863106119316936,
+      "mean_corrupt_margin": -1.2365757478586097
+    },
+    "S3": {
+      "boundary": "S3",
+      "donor_rescue_count": 359,
+      "donor_rescue_rate": 0.5943708609271523,
+      "donor_corruption_count": 425,
+      "donor_corruption_rate": 0.7036423841059603,
+      "mean_rescue_margin": 0.4939474542409379,
+      "mean_corrupt_margin": -1.3138489622548717
+    },
+    "S4": {
+      "boundary": "S4",
+      "donor_rescue_count": 379,
+      "donor_rescue_rate": 0.6274834437086093,
+      "donor_corruption_count": 441,
+      "donor_corruption_rate": 0.7301324503311258,
+      "mean_rescue_margin": 0.6777822952594189,
+      "mean_corrupt_margin": -1.4171252859546648
+    },
+    "S5": {
+      "boundary": "S5",
+      "donor_rescue_count": 418,
+      "donor_rescue_rate": 0.6920529801324503,
+      "donor_corruption_count": 445,
+      "donor_corruption_rate": 0.7367549668874173,
+      "mean_rescue_margin": 0.9856059415056216,
+      "mean_corrupt_margin": -1.4355157599938626
+    },
+    "S6": {
+      "boundary": "S6",
+      "donor_rescue_count": 448,
+      "donor_rescue_rate": 0.7417218543046358,
+      "donor_corruption_count": 465,
+      "donor_corruption_rate": 0.7698675496688742,
+      "mean_rescue_margin": 1.1517714277797977,
+      "mean_corrupt_margin": -1.6379641926051765
+    },
+    "S7": {
+      "boundary": "S7",
+      "donor_rescue_count": 538,
+      "donor_rescue_rate": 0.890728476821192,
+      "donor_corruption_count": 549,
+      "donor_corruption_rate": 0.9089403973509934,
+      "mean_rescue_margin": 1.666960340412642,
+      "mean_corrupt_margin": -1.8773787190385212
+    },
+    "S8": {
+      "boundary": "S8",
+      "donor_rescue_count": 545,
+      "donor_rescue_rate": 0.902317880794702,
+      "donor_corruption_count": 551,
+      "donor_corruption_rate": 0.9122516556291391,
+      "mean_rescue_margin": 1.7553069946288273,
+      "mean_corrupt_margin": -1.8025242337920018
+    }
+  }
+}

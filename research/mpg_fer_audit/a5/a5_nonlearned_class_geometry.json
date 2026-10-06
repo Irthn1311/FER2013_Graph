@@ -1,0 +1,114 @@
+{
+  "v2_1_fusion": {
+    "public": {
+      "nearest_centroid_accuracy": 0.6712176093619393,
+      "mean_centroid_margin": 4.65604430388522,
+      "classwise_margins": {
+        "Angry": 2.3286453189792824,
+        "Disgust": 3.0820665920753294,
+        "Fear": -0.2611050143802233,
+        "Happy": 9.976864354792019,
+        "Sad": 0.8439891804789855,
+        "Surprise": 9.64901537401076,
+        "Neutral": 3.4517596178764407
+      }
+    },
+    "private": {
+      "nearest_centroid_accuracy": 0.6795764837001951,
+      "mean_centroid_margin": 4.766153391686667,
+      "classwise_margins": {
+        "Angry": 2.425339240506163,
+        "Disgust": 6.700352176564704,
+        "Fear": -0.30667013450898156,
+        "Happy": 10.684005257809186,
+        "Sad": 0.7642232311457422,
+        "Surprise": 8.385696017914686,
+        "Neutral": 3.793365259771962
+      }
+    }
+  },
+  "v2_2_fusion": {
+    "public": {
+      "nearest_centroid_accuracy": 0.6787405962663695,
+      "mean_centroid_margin": 5.106982366061426,
+      "classwise_margins": {
+        "Angry": 2.7727337061080926,
+        "Disgust": 3.9426611935556077,
+        "Fear": -0.17588589415556374,
+        "Happy": 10.883923792399765,
+        "Sad": 1.9475306808428814,
+        "Surprise": 9.414990832272425,
+        "Neutral": 3.2627231030029282
+      }
+    },
+    "private": {
+      "nearest_centroid_accuracy": 0.6870994706046253,
+      "mean_centroid_margin": 5.27779453056158,
+      "classwise_margins": {
+        "Angry": 3.0120963548841546,
+        "Disgust": 7.822674186447473,
+        "Fear": -0.21800149021252585,
+        "Happy": 11.29751320838767,
+        "Sad": 1.4487212504486906,
+        "Surprise": 8.496422899688016,
+        "Neutral": 4.50855672093529
+      }
+    }
+  },
+  "raw_pixel": {
+    "public": {
+      "nearest_centroid_accuracy": 0.22262468654221232,
+      "mean_centroid_margin": -2.5253252835780096,
+      "classwise_margins": {
+        "Angry": -3.126721300060489,
+        "Disgust": -3.294324853550009,
+        "Fear": -3.390385909353138,
+        "Happy": -2.9612502877379487,
+        "Sad": -1.883886941954598,
+        "Surprise": -0.22547318766685664,
+        "Neutral": -2.904499899986343
+      }
+    },
+    "private": {
+      "nearest_centroid_accuracy": 0.22513234884368905,
+      "mean_centroid_margin": -2.5657106450727607,
+      "classwise_margins": {
+        "Angry": -3.0338937376233646,
+        "Disgust": -3.0282718850393375,
+        "Fear": -3.2266367827017985,
+        "Happy": -3.086451472516638,
+        "Sad": -1.9355930041548448,
+        "Surprise": -0.28847696841751247,
+        "Neutral": -2.980407344053618
+      }
+    }
+  },
+  "gradient_pca": {
+    "public": {
+      "nearest_centroid_accuracy": 0.320980774589022,
+      "mean_centroid_margin": -0.032067010956937175,
+      "classwise_margins": {
+        "Angry": -0.055489141759756014,
+        "Disgust": -0.014045771719054634,
+        "Fear": -0.05968382884601805,
+        "Happy": -0.01976626849526832,
+        "Sad": -0.036167467948418346,
+        "Surprise": 0.003962516978840857,
+        "Neutral": -0.031501826147258785
+      }
+    },
+    "private": {
+      "nearest_centroid_accuracy": 0.31262190025076625,
+      "mean_centroid_margin": -0.03291737243921323,
+      "classwise_margins": {
+        "Angry": -0.05150719842640799,
+        "Disgust": -0.010633215423975221,
+        "Fear": -0.061354838816481225,
+        "Happy": -0.015797339319227083,
+        "Sad": -0.039208904793546544,
+        "Surprise": -0.016206811267371196,
+        "Neutral": -0.025482826385552017
+      }
+    }
+  }
+}

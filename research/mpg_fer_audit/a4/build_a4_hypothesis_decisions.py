@@ -1,0 +1,172 @@
+"""Generate a4_hypothesis_decisions.json with formal hypothesis evaluations and bottleneck interpretation."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+AUDIT_DIR = Path(__file__).resolve().parent
+
+decisions = {
+    "hypotheses": {
+        "H-A4-R": {
+            "name": "Representation Convergence",
+            "question": "Do v2.1 and v2.2 learn highly similar internal representations despite different topology constraints?",
+            "status": "SUPPORTED",
+            "evidence": {
+                "pooled_linear_cka_test": {
+                    "pixel_readout": 0.805,
+                    "motif_readout": 0.837,
+                    "fusion": 0.857,
+                    "classifier_hidden": 0.695,
+                    "logits": 0.722
+                },
+                "node_level_cka_test": {
+                    "PRE": 0.883,
+                    "L1": 0.599,
+                    "L2": 0.679,
+                    "L3": 0.713,
+                    "L4": 0.686,
+                    "L5": 0.649
+                },
+                "cross_layer_structure": "Strictly diagonal-dominated across all 6 depths for both Public and Private test sets.",
+                "class_geometry_nearest_centroid_acc": {
+                    "v2_1_public": 0.6709,
+                    "v2_2_public": 0.6768,
+                    "v2_1_private": 0.6829,
+                    "v2_2_private": 0.6843
+                }
+            }
+        },
+        "H-A4-G": {
+            "name": "Routing Convergence",
+            "question": "Do dense-v2.1 top-ranked edges and sparse-v2.2 selected edges converge to similar relational structures?",
+            "status": "MIXED",
+            "evidence": {
+                "macro_edge_frequency_pearson": {
+                    "layer_1": 0.852,
+                    "layer_2": 0.916,
+                    "layer_3": 0.787,
+                    "layer_4": 0.687,
+                    "layer_5": 0.487
+                },
+                "mean_support_jaccard": {
+                    "layer_1": 0.375,
+                    "layer_2": 0.344,
+                    "layer_3": 0.282,
+                    "layer_4": 0.274,
+                    "layer_5": 0.360
+                },
+                "mean_overlap_k_fraction": {
+                    "layer_1": 0.500,
+                    "layer_2": 0.490,
+                    "layer_3": 0.414,
+                    "layer_4": 0.405,
+                    "layer_5": 0.516
+                },
+                "exact_match_rate": "Very low (1.6% in Layer 1; <0.02% in Layers 2-5).",
+                "finding": "Macro topology preferences converged strongly across the network, but sample-specific instance routing supports remain materially diverse (~40-50% overlap)."
+            }
+        },
+        "H-A4-C": {
+            "name": "Classifier/Calibration Bottleneck",
+            "question": "Does the final trained classifier leave substantial usable FER signal on the table?",
+            "status": "DEPRIORITIZE",
+            "evidence": {
+                "linear_probe_vs_official_classifier": {
+                    "v2_1_fusion_delta_public": -0.0125,
+                    "v2_1_fusion_delta_private": -0.0142,
+                    "v2_2_fusion_delta_public": -0.0181,
+                    "v2_2_fusion_delta_private": -0.0128,
+                    "all_95_ci_strictly_negative": True
+                },
+                "probe_generalization_gap": "Train probe acc ~97-98% vs Test acc ~68%, indicating severe linear probe overfitting.",
+                "finding": "Trained MLP classifier head with dropout significantly outperforms frozen linear probes (+1.2% to +1.8%). The classifier head is not limiting performance."
+            }
+        },
+        "H-A4-E": {
+            "name": "Shared Error Manifold",
+            "question": "Do the two models fail on largely the same examples and confusion pairs?",
+            "status": "SUPPORTED",
+            "evidence": {
+                "prediction_agreement_tta": {
+                    "public": 0.8050,
+                    "private": 0.7921
+                },
+                "cohens_kappa_tta": {
+                    "public": 0.7637,
+                    "private": 0.7488
+                },
+                "error_set_jaccard_tta": {
+                    "public": 0.6429,
+                    "private": 0.6137
+                },
+                "both_wrong_same_prediction_fraction": {
+                    "public": 0.7386,
+                    "private": 0.7264
+                },
+                "top_confusion_pairs_overlap": {
+                    "Fear_to_Sad": "50.4% (Public), 63.6% (Private)",
+                    "Sad_to_Neutral": "41.5% (Public), 51.5% (Private)",
+                    "Neutral_to_Sad": "53.3% (Public), 58.1% (Private)",
+                    "Angry_to_Sad": "41.8% (Public), 54.9% (Private)"
+                }
+            }
+        },
+        "H-A4-D": {
+            "name": "Data-Ambiguity-Compatible",
+            "question": "Does the evidence become compatible with dataset/example ambiguity as an important ceiling factor?",
+            "status": "COMPATIBLE_WITH_EVIDENCE",
+            "evidence": {
+                "shared_high_confidence_errors": {
+                    "public_count": 244,
+                    "private_count": 223,
+                    "total_count": 467,
+                    "criterion": "Both models wrong, exact same wrong prediction, confidence >= 0.80 for both models"
+                },
+                "local_training_neighborhood_purity": {
+                    "both_correct_purity": 0.925,
+                    "shared_error_same_label_purity": 0.094,
+                    "finding": "Shared high-confidence errors reside in training feature neighborhoods with <10% nominal true label purity."
+                },
+                "class_separability_limit": "Fear exhibits negative true-class centroid margin (-0.25 to -0.04) in both models."
+            }
+        },
+        "H-A4-F": {
+            "name": "Flip Consistency",
+            "question": "Does sparse routing materially change flip consistency?",
+            "status": "MIXED",
+            "evidence": {
+                "prediction_agreement_under_flip": {
+                    "v2_1": "78.16% (Public), 78.29% (Private)",
+                    "v2_2": "77.77% (Public), 78.35% (Private)",
+                    "delta": "< 0.4% (essentially unchanged)"
+                },
+                "routing_support_mirror_jaccard": {
+                    "layer_1_delta_v22_minus_v21": "+0.1688",
+                    "layer_2_delta_v22_minus_v21": "-0.0007",
+                    "layer_3_delta_v22_minus_v21": "+0.1153",
+                    "layer_4_delta_v22_minus_v21": "+0.1154",
+                    "layer_5_delta_v22_minus_v21": "+0.0633",
+                    "finding": "Sparse routing notably improves geometric mirror-equivariance of edge selection in 4 of 5 layers."
+                }
+            }
+        }
+    },
+    "bottleneck_interpretation": {
+        "verdict": "SHARED_ERROR_DATA_AMBIGUITY_COMPATIBLE",
+        "supporting_rationale": [
+            "Dense v2.1 and sparse v2.2 reach virtually identical final test accuracy (~69.3-69.9% vs ~69.6-69.5%) with paired McNemar exact p-values of 0.49 (Public) and 0.57 (Private), and bootstrap 95% CIs containing zero.",
+            "Representations show high macro-convergence (Fusion CKA = 0.857, Motif CKA = 0.837, diagonal cross-layer alignment).",
+            "Routing shows high macro-frequency correlation (0.69 to 0.92 in early layers) despite sample-level diversity, confirming that exact edge topology is not the primary limiting bottleneck.",
+            "Linear probes fail to outperform the trained classifier (-1.2% to -1.8%), definitively deprioritizing the classifier head.",
+            "Over 72-74% of mutual errors produce the exact same mispredicted class, with 467 shared errors having >=0.80 mutual confidence.",
+            "In training feature space, shared errors have <10% nominal label purity in their 5-NN local neighborhood, and Fear has negative true-class centroid separation.",
+            "Evidence is strongly compatible with an upstream representation separability ceiling and dataset/label ambiguity on hard negative emotions."
+        ]
+    }
+}
+
+out_path = AUDIT_DIR / "a4_hypothesis_decisions.json"
+out_path.write_text(json.dumps(decisions, indent=2), encoding="utf-8")
+print(f"Saved {out_path}")

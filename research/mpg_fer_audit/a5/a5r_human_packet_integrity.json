@@ -1,0 +1,21 @@
+{
+  "status": "A5R_READY_FOR_BLINDED_HUMAN_REVIEW",
+  "total_review_samples": 200,
+  "unique_review_ids": 200,
+  "bucket_distribution": {
+    "B_mixed_error": 50,
+    "A_high_conf_error": 50,
+    "D_all_correct_control": 50,
+    "C_model_disagreement": 50
+  },
+  "blind_contact_sheets_count": 10,
+  "blind_contact_sheets_verified_unlabeled": true,
+  "reveal_mapping_one_to_one": true,
+  "review_samples_with_exact_train_duplicate": 9,
+  "review_samples_with_conflicting_train_duplicate": 1,
+  "recommendations": [
+    "Conduct review with at least TWO independent blinded human reviewers.",
+    "Do NOT unblind reveal metadata until all forms are finalized independently.",
+    "Do NOT discuss sample classifications prior to individual completion."
+  ]
+}

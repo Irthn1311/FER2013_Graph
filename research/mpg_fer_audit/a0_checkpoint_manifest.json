@@ -1,0 +1,82 @@
+{
+  "v1": {
+    "path": "research\\mpg_fer_v1\\outputs\\kaggle_t4_final\\mpg_fer_v1_run\\best_val_acc.pt",
+    "sha256": "548325add48fc87a1f5011875c1f005123bbb82d8dfce5e7ba23285ad3f64a52",
+    "expected_sha256": "548325add48fc87a1f5011875c1f005123bbb82d8dfce5e7ba23285ad3f64a52",
+    "matches_expected": true,
+    "top_level_keys": [
+      "epoch",
+      "model_state_dict",
+      "optimizer_state_dict",
+      "val_metrics",
+      "config",
+      "scheduler_state_dict",
+      "selection_metric",
+      "selection_tiebreak"
+    ],
+    "epoch": 72,
+    "weights_type": "Online",
+    "scheduled_tau": null,
+    "selection_metric": "public_tta_accuracy",
+    "selection_tiebreak": [
+      "public_tta_macro_f1",
+      "public_tta_loss"
+    ],
+    "strict_loadable": true
+  },
+  "v2": {
+    "path": "research\\mpg_fer_v2\\outputs\\kaggle_v2_final\\final_run\\best_val_acc.pt",
+    "sha256": "f3cda72fc4d791e7017e2e0374f83ef22e9f22f03e8172b7389e53f8cbc6dc1c",
+    "expected_sha256": "f3cda72fc4d791e7017e2e0374f83ef22e9f22f03e8172b7389e53f8cbc6dc1c",
+    "matches_expected": true,
+    "top_level_keys": [
+      "checkpoint_type",
+      "weights_type",
+      "epoch",
+      "model_state_dict",
+      "ema_state_dict",
+      "val_metrics",
+      "config",
+      "source_hash",
+      "selection_metric",
+      "selection_tiebreak"
+    ],
+    "epoch": 62,
+    "weights_type": "EMA",
+    "scheduled_tau": null,
+    "selection_metric": "EMA PublicTest flip-TTA accuracy",
+    "selection_tiebreak": [
+      "higher EMA TTA macro-F1",
+      "lower EMA TTA loss"
+    ],
+    "strict_loadable": true
+  },
+  "v2_1": {
+    "path": "research\\mpg_fer_v2_1\\official_runs\\segment_02\\mpg_fer_v2_1_run\\best_val_acc.pt",
+    "sha256": "4720a482ff0f6da15a00dc168d7c551b4e9538b4c1ed8780ea891b69b97aeb75",
+    "expected_sha256": "4720a482ff0f6da15a00dc168d7c551b4e9538b4c1ed8780ea891b69b97aeb75",
+    "matches_expected": true,
+    "top_level_keys": [
+      "checkpoint_type",
+      "weights_type",
+      "epoch",
+      "model_state_dict",
+      "ema_state_dict",
+      "scheduled_tau",
+      "val_metrics",
+      "config",
+      "source_hash",
+      "selection_metric",
+      "selection_tiebreak"
+    ],
+    "epoch": 57,
+    "weights_type": "EMA",
+    "scheduled_tau": 0.30000001192092896,
+    "selection_metric": "EMA PublicTest flip-TTA accuracy",
+    "selection_tiebreak": [
+      "higher EMA TTA macro-F1",
+      "lower EMA TTA loss"
+    ],
+    "strict_loadable": true
+  }
+}

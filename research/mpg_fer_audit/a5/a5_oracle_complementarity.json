@@ -1,0 +1,70 @@
+{
+  "public": {
+    "sample_count": 3589,
+    "v21_plus_v22": {
+      "at_least_one_correct_count": 2746,
+      "oracle_accuracy": 0.7651156310950126,
+      "both_correct_count": 2247,
+      "both_correct_fraction": 0.6260796879353581,
+      "all_models_wrong_count": 843,
+      "all_models_wrong_fraction": 0.23488436890498746,
+      "only_one_model_correct_count": 499,
+      "only_one_model_correct_fraction": 0.1390359431596545,
+      "prediction_disagreement_count": 711,
+      "prediction_disagreement_fraction": 0.19810532181666202
+    },
+    "four_models_all": {
+      "at_least_one_correct_count": 2934,
+      "oracle_accuracy": 0.8174979102814154,
+      "all_correct_count": 1988,
+      "all_correct_fraction": 0.5539147394817497,
+      "all_models_wrong_count": 655,
+      "all_models_wrong_fraction": 0.18250208971858456,
+      "only_one_model_correct_count": 293,
+      "only_one_model_correct_fraction": 0.08163833937029813,
+      "prediction_disagreement_count": 1227,
+      "prediction_disagreement_fraction": 0.34187796043466145,
+      "consensus_distribution": {
+        "0_of_4_correct": 655,
+        "1_of_4_correct": 293,
+        "2_of_4_correct": 278,
+        "3_of_4_correct": 375,
+        "4_of_4_correct": 1988
+      }
+    }
+  },
+  "private": {
+    "sample_count": 3589,
+    "v21_plus_v22": {
+      "at_least_one_correct_count": 2753,
+      "oracle_accuracy": 0.7670660351072722,
+      "both_correct_count": 2243,
+      "both_correct_fraction": 0.624965171356924,
+      "all_models_wrong_count": 836,
+      "all_models_wrong_fraction": 0.23293396489272777,
+      "only_one_model_correct_count": 510,
+      "only_one_model_correct_fraction": 0.14210086375034828,
+      "prediction_disagreement_count": 744,
+      "prediction_disagreement_fraction": 0.20730008358874338
+    },
+    "four_models_all": {
+      "at_least_one_correct_count": 2945,
+      "oracle_accuracy": 0.8205628308721092,
+      "all_correct_count": 1995,
+      "all_correct_fraction": 0.5558651434940095,
+      "all_models_wrong_count": 644,
+      "all_models_wrong_fraction": 0.1794371691278908,
+      "only_one_model_correct_count": 285,
+      "only_one_model_correct_fraction": 0.07940930621342993,
+      "prediction_disagreement_count": 1249,
+      "prediction_disagreement_fraction": 0.34800780161604905,
+      "consensus_distribution": {
+        "0_of_4_correct": 644,
+        "1_of_4_correct": 285,
+        "2_of_4_correct": 281,
+        "3_of_4_correct": 384,
+        "4_of_4_correct": 1995
+      }
+    }
+  }
+}

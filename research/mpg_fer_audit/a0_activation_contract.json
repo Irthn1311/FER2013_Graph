@@ -1,0 +1,98 @@
+{
+  "evaluation_rules": [
+    "model.eval()",
+    "no Dropout",
+    "no DropPath",
+    "no train augmentation",
+    "fixed deterministic row ordering",
+    "same raw FER image for every model version",
+    "images normalized exactly as each reviewed implementation expects (intensity/255.0, standardized pixel coordinates)",
+    "no label-based selection during activation extraction",
+    "raw view and flip view kept as separate records",
+    "no TTA averaging before intermediate-representation analysis",
+    "sample row/index retained to guarantee alignment across versions"
+  ],
+  "intermediate_tensors": {
+    "final_pixel_gnn": {
+      "hook_target": "model.pixel_gnn[-1]",
+      "hook_type": "forward_hook",
+      "tensor_slice": "output",
+      "expected_shape": "[B, 2304, 96]",
+      "comparable_across_versions": true,
+      "semantic": "Pixel-level contextual graph representations prior to motif pooling"
+    },
+    "occurrence_raw": {
+      "hook_target": "model.motif_composer.occurrence_proj",
+      "hook_type": "forward_pre_hook",
+      "tensor_slice": "input[0]",
+      "expected_shape": "[B, 49, 133]",
+      "calls_per_forward": {
+        "v1": 1,
+        "v2": 3,
+        "v2_1": 3
+      },
+      "subcomponents": {
+        "WHAT": "[:, :, :96]",
+        "TYPE": "[:, :, 96:128]",
+        "WHERE": "[:, :, 128:133]"
+      },
+      "comparable_across_versions": true,
+      "semantic": "Spatial motif occurrence raw unprojected feature vectors"
+    },
+    "scale_candidates": {
+      "hook_target": "model.motif_composer.scale_gate",
+      "hook_type": "forward_pre_hook",
+      "tensor_slice": "input[0]",
+      "expected_shape": "[B, 49, 3, 192]",
+      "present_in": [
+        "v2",
+        "v2_1"
+      ],
+      "comparable_across_versions": "v2 and v2.1 only (v1 is single-scale 12x12)",
+      "semantic": "Multi-scale candidate motif node representations prior to gating"
+    },
+    "pre_motif_gnn": {
+      "hook_target": "model.motif_composer",
+      "hook_type": "forward_hook",
+      "tensor_slice": "output[0]",
+      "expected_shape": "[B, 49, 192]",
+      "comparable_across_versions": true,
+      "semantic": "Fused motif node representations entering the motif graph transformer"
+    },
+    "post_motif_gnn": {
+      "hook_target": "model.motif_gnn[-1]",
+      "hook_type": "forward_hook",
+      "tensor_slice": "output",
+      "expected_shape": "[B, 49, 192]",
+      "comparable_across_versions": true,
+      "semantic": "Contextualized motif representations after geometric relational attention"
+    },
+    "h_pixel_readout": {
+      "hook_target": "direct output (aux['h_pixel_readout'])",
+      "expected_shape": "[B, 128]",
+      "comparable_across_versions": true,
+      "semantic": "Global pooled pixel graph representation"
+    },
+    "h_motif_readout": {
+      "hook_target": "direct output (aux['h_motif_readout'])",
+      "expected_shape": "[B, 384]",
+      "comparable_across_versions": true,
+      "semantic": "Global pooled motif graph representation"
+    },
+    "fusion_representation": {
+      "hook_target": "direct output in v2.1; concat([h_pixel_readout, h_motif_readout], dim=-1) in v1 and v2",
+      "expected_shape": "[B, 512]",
+      "comparable_across_versions": true,
+      "semantic": "Concatenated pixel + motif joint representation feeding classifier"
+    },
+    "supcon_embeddings": {
+      "hook_target": "direct output in v2.1 (aux['supcon_embeddings'])",
+      "expected_shape": "[B, 128]",
+      "present_in": [
+        "v2_1"
+      ],
+      "comparable_across_versions": false,
+      "semantic": "Supervised contrastive projection head embedding"
+    }
+  }
+}

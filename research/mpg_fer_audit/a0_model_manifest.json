@@ -1,0 +1,5408 @@
+{
+  "v1": {
+    "trainable_parameters": 2219788,
+    "component_breakdown": {
+      "pixel_feature_proj": 3360,
+      "pixel_gnn": 301536,
+      "pixel_readout": 37345,
+      "aux_pixel_head": 903,
+      "motif_composer": 32451,
+      "motif_gnn": 1485330,
+      "motif_readout": 222529,
+      "aux_motif_head": 2695,
+      "classifier": 133639,
+      "supcon_head": 0
+    },
+    "config_facts": {
+      "aux_motif_weight": 0.2,
+      "aux_pixel_weight": 0.05,
+      "batch_size": 16,
+      "classifier_dropout": 0.2,
+      "d_classifier_hidden": 256,
+      "d_classifier_in": 512,
+      "d_motif": 192,
+      "d_motif_occurrence_raw": 133,
+      "d_motif_readout": 384,
+      "d_pixel": 96,
+      "d_pixel_readout": 128,
+      "d_type": 32,
+      "d_what": 96,
+      "d_where": 5,
+      "device": "cuda",
+      "early_stop_patience": 15,
+      "grad_clip": 1.0,
+      "gradient_accumulation_steps": 2,
+      "img_size": 48,
+      "label_smoothing": 0.05,
+      "lambda_div": 0.01,
+      "lambda_util": 0.01,
+      "learning_rate": 0.0003,
+      "max_epochs": 80,
+      "micro_overfit_learning_rate": 0.001,
+      "micro_overfit_max_steps": 80,
+      "micro_overfit_samples": 16,
+      "micro_overfit_target": 0.875,
+      "min_epochs": 25,
+      "min_learning_rate": 1e-06,
+      "motif_dropout": 0.1,
+      "motif_geom_dim": 6,
+      "motif_stride": 6,
+      "motif_window_size": 12,
+      "num_classes": 7,
+      "num_motif_heads": 6,
+      "num_motif_layers": 5,
+      "num_motifs": 48,
+      "num_neighbors": 8,
+      "num_occurrences": 49,
+      "num_pixel_gnn_layers": 4,
+      "num_pixel_heads": 4,
+      "num_pixels": 2304,
+      "pixel_dropout": 0.1,
+      "pixel_edge_dim": 5,
+      "raw_pixel_dim": 32,
+      "seed": 42,
+      "use_amp": true,
+      "warmup_epochs": 5,
+      "weight_decay": 0.0005
+    },
+    "parameters": {
+      "pixel_proj.0.weight": {
+        "shape": [
+          96,
+          32
+        ],
+        "requires_grad": true,
+        "numel": 3072
+      },
+      "pixel_proj.0.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_proj.1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_proj.1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.0.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.0.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.0.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.0.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.0.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.0.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.1.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.1.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.1.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.1.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.1.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.1.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.2.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.2.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.2.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.2.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.2.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.2.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.3.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.3.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.3.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.3.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.3.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.3.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_attn_pool.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_attn_pool.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "pixel_readout_proj.0.weight": {
+        "shape": [
+          128,
+          288
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "pixel_readout_proj.0.bias": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "pixel_readout_proj.1.weight": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "pixel_readout_proj.1.bias": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "aux_pixel_head.weight": {
+        "shape": [
+          7,
+          128
+        ],
+        "requires_grad": true,
+        "numel": 896
+      },
+      "aux_pixel_head.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      },
+      "motif_composer.prototypes": {
+        "shape": [
+          48,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 4608
+      },
+      "motif_composer.temperature": {
+        "shape": [],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.alpha": {
+        "shape": [],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.saliency_linear.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "motif_composer.saliency_linear.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.type_proj.0.weight": {
+        "shape": [
+          32,
+          48
+        ],
+        "requires_grad": true,
+        "numel": 1536
+      },
+      "motif_composer.type_proj.0.bias": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.type_proj.1.weight": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.type_proj.1.bias": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.occurrence_proj.0.weight": {
+        "shape": [
+          192,
+          133
+        ],
+        "requires_grad": true,
+        "numel": 25536
+      },
+      "motif_composer.occurrence_proj.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.occurrence_proj.1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.occurrence_proj.1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.0.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.0.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.0.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.0.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.0.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.1.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.1.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.1.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.1.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.1.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.2.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.2.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.2.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.2.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.2.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.3.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.3.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.3.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.3.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.3.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.4.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.4.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.4.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.4.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.4.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_attn_pool.weight": {
+        "shape": [
+          1,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_attn_pool.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_readout_proj.0.weight": {
+        "shape": [
+          384,
+          576
+        ],
+        "requires_grad": true,
+        "numel": 221184
+      },
+      "motif_readout_proj.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_readout_proj.1.weight": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_readout_proj.1.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "aux_motif_head.weight": {
+        "shape": [
+          7,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 2688
+      },
+      "aux_motif_head.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      },
+      "classifier.0.weight": {
+        "shape": [
+          256,
+          512
+        ],
+        "requires_grad": true,
+        "numel": 131072
+      },
+      "classifier.0.bias": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.1.weight": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.1.bias": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.4.weight": {
+        "shape": [
+          7,
+          256
+        ],
+        "requires_grad": true,
+        "numel": 1792
+      },
+      "classifier.4.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      }
+    },
+    "buffers": {
+      "pixel_extractor.grid_x": {
+        "shape": [
+          1,
+          1,
+          48,
+          48
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.grid_y": {
+        "shape": [
+          1,
+          1,
+          48,
+          48
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.sobel_x": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.sobel_y": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.laplacian": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.mean_5x5": {
+        "shape": [
+          1,
+          1,
+          5,
+          5
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_topology.neighbor_idx": {
+        "shape": [
+          2304,
+          8
+        ],
+        "dtype": "torch.int64"
+      },
+      "pixel_topology.neighbor_mask": {
+        "shape": [
+          2304,
+          8
+        ],
+        "dtype": "torch.bool"
+      },
+      "pixel_topology.geom_edges": {
+        "shape": [
+          2304,
+          8,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_topology.I_gather_idx": {
+        "shape": [
+          2304,
+          8,
+          1
+        ],
+        "dtype": "torch.int64"
+      },
+      "motif_composer.grid_x": {
+        "shape": [
+          2304
+        ],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.grid_y": {
+        "shape": [
+          2304
+        ],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.window_pixel_indices": {
+        "shape": [
+          49,
+          144
+        ],
+        "dtype": "torch.int64"
+      }
+    }
+  },
+  "v2": {
+    "trainable_parameters": 2238609,
+    "component_breakdown": {
+      "pixel_feature_proj": 3360,
+      "pixel_gnn": 301536,
+      "pixel_readout": 37345,
+      "aux_pixel_head": 903,
+      "motif_composer": 51272,
+      "motif_gnn": 1485330,
+      "motif_readout": 222529,
+      "aux_motif_head": 2695,
+      "classifier": 133639,
+      "supcon_head": 0
+    },
+    "config_facts": {
+      "aux_motif_weight": 0.2,
+      "aux_pixel_weight": 0.05,
+      "batch_size": 16,
+      "classifier_dropout": 0.3,
+      "consistency_probability": 0.2,
+      "d_classifier_hidden": 256,
+      "d_classifier_in": 512,
+      "d_motif": 192,
+      "d_motif_occurrence_raw": 133,
+      "d_motif_readout": 384,
+      "d_pixel": 96,
+      "d_pixel_readout": 128,
+      "d_type": 32,
+      "d_what": 96,
+      "d_where": 5,
+      "device": "cuda",
+      "early_stop_patience": 20,
+      "ema_decay": 0.999,
+      "grad_clip": 1.0,
+      "gradient_accumulation_steps": 2,
+      "img_size": 48,
+      "label_smoothing": 0.05,
+      "lambda_consistency": 0.05,
+      "lambda_div": 0.01,
+      "lambda_mi": 0.05,
+      "learning_rate": 0.0003,
+      "max_epochs": 120,
+      "mi_beta": 1.0,
+      "micro_overfit_learning_rate": 0.001,
+      "micro_overfit_max_steps": 80,
+      "micro_overfit_samples": 16,
+      "micro_overfit_target": 0.875,
+      "min_epochs": 50,
+      "min_learning_rate": 1e-06,
+      "motif_drop_path_max": 0.1,
+      "motif_dropout": 0.15,
+      "motif_geom_dim": 6,
+      "motif_stride": 6,
+      "motif_window_size": 12,
+      "motif_window_sizes": [
+        8,
+        12,
+        16
+      ],
+      "num_classes": 7,
+      "num_motif_heads": 6,
+      "num_motif_layers": 5,
+      "num_motifs": 48,
+      "num_neighbors": 8,
+      "num_occurrences": 49,
+      "num_pixel_gnn_layers": 4,
+      "num_pixel_heads": 4,
+      "num_pixels": 2304,
+      "num_workers": 2,
+      "output_dir": null,
+      "pixel_drop_path_max": 0.05,
+      "pixel_dropout": 0.15,
+      "pixel_edge_dim": 5,
+      "raw_pixel_dim": 32,
+      "resume_path": null,
+      "resume_schema_version": 2,
+      "resume_snapshot_interval": 10,
+      "resume_snapshots_to_keep": 2,
+      "run_id": null,
+      "runtime_safe_resume_fields": [
+        "num_workers",
+        "output_dir",
+        "resume_path",
+        "segment_number",
+        "segment_soft_limit_hours",
+        "segment_safety_margin_minutes",
+        "run_id"
+      ],
+      "seed": 42,
+      "segment_number": 1,
+      "segment_safety_margin_minutes": 15.0,
+      "segment_soft_limit_hours": 10.5,
+      "tau_init": 0.7,
+      "tau_max": 1.5,
+      "tau_min": 0.15,
+      "use_amp": true,
+      "warmup_epochs": 5,
+      "weight_decay": 0.0005
+    },
+    "parameters": {
+      "pixel_proj.0.weight": {
+        "shape": [
+          96,
+          32
+        ],
+        "requires_grad": true,
+        "numel": 3072
+      },
+      "pixel_proj.0.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_proj.1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_proj.1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.0.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.0.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.0.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.0.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.0.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.0.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.1.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.1.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.1.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.1.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.1.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.1.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.2.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.2.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.2.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.2.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.2.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.2.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.3.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.3.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.3.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.3.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.3.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.3.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_attn_pool.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_attn_pool.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "pixel_readout_proj.0.weight": {
+        "shape": [
+          128,
+          288
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "pixel_readout_proj.0.bias": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "pixel_readout_proj.1.weight": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "pixel_readout_proj.1.bias": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "aux_pixel_head.weight": {
+        "shape": [
+          7,
+          128
+        ],
+        "requires_grad": true,
+        "numel": 896
+      },
+      "aux_pixel_head.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      },
+      "motif_composer.prototypes": {
+        "shape": [
+          48,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 4608
+      },
+      "motif_composer.raw_tau": {
+        "shape": [],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.scale_confidence": {
+        "shape": [
+          3
+        ],
+        "requires_grad": true,
+        "numel": 3
+      },
+      "motif_composer.assignment_query.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "motif_composer.prototype_key.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "motif_composer.scale_saliency.8.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "motif_composer.scale_saliency.8.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.scale_saliency.12.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "motif_composer.scale_saliency.12.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.scale_saliency.16.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "motif_composer.scale_saliency.16.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.type_proj.0.weight": {
+        "shape": [
+          32,
+          48
+        ],
+        "requires_grad": true,
+        "numel": 1536
+      },
+      "motif_composer.type_proj.0.bias": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.type_proj.1.weight": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.type_proj.1.bias": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.occurrence_proj.0.weight": {
+        "shape": [
+          192,
+          133
+        ],
+        "requires_grad": true,
+        "numel": 25536
+      },
+      "motif_composer.occurrence_proj.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.occurrence_proj.1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.occurrence_proj.1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.scale_gate.weight": {
+        "shape": [
+          1,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.scale_gate.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_gnn.0.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.0.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.0.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.0.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.0.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.0.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.1.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.1.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.1.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.1.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.1.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.2.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.2.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.2.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.2.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.2.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.3.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.3.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.3.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.3.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.3.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.4.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.4.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.4.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.4.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.4.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_attn_pool.weight": {
+        "shape": [
+          1,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_attn_pool.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_readout_proj.0.weight": {
+        "shape": [
+          384,
+          576
+        ],
+        "requires_grad": true,
+        "numel": 221184
+      },
+      "motif_readout_proj.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_readout_proj.1.weight": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_readout_proj.1.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "aux_motif_head.weight": {
+        "shape": [
+          7,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 2688
+      },
+      "aux_motif_head.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      },
+      "classifier.0.weight": {
+        "shape": [
+          256,
+          512
+        ],
+        "requires_grad": true,
+        "numel": 131072
+      },
+      "classifier.0.bias": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.1.weight": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.1.bias": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.4.weight": {
+        "shape": [
+          7,
+          256
+        ],
+        "requires_grad": true,
+        "numel": 1792
+      },
+      "classifier.4.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      }
+    },
+    "buffers": {
+      "pixel_extractor.grid_x": {
+        "shape": [
+          1,
+          1,
+          48,
+          48
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.grid_y": {
+        "shape": [
+          1,
+          1,
+          48,
+          48
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.sobel_x": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.sobel_y": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.laplacian": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.mean_5x5": {
+        "shape": [
+          1,
+          1,
+          5,
+          5
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_topology.neighbor_idx": {
+        "shape": [
+          2304,
+          8
+        ],
+        "dtype": "torch.int64"
+      },
+      "pixel_topology.neighbor_mask": {
+        "shape": [
+          2304,
+          8
+        ],
+        "dtype": "torch.bool"
+      },
+      "pixel_topology.geom_edges": {
+        "shape": [
+          2304,
+          8,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_topology.I_gather_idx": {
+        "shape": [
+          2304,
+          8,
+          1
+        ],
+        "dtype": "torch.int64"
+      },
+      "motif_composer.grid_x": {
+        "shape": [
+          2304
+        ],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.grid_y": {
+        "shape": [
+          2304
+        ],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.anchor_centers_pixel": {
+        "shape": [
+          49,
+          2
+        ],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.support_idx_8": {
+        "shape": [
+          49,
+          64
+        ],
+        "dtype": "torch.int64"
+      },
+      "motif_composer.support_idx_12": {
+        "shape": [
+          49,
+          144
+        ],
+        "dtype": "torch.int64"
+      },
+      "motif_composer.support_idx_16": {
+        "shape": [
+          49,
+          256
+        ],
+        "dtype": "torch.int64"
+      }
+    }
+  },
+  "v2_1": {
+    "trainable_parameters": 2304528,
+    "component_breakdown": {
+      "pixel_feature_proj": 3360,
+      "pixel_gnn": 301536,
+      "pixel_readout": 37345,
+      "aux_pixel_head": 903,
+      "motif_composer": 51271,
+      "motif_gnn": 1485330,
+      "motif_readout": 222529,
+      "aux_motif_head": 2695,
+      "classifier": 133639,
+      "supcon_head": 65920
+    },
+    "config_facts": {
+      "aux_motif_weight": 0.2,
+      "aux_pixel_weight": 0.05,
+      "batch_size": 16,
+      "classifier_dropout": 0.25,
+      "consistency_probability": 0.5,
+      "d_classifier_hidden": 256,
+      "d_classifier_in": 512,
+      "d_motif": 192,
+      "d_motif_occurrence_raw": 133,
+      "d_motif_readout": 384,
+      "d_pixel": 96,
+      "d_pixel_readout": 128,
+      "d_type": 32,
+      "d_what": 96,
+      "d_where": 5,
+      "device": "cuda",
+      "early_stop_monitor_start_epoch": 85,
+      "early_stop_patience": 15,
+      "ema_decay": 0.999,
+      "grad_clip": 1.0,
+      "gradient_accumulation_steps": 2,
+      "img_size": 48,
+      "label_smoothing": 0.05,
+      "lambda_consistency": 0.15,
+      "lambda_div": 0.01,
+      "lambda_mi": 0.025,
+      "lambda_supcon": 0.05,
+      "learning_rate": 0.0003,
+      "lr_decay_end_epoch": 85,
+      "max_epochs": 120,
+      "mi_beta": 1.0,
+      "micro_overfit_learning_rate": 0.001,
+      "micro_overfit_max_steps": 80,
+      "micro_overfit_samples": 16,
+      "micro_overfit_target": 0.875,
+      "min_epochs": 50,
+      "min_learning_rate": 1e-06,
+      "motif_drop_path_max": 0.05,
+      "motif_dropout": 0.1,
+      "motif_geom_dim": 6,
+      "motif_stride": 6,
+      "motif_window_size": 12,
+      "motif_window_sizes": [
+        8,
+        12,
+        16
+      ],
+      "num_classes": 7,
+      "num_motif_heads": 6,
+      "num_motif_layers": 5,
+      "num_motifs": 48,
+      "num_neighbors": 8,
+      "num_occurrences": 49,
+      "num_pixel_gnn_layers": 4,
+      "num_pixel_heads": 4,
+      "num_pixels": 2304,
+      "num_workers": 2,
+      "output_dir": null,
+      "pixel_drop_path_max": 0.03,
+      "pixel_dropout": 0.1,
+      "pixel_edge_dim": 5,
+      "raw_pixel_dim": 32,
+      "resume_path": null,
+      "resume_schema_version": 3,
+      "resume_snapshot_interval": 10,
+      "resume_snapshots_to_keep": 2,
+      "run_id": null,
+      "runtime_safe_resume_fields": [
+        "num_workers",
+        "output_dir",
+        "resume_path",
+        "segment_number",
+        "segment_soft_limit_hours",
+        "segment_safety_margin_minutes",
+        "run_id"
+      ],
+      "seed": 42,
+      "segment_number": 1,
+      "segment_safety_margin_minutes": 15.0,
+      "segment_soft_limit_hours": 10.5,
+      "supcon_dim": 128,
+      "supcon_temperature": 0.1,
+      "tau_anneal_end_epoch": 35,
+      "tau_final": 0.3,
+      "tau_start": 0.7,
+      "use_amp": true,
+      "warmup_epochs": 5,
+      "weight_decay": 0.0005
+    },
+    "parameters": {
+      "pixel_proj.0.weight": {
+        "shape": [
+          96,
+          32
+        ],
+        "requires_grad": true,
+        "numel": 3072
+      },
+      "pixel_proj.0.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_proj.1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_proj.1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.0.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.0.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.0.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.0.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.0.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.0.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.0.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.0.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.1.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.1.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.1.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.1.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.1.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.1.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.1.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.1.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.2.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.2.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.2.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.2.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.2.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.2.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.2.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.2.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm1.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm1.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.q_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.q_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.k_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.k_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.v_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.v_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.edge_bias.weight": {
+        "shape": [
+          4,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 20
+      },
+      "pixel_gnn.3.edge_bias.bias": {
+        "shape": [
+          4
+        ],
+        "requires_grad": true,
+        "numel": 4
+      },
+      "pixel_gnn.3.edge_val.weight": {
+        "shape": [
+          96,
+          5
+        ],
+        "requires_grad": true,
+        "numel": 480
+      },
+      "pixel_gnn.3.edge_val.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.out_proj.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "pixel_gnn.3.out_proj.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm2.weight": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.norm2.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_gnn.3.ffn.0.weight": {
+        "shape": [
+          192,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.3.ffn.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "pixel_gnn.3.ffn.3.weight": {
+        "shape": [
+          96,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 18432
+      },
+      "pixel_gnn.3.ffn.3.bias": {
+        "shape": [
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_attn_pool.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "pixel_attn_pool.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "pixel_readout_proj.0.weight": {
+        "shape": [
+          128,
+          288
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "pixel_readout_proj.0.bias": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "pixel_readout_proj.1.weight": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "pixel_readout_proj.1.bias": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "aux_pixel_head.weight": {
+        "shape": [
+          7,
+          128
+        ],
+        "requires_grad": true,
+        "numel": 896
+      },
+      "aux_pixel_head.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      },
+      "motif_composer.prototypes": {
+        "shape": [
+          48,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 4608
+      },
+      "motif_composer.scale_confidence": {
+        "shape": [
+          3
+        ],
+        "requires_grad": true,
+        "numel": 3
+      },
+      "motif_composer.assignment_query.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "motif_composer.prototype_key.weight": {
+        "shape": [
+          96,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 9216
+      },
+      "motif_composer.scale_saliency.8.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "motif_composer.scale_saliency.8.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.scale_saliency.12.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "motif_composer.scale_saliency.12.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.scale_saliency.16.weight": {
+        "shape": [
+          1,
+          96
+        ],
+        "requires_grad": true,
+        "numel": 96
+      },
+      "motif_composer.scale_saliency.16.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_composer.type_proj.0.weight": {
+        "shape": [
+          32,
+          48
+        ],
+        "requires_grad": true,
+        "numel": 1536
+      },
+      "motif_composer.type_proj.0.bias": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.type_proj.1.weight": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.type_proj.1.bias": {
+        "shape": [
+          32
+        ],
+        "requires_grad": true,
+        "numel": 32
+      },
+      "motif_composer.occurrence_proj.0.weight": {
+        "shape": [
+          192,
+          133
+        ],
+        "requires_grad": true,
+        "numel": 25536
+      },
+      "motif_composer.occurrence_proj.0.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.occurrence_proj.1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.occurrence_proj.1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.scale_gate.weight": {
+        "shape": [
+          1,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_composer.scale_gate.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_gnn.0.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.0.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.0.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.0.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.0.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.0.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.0.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.0.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.1.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.1.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.1.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.1.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.1.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.1.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.1.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.2.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.2.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.2.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.2.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.2.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.2.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.2.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.3.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.3.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.3.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.3.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.3.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.3.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.3.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm1.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm1.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.q_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.q_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.k_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.k_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.v_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.v_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.geom_proj.weight": {
+        "shape": [
+          6,
+          6
+        ],
+        "requires_grad": true,
+        "numel": 36
+      },
+      "motif_gnn.4.geom_proj.bias": {
+        "shape": [
+          6
+        ],
+        "requires_grad": true,
+        "numel": 6
+      },
+      "motif_gnn.4.out_proj.weight": {
+        "shape": [
+          192,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 36864
+      },
+      "motif_gnn.4.out_proj.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm2.weight": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.norm2.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_gnn.4.ffn.0.weight": {
+        "shape": [
+          384,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.4.ffn.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_gnn.4.ffn.3.weight": {
+        "shape": [
+          192,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 73728
+      },
+      "motif_gnn.4.ffn.3.bias": {
+        "shape": [
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_attn_pool.weight": {
+        "shape": [
+          1,
+          192
+        ],
+        "requires_grad": true,
+        "numel": 192
+      },
+      "motif_attn_pool.bias": {
+        "shape": [
+          1
+        ],
+        "requires_grad": true,
+        "numel": 1
+      },
+      "motif_readout_proj.0.weight": {
+        "shape": [
+          384,
+          576
+        ],
+        "requires_grad": true,
+        "numel": 221184
+      },
+      "motif_readout_proj.0.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_readout_proj.1.weight": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "motif_readout_proj.1.bias": {
+        "shape": [
+          384
+        ],
+        "requires_grad": true,
+        "numel": 384
+      },
+      "aux_motif_head.weight": {
+        "shape": [
+          7,
+          384
+        ],
+        "requires_grad": true,
+        "numel": 2688
+      },
+      "aux_motif_head.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      },
+      "supcon_head.0.weight": {
+        "shape": [
+          128,
+          512
+        ],
+        "requires_grad": true,
+        "numel": 65536
+      },
+      "supcon_head.0.bias": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "supcon_head.1.weight": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "supcon_head.1.bias": {
+        "shape": [
+          128
+        ],
+        "requires_grad": true,
+        "numel": 128
+      },
+      "classifier.0.weight": {
+        "shape": [
+          256,
+          512
+        ],
+        "requires_grad": true,
+        "numel": 131072
+      },
+      "classifier.0.bias": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.1.weight": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.1.bias": {
+        "shape": [
+          256
+        ],
+        "requires_grad": true,
+        "numel": 256
+      },
+      "classifier.4.weight": {
+        "shape": [
+          7,
+          256
+        ],
+        "requires_grad": true,
+        "numel": 1792
+      },
+      "classifier.4.bias": {
+        "shape": [
+          7
+        ],
+        "requires_grad": true,
+        "numel": 7
+      }
+    },
+    "buffers": {
+      "pixel_extractor.grid_x": {
+        "shape": [
+          1,
+          1,
+          48,
+          48
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.grid_y": {
+        "shape": [
+          1,
+          1,
+          48,
+          48
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.sobel_x": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.sobel_y": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.laplacian": {
+        "shape": [
+          1,
+          1,
+          3,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_extractor.mean_5x5": {
+        "shape": [
+          1,
+          1,
+          5,
+          5
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_topology.neighbor_idx": {
+        "shape": [
+          2304,
+          8
+        ],
+        "dtype": "torch.int64"
+      },
+      "pixel_topology.neighbor_mask": {
+        "shape": [
+          2304,
+          8
+        ],
+        "dtype": "torch.bool"
+      },
+      "pixel_topology.geom_edges": {
+        "shape": [
+          2304,
+          8,
+          3
+        ],
+        "dtype": "torch.float32"
+      },
+      "pixel_topology.I_gather_idx": {
+        "shape": [
+          2304,
+          8,
+          1
+        ],
+        "dtype": "torch.int64"
+      },
+      "motif_composer.current_tau": {
+        "shape": [],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.grid_x": {
+        "shape": [
+          2304
+        ],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.grid_y": {
+        "shape": [
+          2304
+        ],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.anchor_centers_pixel": {
+        "shape": [
+          49,
+          2
+        ],
+        "dtype": "torch.float32"
+      },
+      "motif_composer.support_idx_8": {
+        "shape": [
+          49,
+          64
+        ],
+        "dtype": "torch.int64"
+      },
+      "motif_composer.support_idx_12": {
+        "shape": [
+          49,
+          144
+        ],
+        "dtype": "torch.int64"
+      },
+      "motif_composer.support_idx_16": {
+        "shape": [
+          49,
+          256
+        ],
+        "dtype": "torch.int64"
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "total_exact_duplicate_groups": 1516,
+  "total_images_in_duplicate_groups": 3369,
+  "consistent_label_groups": 1459,
+  "conflicting_label_groups": 57,
+  "conflicting_fraction": 0.037598944591029027,
+  "cross_split_groups": 557,
+  "within_split_groups": 959,
+  "breakdown_by_split_pair": {
+    "within_train": {
+      "groups": 936,
+      "conflicting_groups": 30,
+      "conflicting_fraction": 0.03205128205128205
+    },
+    "within_public": {
+      "groups": 16,
+      "conflicting_groups": 1,
+      "conflicting_fraction": 0.0625
+    },
+    "within_private": {
+      "groups": 7,
+      "conflicting_groups": 0,
+      "conflicting_fraction": 0.0
+    },
+    "train_public": {
+      "groups": 253,
+      "conflicting_groups": 11,
+      "conflicting_fraction": 0.043478260869565216
+    },
+    "train_private": {
+      "groups": 261,
+      "conflicting_groups": 12,
+      "conflicting_fraction": 0.04597701149425287
+    },
+    "public_private": {
+      "groups": 26,
+      "conflicting_groups": 1,
+      "conflicting_fraction": 0.038461538461538464
+    },
+    "all_three_splits": {
+      "groups": 17,
+      "conflicting_groups": 2,
+      "conflicting_fraction": 0.11764705882352941
+    }
+  }
+}

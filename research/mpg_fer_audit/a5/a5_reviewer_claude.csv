@@ -1,0 +1,201 @@
+review_id,reviewer_perceived_class,confidence,image_quality,pose_issue,occlusion_issue,crop_alignment_issue,expression_intensity,multiple_emotion_plausible,notes
+REV_001,Neutral,3,Good,no,no,no,Weak,yes,"slight smirk, happy also plausible"
+REV_002,Surprise,3,Good,no,no,no,Moderate,yes,"eyebrows raised, mouth open"
+REV_003,Neutral,4,Good,no,no,no,Weak,no,calm direct gaze
+REV_004,Surprise,4,Good,no,no,yes,Strong,no,"very close crop, wide eyes and open mouth"
+REV_005,Neutral,3,Good,no,no,no,Weak,yes,"mild furrow, angry also plausible"
+REV_006,CannotJudge,1,Poor,yes,yes,no,Weak,no,"angled pose, hand near face obscures view"
+REV_007,Surprise,3,Good,no,no,no,Moderate,yes,fear also plausible
+REV_008,Sad,2,Moderate,no,yes,no,Weak,yes,hand partly obscures lower face
+REV_009,CannotJudge,1,Poor,no,yes,no,Weak,no,hand fully covers face
+REV_010,Happy,4,Good,no,no,no,Moderate,no,gentle smile
+REV_011,Neutral,4,Good,no,no,no,Weak,no,"glasses, calm expression"
+REV_012,Angry,3,Moderate,no,no,no,Strong,yes,"open mouth teeth bared, disgust also plausible"
+REV_013,Surprise,3,Good,no,no,no,Weak,yes,"wide eyes, mouth slightly open"
+REV_014,Happy,5,Good,no,no,no,Moderate,no,clear warm smile
+REV_015,Angry,4,Good,no,no,no,Strong,no,"scowl, teeth visible"
+REV_016,CannotJudge,1,Poor,yes,yes,yes,Weak,no,"head turned away, face barely visible"
+REV_017,CannotJudge,1,Poor,no,yes,yes,Weak,no,"no face visible, only hands"
+REV_018,Neutral,4,Good,no,no,no,Weak,no,calm direct gaze
+REV_019,Angry,3,Good,no,no,no,Moderate,yes,"mild furrow, neutral also plausible"
+REV_020,Angry,3,Good,no,no,no,Moderate,yes,"open mouth teeth showing, disgust also plausible"
+REV_021,Surprise,4,Good,no,no,no,Strong,no,"glasses, open mouth wide eyes"
+REV_022,Happy,3,Good,no,no,no,Weak,no,slight smile
+REV_023,Angry,4,Good,no,no,no,Strong,yes,"lip curled, disgust also plausible"
+REV_024,Sad,3,Good,no,no,no,Moderate,yes,"downturned mouth, angry also plausible"
+REV_025,Surprise,3,Moderate,yes,yes,no,Moderate,yes,"hair partly covers face, fear also plausible"
+REV_026,CannotJudge,1,Poor,no,no,no,Weak,no,"stylized/illustrated rendering, poor detail"
+REV_027,Angry,3,Moderate,no,no,no,Moderate,no,"grainy image, scowl visible"
+REV_028,Sad,4,Good,no,no,no,Moderate,no,"downcast eyes, downturned mouth"
+REV_029,Neutral,3,Moderate,no,no,no,Weak,no,dramatic side lighting
+REV_030,Fear,3,Good,no,no,no,Moderate,yes,"wide staring eyes, surprise also plausible"
+REV_031,Neutral,4,Good,no,no,no,Weak,no,calm baby face
+REV_032,Ambiguous,2,Good,no,no,no,Strong,yes,"extreme grin/grimace, happy or angry both plausible"
+REV_033,Surprise,4,Good,no,no,no,Strong,no,wide open mouth and eyes
+REV_034,Happy,4,Good,no,no,no,Weak,no,gentle smile
+REV_035,Neutral,4,Good,no,no,no,Weak,no,"glasses, serious closed mouth"
+REV_036,Sad,2,Moderate,no,yes,no,Weak,yes,"hand near face, eyes downcast"
+REV_037,Neutral,4,Good,no,no,no,Weak,no,calm direct gaze
+REV_038,Neutral,3,Good,no,no,no,Weak,yes,"heavy makeup, surprise also plausible"
+REV_039,Surprise,3,Moderate,no,no,no,Moderate,yes,"watermark present, fear also plausible"
+REV_040,Neutral,4,Good,no,no,no,Weak,no,calm serious face
+REV_041,Angry,5,Good,no,no,no,Strong,no,"teeth bared, brow furrowed"
+REV_042,Neutral,4,Good,no,no,no,Weak,no,"glasses, calm closed mouth"
+REV_043,Neutral,3,Good,yes,yes,no,Weak,no,"looking up/sideways, hand near face"
+REV_044,Neutral,4,Good,no,no,no,Weak,no,calm gaze slightly to side
+REV_045,Neutral,3,Good,yes,no,no,Weak,no,"windblown hair, angled pose"
+REV_046,CannotJudge,1,Poor,yes,yes,yes,Weak,no,"face largely hidden, curled posture"
+REV_047,Happy,3,Good,no,no,no,Weak,no,"slight smile, wearing cap"
+REV_048,Neutral,2,Moderate,yes,yes,no,Weak,no,"turned away, gesture partly occludes face"
+REV_049,Neutral,4,Good,no,no,no,Weak,no,calm direct gaze
+REV_050,Angry,4,Good,no,no,no,Strong,no,"bared teeth, aggressive expression"
+REV_051,Ambiguous,2,Good,no,no,no,Strong,yes,"wide grimace, disgust or angry plausible"
+REV_052,Neutral,3,Good,yes,no,no,Weak,no,"profile view, closed mouth"
+REV_053,Happy,4,Good,no,no,no,Weak,no,slight smile
+REV_054,CannotJudge,2,Poor,no,no,no,Weak,no,heavy shadow obscures features
+REV_055,Neutral,3,Moderate,no,no,no,Weak,no,"slightly blurred, calm expression"
+REV_056,Happy,3,Good,no,no,no,Moderate,yes,"open mouth, surprise also plausible"
+REV_057,Happy,5,Good,no,no,no,Moderate,no,warm clear smile
+REV_058,Happy,5,Good,no,no,no,Strong,no,"big open-mouth smile, eyes closed"
+REV_059,Neutral,3,Good,yes,no,no,Weak,no,head tilted sideways
+REV_060,Sad,4,Good,no,no,no,Strong,yes,"crying/distressed expression, angry also plausible"
+REV_061,Surprise,3,Good,no,no,no,Weak,no,mouth in small o shape
+REV_062,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_063,Sad,3,Good,no,yes,no,Weak,yes,"eyes closed, head on hand, neutral also plausible"
+REV_064,Angry,4,Good,no,no,no,Moderate,no,"brow furrowed, looking sideways"
+REV_065,Happy,3,Good,no,yes,no,Weak,no,"closed-lip smile, finger near mouth"
+REV_066,Happy,3,Moderate,no,no,no,Weak,no,"textured/grainy image, slight smile"
+REV_067,CannotJudge,2,Moderate,no,yes,no,Weak,no,sunglasses hide eyes
+REV_068,Neutral,3,Good,yes,no,no,Weak,no,"head tilted back, eyes closed"
+REV_069,Happy,3,Good,no,no,no,Weak,no,"wearing cap, slight smile"
+REV_070,Surprise,3,Good,no,no,no,Moderate,yes,"wide eyes, neutral also plausible"
+REV_071,Neutral,4,Good,no,no,no,Weak,no,"glasses, calm expression"
+REV_072,CannotJudge,2,Poor,no,no,no,Weak,no,"heavily textured/weathered face, hard to interpret"
+REV_073,CannotJudge,2,Poor,no,yes,no,Weak,no,heavy shadow across face
+REV_074,Angry,4,Good,no,no,no,Moderate,no,"brow furrowed, serious stare"
+REV_075,Fear,3,Good,no,no,no,Moderate,yes,"wide eyes, sad also plausible"
+REV_076,Surprise,2,Moderate,no,no,yes,Moderate,yes,"cropped view, disgust also plausible"
+REV_077,Happy,5,Good,no,no,no,Strong,no,big laughing smile
+REV_078,Neutral,3,Good,no,yes,no,Weak,no,watermark box covers chin area
+REV_079,Angry,4,Good,no,no,no,Strong,no,"teeth bared, brow furrowed"
+REV_080,Neutral,3,Good,no,no,no,Weak,no,calm thoughtful expression
+REV_081,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_082,Happy,5,Good,no,no,no,Moderate,no,warm smile
+REV_083,Neutral,3,Good,no,yes,no,Weak,no,"hand near mouth, thoughtful look"
+REV_084,Sad,3,Good,no,yes,no,Weak,no,"hand near head, hair partly covers face"
+REV_085,Happy,4,Good,no,no,no,Moderate,no,warm smile
+REV_086,Happy,3,Moderate,no,yes,no,Weak,no,"watermark across face, slight smile"
+REV_087,Fear,3,Moderate,no,no,no,Moderate,yes,"eyebrows raised, surprise also plausible"
+REV_088,Surprise,3,Good,no,yes,no,Moderate,yes,"hands framing face, happy also plausible"
+REV_089,Angry,4,Good,no,no,no,Strong,no,"teeth bared, brow furrowed"
+REV_090,Happy,3,Good,no,no,no,Weak,no,slight smirk/smile
+REV_091,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_092,Surprise,4,Good,no,no,no,Strong,yes,"mouth and eyes wide open, fear also plausible"
+REV_093,Surprise,3,Good,no,no,no,Weak,no,"mouth slightly open, curious look"
+REV_094,Surprise,3,Moderate,no,no,no,Moderate,no,"mouth open, wide eyes, slight blur"
+REV_095,Fear,3,Good,no,no,no,Moderate,yes,"distressed open-mouth look, sad also plausible"
+REV_096,Surprise,3,Good,no,yes,no,Moderate,yes,"hair partly covers face, fear also plausible"
+REV_097,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_098,Angry,3,Good,no,no,no,Moderate,yes,"glasses, grimace, disgust also plausible"
+REV_099,Fear,3,Moderate,no,no,no,Weak,yes,"watermark present, neutral also plausible"
+REV_100,Ambiguous,3,Good,no,no,no,Moderate,yes,"smirk with open mouth, happy or surprise plausible"
+REV_101,CannotJudge,2,Poor,no,no,no,Weak,no,"heavy shadow, features hard to read"
+REV_102,Surprise,4,Good,no,yes,no,Strong,no,"mouth wide open, both hands on cheeks"
+REV_103,Neutral,3,Moderate,no,no,yes,Weak,no,half of face lit/visible
+REV_104,Surprise,3,Good,no,no,no,Moderate,yes,"eyebrows raised, fear also plausible"
+REV_105,Happy,3,Good,no,no,no,Weak,no,slight smile through beard
+REV_106,Neutral,2,Moderate,no,yes,no,Weak,yes,"hand covers part of face, sad also plausible"
+REV_107,Surprise,4,Good,no,no,no,Strong,no,"mouth wide open, hair flying"
+REV_108,Happy,5,Good,no,no,no,Moderate,no,warm gentle smile
+REV_109,Happy,4,Good,no,no,no,Moderate,no,"hand on cheek, gentle smile"
+REV_110,Surprise,4,Good,no,no,no,Strong,no,"mouth wide open, eyebrows raised"
+REV_111,Sad,2,Moderate,no,yes,no,Weak,no,"hand near mouth, eyes downcast"
+REV_112,Surprise,4,Good,no,no,no,Moderate,no,"round open mouth, wide eyes"
+REV_113,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_114,Sad,3,Good,no,yes,no,Weak,no,"head resting on hand, downcast eyes"
+REV_115,Angry,4,Moderate,no,no,no,Strong,no,"glasses, teeth bared brow furrowed"
+REV_116,Happy,5,Good,no,no,no,Strong,no,"wide smile, eyes closed"
+REV_117,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_118,Neutral,3,Good,yes,no,no,Weak,no,"angled pose, mouth slightly open"
+REV_119,CannotJudge,2,Poor,no,no,no,Weak,no,"dark image, features hard to see"
+REV_120,Angry,4,Good,no,no,no,Strong,yes,"eyes scrunched teeth bared, disgust also plausible"
+REV_121,Surprise,4,Good,no,no,no,Strong,no,"mouth in wide o shape, wide eyes"
+REV_122,Happy,5,Good,no,no,no,Strong,no,"big open-mouth smile, wide eyes"
+REV_123,Neutral,3,Good,no,no,no,Weak,no,calm wide-eyed toddler expression
+REV_124,Neutral,4,Good,no,no,no,Weak,no,calm direct gaze
+REV_125,Surprise,4,Good,no,no,no,Moderate,no,"eyebrows raised, mouth slightly open"
+REV_126,Sad,2,Moderate,no,yes,no,Weak,no,"hand covers mouth/chin, eyes downcast"
+REV_127,Neutral,3,Moderate,no,no,no,Weak,no,"watermark present, calm expression"
+REV_128,Neutral,3,Good,yes,no,no,Weak,no,"profile view, calm closed mouth"
+REV_129,Neutral,2,Moderate,yes,no,no,Weak,no,"profile view, mouth slightly open"
+REV_130,CannotJudge,2,Poor,no,no,no,Weak,no,"dark image with watermark, hard to read"
+REV_131,Neutral,3,Moderate,no,no,no,Weak,no,"watermark present, calm expression"
+REV_132,Surprise,3,Good,no,no,no,Moderate,yes,"wide eyes open mouth, fear also plausible"
+REV_133,Sad,2,Moderate,no,yes,no,Weak,yes,"hand near mouth, neutral also plausible"
+REV_134,Surprise,3,Good,no,no,no,Moderate,yes,"eyebrows raised open mouth, happy also plausible"
+REV_135,Fear,3,Good,no,no,no,Weak,yes,"wide staring eyes, neutral also plausible"
+REV_136,Surprise,4,Good,no,yes,no,Strong,no,"mouth wide open, wide eyes, watermark present"
+REV_137,Happy,4,Good,no,no,no,Moderate,no,smiling with eyes relaxed
+REV_138,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_139,CannotJudge,2,Poor,no,no,no,Weak,no,"unusual close-up texture, hard to interpret"
+REV_140,Happy,4,Good,no,yes,no,Moderate,no,"smiling with teeth, watermark present"
+REV_141,Neutral,3,Good,no,no,no,Weak,yes,"pursed mouth, disgust also plausible"
+REV_142,Disgust,4,Good,no,no,no,Strong,yes,"scrunched face open mouth, angry also plausible"
+REV_143,Angry,4,Good,no,no,no,Strong,no,"teeth bared, brow furrowed"
+REV_144,Fear,4,Moderate,no,no,no,Strong,no,"mouth wide open, dramatic high-contrast image"
+REV_145,Surprise,3,Good,no,no,no,Moderate,yes,"wide eyes, fear also plausible"
+REV_146,Happy,3,Good,no,yes,no,Weak,no,"hand near head, gentle smile eyes closed"
+REV_147,Happy,3,Good,no,no,no,Weak,no,"glasses, slight smile"
+REV_148,Angry,3,Moderate,no,no,no,Moderate,yes,"eyes squinted mouth pressed, disgust also plausible"
+REV_149,CannotJudge,2,Poor,no,no,no,Weak,no,"artificial/textured rendering, hard to interpret"
+REV_150,Surprise,3,Good,no,yes,no,Moderate,no,"mouth open, finger near mouth"
+REV_151,Neutral,3,Good,yes,no,no,Weak,no,"profile view, calm closed mouth"
+REV_152,Happy,5,Good,no,no,no,Strong,no,laughing with mouth wide open
+REV_153,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_154,Neutral,3,Good,yes,no,no,Weak,no,"profile view, calm expression"
+REV_155,Happy,5,Good,no,no,no,Moderate,no,gentle clear smile
+REV_156,Neutral,3,Good,no,no,no,Weak,yes,"tired/squinting look, sad also plausible"
+REV_157,Neutral,4,Good,no,no,no,Weak,no,calm toddler expression
+REV_158,Happy,5,Good,no,no,no,Moderate,no,gentle clear smile
+REV_159,Fear,3,Good,no,yes,no,Moderate,yes,"hand near mouth wide eyes, surprise also plausible"
+REV_160,Neutral,4,Good,no,no,no,Weak,no,calm child expression
+REV_161,Angry,5,Good,no,no,no,Strong,no,"brow drawn down, intense stare"
+REV_162,Surprise,4,Good,no,no,no,Strong,no,"mouth wide open, wide eyes"
+REV_163,Ambiguous,2,Poor,no,no,no,Moderate,yes,stylized/cartoon-like rendering reduces confidence
+REV_164,Angry,4,Good,no,no,no,Strong,no,"teeth bared, windblown hair"
+REV_165,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_166,Happy,4,Good,no,yes,no,Moderate,no,"smiling baby, watermark present"
+REV_167,Happy,4,Good,no,no,no,Weak,no,closed-mouth smile
+REV_168,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_169,Happy,3,Moderate,no,yes,no,Strong,yes,"open mouth tongue visible, surprise also plausible"
+REV_170,Neutral,2,Poor,no,no,no,Weak,no,soft focus/blurred image
+REV_171,Happy,4,Good,no,no,no,Weak,no,gentle smile
+REV_172,CannotJudge,1,Poor,yes,yes,no,Weak,no,profile with heavy shadow
+REV_173,Surprise,3,Moderate,no,no,no,Strong,no,"stylized rendering, mouth and eyes wide open"
+REV_174,Angry,3,Good,no,no,no,Moderate,yes,"brow furrowed, neutral also plausible"
+REV_175,Happy,3,Good,no,no,no,Weak,yes,"slight smirk, surprise also plausible"
+REV_176,Neutral,4,Good,no,no,no,Weak,no,calm serious expression
+REV_177,Surprise,3,Good,no,no,no,Moderate,yes,"wide eyes mouth open, fear also plausible"
+REV_178,Sad,3,Moderate,no,no,no,Weak,no,"eyes closed, mouth slightly open, blurred"
+REV_179,Surprise,3,Good,no,yes,no,Strong,no,"mouth open wide eyes, watermark present"
+REV_180,Neutral,4,Good,no,no,no,Weak,no,"wearing cap, calm serious expression"
+REV_181,Neutral,4,Good,no,no,no,Weak,no,calm expression
+REV_182,Happy,4,Good,no,no,no,Weak,no,slight smile
+REV_183,Fear,3,Moderate,no,no,no,Moderate,yes,"wide staring eyes, surprise also plausible"
+REV_184,Sad,3,Good,no,yes,no,Weak,no,"hand near head, downcast eyes"
+REV_185,CannotJudge,1,Poor,no,yes,no,Weak,no,hand/cloth covers most of face
+REV_186,CannotJudge,2,Poor,no,yes,no,Weak,no,cap and shadow obscure face
+REV_187,Happy,5,Good,no,no,no,Moderate,no,gentle clear smile
+REV_188,Surprise,4,Good,no,yes,no,Strong,no,"mouth wide open, hand near face"
+REV_189,Angry,5,Good,no,no,no,Strong,no,"teeth bared tightly, brow furrowed"
+REV_190,Happy,4,Good,no,no,no,Weak,no,slight smile through beard
+REV_191,Neutral,2,Moderate,no,yes,no,Weak,no,"hand near mouth, looking sideways"
+REV_192,Neutral,3,Good,no,no,no,Weak,no,calm expression
+REV_193,Angry,3,Good,no,no,no,Moderate,no,"brow furrowed, mouth pressed closed"
+REV_194,Neutral,3,Good,no,no,no,Weak,no,"glasses, thoughtful sideways look"
+REV_195,CannotJudge,2,Poor,yes,yes,no,Weak,no,"tilted/upside-down framing, watermark present"
+REV_196,Happy,4,Good,no,no,no,Weak,no,slight smile
+REV_197,Happy,5,Good,no,no,no,Strong,no,big open-mouth laugh
+REV_198,Angry,3,Good,no,no,no,Moderate,yes,"brow furrowed, neutral also plausible"
+REV_199,Sad,3,Good,no,yes,no,Weak,no,"hand near head, eyes downcast/closed"
+REV_200,Neutral,3,Good,yes,no,no,Weak,no,"profile view, calm expression"

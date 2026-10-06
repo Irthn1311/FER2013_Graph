@@ -1,0 +1,64 @@
+{
+  "audit_name": "MPG-FER A7 Cross-Depth Information Complementarity & Representation-Preservation Audit",
+  "timestamp_utc": "2026-09-27T07:47:38.806547+00:00",
+  "git_head": "75e192d0e81ef53bb71e0853530d6a48a7c13582",
+  "script_sha256": "799f813ab978be89cc6d42e2e9bc12e8309255348cfd8a881a646a8d2c6f405e",
+  "models": {
+    "v2.2": {
+      "checkpoint_path": "research\\mpg_fer_v2_2\\official_runs\\segment_02\\mpg_fer_v2_2_run\\best_val_acc.pt",
+      "checkpoint_sha256": "a10bd22b3903550156c8239d91b5d2af35067ca1f2bdba9af46cf1e53d0bbdf4",
+      "expected_checkpoint_sha256": "a10bd22b3903550156c8239d91b5d2af35067ca1f2bdba9af46cf1e53d0bbdf4",
+      "sha256_verified": true,
+      "parameters": 2304528,
+      "topk_schedule": [
+        8,
+        16,
+        16,
+        16,
+        24
+      ],
+      "residual_scale_schedule": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "v2.3": {
+      "checkpoint_path": "research\\mpg_fer_v2_3\\official_runs\\segment_02\\mpg_fer_v2_3_run\\best_val_acc.pt",
+      "checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+      "expected_checkpoint_sha256": "23dbe9b1453fdc7e5dca81ca2e9bd26f361f5b1fe3d7ffe803c65546b22d162e",
+      "sha256_verified": true,
+      "config_sha256": "8f14b91e95663833248fd8cd40bb1b63234dea58cc4bc554e96710d822fb64c2",
+      "expected_config_sha256": "8f14b91e95663833248fd8cd40bb1b63234dea58cc4bc554e96710d822fb64c2",
+      "best_epoch": 57,
+      "parameters": 2304528,
+      "topk_schedule": [
+        8,
+        16,
+        16,
+        16,
+        24
+      ],
+      "residual_scale_schedule": [
+        0.5,
+        0.5,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "verdict": "V23_NOT_SUPPORTED"
+    }
+  },
+  "representation_alignment": {
+    "train_rows": 28709,
+    "public_rows": 3589,
+    "private_rows": 3589,
+    "train_target_alignment": true,
+    "public_target_alignment": true,
+    "private_target_alignment": true,
+    "status": "PASS"
+  },
+  "status": "PASS"
+}

@@ -1,0 +1,78 @@
+{
+  "timestamp_utc": "2026-09-27T07:47:38.808623+00:00",
+  "git_head": "75e192d0e81ef53bb71e0853530d6a48a7c13582",
+  "criterion": "max abs difference <= 1e-6 preferred, hard max <= 1e-5",
+  "v22": {
+    "max_abs_diff": 0.0,
+    "passed_preferred_1e6": true,
+    "passed_hard_1e5": true,
+    "captured_shapes": {
+      "R1": [
+        2,
+        49,
+        192
+      ],
+      "R2": [
+        2,
+        49,
+        192
+      ],
+      "R3": [
+        2,
+        49,
+        192
+      ],
+      "R6": [
+        2,
+        49,
+        192
+      ],
+      "R7": [
+        2,
+        384
+      ],
+      "R8": [
+        2,
+        512
+      ]
+    },
+    "status": "PASS"
+  },
+  "v23": {
+    "max_abs_diff": 0.0,
+    "passed_preferred_1e6": true,
+    "passed_hard_1e5": true,
+    "captured_shapes": {
+      "R1": [
+        2,
+        49,
+        192
+      ],
+      "R2": [
+        2,
+        49,
+        192
+      ],
+      "R3": [
+        2,
+        49,
+        192
+      ],
+      "R6": [
+        2,
+        49,
+        192
+      ],
+      "R7": [
+        2,
+        384
+      ],
+      "R8": [
+        2,
+        512
+      ]
+    },
+    "status": "PASS"
+  },
+  "status": "PASS"
+}

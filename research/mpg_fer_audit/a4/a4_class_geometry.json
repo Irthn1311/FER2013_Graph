@@ -1,0 +1,142 @@
+{
+  "v2.2": {
+    "fusion": {
+      "public": {
+        "nearest_centroid_accuracy": 0.6767901922541097,
+        "mean_true_class_centroid_margin": 5.120228622578448,
+        "classwise_true_class_margin": {
+          "Angry": 2.6814292702667992,
+          "Disgust": 4.267784160475576,
+          "Fear": -0.24610917276477753,
+          "Happy": 10.975142517995463,
+          "Sad": 1.8454664212791891,
+          "Surprise": 9.676072059338926,
+          "Neutral": 3.235478192087726
+        },
+        "within_class_scatter": 392.8324022637157,
+        "between_class_centroid_separation": 26.43730352375574,
+        "fisher_style_ratio_between_sq_over_within": 1.7792091833045394
+      },
+      "private": {
+        "nearest_centroid_accuracy": 0.68431317915854,
+        "mean_true_class_centroid_margin": 5.3171511452696425,
+        "classwise_true_class_margin": {
+          "Angry": 2.885294491284834,
+          "Disgust": 8.180141541338404,
+          "Fear": -0.14730090660372577,
+          "Happy": 11.369867259092505,
+          "Sad": 1.3382551194096772,
+          "Surprise": 8.755240100219229,
+          "Neutral": 4.573843795051424
+        },
+        "within_class_scatter": 386.96539291052335,
+        "between_class_centroid_separation": 26.43730352375574,
+        "fisher_style_ratio_between_sq_over_within": 1.8061848175885777
+      }
+    },
+    "motif_readout": {
+      "public": {
+        "nearest_centroid_accuracy": 0.6765115631095012,
+        "mean_true_class_centroid_margin": 5.798609865396811,
+        "classwise_true_class_margin": {
+          "Angry": 3.147998878830144,
+          "Disgust": 5.096477308254715,
+          "Fear": -0.12411447934052247,
+          "Happy": 12.434566624800954,
+          "Sad": 1.986398980720172,
+          "Surprise": 10.759718545786873,
+          "Neutral": 3.6670749965031866
+        },
+        "within_class_scatter": 281.0163107418905,
+        "between_class_centroid_separation": 25.666097868899346,
+        "fisher_style_ratio_between_sq_over_within": 2.3441649279246586
+      },
+      "private": {
+        "nearest_centroid_accuracy": 0.6829200334354973,
+        "mean_true_class_centroid_margin": 6.037019092241443,
+        "classwise_true_class_margin": {
+          "Angry": 3.371991863499485,
+          "Disgust": 9.244955063306431,
+          "Fear": -0.04409760943356174,
+          "Happy": 12.823345092155146,
+          "Sad": 1.440759397288661,
+          "Surprise": 9.833340050146326,
+          "Neutral": 5.284063334697527
+        },
+        "within_class_scatter": 275.55516345436536,
+        "between_class_centroid_separation": 25.666097868899346,
+        "fisher_style_ratio_between_sq_over_within": 2.3906232478384037
+      }
+    }
+  },
+  "v2.1": {
+    "motif_readout": {
+      "public": {
+        "nearest_centroid_accuracy": 0.6709389802173308,
+        "mean_true_class_centroid_margin": 5.296070506438156,
+        "classwise_true_class_margin": {
+          "Angry": 2.5256276333494583,
+          "Disgust": 3.8841580682913457,
+          "Fear": -0.16153368213026606,
+          "Happy": 11.274644705715431,
+          "Sad": 0.7479732410009838,
+          "Surprise": 11.163812916343264,
+          "Neutral": 4.083230476232676
+        },
+        "within_class_scatter": 273.7042155583493,
+        "between_class_centroid_separation": 24.013175933693017,
+        "fisher_style_ratio_between_sq_over_within": 2.1067728797898715
+      },
+      "private": {
+        "nearest_centroid_accuracy": 0.6753970465310671,
+        "mean_true_class_centroid_margin": 5.4273065946528645,
+        "classwise_true_class_margin": {
+          "Angry": 2.679770874799195,
+          "Disgust": 8.132924860011384,
+          "Fear": -0.1432290457021791,
+          "Happy": 12.010136409653231,
+          "Sad": 0.6648805056246821,
+          "Surprise": 9.77242780788115,
+          "Neutral": 4.4312636501725855
+        },
+        "within_class_scatter": 272.114525028616,
+        "between_class_centroid_separation": 24.013175933693017,
+        "fisher_style_ratio_between_sq_over_within": 2.11908062740073
+      }
+    },
+    "fusion": {
+      "public": {
+        "nearest_centroid_accuracy": 0.6703817219281136,
+        "mean_true_class_centroid_margin": 4.7025335832689725,
+        "classwise_true_class_margin": {
+          "Angry": 2.26709859989892,
+          "Disgust": 3.175471166112466,
+          "Fear": -0.19932964643232218,
+          "Happy": 10.038518374804,
+          "Sad": 0.7474084168601381,
+          "Surprise": 9.87460188873354,
+          "Neutral": 3.5736535058385686
+        },
+        "within_class_scatter": 386.0824617983229,
+        "between_class_centroid_separation": 24.795124497732804,
+        "fisher_style_ratio_between_sq_over_within": 1.592401260586705
+      },
+      "private": {
+        "nearest_centroid_accuracy": 0.6812482585678462,
+        "mean_true_class_centroid_margin": 4.828096014709846,
+        "classwise_true_class_margin": {
+          "Angry": 2.3819351913433287,
+          "Disgust": 7.051810451822681,
+          "Fear": -0.16966280000531447,
+          "Happy": 10.733174245547257,
+          "Sad": 0.6855214553877698,
+          "Surprise": 8.60893181814841,
+          "Neutral": 3.893391787077492
+        },
+        "within_class_scatter": 382.5899291161426,
+        "between_class_centroid_separation": 24.795124497732804,
+        "fisher_style_ratio_between_sq_over_within": 1.6069377473640551
+      }
+    }
+  }
+}

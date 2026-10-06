@@ -1,0 +1,41 @@
+{
+  "audit": "MPG-FER A5-R",
+  "hypotheses": {
+    "H-A5-LABEL-INCONSISTENCY": {
+      "name": "Dataset Label Inconsistency & Cross-Split Contamination",
+      "status": "SUPPORTED",
+      "evidence": {
+        "cryptographic_proof": "57 exact duplicate groups have mutually conflicting ground-truth emotion labels across FER2013.",
+        "cross_split_leakage": "280 Public rows (7.80%) and 288 Private rows (8.02%) have byte-identical copies in Train; 28 of these cross-split pairs have conflicting labels.",
+        "conditioned_accuracy_collapse": "On conflicting duplicate rows, model accuracy collapses to 13.3%-38.5% because models learned the Train label."
+      }
+    },
+    "H-A5-DATA-AMBIGUITY-SHARED-CORE": {
+      "name": "Intrinsic Data Ambiguity on Shared Error Core",
+      "status": "COMPATIBLE_WITH_EVIDENCE",
+      "evidence": {
+        "nonlearned_neighborhoods": "After excluding exact Train duplicates, 5-NN true-label purity on shared high-confidence errors remains at near-chance levels (15.5%-17.3% raw, 15.0%-17.2% gradient PCA).",
+        "intrinsic_fear_collapse": "Fear displays a negative centroid margin (-3.39 Public, -3.23 Private) in raw pixel space, proving separability collapse is intrinsic to the dataset.",
+        "qualifier": "Status is COMPATIBLE_WITH_EVIDENCE rather than fully SUPPORTED pending blinded human review, because raw/gradient descriptors also have modest purity (37%) on correct samples."
+      }
+    },
+    "H-A5-REP": {
+      "name": "Common Representation Failure",
+      "status": "MIXED",
+      "evidence": {
+        "unanimous_core": "On unanimous errors (all 4 models wrong), non-learned spaces also fail, refuting a pure model representation failure on the shared core.",
+        "model_disagreements": "On 34% of test samples, models disagree; individual architectures successfully separate samples that others fail on (5-NN purity in resolving model space is ~70-75% vs ~20% in failing model space)."
+      }
+    },
+    "H-A5-COMPLEMENTARITY": {
+      "name": "Model Family Complementarity",
+      "status": "MEANINGFUL",
+      "evidence": {
+        "two_model_oracle": "76.51% (Public), 76.71% (Private) (+7.1% over individual models).",
+        "four_model_oracle": "81.75% (Public), 82.06% (Private) (+12.3% over individual models).",
+        "shared_failure_fraction": "18.25% (Public), 17.94% (Private). Over 12% of error mass is model-specific and resolvable by architectural variation."
+      }
+    }
+  },
+  "verdict": "A5R_READY_FOR_BLINDED_HUMAN_REVIEW"
+}

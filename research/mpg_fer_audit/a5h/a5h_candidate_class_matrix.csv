@@ -1,0 +1,8 @@
+Dataset_Class \ Reviewer_Consensus,Angry,Disgust,Fear,Happy,Sad,Surprise,Neutral,Ambiguous,CannotJudge,No_Consensus
+Angry,0,0,0,0,0,1,2,0,0,5
+Disgust,2,0,0,0,0,0,0,0,0,5
+Fear,0,0,0,2,0,1,0,0,0,4
+Happy,0,0,0,4,0,0,0,0,0,3
+Sad,0,0,0,2,1,0,3,0,0,1
+Surprise,0,0,0,1,1,1,0,0,0,4
+Neutral,0,0,0,3,0,1,0,0,0,3

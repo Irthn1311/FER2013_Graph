@@ -1,0 +1,598 @@
+{
+  "public": {
+    "raw": {
+      "view": "raw",
+      "both_correct_count": 2123,
+      "both_correct_fraction": 0.5915296740039008,
+      "v21_only_correct_count": 297,
+      "v21_only_correct_fraction": 0.08275285594873223,
+      "v22_only_correct_count": 305,
+      "v22_only_correct_fraction": 0.08498188910560045,
+      "both_wrong_count": 864,
+      "both_wrong_fraction": 0.2407355809417665,
+      "both_wrong_same_pred_count": 593,
+      "both_wrong_same_pred_fraction_of_both_wrong": 0.6863425925925926,
+      "both_wrong_diff_pred_count": 271,
+      "both_wrong_diff_pred_fraction_of_both_wrong": 0.3136574074074074,
+      "prediction_agreement": 0.7567567567567568,
+      "cohen_kappa": 0.7055152224395134,
+      "error_set_jaccard": 0.5893587994542974,
+      "agreement_matrix_v21_rows_v22_cols": [
+        [
+          340,
+          5,
+          25,
+          14,
+          59,
+          7,
+          29
+        ],
+        [
+          9,
+          34,
+          3,
+          0,
+          7,
+          0,
+          0
+        ],
+        [
+          36,
+          2,
+          291,
+          10,
+          62,
+          20,
+          21
+        ],
+        [
+          19,
+          1,
+          15,
+          781,
+          17,
+          11,
+          38
+        ],
+        [
+          42,
+          4,
+          58,
+          26,
+          445,
+          2,
+          73
+        ],
+        [
+          10,
+          0,
+          24,
+          10,
+          6,
+          377,
+          10
+        ],
+        [
+          42,
+          1,
+          26,
+          46,
+          79,
+          4,
+          448
+        ]
+      ],
+      "per_class_breakdown": {
+        "Angry": {
+          "count": 467,
+          "both_correct": 241,
+          "v21_only_correct": 37,
+          "v22_only_correct": 50,
+          "both_wrong": 139,
+          "both_wrong_same_pred": 96,
+          "agreement_rate": 0.721627408993576
+        },
+        "Disgust": {
+          "count": 56,
+          "both_correct": 29,
+          "v21_only_correct": 2,
+          "v22_only_correct": 3,
+          "both_wrong": 22,
+          "both_wrong_same_pred": 10,
+          "agreement_rate": 0.6964285714285714
+        },
+        "Fear": {
+          "count": 496,
+          "both_correct": 207,
+          "v21_only_correct": 42,
+          "v22_only_correct": 44,
+          "both_wrong": 203,
+          "both_wrong_same_pred": 146,
+          "agreement_rate": 0.7116935483870968
+        },
+        "Happy": {
+          "count": 895,
+          "both_correct": 713,
+          "v21_only_correct": 37,
+          "v22_only_correct": 41,
+          "both_wrong": 104,
+          "both_wrong_same_pred": 76,
+          "agreement_rate": 0.8815642458100559
+        },
+        "Sad": {
+          "count": 653,
+          "both_correct": 294,
+          "v21_only_correct": 79,
+          "v22_only_correct": 94,
+          "both_wrong": 186,
+          "both_wrong_same_pred": 121,
+          "agreement_rate": 0.6355283307810107
+        },
+        "Surprise": {
+          "count": 415,
+          "both_correct": 325,
+          "v21_only_correct": 20,
+          "v22_only_correct": 17,
+          "both_wrong": 53,
+          "both_wrong_same_pred": 38,
+          "agreement_rate": 0.8746987951807229
+        },
+        "Neutral": {
+          "count": 607,
+          "both_correct": 314,
+          "v21_only_correct": 80,
+          "v22_only_correct": 56,
+          "both_wrong": 157,
+          "both_wrong_same_pred": 106,
+          "agreement_rate": 0.6919275123558485
+        }
+      }
+    },
+    "tta": {
+      "view": "tta",
+      "both_correct_count": 2256,
+      "both_correct_fraction": 0.6285873502368348,
+      "v21_only_correct_count": 230,
+      "v21_only_correct_fraction": 0.06408470325996099,
+      "v22_only_correct_count": 246,
+      "v22_only_correct_fraction": 0.06854276957369741,
+      "both_wrong_count": 857,
+      "both_wrong_fraction": 0.23878517692950682,
+      "both_wrong_same_pred_count": 633,
+      "both_wrong_same_pred_fraction_of_both_wrong": 0.7386231038506418,
+      "both_wrong_diff_pred_count": 224,
+      "both_wrong_diff_pred_fraction_of_both_wrong": 0.2613768961493582,
+      "prediction_agreement": 0.8049595987740318,
+      "cohen_kappa": 0.7636750611577674,
+      "error_set_jaccard": 0.6429107276819205,
+      "agreement_matrix_v21_rows_v22_cols": [
+        [
+          362,
+          2,
+          22,
+          13,
+          48,
+          5,
+          25
+        ],
+        [
+          8,
+          34,
+          3,
+          0,
+          2,
+          1,
+          0
+        ],
+        [
+          26,
+          3,
+          313,
+          9,
+          58,
+          16,
+          14
+        ],
+        [
+          12,
+          0,
+          6,
+          815,
+          13,
+          6,
+          29
+        ],
+        [
+          43,
+          7,
+          44,
+          25,
+          490,
+          4,
+          52
+        ],
+        [
+          7,
+          0,
+          24,
+          7,
+          4,
+          390,
+          6
+        ],
+        [
+          34,
+          2,
+          15,
+          29,
+          70,
+          6,
+          485
+        ]
+      ],
+      "per_class_breakdown": {
+        "Angry": {
+          "count": 467,
+          "both_correct": 253,
+          "v21_only_correct": 33,
+          "v22_only_correct": 40,
+          "both_wrong": 141,
+          "both_wrong_same_pred": 102,
+          "agreement_rate": 0.7601713062098501
+        },
+        "Disgust": {
+          "count": 56,
+          "both_correct": 30,
+          "v21_only_correct": 2,
+          "v22_only_correct": 3,
+          "both_wrong": 21,
+          "both_wrong_same_pred": 13,
+          "agreement_rate": 0.7678571428571429
+        },
+        "Fear": {
+          "count": 496,
+          "both_correct": 225,
+          "v21_only_correct": 32,
+          "v22_only_correct": 33,
+          "both_wrong": 206,
+          "both_wrong_same_pred": 156,
+          "agreement_rate": 0.7681451612903226
+        },
+        "Happy": {
+          "count": 895,
+          "both_correct": 740,
+          "v21_only_correct": 24,
+          "v22_only_correct": 34,
+          "both_wrong": 97,
+          "both_wrong_same_pred": 73,
+          "agreement_rate": 0.9083798882681564
+        },
+        "Sad": {
+          "count": 653,
+          "both_correct": 331,
+          "v21_only_correct": 65,
+          "v22_only_correct": 75,
+          "both_wrong": 182,
+          "both_wrong_same_pred": 138,
+          "agreement_rate": 0.7182235834609495
+        },
+        "Surprise": {
+          "count": 415,
+          "both_correct": 334,
+          "v21_only_correct": 14,
+          "v22_only_correct": 14,
+          "both_wrong": 53,
+          "both_wrong_same_pred": 35,
+          "agreement_rate": 0.8891566265060241
+        },
+        "Neutral": {
+          "count": 607,
+          "both_correct": 343,
+          "v21_only_correct": 60,
+          "v22_only_correct": 47,
+          "both_wrong": 157,
+          "both_wrong_same_pred": 116,
+          "agreement_rate": 0.7561779242174629
+        }
+      }
+    }
+  },
+  "private": {
+    "raw": {
+      "view": "raw",
+      "both_correct_count": 2154,
+      "both_correct_fraction": 0.6001671774867651,
+      "v21_only_correct_count": 294,
+      "v21_only_correct_fraction": 0.08191696851490667,
+      "v22_only_correct_count": 302,
+      "v22_only_correct_fraction": 0.08414600167177487,
+      "both_wrong_count": 839,
+      "both_wrong_fraction": 0.23376985232655337,
+      "both_wrong_same_pred_count": 589,
+      "both_wrong_same_pred_fraction_of_both_wrong": 0.7020262216924911,
+      "both_wrong_diff_pred_count": 250,
+      "both_wrong_diff_pred_fraction_of_both_wrong": 0.29797377830750893,
+      "prediction_agreement": 0.764279743661187,
+      "cohen_kappa": 0.7152559634782674,
+      "error_set_jaccard": 0.5846689895470383,
+      "agreement_matrix_v21_rows_v22_cols": [
+        [
+          350,
+          6,
+          27,
+          19,
+          52,
+          6,
+          33
+        ],
+        [
+          12,
+          47,
+          3,
+          1,
+          2,
+          0,
+          0
+        ],
+        [
+          37,
+          0,
+          303,
+          15,
+          62,
+          28,
+          30
+        ],
+        [
+          25,
+          1,
+          8,
+          781,
+          16,
+          8,
+          39
+        ],
+        [
+          47,
+          1,
+          65,
+          21,
+          418,
+          2,
+          71
+        ],
+        [
+          4,
+          0,
+          34,
+          11,
+          4,
+          362,
+          6
+        ],
+        [
+          31,
+          0,
+          22,
+          25,
+          66,
+          6,
+          482
+        ]
+      ],
+      "per_class_breakdown": {
+        "Angry": {
+          "count": 491,
+          "both_correct": 258,
+          "v21_only_correct": 41,
+          "v22_only_correct": 45,
+          "both_wrong": 147,
+          "both_wrong_same_pred": 102,
+          "agreement_rate": 0.7331975560081466
+        },
+        "Disgust": {
+          "count": 55,
+          "both_correct": 37,
+          "v21_only_correct": 5,
+          "v22_only_correct": 2,
+          "both_wrong": 11,
+          "both_wrong_same_pred": 8,
+          "agreement_rate": 0.8181818181818182
+        },
+        "Fear": {
+          "count": 528,
+          "both_correct": 210,
+          "v21_only_correct": 61,
+          "v22_only_correct": 52,
+          "both_wrong": 205,
+          "both_wrong_same_pred": 149,
+          "agreement_rate": 0.6799242424242424
+        },
+        "Happy": {
+          "count": 879,
+          "both_correct": 724,
+          "v21_only_correct": 40,
+          "v22_only_correct": 37,
+          "both_wrong": 78,
+          "both_wrong_same_pred": 57,
+          "agreement_rate": 0.888509670079636
+        },
+        "Sad": {
+          "count": 594,
+          "both_correct": 245,
+          "v21_only_correct": 73,
+          "v22_only_correct": 78,
+          "both_wrong": 198,
+          "both_wrong_same_pred": 142,
+          "agreement_rate": 0.6515151515151515
+        },
+        "Surprise": {
+          "count": 416,
+          "both_correct": 320,
+          "v21_only_correct": 24,
+          "v22_only_correct": 18,
+          "both_wrong": 54,
+          "both_wrong_same_pred": 36,
+          "agreement_rate": 0.8557692307692307
+        },
+        "Neutral": {
+          "count": 626,
+          "both_correct": 360,
+          "v21_only_correct": 50,
+          "v22_only_correct": 70,
+          "both_wrong": 146,
+          "both_wrong_same_pred": 95,
+          "agreement_rate": 0.7268370607028753
+        }
+      }
+    },
+    "tta": {
+      "view": "tta",
+      "both_correct_count": 2243,
+      "both_correct_fraction": 0.624965171356924,
+      "v21_only_correct_count": 267,
+      "v21_only_correct_fraction": 0.07439398161047646,
+      "v22_only_correct_count": 253,
+      "v22_only_correct_fraction": 0.0704931735859571,
+      "both_wrong_count": 826,
+      "both_wrong_fraction": 0.23014767344664253,
+      "both_wrong_same_pred_count": 600,
+      "both_wrong_same_pred_fraction_of_both_wrong": 0.7263922518159807,
+      "both_wrong_diff_pred_count": 226,
+      "both_wrong_diff_pred_fraction_of_both_wrong": 0.2736077481840194,
+      "prediction_agreement": 0.7921426581220395,
+      "cohen_kappa": 0.7488445689228275,
+      "error_set_jaccard": 0.6136701337295691,
+      "agreement_matrix_v21_rows_v22_cols": [
+        [
+          359,
+          3,
+          32,
+          15,
+          43,
+          6,
+          28
+        ],
+        [
+          8,
+          45,
+          4,
+          1,
+          2,
+          0,
+          1
+        ],
+        [
+          37,
+          1,
+          313,
+          8,
+          53,
+          23,
+          32
+        ],
+        [
+          17,
+          0,
+          5,
+          788,
+          16,
+          7,
+          26
+        ],
+        [
+          42,
+          2,
+          54,
+          21,
+          444,
+          2,
+          59
+        ],
+        [
+          4,
+          0,
+          23,
+          12,
+          3,
+          379,
+          8
+        ],
+        [
+          36,
+          0,
+          17,
+          28,
+          65,
+          2,
+          515
+        ]
+      ],
+      "per_class_breakdown": {
+        "Angry": {
+          "count": 491,
+          "both_correct": 265,
+          "v21_only_correct": 41,
+          "v22_only_correct": 40,
+          "both_wrong": 145,
+          "both_wrong_same_pred": 99,
+          "agreement_rate": 0.7413441955193483
+        },
+        "Disgust": {
+          "count": 55,
+          "both_correct": 37,
+          "v21_only_correct": 4,
+          "v22_only_correct": 1,
+          "both_wrong": 13,
+          "both_wrong_same_pred": 10,
+          "agreement_rate": 0.8545454545454545
+        },
+        "Fear": {
+          "count": 528,
+          "both_correct": 228,
+          "v21_only_correct": 53,
+          "v22_only_correct": 40,
+          "both_wrong": 207,
+          "both_wrong_same_pred": 161,
+          "agreement_rate": 0.7367424242424242
+        },
+        "Happy": {
+          "count": 879,
+          "both_correct": 730,
+          "v21_only_correct": 32,
+          "v22_only_correct": 39,
+          "both_wrong": 78,
+          "both_wrong_same_pred": 55,
+          "agreement_rate": 0.8930602957906713
+        },
+        "Sad": {
+          "count": 594,
+          "both_correct": 270,
+          "v21_only_correct": 64,
+          "v22_only_correct": 65,
+          "both_wrong": 195,
+          "both_wrong_same_pred": 145,
+          "agreement_rate": 0.6986531986531986
+        },
+        "Surprise": {
+          "count": 416,
+          "both_correct": 333,
+          "v21_only_correct": 19,
+          "v22_only_correct": 16,
+          "both_wrong": 48,
+          "both_wrong_same_pred": 32,
+          "agreement_rate": 0.8774038461538461
+        },
+        "Neutral": {
+          "count": 626,
+          "both_correct": 380,
+          "v21_only_correct": 54,
+          "v22_only_correct": 52,
+          "both_wrong": 140,
+          "both_wrong_same_pred": 98,
+          "agreement_rate": 0.7635782747603834
+        }
+      }
+    }
+  }
+}

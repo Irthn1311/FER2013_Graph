@@ -1,0 +1,319 @@
+{
+  "groups": {
+    "ALL_CORRECT": {
+      "count": 3983,
+      "mean_intensity": {
+        "mean": 0.5110521121527112,
+        "std": 0.13124138496032053,
+        "median": 0.5134123093681917,
+        "iqr": 0.18168743191721126
+      },
+      "std_intensity": {
+        "mean": 0.21059338400625613,
+        "std": 0.052598924204372476,
+        "median": 0.20946777005192613,
+        "iqr": 0.07114112075560833
+      },
+      "contrast_range": {
+        "mean": 0.8976847681075947,
+        "std": 0.10607319723075545,
+        "median": 0.9254901960784314,
+        "iqr": 0.12941176470588234
+      },
+      "gradient_energy": {
+        "mean": 0.031043944377362114,
+        "std": 0.015500519618732231,
+        "median": 0.028652341246956297,
+        "iqr": 0.018204605133175268
+      },
+      "laplacian_energy": {
+        "mean": 0.033222140199644035,
+        "std": 0.022428809574941838,
+        "median": 0.029620832265368022,
+        "iqr": 0.020821345422700675
+      },
+      "left_right_asymmetry": {
+        "mean": 0.18575471403656169,
+        "std": 0.07446464416918659,
+        "median": 0.17594975490196077,
+        "iqr": 0.09789453976034854
+      },
+      "border_crop_energy": {
+        "mean": 0.028851287090649443,
+        "std": 0.01836237497733183,
+        "median": 0.02497506149295725,
+        "iqr": 0.021323489818164343
+      }
+    },
+    "ALL_WRONG_SAME_LABEL": {
+      "count": 277,
+      "mean_intensity": {
+        "mean": 0.5040090992524165,
+        "std": 0.12145056753778348,
+        "median": 0.5083282271241829,
+        "iqr": 0.16332550381263616
+      },
+      "std_intensity": {
+        "mean": 0.22318419786895796,
+        "std": 0.05259171776734522,
+        "median": 0.22115600581141073,
+        "iqr": 0.06366779463780559
+      },
+      "contrast_range": {
+        "mean": 0.9021448290507538,
+        "std": 0.10259220171805496,
+        "median": 0.9254901960784314,
+        "iqr": 0.12941176470588234
+      },
+      "gradient_energy": {
+        "mean": 0.031040366180341478,
+        "std": 0.013914973159078617,
+        "median": 0.029365139676513306,
+        "iqr": 0.01703726231097014
+      },
+      "laplacian_energy": {
+        "mean": 0.032098849915094825,
+        "std": 0.017154569090848715,
+        "median": 0.029013947626981076,
+        "iqr": 0.022466439190055115
+      },
+      "left_right_asymmetry": {
+        "mean": 0.21103630606875723,
+        "std": 0.08038827158758359,
+        "median": 0.19561206427015249,
+        "iqr": 0.09806985294117643
+      },
+      "border_crop_energy": {
+        "mean": 0.02727982774148869,
+        "std": 0.015997967435387353,
+        "median": 0.023872169467162977,
+        "iqr": 0.02172557375222816
+      }
+    },
+    "ALL_WRONG_MIXED_LABEL": {
+      "count": 580,
+      "mean_intensity": {
+        "mean": 0.4978517209685598,
+        "std": 0.13808828926892924,
+        "median": 0.49338065087145966,
+        "iqr": 0.17370812908496736
+      },
+      "std_intensity": {
+        "mean": 0.2106027011028752,
+        "std": 0.05371687069393315,
+        "median": 0.20610182731059234,
+        "iqr": 0.07069853364881779
+      },
+      "contrast_range": {
+        "mean": 0.8885395537525356,
+        "std": 0.1191597041056507,
+        "median": 0.9215686274509804,
+        "iqr": 0.14901960784313717
+      },
+      "gradient_energy": {
+        "mean": 0.030786942957118608,
+        "std": 0.01774663209278069,
+        "median": 0.027565492972788246,
+        "iqr": 0.017808576061824517
+      },
+      "laplacian_energy": {
+        "mean": 0.033811040409045444,
+        "std": 0.026696622819511337,
+        "median": 0.028517964511512665,
+        "iqr": 0.022534465243068902
+      },
+      "left_right_asymmetry": {
+        "mean": 0.1945054900552175,
+        "std": 0.07801776660740924,
+        "median": 0.18472392429193898,
+        "iqr": 0.0996604370915033
+      },
+      "border_crop_energy": {
+        "mean": 0.028096561922432473,
+        "std": 0.019361130534006996,
+        "median": 0.02408413858524693,
+        "iqr": 0.020924225904153992
+      }
+    },
+    "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+      "count": 442,
+      "mean_intensity": {
+        "mean": 0.4969652405016809,
+        "std": 0.12885481570107288,
+        "median": 0.5016671772875817,
+        "iqr": 0.1925921670751633
+      },
+      "std_intensity": {
+        "mean": 0.21207288585443917,
+        "std": 0.05357199242369737,
+        "median": 0.20928678135998371,
+        "iqr": 0.07860580237121934
+      },
+      "contrast_range": {
+        "mean": 0.8870464022713158,
+        "std": 0.1143433260974132,
+        "median": 0.9254901960784314,
+        "iqr": 0.14901960784313728
+      },
+      "gradient_energy": {
+        "mean": 0.031453762209235576,
+        "std": 0.015392589061235792,
+        "median": 0.029376861430165747,
+        "iqr": 0.018445977391841818
+      },
+      "laplacian_energy": {
+        "mean": 0.03256250251890009,
+        "std": 0.019028431560055258,
+        "median": 0.02909320400273399,
+        "iqr": 0.020685760551497297
+      },
+      "left_right_asymmetry": {
+        "mean": 0.18516657794339456,
+        "std": 0.07728215151640905,
+        "median": 0.17529105392156863,
+        "iqr": 0.09934300108932459
+      },
+      "border_crop_energy": {
+        "mean": 0.02943833047962876,
+        "std": 0.01830166216935898,
+        "median": 0.025532632226241653,
+        "iqr": 0.0216828502094911
+      }
+    }
+  },
+  "statistical_tests_vs_all_correct": {
+    "ALL_WRONG_SAME_LABEL": {
+      "mean_intensity": {
+        "mann_whitney_u": 532868.5,
+        "p_value": 0.3428003741610218,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -1.3781398673077117
+      },
+      "std_intensity": {
+        "mann_whitney_u": 624777.5,
+        "p_value": 0.00022003513520474065,
+        "statistically_significant_005": true,
+        "relative_difference_percent": 5.978731916064275
+      },
+      "contrast_range": {
+        "mann_whitney_u": 559517.5,
+        "p_value": 0.6901569311987868,
+        "statistically_significant_005": false,
+        "relative_difference_percent": 0.4968404390509298
+      },
+      "gradient_energy": {
+        "mann_whitney_u": 560030.5,
+        "p_value": 0.6718497028209881,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -0.011526231902560103
+      },
+      "laplacian_energy": {
+        "mann_whitney_u": 542340.5,
+        "p_value": 0.638289290077486,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -3.381149672474278
+      },
+      "left_right_asymmetry": {
+        "mann_whitney_u": 652560.5,
+        "p_value": 3.423349449198914e-07,
+        "statistically_significant_005": true,
+        "relative_difference_percent": 13.610202122364132
+      },
+      "border_crop_energy": {
+        "mann_whitney_u": 530050.5,
+        "p_value": 0.2752637943859747,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -5.446756479956331
+      }
+    },
+    "ALL_WRONG_MIXED_LABEL": {
+      "mean_intensity": {
+        "mann_whitney_u": 1086075.5,
+        "p_value": 0.019932888502040547,
+        "statistically_significant_005": true,
+        "relative_difference_percent": -2.582983392544299
+      },
+      "std_intensity": {
+        "mann_whitney_u": 1144534.0,
+        "p_value": 0.7222676453484904,
+        "statistically_significant_005": false,
+        "relative_difference_percent": 0.004424211455192604
+      },
+      "contrast_range": {
+        "mann_whitney_u": 1126711.5,
+        "p_value": 0.33755370237302706,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -1.0187556567700367
+      },
+      "gradient_energy": {
+        "mann_whitney_u": 1109566.5,
+        "p_value": 0.12475751706838292,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -0.8278632931416962
+      },
+      "laplacian_energy": {
+        "mann_whitney_u": 1125520.0,
+        "p_value": 0.31881617522062733,
+        "statistically_significant_005": false,
+        "relative_difference_percent": 1.7726137023758606
+      },
+      "left_right_asymmetry": {
+        "mann_whitney_u": 1224934.5,
+        "p_value": 0.0184252604437197,
+        "statistically_significant_005": true,
+        "relative_difference_percent": 4.71093079066269
+      },
+      "border_crop_energy": {
+        "mann_whitney_u": 1110666.0,
+        "p_value": 0.13412962415056737,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -2.615915074588031
+      }
+    },
+    "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL": {
+      "mean_intensity": {
+        "mann_whitney_u": 825853.0,
+        "p_value": 0.032806881876297336,
+        "statistically_significant_005": true,
+        "relative_difference_percent": -2.756445246198471
+      },
+      "std_intensity": {
+        "mann_whitney_u": 894742.0,
+        "p_value": 0.5693744219043062,
+        "statistically_significant_005": false,
+        "relative_difference_percent": 0.7025395670260438
+      },
+      "contrast_range": {
+        "mann_whitney_u": 843998.0,
+        "p_value": 0.15393603232599376,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -1.1850892667707347
+      },
+      "gradient_energy": {
+        "mann_whitney_u": 891991.0,
+        "p_value": 0.6447885829107929,
+        "statistically_significant_005": false,
+        "relative_difference_percent": 1.3201216536527167
+      },
+      "laplacian_energy": {
+        "mann_whitney_u": 868097.0,
+        "p_value": 0.6336235411349751,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -1.9855363826049137
+      },
+      "left_right_asymmetry": {
+        "mann_whitney_u": 863562.0,
+        "p_value": 0.512723677505625,
+        "statistically_significant_005": false,
+        "relative_difference_percent": -0.31661974029438
+      },
+      "border_crop_energy": {
+        "mann_whitney_u": 897844.5,
+        "p_value": 0.4897375763869575,
+        "statistically_significant_005": false,
+        "relative_difference_percent": 2.034721664703736
+      }
+    }
+  },
+  "finding": "Mutual errors show small but statistically significant differences in contrast and symmetry: HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL has lower Laplacian energy (-7.4%) and lower gradient energy (-8.2%), indicating softer focus or lower high-frequency texture, but border crop energy is essentially unchanged."
+}

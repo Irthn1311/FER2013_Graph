@@ -1,0 +1,14 @@
+{
+  "public": {
+    "static_template_tta_acc": 0.6012816940651993,
+    "static_template_tta_f1": 0.553876482330811,
+    "delta_acc": -0.09139030593480069,
+    "delta_f1": -0.116708517669189
+  },
+  "private": {
+    "static_template_tta_acc": 0.6060183895235441,
+    "static_template_tta_f1": 0.5658056969788995,
+    "delta_acc": -0.09334061047645581,
+    "delta_f1": -0.12418930302110054
+  }
+}

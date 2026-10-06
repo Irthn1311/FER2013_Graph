@@ -1,0 +1,37 @@
+{
+  "status": "CONSISTENCY_PASS",
+  "total_checks": 6,
+  "passed_checks": 6,
+  "checks": [
+    {
+      "name": "provenance_and_hooks",
+      "passed": true,
+      "details": "Checkpoints and hooks verified"
+    },
+    {
+      "name": "single_stage_reproduction",
+      "passed": true,
+      "details": "All single stage probes match authoritative artifacts within 0.10pp"
+    },
+    {
+      "name": "public_decision_lock_firewall",
+      "passed": true,
+      "details": "Firewall respected; NO_V24_ARCHITECTURAL_TARGET locked"
+    },
+    {
+      "name": "final_decisions_alignment",
+      "passed": true,
+      "details": "Confirmatory status and final gate verdicts match across JSONs"
+    },
+    {
+      "name": "sample_csv_integrity",
+      "passed": true,
+      "details": "N=3589 exact sample alignment across Public and Private CSVs"
+    },
+    {
+      "name": "markdown_report_consistency",
+      "passed": true,
+      "details": "Markdown report matches locked verdicts"
+    }
+  ]
+}

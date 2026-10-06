@@ -1,0 +1,10 @@
+{
+  "v2.1": {
+    "reconstruction_max_abs_error": 0.0,
+    "valid": true
+  },
+  "v2.2": {
+    "reconstruction_max_abs_error": 0.0,
+    "valid": true
+  }
+}

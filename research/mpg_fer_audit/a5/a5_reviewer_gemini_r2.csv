@@ -1,0 +1,201 @@
+review_id,reviewer_perceived_class,confidence,image_quality,pose_issue,occlusion_issue,crop_alignment_issue,expression_intensity,multiple_emotion_plausible,notes
+REV_001,Neutral,3,Good,yes,no,no,Weak,yes,head tilted with upward gaze and closed relaxed lips
+REV_002,Fear,4,Good,no,no,no,Moderate,yes,raised inner eyebrows with parted lips and alarmed gaze
+REV_003,Neutral,5,Good,no,no,no,Weak,no,direct stare with level brow and closed resting mouth
+REV_004,Surprise,4,Moderate,no,no,yes,Moderate,yes,widened round eyes and open mouth in wonder
+REV_005,Sad,3,Good,no,no,no,Moderate,yes,lips tightly pressed and corners pulled downward with raised chin
+REV_006,Sad,3,Moderate,yes,yes,no,Weak,yes,head tilted resting on hand with downcast heavy eyelids
+REV_007,Surprise,4,Good,no,yes,no,Moderate,yes,raised eyebrows wide staring eyes and open mouth holding receiver
+REV_008,Sad,4,Good,yes,yes,no,Moderate,no,hand resting against temple with eyes cast downward in dejection
+REV_009,Sad,3,Moderate,yes,yes,yes,Weak,yes,profile angle with hand on forehead and downcast gaze
+REV_010,Happy,4,Moderate,no,no,no,Weak,yes,subtle upturned mouth corners with raised cheeks and direct eye contact
+REV_011,Sad,5,Good,no,yes,no,Strong,no,raised inner eyebrows with trembling downturned lower lip
+REV_012,Angry,5,Moderate,yes,yes,no,Strong,yes,furrowed brows narrowed glare and wide shouting mouth showing teeth
+REV_013,Happy,3,Good,no,no,yes,Moderate,yes,wide open bright eyes with cheeks lifted and parted smiling mouth
+REV_014,Happy,5,Good,no,no,no,Moderate,no,upturned lips with raised cheeks and engaged eye contact
+REV_015,Angry,5,Good,no,no,no,Strong,no,sharply furrowed eyebrows intense glare and pursed protruded lips
+REV_016,Angry,3,Good,yes,no,no,Moderate,yes,turned head with lowered brow and sullen protruding lower lip
+REV_017,Happy,3,Moderate,yes,yes,no,Strong,yes,hands covering eyes with mouth stretched wide showing teeth in laughter
+REV_018,Neutral,3,Good,no,yes,no,Weak,yes,hand to forehead with averted gaze and neutral resting mouth
+REV_019,Neutral,4,Good,no,no,no,Weak,yes,stern composed stare with firm closed lips and unmoving brow
+REV_020,Disgust,4,Good,no,no,no,Strong,yes,deeply scrunched nose raised upper lip and exposed teeth in grimace
+REV_021,Surprise,5,Good,no,no,no,Strong,yes,raised eyebrows with wide staring eyes and circular open mouth
+REV_022,Disgust,4,Good,no,no,no,Moderate,yes,wrinkled nose bridge with squinted eyes and bared upper teeth
+REV_023,Angry,5,Good,no,yes,no,Strong,no,steeply furrowed brow with narrowed glare and clenched fist near mouth
+REV_024,Sad,4,Good,no,no,no,Moderate,yes,downturned mouth corners with pensive furrowed brow and drooping eyelids
+REV_025,Fear,4,Good,yes,no,no,Moderate,yes,backward glance over shoulder with widened eyes and apprehensive parted lips
+REV_026,Happy,4,Good,yes,no,no,Moderate,yes,animated character illustration with arched brow and subtle closed smirk
+REV_027,Angry,4,Moderate,no,no,no,Strong,yes,intensely furrowed brow with hardened squint and firmly pressed scowling lips
+REV_028,Sad,5,Good,no,no,no,Strong,yes,pouting downturned mouth with trembling lower lip and tearful distressed eyes
+REV_029,Sad,4,Good,no,no,no,Moderate,yes,wrinkled forehead with troubled heavy eyes and subdued downturned mouth
+REV_030,Fear,4,Good,no,no,yes,Moderate,yes,wide glossy eyes gazing upward with parted lips and frozen expression
+REV_031,Sad,5,Good,no,no,no,Strong,no,deeply downturned arc of the mouth with trembling chin and teary eyes
+REV_032,Disgust,5,Good,no,no,no,Strong,yes,heavily scrunched nose bridge with tightly squinted eyes and bared clenched teeth
+REV_033,Happy,5,Good,no,no,no,Strong,yes,wide open laughing mouth with lifted apple cheeks and expansive bright eyes
+REV_034,Neutral,4,Good,no,no,no,Weak,yes,relaxed smooth forehead with direct gaze and very faint closed-lip smirk
+REV_035,Angry,5,Good,no,no,no,Strong,yes,sharply furrowed vertical brow lines with hard downward grimace behind glasses
+REV_036,Sad,4,Moderate,yes,yes,no,Moderate,yes,hand resting against face with lowered head and downcast closed eyelids
+REV_037,Neutral,4,Good,no,no,no,Weak,yes,unmoving horizontal mouth line with solemn steady gaze and relaxed brow
+REV_038,Neutral,5,Good,no,no,no,Weak,no,level resting gaze with relaxed brows and flat closed lips
+REV_039,Fear,5,Good,no,no,no,Strong,yes,bulging eyes showing sclera with raised trembling brows and agape tense mouth
+REV_040,Neutral,5,Good,no,no,no,Weak,yes,frontal resting facial muscles with horizontal mouth line and unexpressive stare
+REV_041,Angry,4,Good,no,no,no,Strong,no,furrowed brow and clenched bared teeth
+REV_042,Happy,3,Good,no,no,no,Weak,yes,slight smile with downward gaze behind glasses
+REV_043,Neutral,4,Good,yes,no,no,Weak,no,tilted head with neutral resting mouth
+REV_044,Happy,3,Good,yes,no,no,Weak,yes,slight upturned mouth corners and tilted head
+REV_045,Neutral,4,Good,no,no,no,Weak,yes,flat mouth line and relaxed facial muscles
+REV_046,Sad,2,Moderate,yes,no,yes,Moderate,yes,downward turned head with grimacing mouth
+REV_047,Happy,3,Moderate,yes,yes,no,Weak,yes,sideways glance with subtle closed-lip smirk
+REV_048,Neutral,3,Moderate,no,yes,no,Weak,yes,foreground obstruction with unexpressive mouth line
+REV_049,Neutral,4,Good,no,no,no,Weak,no,frontal gaze with neutral closed lips
+REV_050,Disgust,4,Good,no,no,no,Strong,yes,wrinkled nose and raised upper lip
+REV_051,Disgust,4,Good,no,no,no,Strong,yes,tightly squinted eyes and exposed clenched teeth
+REV_052,Sad,3,Good,yes,no,no,Moderate,yes,furrowed inner brow and parted dejected lips
+REV_053,Neutral,4,Good,no,no,no,Weak,no,steady direct gaze with resting closed lips
+REV_054,Disgust,3,Moderate,no,yes,no,Moderate,yes,raised asymmetrical upper lip and tense brow
+REV_055,Neutral,4,Good,no,no,no,Weak,yes,upward gaze with straight resting mouth
+REV_056,Surprise,3,Good,yes,no,no,Moderate,yes,tilted face with wide open mouth
+REV_057,Happy,4,Good,no,no,no,Strong,no,wide toothy smile with lifted cheeks
+REV_058,Happy,4,Good,no,no,no,Strong,no,open laughing mouth with eyes squinted shut
+REV_059,Disgust,4,Good,no,no,no,Strong,yes,pronounced downturned mouth and wrinkled chin
+REV_060,Sad,4,Good,no,no,no,Strong,yes,wide open crying mouth with eyes squeezed shut
+REV_061,Disgust,3,Good,no,no,no,Moderate,yes,pursed mouth and wrinkled nose
+REV_062,Neutral,4,Good,no,no,no,Weak,yes,direct stare with level lips
+REV_063,Sad,3,Moderate,yes,yes,no,Weak,yes,downcast gaze and hand supporting cheek
+REV_064,Fear,4,Good,yes,no,no,Strong,yes,wide eyes looking aside with open tense mouth
+REV_065,Happy,4,Moderate,yes,yes,no,Moderate,no,upturned smile with hand near chin
+REV_066,Happy,4,Moderate,no,no,no,Moderate,yes,crinkled eye corners with gentle smile
+REV_067,Sad,3,Good,no,yes,no,Moderate,yes,parted mouth and tense brow behind glasses
+REV_068,Neutral,3,Moderate,yes,no,no,Weak,yes,head tilted back with closed eyelids
+REV_069,Happy,4,Good,yes,yes,no,Moderate,no,wide smiling mouth under cap brim
+REV_070,Neutral,3,Good,no,no,no,Weak,yes,wide unblinking gaze and resting mouth line
+REV_071,Happy,3,Good,no,yes,no,Weak,yes,subtle corner lift of lips with glasses
+REV_072,Disgust,3,Moderate,no,no,no,Strong,yes,tightly scrunched face and pressed lips
+REV_073,Neutral,3,Moderate,yes,yes,yes,Weak,yes,shadowed face with resting straight lips
+REV_074,Angry,4,Good,no,no,no,Moderate,yes,furrowed brows and narrowed glaring eyes
+REV_075,Sad,4,Good,no,no,no,Moderate,yes,worried upward look and slightly parted lips
+REV_076,Angry,4,Good,no,no,no,Strong,yes,open grimacing mouth showing teeth with narrowed eyes
+REV_077,Happy,4,Good,no,no,no,Strong,no,wide open laughing mouth and squinted eyes
+REV_078,Ambiguous,2,Moderate,no,yes,no,Weak,yes,white sign obscuring lower mouth and chin
+REV_079,Disgust,4,Good,no,no,no,Strong,yes,bared clenched teeth and wrinkled nose bridge
+REV_080,Sad,3,Good,yes,no,no,Weak,yes,sideways glance with downturned mouth corners
+REV_081,Fear,3,Moderate,yes,no,no,Moderate,yes,parted mouth with upturned eyes and tense brow
+REV_082,Happy,4,Good,no,no,no,Moderate,no,raised cheeks with open smiling mouth
+REV_083,Sad,3,Moderate,no,yes,no,Moderate,yes,hands clasped over mouth with furrowed brow
+REV_084,Sad,3,Moderate,yes,yes,no,Moderate,yes,hands on temples with eyes cast downward
+REV_085,Fear,3,Good,no,no,no,Moderate,yes,eyes cut sideways with tight grimacing mouth
+REV_086,Fear,3,Moderate,yes,no,no,Moderate,yes,wide strained eyes with parted lower lip
+REV_087,Disgust,3,Good,yes,no,no,Moderate,yes,sideways glance with lower teeth bared in grimace
+REV_088,Fear,4,Good,no,yes,no,Moderate,yes,hands pulled to mouth with widened staring eyes
+REV_089,Disgust,4,Good,no,no,no,Strong,yes,closed squinted eyes with scrunched nose and clenched teeth
+REV_090,Neutral,3,Good,no,no,no,Weak,yes,slight upward gaze with relaxed resting mouth
+REV_091,Neutral,3,Good,no,no,no,Weak,yes,direct stare with level lips and slightly raised inner brow
+REV_092,Surprise,4,Good,no,no,no,Strong,yes,bulging round eyes with wide open circular mouth
+REV_093,Surprise,3,Good,no,no,no,Moderate,yes,wide unblinking eyes with slightly agape lips
+REV_094,Fear,4,Good,no,yes,no,Strong,yes,hands on sides of face with wide open screaming mouth
+REV_095,Fear,4,Good,yes,no,no,Strong,yes,head turned with wide open shouting mouth and tense brow
+REV_096,Surprise,4,Good,no,yes,no,Strong,yes,palms against cheeks with raised brows and open mouth
+REV_097,Angry,3,Good,yes,no,no,Moderate,yes,tilted head with furrowed brow and tightened lips
+REV_098,Disgust,4,Good,no,yes,no,Moderate,yes,squinted eyes behind glasses with wrinkled nose and bared teeth
+REV_099,Ambiguous,2,Good,no,no,no,Moderate,yes,eyes rolled upward with tense asymmetrical mouth
+REV_100,Happy,4,Good,yes,no,no,Moderate,no,downward gaze with upturned smiling lips and raised cheeks
+REV_101,Neutral,3,Moderate,no,no,no,Weak,yes,closed eyes with resting mouth in high-contrast light
+REV_102,Happy,5,Good,no,yes,no,Strong,no,wide open laugh with crinkled eyes and hands on cheeks
+REV_103,Disgust,4,Moderate,no,yes,no,Moderate,yes,scrunched nose and pursed lips behind glasses
+REV_104,Surprise,3,Good,no,no,no,Moderate,yes,bulging staring eyes with raised brow and tense straight lips
+REV_105,Neutral,4,Good,no,no,no,Weak,yes,straight resting mouth with calm forward gaze
+REV_106,Sad,4,Good,yes,yes,no,Moderate,yes,hand on temple with closed eyes and subdued lips
+REV_107,Happy,4,Good,yes,no,no,Strong,yes,wide open laughing mouth with raised cheeks
+REV_108,Happy,4,Good,no,yes,no,Weak,yes,subtle upturned mouth corners with direct gaze
+REV_109,Happy,4,Good,no,yes,no,Moderate,yes,hands cupping jaw with open-eyed gentle smile
+REV_110,Angry,3,Good,yes,no,no,Strong,yes,wide agape screaming mouth with squinted eyes in profile
+REV_111,Sad,3,Moderate,yes,yes,no,Weak,yes,hand covering chin with downcast eyes in pensive pose
+REV_112,Surprise,5,Good,no,no,no,Strong,no,circular open mouth with raised brows and wide stare
+REV_113,Disgust,4,Good,yes,no,no,Strong,yes,asymmetric sneering grimace with downturned mouth corner
+REV_114,Sad,4,Good,yes,yes,no,Moderate,yes,downcast somber gaze with hand propping chin
+REV_115,Angry,4,Good,no,no,no,Strong,yes,wide furious glare with open shouting mouth
+REV_116,Happy,5,Good,yes,no,no,Strong,no,tilted head with eyes squinted shut in broad laugh
+REV_117,Sad,4,Good,no,yes,no,Moderate,yes,hands at temples with furrowed brow and parted lips
+REV_118,Disgust,3,Good,yes,no,no,Moderate,yes,three-quarter profile with extended tongue and wrinkled nose
+REV_119,Happy,4,Poor,no,no,no,Moderate,no,smiling bared teeth visible despite dark underexposure
+REV_120,Disgust,4,Good,no,no,no,Strong,yes,eyes squinted shut with clenched bared teeth
+REV_121,Surprise,5,Good,no,no,no,Strong,yes,wide round eyes and circular open mouth
+REV_122,Happy,4,Good,no,no,no,Strong,yes,eyes wide open with large parted smile showing teeth
+REV_123,Sad,5,Good,no,no,no,Strong,yes,pouting downturned lips with furrowed distressed brow
+REV_124,Neutral,5,Good,no,no,no,Weak,no,direct level stare with horizontal resting mouth line
+REV_125,Surprise,3,Good,no,no,no,Moderate,yes,widened eyes with slightly raised brows and closed mouth
+REV_126,Sad,3,Good,no,yes,no,Moderate,yes,hands covering mouth and lower face with furrowed brow
+REV_127,Neutral,4,Good,no,no,no,Weak,yes,arched eyebrows with straight closed resting lips
+REV_128,Neutral,3,Good,yes,no,no,Weak,yes,head tilted upward in profile with resting mouth
+REV_129,Neutral,3,Moderate,yes,yes,no,Weak,yes,profile view with white object near mouth and downcast gaze
+REV_130,Sad,3,Moderate,yes,yes,no,Moderate,yes,tilted head with parted mouth and watermark text overlay
+REV_131,Neutral,4,Good,no,yes,no,Weak,yes,composed resting face with closed lips and watermark across cheeks
+REV_132,Surprise,4,Moderate,no,no,no,Moderate,yes,raised eyebrows and wide staring eyes with rounded open lips
+REV_133,Sad,3,Good,no,yes,no,Moderate,yes,hand over lower mouth with downcast closed eyelids
+REV_134,Sad,4,Good,yes,no,no,Strong,yes,deeply furrowed brow and downturned grimacing mouth
+REV_135,Happy,3,Moderate,no,yes,no,Weak,yes,hair framing face with faint smile and direct eye contact
+REV_136,Surprise,4,Good,no,yes,no,Strong,yes,eyes looking up with rounded open mouth and watermark overlay
+REV_137,Surprise,4,Good,no,no,no,Moderate,yes,parted open mouth with raised brows and downward gaze
+REV_138,Neutral,4,Good,yes,no,no,Weak,yes,firm set jaw with closed level lips and side-turned head
+REV_139,Angry,4,Good,no,no,no,Strong,yes,stylized rendering with deep downward frown and prominent nostrils
+REV_140,Happy,4,Moderate,no,yes,no,Strong,no,hands stretching cheeks with wide open grin and bright wide eyes
+REV_141,Sad,3,Good,no,no,no,Moderate,yes,downward gaze with furrowed brow and drooping mouth corners
+REV_142,Disgust,4,Good,no,yes,no,Strong,yes,squinted eyes with wrinkled nose and grimacing open mouth
+REV_143,Sad,4,Good,no,no,no,Moderate,yes,distressed furrowed brow and strained grimace showing lower teeth
+REV_144,Angry,4,Good,no,yes,no,Strong,yes,wide screaming open mouth with furrowed brow and aggressive expression
+REV_145,Surprise,4,Good,no,yes,no,Moderate,yes,raised arched eyebrows with widened eyes looking down
+REV_146,Happy,3,Good,yes,yes,no,Moderate,yes,upturned smiling mouth with hand resting against forehead
+REV_147,Happy,3,Good,no,no,no,Weak,yes,subtle closed smile with relaxed gaze behind glasses
+REV_148,Disgust,4,Good,no,no,yes,Strong,yes,heavily wrinkled nose bridge with eyes squeezed shut and pressed lips
+REV_149,Angry,5,Good,yes,no,no,Strong,no,sharply furrowed brow with narrowed glare and downturned scowl
+REV_150,Fear,4,Good,no,yes,no,Strong,yes,wide unblinking eyes with raised brows and open gasping mouth
+REV_151,Sad,3,Good,yes,no,no,Weak,yes,side profile with downcast eyes and subdued resting lips
+REV_152,Happy,5,Good,yes,no,no,Strong,no,wide open laughing mouth showing teeth with eyes squinted shut
+REV_153,Neutral,5,Good,no,no,no,Weak,yes,direct level stare with horizontal resting mouth line
+REV_154,Neutral,3,Good,yes,no,no,Weak,yes,three-quarter profile with soft distant gaze and neutral lips
+REV_155,Happy,5,Good,no,no,no,Moderate,no,warm closed-lip smile with lifted cheeks and direct gaze
+REV_156,Sad,4,Good,no,no,no,Moderate,yes,downcast heavy eyelids with pronounced downturned mouth corners
+REV_157,Happy,4,Good,no,no,no,Moderate,yes,open smiling mouth showing teeth with bright relaxed eyes
+REV_158,Happy,5,Good,no,yes,no,Strong,no,broad toothy smile with prominent cheek elevation and crinkled eyes
+REV_159,Surprise,3,Good,yes,yes,no,Moderate,yes,upward gaze with parted lips and gloved hand near jaw
+REV_160,Happy,4,Good,no,yes,no,Moderate,no,gentle smile with slightly parted lips and hand touching ear
+REV_161,Angry,4,Good,no,no,no,Moderate,yes,furrowed brow and scowling glare
+REV_162,Fear,4,Good,no,no,no,Moderate,yes,widened eyes and open screaming mouth
+REV_163,Disgust,3,Moderate,yes,no,no,Moderate,yes,tilted head with sneer
+REV_164,Disgust,4,Good,no,no,no,Moderate,yes,squinted eyes with bared teeth
+REV_165,Neutral,3,Moderate,no,yes,no,Weak,yes,solemn resting face in low light
+REV_166,Happy,4,Good,no,no,no,Moderate,no,open smiling mouth and raised cheeks
+REV_167,Happy,4,Good,no,no,no,Moderate,yes,subtle smile with lifted cheeks
+REV_168,Sad,3,Good,no,no,no,Weak,yes,closed eyes and drooping mouth
+REV_169,Disgust,3,Good,yes,yes,no,Moderate,yes,open grimace and crinkled nose
+REV_170,Neutral,3,Moderate,yes,yes,no,Weak,yes,downcast eyes and resting lips
+REV_171,Happy,4,Good,no,no,no,Moderate,no,broad smile and bright eyes
+REV_172,Angry,4,Moderate,no,yes,no,Moderate,yes,shadowed face with sharp glare
+REV_173,Fear,4,Good,yes,no,no,Moderate,yes,bulging eyes and open mouth
+REV_174,Neutral,3,Good,no,no,no,Weak,yes,calm gaze and relaxed lips
+REV_175,Disgust,4,Good,yes,no,no,Moderate,yes,asymmetric grimace with furrowed brow
+REV_176,Neutral,3,Good,no,no,no,Weak,yes,squinted eye with firm lips
+REV_177,Angry,4,Good,no,no,no,Moderate,yes,fierce glare with scowling mouth
+REV_178,Neutral,3,Good,yes,no,no,Weak,yes,closed eyes and resting pout
+REV_179,Surprise,3,Moderate,no,yes,no,Moderate,yes,open mouth and wide eyes
+REV_180,Neutral,4,Good,no,yes,no,Weak,yes,stern gaze with straight lips
+REV_181,Sad,3,Good,no,no,no,Weak,yes,downcast gaze with subdued mouth and heavy eyelids
+REV_182,Happy,4,Good,yes,no,no,Moderate,yes,three-quarter angle with subtle closed-mouth smile
+REV_183,Fear,4,Moderate,no,no,no,Strong,yes,wide staring eyes with raised brows and tense mouth
+REV_184,Sad,4,Good,no,yes,no,Moderate,yes,hand touching forehead with downcast eyes in distress
+REV_185,Sad,4,Moderate,yes,yes,no,Moderate,yes,hand covering face with lowered head in distress
+REV_186,Angry,4,Moderate,yes,yes,no,Moderate,yes,narrowed glare from beneath cap with tightened mouth
+REV_187,Happy,5,Good,no,no,no,Moderate,no,bright smile with visible teeth and elevated cheeks
+REV_188,Surprise,4,Good,yes,yes,no,Strong,yes,wide open mouth with lifted cheeks and wide eyes
+REV_189,Disgust,4,Good,yes,no,no,Strong,yes,scrunched nose with squinted eyes and exposed teeth
+REV_190,Happy,3,Good,no,no,no,Weak,yes,relaxed frontal face with faint closed-lip smile
+REV_191,Fear,4,Good,yes,yes,no,Moderate,yes,fingers to mouth with anxious gaze and furrowed brow
+REV_192,Neutral,4,Good,yes,no,no,Weak,yes,head turned over shoulder with level resting mouth
+REV_193,Neutral,5,Good,no,no,no,Weak,no,straight horizontal resting mouth with calm forward gaze
+REV_194,Angry,3,Good,no,yes,no,Moderate,yes,stern furrowed brow behind dark glasses with tense mouth
+REV_195,Happy,5,Good,yes,no,no,Strong,no,tilted head with broad open-mouthed infant smile
+REV_196,Neutral,3,Good,no,no,no,Weak,yes,subtle resting expression with slight smirk-like mouth
+REV_197,Happy,5,Good,yes,no,no,Strong,no,huge open-mouthed laughter showing teeth with crinkled eyes
+REV_198,Neutral,5,Good,no,no,no,Weak,no,direct frontal stare with completely relaxed lips and brow
+REV_199,Sad,4,Good,yes,yes,no,Moderate,yes,hand pressing forehead with closed eyes and downturned mouth
+REV_200,Happy,4,Good,yes,no,no,Moderate,yes,side profile with parted lips and lifted smiling cheeks

@@ -1,0 +1,2328 @@
+{
+  "full_network": {
+    "parameter_count": 2304528,
+    "relative_l2_diff": 0.7760565313352004,
+    "cosine_similarity": 0.7005654573440552
+  },
+  "modules": {
+    "pixel projection": {
+      "module": "pixel projection",
+      "parameter_count": 3360,
+      "relative_l2_diff": 0.12964210432998904,
+      "cosine_similarity": 0.9916015548571352,
+      "l2_diff": 1.6233797073364258,
+      "norm_v21": 12.52200984954834,
+      "norm_v22": 12.529587745666504
+    },
+    "pixel GNN blocks": {
+      "module": "pixel GNN blocks",
+      "parameter_count": 301536,
+      "relative_l2_diff": 0.5569231123016907,
+      "cosine_similarity": 0.8457233566210272,
+      "l2_diff": 29.19363021850586,
+      "norm_v21": 52.419498443603516,
+      "norm_v22": 52.687355041503906
+    },
+    "pixel readout": {
+      "module": "pixel readout",
+      "parameter_count": 38248,
+      "relative_l2_diff": 0.751543805921878,
+      "cosine_similarity": 0.7221560036349439,
+      "l2_diff": 15.353789329528809,
+      "norm_v21": 20.42966651916504,
+      "norm_v22": 20.755950927734375
+    },
+    "motif composer": {
+      "module": "motif composer",
+      "parameter_count": 51078,
+      "relative_l2_diff": 0.5095775675898797,
+      "cosine_similarity": 0.8704563786518023,
+      "l2_diff": 11.950058937072754,
+      "norm_v21": 23.450912475585938,
+      "norm_v22": 23.50313949584961
+    },
+    "scale gate": {
+      "module": "scale gate",
+      "parameter_count": 193,
+      "relative_l2_diff": 0.9550016221657921,
+      "cosine_similarity": 0.5799980055438858,
+      "l2_diff": 0.4605616331100464,
+      "norm_v21": 0.48226267099380493,
+      "norm_v22": 0.520082414150238
+    },
+    "motif block 1": {
+      "module": "motif block 1",
+      "parameter_count": 297066,
+      "relative_l2_diff": 0.8600601765415068,
+      "cosine_similarity": 0.6293933913893427,
+      "l2_diff": 33.63056945800781,
+      "norm_v21": 39.102577209472656,
+      "norm_v22": 39.022300720214844
+    },
+    "motif block 2": {
+      "module": "motif block 2",
+      "parameter_count": 297066,
+      "relative_l2_diff": 0.8498187379919432,
+      "cosine_similarity": 0.6426251202078692,
+      "l2_diff": 31.772018432617188,
+      "norm_v21": 37.386817932128906,
+      "norm_v22": 37.77012634277344
+    },
+    "motif block 3": {
+      "module": "motif block 3",
+      "parameter_count": 297066,
+      "relative_l2_diff": 0.8625649650862247,
+      "cosine_similarity": 0.632970002696357,
+      "l2_diff": 31.784852981567383,
+      "norm_v21": 36.84922790527344,
+      "norm_v22": 37.33978271484375
+    },
+    "motif block 4": {
+      "module": "motif block 4",
+      "parameter_count": 297066,
+      "relative_l2_diff": 0.8712821776984431,
+      "cosine_similarity": 0.6223049351798704,
+      "l2_diff": 32.156532287597656,
+      "norm_v21": 36.90713882446289,
+      "norm_v22": 37.08834457397461
+    },
+    "motif block 5": {
+      "module": "motif block 5",
+      "parameter_count": 297066,
+      "relative_l2_diff": 0.887757114278688,
+      "cosine_similarity": 0.6087810835607494,
+      "l2_diff": 32.680419921875,
+      "norm_v21": 36.81234359741211,
+      "norm_v22": 37.07661056518555
+    },
+    "motif readout": {
+      "module": "motif readout",
+      "parameter_count": 225224,
+      "relative_l2_diff": 0.8333704679399718,
+      "cosine_similarity": 0.6517328417026864,
+      "l2_diff": 25.675561904907227,
+      "norm_v21": 30.809301376342773,
+      "norm_v22": 30.719167709350586
+    },
+    "SupCon head": {
+      "module": "SupCon head",
+      "parameter_count": 65920,
+      "relative_l2_diff": 0.819321719000842,
+      "cosine_similarity": 0.6668334312315813,
+      "l2_diff": 14.956984519958496,
+      "norm_v21": 18.255325317382812,
+      "norm_v22": 18.389591217041016
+    },
+    "fusion/classifier": {
+      "module": "fusion/classifier",
+      "parameter_count": 133639,
+      "relative_l2_diff": 0.7259407340397185,
+      "cosine_similarity": 0.7365731094260269,
+      "l2_diff": 18.38848304748535,
+      "norm_v21": 25.330556869506836,
+      "norm_v22": 25.337078094482422
+    }
+  },
+  "per_tensor_details": [
+    {
+      "tensor_name": "pixel_proj.0.weight",
+      "module": "pixel projection",
+      "param_count": 3072,
+      "relative_l2_diff": 0.24235701068848062,
+      "cosine_similarity": 0.9707565628417634,
+      "norm_v21": 6.622621059417725,
+      "norm_v22": 6.649118900299072,
+      "l2_diff": 1.6050386428833008
+    },
+    {
+      "tensor_name": "pixel_proj.0.bias",
+      "module": "pixel projection",
+      "param_count": 96,
+      "relative_l2_diff": 0.15071172226119234,
+      "cosine_similarity": 0.9886932404211893,
+      "norm_v21": 0.9121310710906982,
+      "norm_v22": 0.915600061416626,
+      "l2_diff": 0.1374688446521759
+    },
+    {
+      "tensor_name": "pixel_proj.1.weight",
+      "module": "pixel projection",
+      "param_count": 96,
+      "relative_l2_diff": 0.015515377661976146,
+      "cosine_similarity": 0.9998798173319303,
+      "norm_v21": 10.583921432495117,
+      "norm_v22": 10.575894355773926,
+      "l2_diff": 0.16421353816986084
+    },
+    {
+      "tensor_name": "pixel_proj.1.bias",
+      "module": "pixel projection",
+      "param_count": 96,
+      "relative_l2_diff": 0.3846698071773319,
+      "cosine_similarity": 0.9267487194836896,
+      "norm_v21": 0.30035337805747986,
+      "norm_v22": 0.303181916475296,
+      "l2_diff": 0.1155368760228157
+    },
+    {
+      "tensor_name": "pixel_gnn.0.norm1.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.03088809419432624,
+      "cosine_similarity": 0.9995289880937942,
+      "norm_v21": 9.846055030822754,
+      "norm_v22": 9.80674934387207,
+      "l2_diff": 0.3041258752346039
+    },
+    {
+      "tensor_name": "pixel_gnn.0.norm1.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.3435034432110025,
+      "cosine_similarity": 0.9419734497669638,
+      "norm_v21": 0.44985929131507874,
+      "norm_v22": 0.45653244853019714,
+      "l2_diff": 0.15452821552753448
+    },
+    {
+      "tensor_name": "pixel_gnn.0.q_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.6387617308724621,
+      "cosine_similarity": 0.7955908607239619,
+      "norm_v21": 8.413029670715332,
+      "norm_v22": 8.396444320678711,
+      "l2_diff": 5.3739213943481445
+    },
+    {
+      "tensor_name": "pixel_gnn.0.q_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.4109993798377086,
+      "cosine_similarity": 0.9163563501243837,
+      "norm_v21": 0.8415517807006836,
+      "norm_v22": 0.8493372201919556,
+      "l2_diff": 0.3458772599697113
+    },
+    {
+      "tensor_name": "pixel_gnn.0.k_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.6327535448543293,
+      "cosine_similarity": 0.8008244562721119,
+      "norm_v21": 8.479777336120605,
+      "norm_v22": 8.522369384765625,
+      "l2_diff": 5.365609169006348
+    },
+    {
+      "tensor_name": "pixel_gnn.0.k_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.7286766810025785,
+      "cosine_similarity": 0.708555161009129,
+      "norm_v21": 0.7921187281608582,
+      "norm_v22": 0.7051992416381836,
+      "l2_diff": 0.5771984457969666
+    },
+    {
+      "tensor_name": "pixel_gnn.0.v_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.479152929725638,
+      "cosine_similarity": 0.8846847502446886,
+      "norm_v21": 6.9959211349487305,
+      "norm_v22": 6.963649272918701,
+      "l2_diff": 3.352116107940674
+    },
+    {
+      "tensor_name": "pixel_gnn.0.v_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.130720307175726,
+      "cosine_similarity": 0.9914345994059268,
+      "norm_v21": 0.588385820388794,
+      "norm_v22": 0.586595356464386,
+      "l2_diff": 0.0769139751791954
+    },
+    {
+      "tensor_name": "pixel_gnn.0.edge_bias.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 20,
+      "relative_l2_diff": 0.26612671582125563,
+      "cosine_similarity": 0.9640014274849859,
+      "norm_v21": 1.230116367340088,
+      "norm_v22": 1.1722394227981567,
+      "l2_diff": 0.32736682891845703
+    },
+    {
+      "tensor_name": "pixel_gnn.0.edge_bias.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 4,
+      "relative_l2_diff": 0.3105550900094387,
+      "cosine_similarity": 0.9528279624098211,
+      "norm_v21": 0.36474865674972534,
+      "norm_v22": 0.3715313971042633,
+      "l2_diff": 0.11327455192804337
+    },
+    {
+      "tensor_name": "pixel_gnn.0.edge_val.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 480,
+      "relative_l2_diff": 0.2407028784238552,
+      "cosine_similarity": 0.9715820906542375,
+      "norm_v21": 5.802558422088623,
+      "norm_v22": 5.891231060028076,
+      "l2_diff": 1.3966925144195557
+    },
+    {
+      "tensor_name": "pixel_gnn.0.edge_val.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.03370270668037604,
+      "cosine_similarity": 0.9994378632026135,
+      "norm_v21": 2.2861862182617188,
+      "norm_v22": 2.2770001888275146,
+      "l2_diff": 0.07705066353082657
+    },
+    {
+      "tensor_name": "pixel_gnn.0.out_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.5282197941812011,
+      "cosine_similarity": 0.8592486134832096,
+      "norm_v21": 6.685121536254883,
+      "norm_v22": 6.624091625213623,
+      "l2_diff": 3.5312135219573975
+    },
+    {
+      "tensor_name": "pixel_gnn.0.out_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.1667312851690645,
+      "cosine_similarity": 0.9863312037901061,
+      "norm_v21": 0.569279670715332,
+      "norm_v22": 0.5759954452514648,
+      "l2_diff": 0.09491673111915588
+    },
+    {
+      "tensor_name": "pixel_gnn.0.norm2.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.04202621978286778,
+      "cosine_similarity": 0.9991377801895633,
+      "norm_v21": 10.28200912475586,
+      "norm_v22": 10.340229988098145,
+      "l2_diff": 0.43211397528648376
+    },
+    {
+      "tensor_name": "pixel_gnn.0.norm2.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.27847968981039783,
+      "cosine_similarity": 0.9652235216141115,
+      "norm_v21": 0.9484959244728088,
+      "norm_v22": 1.0065232515335083,
+      "l2_diff": 0.2641368508338928
+    },
+    {
+      "tensor_name": "pixel_gnn.0.ffn.0.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 18432,
+      "relative_l2_diff": 0.6227557103673883,
+      "cosine_similarity": 0.8078404972226407,
+      "norm_v21": 11.359434127807617,
+      "norm_v22": 11.460701942443848,
+      "l2_diff": 7.07415246963501
+    },
+    {
+      "tensor_name": "pixel_gnn.0.ffn.0.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 192,
+      "relative_l2_diff": 0.1798360030888386,
+      "cosine_similarity": 0.984288649287831,
+      "norm_v21": 1.260407567024231,
+      "norm_v22": 1.283631682395935,
+      "l2_diff": 0.226666659116745
+    },
+    {
+      "tensor_name": "pixel_gnn.0.ffn.3.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 18432,
+      "relative_l2_diff": 0.8357284461105637,
+      "cosine_similarity": 0.6559288459364321,
+      "norm_v21": 8.524332046508789,
+      "norm_v22": 8.649252891540527,
+      "l2_diff": 7.124026775360107
+    },
+    {
+      "tensor_name": "pixel_gnn.0.ffn.3.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.31694573125760217,
+      "cosine_similarity": 0.9522447553162453,
+      "norm_v21": 0.34861892461776733,
+      "norm_v22": 0.3616027235984802,
+      "l2_diff": 0.11049327999353409
+    },
+    {
+      "tensor_name": "pixel_gnn.1.norm1.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.032040271252146785,
+      "cosine_similarity": 0.9994869092530038,
+      "norm_v21": 10.127501487731934,
+      "norm_v22": 10.114946365356445,
+      "l2_diff": 0.3244878947734833
+    },
+    {
+      "tensor_name": "pixel_gnn.1.norm1.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.35061164797699196,
+      "cosine_similarity": 0.9365944828096703,
+      "norm_v21": 0.3909372091293335,
+      "norm_v22": 0.3707410991191864,
+      "l2_diff": 0.13706713914871216
+    },
+    {
+      "tensor_name": "pixel_gnn.1.q_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.713856146311637,
+      "cosine_similarity": 0.7459513870168343,
+      "norm_v21": 8.756779670715332,
+      "norm_v22": 8.782370567321777,
+      "l2_diff": 6.2510809898376465
+    },
+    {
+      "tensor_name": "pixel_gnn.1.q_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.5279056882983871,
+      "cosine_similarity": 0.8681998646930412,
+      "norm_v21": 0.8585163950920105,
+      "norm_v22": 0.9000288844108582,
+      "l2_diff": 0.45321568846702576
+    },
+    {
+      "tensor_name": "pixel_gnn.1.k_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.7086770849433006,
+      "cosine_similarity": 0.7520201147312274,
+      "norm_v21": 8.730645179748535,
+      "norm_v22": 8.838239669799805,
+      "l2_diff": 6.18720817565918
+    },
+    {
+      "tensor_name": "pixel_gnn.1.k_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 1.0211384468063078,
+      "cosine_similarity": 0.592314917223801,
+      "norm_v21": 0.7076640129089355,
+      "norm_v22": 0.8631088733673096,
+      "l2_diff": 0.7226229310035706
+    },
+    {
+      "tensor_name": "pixel_gnn.1.v_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.5334205396164682,
+      "cosine_similarity": 0.8579553196806246,
+      "norm_v21": 7.001674175262451,
+      "norm_v22": 7.012652397155762,
+      "l2_diff": 3.7348368167877197
+    },
+    {
+      "tensor_name": "pixel_gnn.1.v_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.15525914565018142,
+      "cosine_similarity": 0.9879509530678471,
+      "norm_v21": 0.5456923842430115,
+      "norm_v22": 0.5458603501319885,
+      "l2_diff": 0.08472373336553574
+    },
+    {
+      "tensor_name": "pixel_gnn.1.edge_bias.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 20,
+      "relative_l2_diff": 0.2874358387076788,
+      "cosine_similarity": 0.9627397834288561,
+      "norm_v21": 1.0596890449523926,
+      "norm_v22": 1.1234221458435059,
+      "l2_diff": 0.3045926094055176
+    },
+    {
+      "tensor_name": "pixel_gnn.1.edge_bias.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 4,
+      "relative_l2_diff": 0.223614744413816,
+      "cosine_similarity": 0.9763365341965765,
+      "norm_v21": 0.5349196791648865,
+      "norm_v22": 0.4918302595615387,
+      "l2_diff": 0.11961592733860016
+    },
+    {
+      "tensor_name": "pixel_gnn.1.edge_val.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 480,
+      "relative_l2_diff": 0.2744036905565047,
+      "cosine_similarity": 0.9621897005196863,
+      "norm_v21": 6.094171047210693,
+      "norm_v22": 6.066454887390137,
+      "l2_diff": 1.6722630262374878
+    },
+    {
+      "tensor_name": "pixel_gnn.1.edge_val.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.036993026064200386,
+      "cosine_similarity": 0.9993156946664994,
+      "norm_v21": 2.29146671295166,
+      "norm_v22": 2.2910544872283936,
+      "l2_diff": 0.08476828783750534
+    },
+    {
+      "tensor_name": "pixel_gnn.1.out_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.5357421283012351,
+      "cosine_similarity": 0.8566059658249867,
+      "norm_v21": 6.830899238586426,
+      "norm_v22": 6.836410045623779,
+      "l2_diff": 3.6596004962921143
+    },
+    {
+      "tensor_name": "pixel_gnn.1.out_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.18374673889215432,
+      "cosine_similarity": 0.9836243005017993,
+      "norm_v21": 0.5761044025421143,
+      "norm_v22": 0.587278425693512,
+      "l2_diff": 0.10585730522871017
+    },
+    {
+      "tensor_name": "pixel_gnn.1.norm2.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.04704308290911769,
+      "cosine_similarity": 0.9988998964153187,
+      "norm_v21": 10.1301851272583,
+      "norm_v22": 10.156861305236816,
+      "l2_diff": 0.47655513882637024
+    },
+    {
+      "tensor_name": "pixel_gnn.1.norm2.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.2683923627243032,
+      "cosine_similarity": 0.9639712255376985,
+      "norm_v21": 1.3348461389541626,
+      "norm_v22": 1.334418773651123,
+      "l2_diff": 0.3582625091075897
+    },
+    {
+      "tensor_name": "pixel_gnn.1.ffn.0.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 18432,
+      "relative_l2_diff": 0.6565507946111739,
+      "cosine_similarity": 0.785761037012521,
+      "norm_v21": 11.19519329071045,
+      "norm_v22": 11.261722564697266,
+      "l2_diff": 7.350213050842285
+    },
+    {
+      "tensor_name": "pixel_gnn.1.ffn.0.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 192,
+      "relative_l2_diff": 0.15986508556076262,
+      "cosine_similarity": 0.98715317177421,
+      "norm_v21": 1.4193576574325562,
+      "norm_v22": 1.4086562395095825,
+      "l2_diff": 0.2269057333469391
+    },
+    {
+      "tensor_name": "pixel_gnn.1.ffn.3.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 18432,
+      "relative_l2_diff": 0.8365649458731035,
+      "cosine_similarity": 0.6507830970568876,
+      "norm_v21": 8.498123168945312,
+      "norm_v22": 8.515190124511719,
+      "l2_diff": 7.109231948852539
+    },
+    {
+      "tensor_name": "pixel_gnn.1.ffn.3.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.2789642710292183,
+      "cosine_similarity": 0.9606832591144083,
+      "norm_v21": 0.44634872674942017,
+      "norm_v22": 0.4408869743347168,
+      "l2_diff": 0.1245153471827507
+    },
+    {
+      "tensor_name": "pixel_gnn.2.norm1.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.03514381308523404,
+      "cosine_similarity": 0.9993836067810671,
+      "norm_v21": 9.915205001831055,
+      "norm_v22": 9.892539024353027,
+      "l2_diff": 0.34845811128616333
+    },
+    {
+      "tensor_name": "pixel_gnn.2.norm1.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.5916893782143852,
+      "cosine_similarity": 0.80782020318776,
+      "norm_v21": 0.326029509305954,
+      "norm_v22": 0.2802191376686096,
+      "l2_diff": 0.19290819764137268
+    },
+    {
+      "tensor_name": "pixel_gnn.2.q_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.7597242126162596,
+      "cosine_similarity": 0.7128437372979571,
+      "norm_v21": 8.862730026245117,
+      "norm_v22": 8.906614303588867,
+      "l2_diff": 6.7332305908203125
+    },
+    {
+      "tensor_name": "pixel_gnn.2.q_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.4527996440757572,
+      "cosine_similarity": 0.9080782201964341,
+      "norm_v21": 0.9428929090499878,
+      "norm_v22": 1.0185341835021973,
+      "l2_diff": 0.42694157361984253
+    },
+    {
+      "tensor_name": "pixel_gnn.2.k_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.7482906767356726,
+      "cosine_similarity": 0.7227257622024255,
+      "norm_v21": 8.800989151000977,
+      "norm_v22": 8.885090827941895,
+      "l2_diff": 6.585698127746582
+    },
+    {
+      "tensor_name": "pixel_gnn.2.k_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.8395949030771641,
+      "cosine_similarity": 0.6541471319654133,
+      "norm_v21": 0.8171563148498535,
+      "norm_v22": 0.8323581218719482,
+      "l2_diff": 0.686080276966095
+    },
+    {
+      "tensor_name": "pixel_gnn.2.v_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.5437739972315659,
+      "cosine_similarity": 0.8519378631854176,
+      "norm_v21": 6.776836395263672,
+      "norm_v22": 6.766852855682373,
+      "l2_diff": 3.6850674152374268
+    },
+    {
+      "tensor_name": "pixel_gnn.2.v_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.19608104021512768,
+      "cosine_similarity": 0.9806660467411096,
+      "norm_v21": 0.5623312592506409,
+      "norm_v22": 0.5584301352500916,
+      "l2_diff": 0.11026249825954437
+    },
+    {
+      "tensor_name": "pixel_gnn.2.edge_bias.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 20,
+      "relative_l2_diff": 0.3296325533218398,
+      "cosine_similarity": 0.9501906697280827,
+      "norm_v21": 1.281119704246521,
+      "norm_v22": 1.3548128604888916,
+      "l2_diff": 0.42229875922203064
+    },
+    {
+      "tensor_name": "pixel_gnn.2.edge_bias.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 4,
+      "relative_l2_diff": 0.4465213214977513,
+      "cosine_similarity": 0.8994619691056636,
+      "norm_v21": 0.28336283564567566,
+      "norm_v22": 0.22888310253620148,
+      "l2_diff": 0.1265275478363037
+    },
+    {
+      "tensor_name": "pixel_gnn.2.edge_val.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 480,
+      "relative_l2_diff": 0.2984227091643901,
+      "cosine_similarity": 0.9556695666565009,
+      "norm_v21": 6.085808277130127,
+      "norm_v22": 6.111696720123291,
+      "l2_diff": 1.8161433935165405
+    },
+    {
+      "tensor_name": "pixel_gnn.2.edge_val.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.04945489594487745,
+      "cosine_similarity": 0.9988122512338181,
+      "norm_v21": 2.23362398147583,
+      "norm_v22": 2.2120590209960938,
+      "l2_diff": 0.11046364158391953
+    },
+    {
+      "tensor_name": "pixel_gnn.2.out_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.5556711019955543,
+      "cosine_similarity": 0.844627239131073,
+      "norm_v21": 6.610218048095703,
+      "norm_v22": 6.567303657531738,
+      "l2_diff": 3.673107147216797
+    },
+    {
+      "tensor_name": "pixel_gnn.2.out_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.18279848033676516,
+      "cosine_similarity": 0.9840377259370368,
+      "norm_v21": 0.6023051738739014,
+      "norm_v22": 0.6178556084632874,
+      "l2_diff": 0.11010047048330307
+    },
+    {
+      "tensor_name": "pixel_gnn.2.norm2.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.051009680286906695,
+      "cosine_similarity": 0.9987218397316123,
+      "norm_v21": 9.995451927185059,
+      "norm_v22": 10.051424026489258,
+      "l2_diff": 0.5098648071289062
+    },
+    {
+      "tensor_name": "pixel_gnn.2.norm2.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.360125022115407,
+      "cosine_similarity": 0.9460625745364692,
+      "norm_v21": 1.2923147678375244,
+      "norm_v22": 1.4258147478103638,
+      "l2_diff": 0.46539488434791565
+    },
+    {
+      "tensor_name": "pixel_gnn.2.ffn.0.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 18432,
+      "relative_l2_diff": 0.6855097411807459,
+      "cosine_similarity": 0.7673717068896575,
+      "norm_v21": 11.029707908630371,
+      "norm_v22": 11.138056755065918,
+      "l2_diff": 7.560972213745117
+    },
+    {
+      "tensor_name": "pixel_gnn.2.ffn.0.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 192,
+      "relative_l2_diff": 0.17518787078544792,
+      "cosine_similarity": 0.9846085322544149,
+      "norm_v21": 1.433890700340271,
+      "norm_v22": 1.4290611743927002,
+      "l2_diff": 0.25120025873184204
+    },
+    {
+      "tensor_name": "pixel_gnn.2.ffn.3.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 18432,
+      "relative_l2_diff": 0.8653103332859413,
+      "cosine_similarity": 0.6336539916993424,
+      "norm_v21": 8.15470027923584,
+      "norm_v22": 8.328503608703613,
+      "l2_diff": 7.056346416473389
+    },
+    {
+      "tensor_name": "pixel_gnn.2.ffn.3.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.25995019595941293,
+      "cosine_similarity": 0.9656652216431585,
+      "norm_v21": 0.4416130483150482,
+      "norm_v22": 0.43048927187919617,
+      "l2_diff": 0.11479739844799042
+    },
+    {
+      "tensor_name": "pixel_gnn.3.norm1.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.04251325915836452,
+      "cosine_similarity": 0.9991093537630021,
+      "norm_v21": 9.875489234924316,
+      "norm_v22": 9.91787052154541,
+      "l2_diff": 0.4198392331600189
+    },
+    {
+      "tensor_name": "pixel_gnn.3.norm1.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.5772364096627827,
+      "cosine_similarity": 0.8264333415824874,
+      "norm_v21": 0.31460410356521606,
+      "norm_v22": 0.30003440380096436,
+      "l2_diff": 0.18160094320774078
+    },
+    {
+      "tensor_name": "pixel_gnn.3.q_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.7585901018814271,
+      "cosine_similarity": 0.718419053995206,
+      "norm_v21": 8.891186714172363,
+      "norm_v22": 9.078338623046875,
+      "l2_diff": 6.7447662353515625
+    },
+    {
+      "tensor_name": "pixel_gnn.3.q_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.5144610534524844,
+      "cosine_similarity": 0.8687765322120594,
+      "norm_v21": 0.8942147493362427,
+      "norm_v22": 0.9015597701072693,
+      "l2_diff": 0.4600386619567871
+    },
+    {
+      "tensor_name": "pixel_gnn.3.k_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.7620465855755909,
+      "cosine_similarity": 0.7144357292951728,
+      "norm_v21": 8.845263481140137,
+      "norm_v22": 8.989605903625488,
+      "l2_diff": 6.740502834320068
+    },
+    {
+      "tensor_name": "pixel_gnn.3.k_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.8904280265123563,
+      "cosine_similarity": 0.5661218385091339,
+      "norm_v21": 0.7820285558700562,
+      "norm_v22": 0.7060198187828064,
+      "l2_diff": 0.6963401436805725
+    },
+    {
+      "tensor_name": "pixel_gnn.3.v_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.5649412730602206,
+      "cosine_similarity": 0.8408211813131268,
+      "norm_v21": 6.72324275970459,
+      "norm_v22": 6.74003267288208,
+      "l2_diff": 3.7982373237609863
+    },
+    {
+      "tensor_name": "pixel_gnn.3.v_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.27364810852179755,
+      "cosine_similarity": 0.9654964341628484,
+      "norm_v21": 0.5398356914520264,
+      "norm_v22": 0.5665894150733948,
+      "l2_diff": 0.14772501587867737
+    },
+    {
+      "tensor_name": "pixel_gnn.3.edge_bias.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 20,
+      "relative_l2_diff": 0.28557480564178317,
+      "cosine_similarity": 0.9585879906631284,
+      "norm_v21": 1.349766492843628,
+      "norm_v22": 1.3223061561584473,
+      "l2_diff": 0.385459303855896
+    },
+    {
+      "tensor_name": "pixel_gnn.3.edge_bias.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 4,
+      "relative_l2_diff": 0.6168982178468486,
+      "cosine_similarity": 0.8343142201303456,
+      "norm_v21": 0.3370135724544525,
+      "norm_v22": 0.3744761347770691,
+      "l2_diff": 0.20790307223796844
+    },
+    {
+      "tensor_name": "pixel_gnn.3.edge_val.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 480,
+      "relative_l2_diff": 0.3001370441231676,
+      "cosine_similarity": 0.9569141081122217,
+      "norm_v21": 6.123992919921875,
+      "norm_v22": 6.325196266174316,
+      "l2_diff": 1.838037133216858
+    },
+    {
+      "tensor_name": "pixel_gnn.3.edge_val.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.06558006613690769,
+      "cosine_similarity": 0.9980795455108112,
+      "norm_v21": 2.2548794746398926,
+      "norm_v22": 2.2020061016082764,
+      "l2_diff": 0.14787514507770538
+    },
+    {
+      "tensor_name": "pixel_gnn.3.out_proj.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 9216,
+      "relative_l2_diff": 0.5658069226719731,
+      "cosine_similarity": 0.8403568441431007,
+      "norm_v21": 6.468706130981445,
+      "norm_v22": 6.485808849334717,
+      "l2_diff": 3.660038709640503
+    },
+    {
+      "tensor_name": "pixel_gnn.3.out_proj.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.22081041803634127,
+      "cosine_similarity": 0.9753176816721963,
+      "norm_v21": 0.6067248582839966,
+      "norm_v22": 0.592557966709137,
+      "l2_diff": 0.13397116959095
+    },
+    {
+      "tensor_name": "pixel_gnn.3.norm2.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.04822658902178153,
+      "cosine_similarity": 0.9988378638452433,
+      "norm_v21": 9.957597732543945,
+      "norm_v22": 9.92939281463623,
+      "l2_diff": 0.4802209734916687
+    },
+    {
+      "tensor_name": "pixel_gnn.3.norm2.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.32964548554090883,
+      "cosine_similarity": 0.9471976175988175,
+      "norm_v21": 1.5373504161834717,
+      "norm_v22": 1.573752760887146,
+      "l2_diff": 0.5067806243896484
+    },
+    {
+      "tensor_name": "pixel_gnn.3.ffn.0.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 18432,
+      "relative_l2_diff": 0.6830304492904149,
+      "cosine_similarity": 0.766467032353837,
+      "norm_v21": 10.974024772644043,
+      "norm_v22": 10.961419105529785,
+      "l2_diff": 7.495593070983887
+    },
+    {
+      "tensor_name": "pixel_gnn.3.ffn.0.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 192,
+      "relative_l2_diff": 0.18683870720494516,
+      "cosine_similarity": 0.9828992365895972,
+      "norm_v21": 1.430959701538086,
+      "norm_v22": 1.4517370462417603,
+      "l2_diff": 0.267358660697937
+    },
+    {
+      "tensor_name": "pixel_gnn.3.ffn.3.weight",
+      "module": "pixel GNN blocks",
+      "param_count": 18432,
+      "relative_l2_diff": 0.8352286104466995,
+      "cosine_similarity": 0.6549562604594074,
+      "norm_v21": 8.11745834350586,
+      "norm_v22": 8.204562187194824,
+      "l2_diff": 6.779933452606201
+    },
+    {
+      "tensor_name": "pixel_gnn.3.ffn.3.bias",
+      "module": "pixel GNN blocks",
+      "param_count": 96,
+      "relative_l2_diff": 0.3381963720033145,
+      "cosine_similarity": 0.941401834699762,
+      "norm_v21": 0.41775214672088623,
+      "norm_v22": 0.382919043302536,
+      "l2_diff": 0.14128226041793823
+    },
+    {
+      "tensor_name": "pixel_attn_pool.weight",
+      "module": "pixel readout",
+      "param_count": 96,
+      "relative_l2_diff": 0.5469147126149226,
+      "cosine_similarity": 0.8439129648639452,
+      "norm_v21": 0.9920476675033569,
+      "norm_v22": 0.9426803588867188,
+      "l2_diff": 0.5425654649734497
+    },
+    {
+      "tensor_name": "pixel_attn_pool.bias",
+      "module": "pixel readout",
+      "param_count": 1,
+      "relative_l2_diff": 5.495422062255648,
+      "cosine_similarity": 1.0000000085763885,
+      "norm_v21": 0.020060937851667404,
+      "norm_v22": 0.1303042620420456,
+      "l2_diff": 0.11024332046508789
+    },
+    {
+      "tensor_name": "pixel_readout_proj.0.weight",
+      "module": "pixel readout",
+      "param_count": 36864,
+      "relative_l2_diff": 0.9235054048991634,
+      "cosine_similarity": 0.5852142494370499,
+      "norm_v21": 16.355510711669922,
+      "norm_v22": 16.800138473510742,
+      "l2_diff": 15.104402542114258
+    },
+    {
+      "tensor_name": "pixel_readout_proj.0.bias",
+      "module": "pixel readout",
+      "param_count": 128,
+      "relative_l2_diff": 0.19425526129671652,
+      "cosine_similarity": 0.9814453663334816,
+      "norm_v21": 0.42603981494903564,
+      "norm_v22": 0.43140527606010437,
+      "l2_diff": 0.08276047557592392
+    },
+    {
+      "tensor_name": "pixel_readout_proj.1.weight",
+      "module": "pixel readout",
+      "param_count": 128,
+      "relative_l2_diff": 0.07511163912478318,
+      "cosine_similarity": 0.9971755023814586,
+      "norm_v21": 11.564908027648926,
+      "norm_v22": 11.540421485900879,
+      "l2_diff": 0.8686591982841492
+    },
+    {
+      "tensor_name": "pixel_readout_proj.1.bias",
+      "module": "pixel readout",
+      "param_count": 128,
+      "relative_l2_diff": 0.37069842851088636,
+      "cosine_similarity": 0.9289227180459714,
+      "norm_v21": 1.7458993196487427,
+      "norm_v22": 1.590827465057373,
+      "l2_diff": 0.6472021341323853
+    },
+    {
+      "tensor_name": "aux_pixel_head.weight",
+      "module": "pixel readout",
+      "param_count": 896,
+      "relative_l2_diff": 0.7170801497012234,
+      "cosine_similarity": 0.7413032834844583,
+      "norm_v21": 3.446572780609131,
+      "norm_v22": 3.425065517425537,
+      "l2_diff": 2.471468925476074
+    },
+    {
+      "tensor_name": "aux_pixel_head.bias",
+      "module": "pixel readout",
+      "param_count": 7,
+      "relative_l2_diff": 0.17288735425808108,
+      "cosine_similarity": 0.9858061154147347,
+      "norm_v21": 0.1685764044523239,
+      "norm_v22": 0.17314176261425018,
+      "l2_diff": 0.029144728556275368
+    },
+    {
+      "tensor_name": "motif_composer.prototypes",
+      "module": "motif composer",
+      "param_count": 4608,
+      "relative_l2_diff": 0.36073500569233674,
+      "cosine_similarity": 0.9347183646794155,
+      "norm_v21": 7.649654388427734,
+      "norm_v22": 7.623539924621582,
+      "l2_diff": 2.759498119354248
+    },
+    {
+      "tensor_name": "motif_composer.scale_confidence",
+      "module": "motif composer",
+      "param_count": 3,
+      "relative_l2_diff": 0.022697816065025703,
+      "cosine_similarity": 0.9999153614449505,
+      "norm_v21": 1.4759712219238281,
+      "norm_v22": 1.5032973289489746,
+      "l2_diff": 0.03350132331252098
+    },
+    {
+      "tensor_name": "motif_composer.assignment_query.weight",
+      "module": "motif composer",
+      "param_count": 9216,
+      "relative_l2_diff": 1.0609576926705118,
+      "cosine_similarity": 0.4371076658240488,
+      "norm_v21": 7.043501853942871,
+      "norm_v22": 7.042539596557617,
+      "l2_diff": 7.472857475280762
+    },
+    {
+      "tensor_name": "motif_composer.prototype_key.weight",
+      "module": "motif composer",
+      "param_count": 9216,
+      "relative_l2_diff": 0.7465095409779361,
+      "cosine_similarity": 0.7210627905948128,
+      "norm_v21": 7.090551376342773,
+      "norm_v22": 7.082937240600586,
+      "l2_diff": 5.293164253234863
+    },
+    {
+      "tensor_name": "motif_composer.scale_saliency.8.weight",
+      "module": "motif composer",
+      "param_count": 96,
+      "relative_l2_diff": 0.35802392224076357,
+      "cosine_similarity": 0.9337306278048805,
+      "norm_v21": 0.3416830003261566,
+      "norm_v22": 0.32102668285369873,
+      "l2_diff": 0.1223306879401207
+    },
+    {
+      "tensor_name": "motif_composer.scale_saliency.8.bias",
+      "module": "motif composer",
+      "param_count": 1,
+      "relative_l2_diff": 1.2311038215463108,
+      "cosine_similarity": -0.9999999889546666,
+      "norm_v21": 0.04808375611901283,
+      "norm_v22": 0.011112338863313198,
+      "l2_diff": 0.059196095913648605
+    },
+    {
+      "tensor_name": "motif_composer.scale_saliency.12.weight",
+      "module": "motif composer",
+      "param_count": 96,
+      "relative_l2_diff": 0.32937164224074944,
+      "cosine_similarity": 0.9446556997526736,
+      "norm_v21": 0.447238951921463,
+      "norm_v22": 0.4356030225753784,
+      "l2_diff": 0.14730782806873322
+    },
+    {
+      "tensor_name": "motif_composer.scale_saliency.12.bias",
+      "module": "motif composer",
+      "param_count": 1,
+      "relative_l2_diff": 10.78149924965344,
+      "cosine_similarity": -1.0000000354601664,
+      "norm_v21": 0.007087289355695248,
+      "norm_v22": 0.0693243145942688,
+      "l2_diff": 0.07641160488128662
+    },
+    {
+      "tensor_name": "motif_composer.scale_saliency.16.weight",
+      "module": "motif composer",
+      "param_count": 96,
+      "relative_l2_diff": 0.350258728095855,
+      "cosine_similarity": 0.9431771943714119,
+      "norm_v21": 0.46371155977249146,
+      "norm_v22": 0.4887157678604126,
+      "l2_diff": 0.16241902112960815
+    },
+    {
+      "tensor_name": "motif_composer.scale_saliency.16.bias",
+      "module": "motif composer",
+      "param_count": 1,
+      "relative_l2_diff": 0.25816073235598896,
+      "cosine_similarity": 1.000000036165605,
+      "norm_v21": 0.11675819754600525,
+      "norm_v22": 0.14690057933330536,
+      "l2_diff": 0.03014238178730011
+    },
+    {
+      "tensor_name": "motif_composer.type_proj.0.weight",
+      "module": "motif composer",
+      "param_count": 1536,
+      "relative_l2_diff": 0.17764328578722502,
+      "cosine_similarity": 0.9841636150025341,
+      "norm_v21": 4.4308905601501465,
+      "norm_v22": 4.412250995635986,
+      "l2_diff": 0.7871179580688477
+    },
+    {
+      "tensor_name": "motif_composer.type_proj.0.bias",
+      "module": "motif composer",
+      "param_count": 32,
+      "relative_l2_diff": 0.07461626550878955,
+      "cosine_similarity": 0.9972248486489869,
+      "norm_v21": 0.7707172632217407,
+      "norm_v22": 0.7647301554679871,
+      "l2_diff": 0.05750804394483566
+    },
+    {
+      "tensor_name": "motif_composer.type_proj.1.weight",
+      "module": "motif composer",
+      "param_count": 32,
+      "relative_l2_diff": 0.040411832922324864,
+      "cosine_similarity": 0.9992093039735449,
+      "norm_v21": 4.950710773468018,
+      "norm_v22": 4.982625484466553,
+      "l2_diff": 0.20006729662418365
+    },
+    {
+      "tensor_name": "motif_composer.type_proj.1.bias",
+      "module": "motif composer",
+      "param_count": 32,
+      "relative_l2_diff": 0.10807274387953887,
+      "cosine_similarity": 0.994148641169296,
+      "norm_v21": 0.9791839122772217,
+      "norm_v22": 0.9701568484306335,
+      "l2_diff": 0.1058230921626091
+    },
+    {
+      "tensor_name": "motif_composer.occurrence_proj.0.weight",
+      "module": "motif composer",
+      "param_count": 25536,
+      "relative_l2_diff": 0.6581342583303906,
+      "cosine_similarity": 0.7845358073503047,
+      "norm_v21": 10.724075317382812,
+      "norm_v22": 10.778489112854004,
+      "l2_diff": 7.0578813552856445
+    },
+    {
+      "tensor_name": "motif_composer.occurrence_proj.0.bias",
+      "module": "motif composer",
+      "param_count": 192,
+      "relative_l2_diff": 0.3320204784835733,
+      "cosine_similarity": 0.9434863987672735,
+      "norm_v21": 0.7524537444114685,
+      "norm_v22": 0.7250580191612244,
+      "l2_diff": 0.24983005225658417
+    },
+    {
+      "tensor_name": "motif_composer.occurrence_proj.1.weight",
+      "module": "motif composer",
+      "param_count": 192,
+      "relative_l2_diff": 0.0483110163322328,
+      "cosine_similarity": 0.998843360017998,
+      "norm_v21": 15.068326950073242,
+      "norm_v22": 15.12191390991211,
+      "l2_diff": 0.7279661893844604
+    },
+    {
+      "tensor_name": "motif_composer.occurrence_proj.1.bias",
+      "module": "motif composer",
+      "param_count": 192,
+      "relative_l2_diff": 0.5928931700013532,
+      "cosine_similarity": 0.825597708211922,
+      "norm_v21": 0.7026630640029907,
+      "norm_v22": 0.7080208659172058,
+      "l2_diff": 0.4166041314601898
+    },
+    {
+      "tensor_name": "motif_composer.scale_gate.weight",
+      "module": "scale gate",
+      "param_count": 192,
+      "relative_l2_diff": 0.9579551182729078,
+      "cosine_similarity": 0.5828097973830435,
+      "norm_v21": 0.47693702578544617,
+      "norm_v22": 0.5199100375175476,
+      "l2_diff": 0.4568842649459839
+    },
+    {
+      "tensor_name": "motif_composer.scale_gate.bias",
+      "module": "scale gate",
+      "param_count": 1,
+      "relative_l2_diff": 0.8126756309832254,
+      "cosine_similarity": 1.0000000132656852,
+      "norm_v21": 0.07147275656461716,
+      "norm_v22": 0.013388590887188911,
+      "l2_diff": 0.058084167540073395
+    },
+    {
+      "tensor_name": "motif_gnn.0.norm1.weight",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.06345363774457854,
+      "cosine_similarity": 0.9980166159841766,
+      "norm_v21": 12.634109497070312,
+      "norm_v22": 12.5082426071167,
+      "l2_diff": 0.8016802072525024
+    },
+    {
+      "tensor_name": "motif_gnn.0.norm1.bias",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.6688396747804489,
+      "cosine_similarity": 0.7842230254681372,
+      "norm_v21": 1.0923362970352173,
+      "norm_v22": 1.1293959617614746,
+      "l2_diff": 0.7305978536605835
+    },
+    {
+      "tensor_name": "motif_gnn.0.q_proj.weight",
+      "module": "motif block 1",
+      "param_count": 36864,
+      "relative_l2_diff": 0.960209303208353,
+      "cosine_similarity": 0.5314054516955838,
+      "norm_v21": 11.706548690795898,
+      "norm_v22": 11.513446807861328,
+      "l2_diff": 11.240736961364746
+    },
+    {
+      "tensor_name": "motif_gnn.0.q_proj.bias",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.7266363425759743,
+      "cosine_similarity": 0.7262245869557534,
+      "norm_v21": 0.9810770153999329,
+      "norm_v22": 0.9434053301811218,
+      "l2_diff": 0.7128862142562866
+    },
+    {
+      "tensor_name": "motif_gnn.0.k_proj.weight",
+      "module": "motif block 1",
+      "param_count": 36864,
+      "relative_l2_diff": 0.9652067034010507,
+      "cosine_similarity": 0.5301086676404249,
+      "norm_v21": 12.046733856201172,
+      "norm_v22": 11.941165924072266,
+      "l2_diff": 11.627588272094727
+    },
+    {
+      "tensor_name": "motif_gnn.0.k_proj.bias",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.9645005924155291,
+      "cosine_similarity": 0.47752021104543363,
+      "norm_v21": 0.9518970251083374,
+      "norm_v22": 0.8332650065422058,
+      "l2_diff": 0.9181052446365356
+    },
+    {
+      "tensor_name": "motif_gnn.0.v_proj.weight",
+      "module": "motif block 1",
+      "param_count": 36864,
+      "relative_l2_diff": 0.8740292399871975,
+      "cosine_similarity": 0.6175172961151596,
+      "norm_v21": 11.295631408691406,
+      "norm_v22": 11.280274391174316,
+      "l2_diff": 9.872712135314941
+    },
+    {
+      "tensor_name": "motif_gnn.0.v_proj.bias",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.44327570497197044,
+      "cosine_similarity": 0.9051319424387517,
+      "norm_v21": 0.6036620140075684,
+      "norm_v22": 0.6221703886985779,
+      "l2_diff": 0.26758870482444763
+    },
+    {
+      "tensor_name": "motif_gnn.0.geom_proj.weight",
+      "module": "motif block 1",
+      "param_count": 36,
+      "relative_l2_diff": 0.3086640461395413,
+      "cosine_similarity": 0.9529347116643642,
+      "norm_v21": 2.329056978225708,
+      "norm_v22": 2.3544068336486816,
+      "l2_diff": 0.7188961505889893
+    },
+    {
+      "tensor_name": "motif_gnn.0.geom_proj.bias",
+      "module": "motif block 1",
+      "param_count": 6,
+      "relative_l2_diff": 0.3611117351092752,
+      "cosine_similarity": 0.9345853914756026,
+      "norm_v21": 0.5890427827835083,
+      "norm_v22": 0.587067186832428,
+      "l2_diff": 0.21271026134490967
+    },
+    {
+      "tensor_name": "motif_gnn.0.out_proj.weight",
+      "module": "motif block 1",
+      "param_count": 36864,
+      "relative_l2_diff": 0.8163192806633839,
+      "cosine_similarity": 0.6659077075194977,
+      "norm_v21": 10.950218200683594,
+      "norm_v22": 10.920458793640137,
+      "l2_diff": 8.938874244689941
+    },
+    {
+      "tensor_name": "motif_gnn.0.out_proj.bias",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.46631780116839266,
+      "cosine_similarity": 0.8950700865866262,
+      "norm_v21": 0.9222747683525085,
+      "norm_v22": 0.9512917995452881,
+      "l2_diff": 0.4300731420516968
+    },
+    {
+      "tensor_name": "motif_gnn.0.norm2.weight",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.05935520705251291,
+      "cosine_similarity": 0.9982377783807435,
+      "norm_v21": 14.051682472229004,
+      "norm_v22": 14.045499801635742,
+      "l2_diff": 0.8340405225753784
+    },
+    {
+      "tensor_name": "motif_gnn.0.norm2.bias",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.7469786952685824,
+      "cosine_similarity": 0.7763489531122202,
+      "norm_v21": 0.8607573509216309,
+      "norm_v22": 1.0132980346679688,
+      "l2_diff": 0.6429674029350281
+    },
+    {
+      "tensor_name": "motif_gnn.0.ffn.0.weight",
+      "module": "motif block 1",
+      "param_count": 73728,
+      "relative_l2_diff": 0.9715408821831802,
+      "cosine_similarity": 0.5282765156086477,
+      "norm_v21": 18.564117431640625,
+      "norm_v22": 18.572872161865234,
+      "l2_diff": 18.035799026489258
+    },
+    {
+      "tensor_name": "motif_gnn.0.ffn.0.bias",
+      "module": "motif block 1",
+      "param_count": 384,
+      "relative_l2_diff": 0.2804025920988934,
+      "cosine_similarity": 0.9622410375985762,
+      "norm_v21": 1.2888091802597046,
+      "norm_v22": 1.3269206285476685,
+      "l2_diff": 0.36138543486595154
+    },
+    {
+      "tensor_name": "motif_gnn.0.ffn.3.weight",
+      "module": "motif block 1",
+      "param_count": 73728,
+      "relative_l2_diff": 1.1272956765130295,
+      "cosine_similarity": 0.3695259935829559,
+      "norm_v21": 16.879215240478516,
+      "norm_v22": 17.01021957397461,
+      "l2_diff": 19.02786636352539
+    },
+    {
+      "tensor_name": "motif_gnn.0.ffn.3.bias",
+      "module": "motif block 1",
+      "param_count": 192,
+      "relative_l2_diff": 0.7204223931345513,
+      "cosine_similarity": 0.7164581434089337,
+      "norm_v21": 0.5447958707809448,
+      "norm_v22": 0.4882664978504181,
+      "l2_diff": 0.3924831449985504
+    },
+    {
+      "tensor_name": "motif_gnn.1.norm1.weight",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 0.06823572649581217,
+      "cosine_similarity": 0.9976909316411923,
+      "norm_v21": 12.524191856384277,
+      "norm_v22": 12.577781677246094,
+      "l2_diff": 0.8545973300933838
+    },
+    {
+      "tensor_name": "motif_gnn.1.norm1.bias",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 0.7495973602312298,
+      "cosine_similarity": 0.7536496072041005,
+      "norm_v21": 0.6848453879356384,
+      "norm_v22": 0.7629477381706238,
+      "l2_diff": 0.5133582949638367
+    },
+    {
+      "tensor_name": "motif_gnn.1.q_proj.weight",
+      "module": "motif block 2",
+      "param_count": 36864,
+      "relative_l2_diff": 0.9829583205739095,
+      "cosine_similarity": 0.5166583413543682,
+      "norm_v21": 11.72534465789795,
+      "norm_v22": 11.719561576843262,
+      "l2_diff": 11.525525093078613
+    },
+    {
+      "tensor_name": "motif_gnn.1.q_proj.bias",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 0.7617334406923485,
+      "cosine_similarity": 0.708675891444175,
+      "norm_v21": 0.8329998850822449,
+      "norm_v22": 0.8295287489891052,
+      "l2_diff": 0.634523868560791
+    },
+    {
+      "tensor_name": "motif_gnn.1.k_proj.weight",
+      "module": "motif block 2",
+      "param_count": 36864,
+      "relative_l2_diff": 0.9882113231030286,
+      "cosine_similarity": 0.5114833928323177,
+      "norm_v21": 11.903984069824219,
+      "norm_v22": 11.898229598999023,
+      "l2_diff": 11.763651847839355
+    },
+    {
+      "tensor_name": "motif_gnn.1.k_proj.bias",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 1.0402987600211853,
+      "cosine_similarity": 0.4625149074734405,
+      "norm_v21": 0.8179059028625488,
+      "norm_v22": 0.8233889937400818,
+      "l2_diff": 0.8508664965629578
+    },
+    {
+      "tensor_name": "motif_gnn.1.v_proj.weight",
+      "module": "motif block 2",
+      "param_count": 36864,
+      "relative_l2_diff": 0.8717528404231659,
+      "cosine_similarity": 0.6246065535918586,
+      "norm_v21": 10.874128341674805,
+      "norm_v22": 11.00478744506836,
+      "l2_diff": 9.479552268981934
+    },
+    {
+      "tensor_name": "motif_gnn.1.v_proj.bias",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 0.4390505359870401,
+      "cosine_similarity": 0.8997969807754446,
+      "norm_v21": 0.6194409728050232,
+      "norm_v22": 0.5877166390419006,
+      "l2_diff": 0.271965891122818
+    },
+    {
+      "tensor_name": "motif_gnn.1.geom_proj.weight",
+      "module": "motif block 2",
+      "param_count": 36,
+      "relative_l2_diff": 0.5666087848669362,
+      "cosine_similarity": 0.8558729378158378,
+      "norm_v21": 1.9599171876907349,
+      "norm_v22": 2.1310417652130127,
+      "l2_diff": 1.110506296157837
+    },
+    {
+      "tensor_name": "motif_gnn.1.geom_proj.bias",
+      "module": "motif block 2",
+      "param_count": 6,
+      "relative_l2_diff": 0.27996760146151595,
+      "cosine_similarity": 0.9681153631678938,
+      "norm_v21": 0.6124469637870789,
+      "norm_v22": 0.6694856286048889,
+      "l2_diff": 0.17146530747413635
+    },
+    {
+      "tensor_name": "motif_gnn.1.out_proj.weight",
+      "module": "motif block 2",
+      "param_count": 36864,
+      "relative_l2_diff": 0.8135928491958138,
+      "cosine_similarity": 0.6725128622228305,
+      "norm_v21": 10.542424201965332,
+      "norm_v22": 10.652676582336426,
+      "l2_diff": 8.577240943908691
+    },
+    {
+      "tensor_name": "motif_gnn.1.out_proj.bias",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 0.3912059313733289,
+      "cosine_similarity": 0.9207835151020962,
+      "norm_v21": 0.9183300137519836,
+      "norm_v22": 0.872891902923584,
+      "l2_diff": 0.35925614833831787
+    },
+    {
+      "tensor_name": "motif_gnn.1.norm2.weight",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 0.0748195665116354,
+      "cosine_similarity": 0.9972795505170488,
+      "norm_v21": 13.454010963439941,
+      "norm_v22": 13.589958190917969,
+      "l2_diff": 1.0066232681274414
+    },
+    {
+      "tensor_name": "motif_gnn.1.norm2.bias",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 0.6190630967762737,
+      "cosine_similarity": 0.825440936597429,
+      "norm_v21": 1.2330516576766968,
+      "norm_v22": 1.3311903476715088,
+      "l2_diff": 0.7633367776870728
+    },
+    {
+      "tensor_name": "motif_gnn.1.ffn.0.weight",
+      "module": "motif block 2",
+      "param_count": 73728,
+      "relative_l2_diff": 0.9380391298945484,
+      "cosine_similarity": 0.5658082690281468,
+      "norm_v21": 17.716114044189453,
+      "norm_v22": 17.947898864746094,
+      "l2_diff": 16.618408203125
+    },
+    {
+      "tensor_name": "motif_gnn.1.ffn.0.bias",
+      "module": "motif block 2",
+      "param_count": 384,
+      "relative_l2_diff": 0.24822547148109625,
+      "cosine_similarity": 0.9694734581670623,
+      "norm_v21": 1.512260913848877,
+      "norm_v22": 1.5245542526245117,
+      "l2_diff": 0.3753816783428192
+    },
+    {
+      "tensor_name": "motif_gnn.1.ffn.3.weight",
+      "module": "motif block 2",
+      "param_count": 73728,
+      "relative_l2_diff": 1.138854920838191,
+      "cosine_similarity": 0.365050958995582,
+      "norm_v21": 15.03449821472168,
+      "norm_v22": 15.350032806396484,
+      "l2_diff": 17.122112274169922
+    },
+    {
+      "tensor_name": "motif_gnn.1.ffn.3.bias",
+      "module": "motif block 2",
+      "param_count": 192,
+      "relative_l2_diff": 0.6471088834108459,
+      "cosine_similarity": 0.7767470584590972,
+      "norm_v21": 0.5999560356140137,
+      "norm_v22": 0.5551755428314209,
+      "l2_diff": 0.3882368803024292
+    },
+    {
+      "tensor_name": "motif_gnn.2.norm1.weight",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 0.08602369442325405,
+      "cosine_similarity": 0.9966355767987108,
+      "norm_v21": 12.001656532287598,
+      "norm_v22": 12.27483081817627,
+      "l2_diff": 1.0324268341064453
+    },
+    {
+      "tensor_name": "motif_gnn.2.norm1.bias",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 0.6605336256189912,
+      "cosine_similarity": 0.7674195833686984,
+      "norm_v21": 0.9317492246627808,
+      "norm_v22": 0.8630626797676086,
+      "l2_diff": 0.6154516935348511
+    },
+    {
+      "tensor_name": "motif_gnn.2.q_proj.weight",
+      "module": "motif block 3",
+      "param_count": 36864,
+      "relative_l2_diff": 1.0006244656258076,
+      "cosine_similarity": 0.49147837486709506,
+      "norm_v21": 12.046432495117188,
+      "norm_v22": 11.856405258178711,
+      "l2_diff": 12.053955078125
+    },
+    {
+      "tensor_name": "motif_gnn.2.q_proj.bias",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 0.7704089841944058,
+      "cosine_similarity": 0.6791285129771334,
+      "norm_v21": 0.9090598821640015,
+      "norm_v22": 0.8300682306289673,
+      "l2_diff": 0.700347900390625
+    },
+    {
+      "tensor_name": "motif_gnn.2.k_proj.weight",
+      "module": "motif block 3",
+      "param_count": 36864,
+      "relative_l2_diff": 1.001895798302492,
+      "cosine_similarity": 0.49370019888151895,
+      "norm_v21": 12.24565601348877,
+      "norm_v22": 12.138266563415527,
+      "l2_diff": 12.268871307373047
+    },
+    {
+      "tensor_name": "motif_gnn.2.k_proj.bias",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 1.0171273077528609,
+      "cosine_similarity": 0.4950427182803106,
+      "norm_v21": 0.7725635170936584,
+      "norm_v22": 0.7909733057022095,
+      "l2_diff": 0.7857954502105713
+    },
+    {
+      "tensor_name": "motif_gnn.2.v_proj.weight",
+      "module": "motif block 3",
+      "param_count": 36864,
+      "relative_l2_diff": 0.839336199127039,
+      "cosine_similarity": 0.6600423463372997,
+      "norm_v21": 9.583796501159668,
+      "norm_v22": 9.913446426391602,
+      "l2_diff": 8.044027328491211
+    },
+    {
+      "tensor_name": "motif_gnn.2.v_proj.bias",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 0.42041776273363707,
+      "cosine_similarity": 0.9113087779111547,
+      "norm_v21": 0.5731245279312134,
+      "norm_v22": 0.5710421800613403,
+      "l2_diff": 0.24095173180103302
+    },
+    {
+      "tensor_name": "motif_gnn.2.geom_proj.weight",
+      "module": "motif block 3",
+      "param_count": 36,
+      "relative_l2_diff": 0.41719650726378893,
+      "cosine_similarity": 0.9303469775751537,
+      "norm_v21": 1.9939252138137817,
+      "norm_v22": 2.251821517944336,
+      "l2_diff": 0.8318586349487305
+    },
+    {
+      "tensor_name": "motif_gnn.2.geom_proj.bias",
+      "module": "motif block 3",
+      "param_count": 6,
+      "relative_l2_diff": 0.10808232609036865,
+      "cosine_similarity": 0.9942080583051475,
+      "norm_v21": 0.7566840648651123,
+      "norm_v22": 0.7436223030090332,
+      "l2_diff": 0.08178417384624481
+    },
+    {
+      "tensor_name": "motif_gnn.2.out_proj.weight",
+      "module": "motif block 3",
+      "param_count": 36864,
+      "relative_l2_diff": 0.8106964602605929,
+      "cosine_similarity": 0.6782060530975675,
+      "norm_v21": 9.368546485900879,
+      "norm_v22": 9.560966491699219,
+      "l2_diff": 7.595047473907471
+    },
+    {
+      "tensor_name": "motif_gnn.2.out_proj.bias",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 0.4083552884540549,
+      "cosine_similarity": 0.9187431290826136,
+      "norm_v21": 0.7744534015655518,
+      "norm_v22": 0.7921662926673889,
+      "l2_diff": 0.3162521421909332
+    },
+    {
+      "tensor_name": "motif_gnn.2.norm2.weight",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 0.09379841726680889,
+      "cosine_similarity": 0.9958262345228708,
+      "norm_v21": 13.530599594116211,
+      "norm_v22": 13.76678466796875,
+      "l2_diff": 1.269148826599121
+    },
+    {
+      "tensor_name": "motif_gnn.2.norm2.bias",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 0.539214431142369,
+      "cosine_similarity": 0.8611368035237683,
+      "norm_v21": 1.5699223279953003,
+      "norm_v22": 1.63410484790802,
+      "l2_diff": 0.8465247750282288
+    },
+    {
+      "tensor_name": "motif_gnn.2.ffn.0.weight",
+      "module": "motif block 3",
+      "param_count": 73728,
+      "relative_l2_diff": 0.9489430838814757,
+      "cosine_similarity": 0.5573078194570257,
+      "norm_v21": 17.995647430419922,
+      "norm_v22": 18.297033309936523,
+      "l2_diff": 17.076845169067383
+    },
+    {
+      "tensor_name": "motif_gnn.2.ffn.0.bias",
+      "module": "motif block 3",
+      "param_count": 384,
+      "relative_l2_diff": 0.25613118648913186,
+      "cosine_similarity": 0.9683445498365548,
+      "norm_v21": 1.4808790683746338,
+      "norm_v22": 1.5189999341964722,
+      "l2_diff": 0.3792993128299713
+    },
+    {
+      "tensor_name": "motif_gnn.2.ffn.3.weight",
+      "module": "motif block 3",
+      "param_count": 73728,
+      "relative_l2_diff": 1.1584033903164614,
+      "cosine_similarity": 0.3415759395235961,
+      "norm_v21": 14.812695503234863,
+      "norm_v22": 15.0905122756958,
+      "l2_diff": 17.159076690673828
+    },
+    {
+      "tensor_name": "motif_gnn.2.ffn.3.bias",
+      "module": "motif block 3",
+      "param_count": 192,
+      "relative_l2_diff": 0.5904288585621741,
+      "cosine_similarity": 0.8195506405815514,
+      "norm_v21": 0.6160510778427124,
+      "norm_v22": 0.5925927758216858,
+      "l2_diff": 0.36373433470726013
+    },
+    {
+      "tensor_name": "motif_gnn.3.norm1.weight",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.08139882837206033,
+      "cosine_similarity": 0.9968042391705869,
+      "norm_v21": 11.783490180969238,
+      "norm_v22": 11.930039405822754,
+      "l2_diff": 0.9591622948646545
+    },
+    {
+      "tensor_name": "motif_gnn.3.norm1.bias",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.678881316714715,
+      "cosine_similarity": 0.791780349984291,
+      "norm_v21": 0.9312465786933899,
+      "norm_v22": 1.0132747888565063,
+      "l2_diff": 0.6322059035301208
+    },
+    {
+      "tensor_name": "motif_gnn.3.q_proj.weight",
+      "module": "motif block 4",
+      "param_count": 36864,
+      "relative_l2_diff": 1.0170518149701682,
+      "cosine_similarity": 0.4874394297623302,
+      "norm_v21": 12.149300575256348,
+      "norm_v22": 12.258246421813965,
+      "l2_diff": 12.356468200683594
+    },
+    {
+      "tensor_name": "motif_gnn.3.q_proj.bias",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.8394110924051351,
+      "cosine_similarity": 0.6202092260750506,
+      "norm_v21": 0.8821454644203186,
+      "norm_v22": 0.8106836676597595,
+      "l2_diff": 0.7404826879501343
+    },
+    {
+      "tensor_name": "motif_gnn.3.k_proj.weight",
+      "module": "motif block 4",
+      "param_count": 36864,
+      "relative_l2_diff": 1.0313168888868127,
+      "cosine_similarity": 0.4709978885497489,
+      "norm_v21": 12.337270736694336,
+      "norm_v22": 12.402374267578125,
+      "l2_diff": 12.72363567352295
+    },
+    {
+      "tensor_name": "motif_gnn.3.k_proj.bias",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.9111258483529806,
+      "cosine_similarity": 0.6048726411198777,
+      "norm_v21": 0.6534099578857422,
+      "norm_v22": 0.684522271156311,
+      "l2_diff": 0.5953387022018433
+    },
+    {
+      "tensor_name": "motif_gnn.3.v_proj.weight",
+      "module": "motif block 4",
+      "param_count": 36864,
+      "relative_l2_diff": 0.8485229758801759,
+      "cosine_similarity": 0.6427013714148122,
+      "norm_v21": 9.444998741149902,
+      "norm_v22": 9.515551567077637,
+      "l2_diff": 8.014298439025879
+    },
+    {
+      "tensor_name": "motif_gnn.3.v_proj.bias",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.4637872714640598,
+      "cosine_similarity": 0.8990907446655024,
+      "norm_v21": 0.5402488112449646,
+      "norm_v22": 0.5684863328933716,
+      "l2_diff": 0.2505605220794678
+    },
+    {
+      "tensor_name": "motif_gnn.3.geom_proj.weight",
+      "module": "motif block 4",
+      "param_count": 36,
+      "relative_l2_diff": 0.5149129770289861,
+      "cosine_similarity": 0.8887910979815487,
+      "norm_v21": 2.038447618484497,
+      "norm_v22": 2.2901828289031982,
+      "l2_diff": 1.0496231317520142
+    },
+    {
+      "tensor_name": "motif_gnn.3.geom_proj.bias",
+      "module": "motif block 4",
+      "param_count": 6,
+      "relative_l2_diff": 0.15305465470771606,
+      "cosine_similarity": 0.9940486864900544,
+      "norm_v21": 0.7088851928710938,
+      "norm_v22": 0.6284539103507996,
+      "l2_diff": 0.10849817842245102
+    },
+    {
+      "tensor_name": "motif_gnn.3.out_proj.weight",
+      "module": "motif block 4",
+      "param_count": 36864,
+      "relative_l2_diff": 0.8130885153791317,
+      "cosine_similarity": 0.6775534695600995,
+      "norm_v21": 9.300005912780762,
+      "norm_v22": 9.525439262390137,
+      "l2_diff": 7.561728000640869
+    },
+    {
+      "tensor_name": "motif_gnn.3.out_proj.bias",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.42217410416114654,
+      "cosine_similarity": 0.908128057722099,
+      "norm_v21": 0.7783269882202148,
+      "norm_v22": 0.7489355206489563,
+      "l2_diff": 0.3285894989967346
+    },
+    {
+      "tensor_name": "motif_gnn.3.norm2.weight",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.09187702438183212,
+      "cosine_similarity": 0.9958252434905206,
+      "norm_v21": 13.5106840133667,
+      "norm_v22": 13.595393180847168,
+      "l2_diff": 1.2413214445114136
+    },
+    {
+      "tensor_name": "motif_gnn.3.norm2.bias",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.5861173312069733,
+      "cosine_similarity": 0.8330955131671888,
+      "norm_v21": 1.7497280836105347,
+      "norm_v22": 1.796892762184143,
+      "l2_diff": 1.0255459547042847
+    },
+    {
+      "tensor_name": "motif_gnn.3.ffn.0.weight",
+      "module": "motif block 4",
+      "param_count": 73728,
+      "relative_l2_diff": 0.9557147367938119,
+      "cosine_similarity": 0.5448115688755868,
+      "norm_v21": 18.145912170410156,
+      "norm_v22": 18.20577621459961,
+      "l2_diff": 17.342315673828125
+    },
+    {
+      "tensor_name": "motif_gnn.3.ffn.0.bias",
+      "module": "motif block 4",
+      "param_count": 384,
+      "relative_l2_diff": 0.2619049075496718,
+      "cosine_similarity": 0.9652134481030217,
+      "norm_v21": 1.5980076789855957,
+      "norm_v22": 1.5667287111282349,
+      "l2_diff": 0.4185260534286499
+    },
+    {
+      "tensor_name": "motif_gnn.3.ffn.3.weight",
+      "module": "motif block 4",
+      "param_count": 73728,
+      "relative_l2_diff": 1.1437786992813381,
+      "cosine_similarity": 0.3377212177328326,
+      "norm_v21": 14.911918640136719,
+      "norm_v22": 14.726365089416504,
+      "l2_diff": 17.05593490600586
+    },
+    {
+      "tensor_name": "motif_gnn.3.ffn.3.bias",
+      "module": "motif block 4",
+      "param_count": 192,
+      "relative_l2_diff": 0.5937548857742886,
+      "cosine_similarity": 0.821178310048757,
+      "norm_v21": 0.6023566722869873,
+      "norm_v22": 0.5933969616889954,
+      "l2_diff": 0.3576522171497345
+    },
+    {
+      "tensor_name": "motif_gnn.4.norm1.weight",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 0.09419396140573327,
+      "cosine_similarity": 0.9957989912489347,
+      "norm_v21": 11.603643417358398,
+      "norm_v22": 11.811307907104492,
+      "l2_diff": 1.092993140220642
+    },
+    {
+      "tensor_name": "motif_gnn.4.norm1.bias",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 0.6507672061732868,
+      "cosine_similarity": 0.7767936277451772,
+      "norm_v21": 0.9651881456375122,
+      "norm_v22": 0.9080736041069031,
+      "l2_diff": 0.62811279296875
+    },
+    {
+      "tensor_name": "motif_gnn.4.q_proj.weight",
+      "module": "motif block 5",
+      "param_count": 36864,
+      "relative_l2_diff": 1.0546810424582023,
+      "cosine_similarity": 0.45104691118037554,
+      "norm_v21": 12.438899040222168,
+      "norm_v22": 12.600651741027832,
+      "l2_diff": 13.119071006774902
+    },
+    {
+      "tensor_name": "motif_gnn.4.q_proj.bias",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 1.0187072903833136,
+      "cosine_similarity": 0.5187646470684927,
+      "norm_v21": 0.9415361285209656,
+      "norm_v22": 1.0100172758102417,
+      "l2_diff": 0.9591497182846069
+    },
+    {
+      "tensor_name": "motif_gnn.4.k_proj.weight",
+      "module": "motif block 5",
+      "param_count": 36864,
+      "relative_l2_diff": 1.0616500580508819,
+      "cosine_similarity": 0.44609161813581844,
+      "norm_v21": 12.574984550476074,
+      "norm_v22": 12.790550231933594,
+      "l2_diff": 13.35023307800293
+    },
+    {
+      "tensor_name": "motif_gnn.4.k_proj.bias",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 0.7221992386590592,
+      "cosine_similarity": 0.7468443193191345,
+      "norm_v21": 0.671392023563385,
+      "norm_v22": 0.690548300743103,
+      "l2_diff": 0.484878808259964
+    },
+    {
+      "tensor_name": "motif_gnn.4.v_proj.weight",
+      "module": "motif block 5",
+      "param_count": 36864,
+      "relative_l2_diff": 0.8701925529081321,
+      "cosine_similarity": 0.6218870246821825,
+      "norm_v21": 9.161870956420898,
+      "norm_v22": 9.174063682556152,
+      "l2_diff": 7.972591876983643
+    },
+    {
+      "tensor_name": "motif_gnn.4.v_proj.bias",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 0.40746298402061587,
+      "cosine_similarity": 0.9183856362284316,
+      "norm_v21": 0.6050359606742859,
+      "norm_v22": 0.6144983768463135,
+      "l2_diff": 0.24652975797653198
+    },
+    {
+      "tensor_name": "motif_gnn.4.geom_proj.weight",
+      "module": "motif block 5",
+      "param_count": 36,
+      "relative_l2_diff": 0.4524993693317345,
+      "cosine_similarity": 0.9003784758966328,
+      "norm_v21": 1.67283296585083,
+      "norm_v22": 1.7140250205993652,
+      "l2_diff": 0.7569558620452881
+    },
+    {
+      "tensor_name": "motif_gnn.4.geom_proj.bias",
+      "module": "motif block 5",
+      "param_count": 6,
+      "relative_l2_diff": 0.12184005535809878,
+      "cosine_similarity": 0.9930273882409002,
+      "norm_v21": 0.6443874835968018,
+      "norm_v22": 0.6597374677658081,
+      "l2_diff": 0.07851220667362213
+    },
+    {
+      "tensor_name": "motif_gnn.4.out_proj.weight",
+      "module": "motif block 5",
+      "param_count": 36864,
+      "relative_l2_diff": 0.7827928338746567,
+      "cosine_similarity": 0.689400683186269,
+      "norm_v21": 9.235387802124023,
+      "norm_v22": 9.107123374938965,
+      "l2_diff": 7.229395389556885
+    },
+    {
+      "tensor_name": "motif_gnn.4.out_proj.bias",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 0.37320829861200316,
+      "cosine_similarity": 0.9308970477941696,
+      "norm_v21": 0.7764407992362976,
+      "norm_v22": 0.7821918725967407,
+      "l2_diff": 0.2897741496562958
+    },
+    {
+      "tensor_name": "motif_gnn.4.norm2.weight",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 0.08609943782252141,
+      "cosine_similarity": 0.9963752654352037,
+      "norm_v21": 13.333654403686523,
+      "norm_v22": 13.462525367736816,
+      "l2_diff": 1.1480201482772827
+    },
+    {
+      "tensor_name": "motif_gnn.4.norm2.bias",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 0.5236998491892261,
+      "cosine_similarity": 0.8712073869206628,
+      "norm_v21": 1.8095154762268066,
+      "norm_v22": 1.906489610671997,
+      "l2_diff": 0.947642982006073
+    },
+    {
+      "tensor_name": "motif_gnn.4.ffn.0.weight",
+      "module": "motif block 5",
+      "param_count": 73728,
+      "relative_l2_diff": 0.9648365348947162,
+      "cosine_similarity": 0.5389151385751789,
+      "norm_v21": 17.94515609741211,
+      "norm_v22": 18.113510131835938,
+      "l2_diff": 17.31414222717285
+    },
+    {
+      "tensor_name": "motif_gnn.4.ffn.0.bias",
+      "module": "motif block 5",
+      "param_count": 384,
+      "relative_l2_diff": 0.24499266514867343,
+      "cosine_similarity": 0.9699228155718839,
+      "norm_v21": 1.6737583875656128,
+      "norm_v22": 1.669910192489624,
+      "l2_diff": 0.41005852818489075
+    },
+    {
+      "tensor_name": "motif_gnn.4.ffn.3.weight",
+      "module": "motif block 5",
+      "param_count": 73728,
+      "relative_l2_diff": 1.1456377788564354,
+      "cosine_similarity": 0.33962239704989394,
+      "norm_v21": 15.019335746765137,
+      "norm_v22": 14.924842834472656,
+      "l2_diff": 17.20671844482422
+    },
+    {
+      "tensor_name": "motif_gnn.4.ffn.3.bias",
+      "module": "motif block 5",
+      "param_count": 192,
+      "relative_l2_diff": 0.5389587245864879,
+      "cosine_similarity": 0.8551355514397322,
+      "norm_v21": 0.7050606608390808,
+      "norm_v22": 0.7068641185760498,
+      "l2_diff": 0.3799985945224762
+    },
+    {
+      "tensor_name": "motif_attn_pool.weight",
+      "module": "motif readout",
+      "param_count": 192,
+      "relative_l2_diff": 0.7010789707139874,
+      "cosine_similarity": 0.7571272809896193,
+      "norm_v21": 0.5501729846000671,
+      "norm_v22": 0.5565519332885742,
+      "l2_diff": 0.38571470975875854
+    },
+    {
+      "tensor_name": "motif_attn_pool.bias",
+      "module": "motif readout",
+      "param_count": 1,
+      "relative_l2_diff": 2.905209537609706,
+      "cosine_similarity": 1.0000000279083534,
+      "norm_v21": 0.019812973216176033,
+      "norm_v22": 0.07737381011247635,
+      "l2_diff": 0.057560838758945465
+    },
+    {
+      "tensor_name": "motif_readout_proj.0.weight",
+      "module": "motif readout",
+      "param_count": 221184,
+      "relative_l2_diff": 1.054465820450241,
+      "cosine_similarity": 0.4404755862739931,
+      "norm_v21": 24.022390365600586,
+      "norm_v22": 23.867977142333984,
+      "l2_diff": 25.33078956604004
+    },
+    {
+      "tensor_name": "motif_readout_proj.0.bias",
+      "module": "motif readout",
+      "param_count": 384,
+      "relative_l2_diff": 0.4214819546316117,
+      "cosine_similarity": 0.9106836317900187,
+      "norm_v21": 0.5073013305664062,
+      "norm_v22": 0.5044105648994446,
+      "l2_diff": 0.21381835639476776
+    },
+    {
+      "tensor_name": "motif_readout_proj.1.weight",
+      "module": "motif readout",
+      "param_count": 384,
+      "relative_l2_diff": 0.1680658833664975,
+      "cosine_similarity": 0.9859187373750936,
+      "norm_v21": 18.98647117614746,
+      "norm_v22": 19.03805923461914,
+      "l2_diff": 3.1909780502319336
+    },
+    {
+      "tensor_name": "motif_readout_proj.1.bias",
+      "module": "motif readout",
+      "param_count": 384,
+      "relative_l2_diff": 0.7221510593602808,
+      "cosine_similarity": 0.736024679188808,
+      "norm_v21": 2.143090009689331,
+      "norm_v22": 2.1162781715393066,
+      "l2_diff": 1.5476347208023071
+    },
+    {
+      "tensor_name": "aux_motif_head.weight",
+      "module": "motif readout",
+      "param_count": 2688,
+      "relative_l2_diff": 0.8612194719825444,
+      "cosine_similarity": 0.6289344794747297,
+      "norm_v21": 2.5465800762176514,
+      "norm_v22": 2.545095443725586,
+      "l2_diff": 2.193164348602295
+    },
+    {
+      "tensor_name": "aux_motif_head.bias",
+      "module": "motif readout",
+      "param_count": 7,
+      "relative_l2_diff": 0.06491073304927449,
+      "cosine_similarity": 0.998015780192413,
+      "norm_v21": 0.11638977378606796,
+      "norm_v22": 0.11432221531867981,
+      "l2_diff": 0.007554945535957813
+    },
+    {
+      "tensor_name": "supcon_head.0.weight",
+      "module": "SupCon head",
+      "param_count": 65536,
+      "relative_l2_diff": 1.0381342012605155,
+      "cosine_similarity": 0.46753213024190365,
+      "norm_v21": 14.384840965270996,
+      "norm_v22": 14.555652618408203,
+      "l2_diff": 14.933395385742188
+    },
+    {
+      "tensor_name": "supcon_head.0.bias",
+      "module": "SupCon head",
+      "param_count": 128,
+      "relative_l2_diff": 0.3661622286539564,
+      "cosine_similarity": 0.9326262810851836,
+      "norm_v21": 0.9470996856689453,
+      "norm_v22": 0.9421818256378174,
+      "l2_diff": 0.3467921316623688
+    },
+    {
+      "tensor_name": "supcon_head.1.weight",
+      "module": "SupCon head",
+      "param_count": 128,
+      "relative_l2_diff": 0.04108806732340025,
+      "cosine_similarity": 0.9991563593500675,
+      "norm_v21": 11.100253105163574,
+      "norm_v22": 11.105113983154297,
+      "l2_diff": 0.45608794689178467
+    },
+    {
+      "tensor_name": "supcon_head.1.bias",
+      "module": "SupCon head",
+      "param_count": 128,
+      "relative_l2_diff": 0.4119553486636945,
+      "cosine_similarity": 0.9131152808807754,
+      "norm_v21": 1.490186333656311,
+      "norm_v22": 1.4487046003341675,
+      "l2_diff": 0.6138902306556702
+    },
+    {
+      "tensor_name": "classifier.0.weight",
+      "module": "fusion/classifier",
+      "param_count": 131072,
+      "relative_l2_diff": 0.9051104961066335,
+      "cosine_similarity": 0.5910808343833923,
+      "norm_v21": 20.267026901245117,
+      "norm_v22": 20.301286697387695,
+      "l2_diff": 18.34389877319336
+    },
+    {
+      "tensor_name": "classifier.0.bias",
+      "module": "fusion/classifier",
+      "param_count": 256,
+      "relative_l2_diff": 0.4330173273021578,
+      "cosine_similarity": 0.9137066959511753,
+      "norm_v21": 0.7360341548919678,
+      "norm_v22": 0.782589852809906,
+      "l2_diff": 0.31871554255485535
+    },
+    {
+      "tensor_name": "classifier.1.weight",
+      "module": "fusion/classifier",
+      "param_count": 256,
+      "relative_l2_diff": 0.02865746184943341,
+      "cosine_similarity": 0.9995915833371017,
+      "norm_v21": 14.95859146118164,
+      "norm_v22": 14.920612335205078,
+      "l2_diff": 0.42867526412010193
+    },
+    {
+      "tensor_name": "classifier.1.bias",
+      "module": "fusion/classifier",
+      "param_count": 256,
+      "relative_l2_diff": 0.2218571625889956,
+      "cosine_similarity": 0.9785481509117966,
+      "norm_v21": 1.0149548053741455,
+      "norm_v22": 1.0767360925674438,
+      "l2_diff": 0.22517499327659607
+    },
+    {
+      "tensor_name": "classifier.4.weight",
+      "module": "fusion/classifier",
+      "param_count": 1792,
+      "relative_l2_diff": 0.484991340222029,
+      "cosine_similarity": 0.8810828735647986,
+      "norm_v21": 2.3523101806640625,
+      "norm_v22": 2.325096607208252,
+      "l2_diff": 1.1408500671386719
+    },
+    {
+      "tensor_name": "classifier.4.bias",
+      "module": "fusion/classifier",
+      "param_count": 7,
+      "relative_l2_diff": 0.09636907390315376,
+      "cosine_similarity": 0.9973968538061165,
+      "norm_v21": 0.14149178564548492,
+      "norm_v22": 0.1501697450876236,
+      "l2_diff": 0.013635432347655296
+    }
+  ]
+}

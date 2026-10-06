@@ -1,0 +1,86 @@
+{
+  "v21": {
+    "where": {
+      "dimension": 5,
+      "iterations": 25,
+      "train_accuracy": 0.25842070430875336,
+      "train_macro_f1": 0.11197945329363643,
+      "public_accuracy": 0.25940373363053776,
+      "public_macro_f1": 0.11428005992862285,
+      "private_accuracy": 0.2602396210643633,
+      "private_macro_f1": 0.11919445321118427
+    },
+    "type": {
+      "dimension": 32,
+      "iterations": 1042,
+      "train_accuracy": 0.3141175241213557,
+      "train_macro_f1": 0.21887025525279738,
+      "public_accuracy": 0.3101142379492895,
+      "public_macro_f1": 0.2139169572737952,
+      "private_accuracy": 0.3089997213708554,
+      "private_macro_f1": 0.21814126165342512
+    },
+    "what": {
+      "dimension": 96,
+      "iterations": 434,
+      "train_accuracy": 0.48692047789891674,
+      "train_macro_f1": 0.42188463921356634,
+      "public_accuracy": 0.46614655893006407,
+      "public_macro_f1": 0.38724262338165244,
+      "private_accuracy": 0.46336026748397885,
+      "private_macro_f1": 0.39517653349814513
+    },
+    "pre_proj": {
+      "dimension": 133,
+      "iterations": 1131,
+      "train_accuracy": 0.4904385384374238,
+      "train_macro_f1": 0.42634151039713497,
+      "public_accuracy": 0.4664251880746726,
+      "public_macro_f1": 0.3876847366444446,
+      "private_accuracy": 0.46308163833937027,
+      "private_macro_f1": 0.4028153092013827
+    }
+  },
+  "v22": {
+    "where": {
+      "dimension": 5,
+      "iterations": 27,
+      "train_accuracy": 0.2697063638580236,
+      "train_macro_f1": 0.1348830444731399,
+      "public_accuracy": 0.2761214823070493,
+      "public_macro_f1": 0.13911673902618668,
+      "private_accuracy": 0.26804123711340205,
+      "private_macro_f1": 0.13571622142764267
+    },
+    "type": {
+      "dimension": 32,
+      "iterations": 1314,
+      "train_accuracy": 0.3035633425058344,
+      "train_macro_f1": 0.20344596509791132,
+      "public_accuracy": 0.3037057676232934,
+      "public_macro_f1": 0.20198927544464437,
+      "private_accuracy": 0.304541655057119,
+      "private_macro_f1": 0.1998901541784057
+    },
+    "what": {
+      "dimension": 96,
+      "iterations": 461,
+      "train_accuracy": 0.48880142115712844,
+      "train_macro_f1": 0.41773954643486183,
+      "public_accuracy": 0.4639175257731959,
+      "public_macro_f1": 0.3962420849032551,
+      "private_accuracy": 0.4683755920869323,
+      "private_macro_f1": 0.4089360028117791
+    },
+    "pre_proj": {
+      "dimension": 133,
+      "iterations": 1268,
+      "train_accuracy": 0.498136472883068,
+      "train_macro_f1": 0.4330098697888272,
+      "public_accuracy": 0.4725550292560602,
+      "public_macro_f1": 0.4108827968002003,
+      "private_accuracy": 0.4800780161604904,
+      "private_macro_f1": 0.42262522879820325
+    }
+  }
+}

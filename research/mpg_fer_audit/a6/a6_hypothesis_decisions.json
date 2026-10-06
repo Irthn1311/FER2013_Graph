@@ -1,0 +1,75 @@
+{
+  "audit": "MPG-FER A6",
+  "hypotheses": {
+    "H-A6-UPSTREAM": {
+      "name": "Upstream Origin of Model-Resolvable Correctness",
+      "question": "Does model-resolvable correctness primarily originate before the Motif Graph?",
+      "status": "MIXED",
+      "evidence": {
+        "r0_pixel_readout_margin_delta": "+0.457 for V21_corr, +0.449 for V22_corr",
+        "r0_swap_rescue_rate": "1.52% (V21->V22) and 2.15% (V22->V21)",
+        "s1_pre_motif_swap_rescue_rate": "36.42% (V21->V22) and 35.93% (V22->V21)",
+        "already_correct_at_r0_rate": "45.6% (V21_corr) and 44.2% (V22_corr)",
+        "finding": "Pixel Readout (S0) alone transfers virtually no correctness (<2.2%). However, the Spatial Motif Composer (S1) establishes a substantial foundation, transferring ~36% of the correct classification signal."
+      }
+    },
+    "H-A6-EARLY-MOTIF": {
+      "name": "Early Motif Graph Divergence (Layers 1-2)",
+      "question": "Does correctness diverge mainly in Motif layers 1\u20132?",
+      "status": "SUPPORTED",
+      "evidence": {
+        "swap_rescue_increase": "S1 (36.4%) -> S2 (46.7%) -> S3 (57.8%), adding +21.4% rescue across Layers 1 and 2",
+        "first_rescue_accumulation": "By Layer 2 (R3), 81.3% of V21-correct and 80.5% of V22-correct samples have established positive true-class margin",
+        "paired_delta_margin": "Jumps from +0.519 at R1 to +1.107 at R3 (more than doubling)",
+        "finding": "Motif Layers 1-2 represent the highest-velocity discriminative separation zone in the entire MPG architecture."
+      }
+    },
+    "H-A6-MID-LATE-MOTIF": {
+      "name": "Mid-to-Late Motif Graph Reasoning (Layers 3-5)",
+      "question": "Does correctness diverge mainly in Motif layers 3\u20135?",
+      "status": "SUPPORTED",
+      "evidence": {
+        "swap_rescue_increase": "S3 (57.8%) -> S6 (71.3%), adding +13.5% further rescue across Layers 3-5",
+        "delta_margin": "Grows steadily from +1.107 (R3) to +1.488 (R6)",
+        "finding": "Mid-to-late Motif layers provide steady cumulative refinement (+13.5% rescue), reinforcing early separation rather than initiating it."
+      }
+    },
+    "H-A6-READOUT-HEAD": {
+      "name": "Readout and Decision Head Bottleneck",
+      "question": "Does useful true-class signal survive into Motif/Fusion but final decision fails downstream?",
+      "status": "DEPRIORITIZE",
+      "evidence": {
+        "s7_motif_readout_rescue_rate": "89.38% (V21->V22) and 89.24% (V22->V21)",
+        "s8_fusion_rescue_rate": "90.56% (V21->V22) and 89.90% (V22->V21)",
+        "marginal_gain_of_classifier": "+1.18% (89.38% -> 90.56%)",
+        "finding": "Motif readout pooling and Fusion capture 90% of the entire classification decision. The downstream MLP classifier head adds almost no divergence (+1.2%), ruling out the decision head as a primary bottleneck."
+      }
+    },
+    "H-A6-ROUTING-LINK": {
+      "name": "Routing Support Association with Representation Divergence",
+      "question": "Are routing-support differences systematically associated with model-resolvable representation differences?",
+      "status": "SUPPORTED",
+      "evidence": {
+        "minimum_support_jaccard": "Support Jaccard reaches its lowest point in Layer 4 (0.274) and Layer 3 (0.282), directly coinciding with the peak region of representation rescue accumulation",
+        "finding": "Sample-conditioned dynamic routing differences are functionally linked to representation divergence, but serve as an integral mechanism of the GNN rather than an isolated knob."
+      }
+    },
+    "H-A6-SINGLE-BOTTLENECK": {
+      "name": "Single Dominant Bottleneck Hypothesis",
+      "question": "Is there one dominant stage explaining most model-resolvable errors?",
+      "status": "NOT_SUPPORTED",
+      "evidence": {
+        "distributed_rescue_profile": "S1 (Upstream Composer) = 36.4%; S1->S3 (Early Motif) = +21.4%; S3->S6 (Mid/Late Motif) = +13.5%; S6->S7 (Readout Pooling) = +18.1%",
+        "finding": "Model-resolvable failures are distributed across the pipeline: upstream composition sets the initial 36% foundation, early motif reasoning adds 21%, mid/late motif adds 14%, and readout adds 18%."
+      }
+    }
+  },
+  "mechanistic_conclusion": "DISTRIBUTED_REPRESENTATION_FAILURE",
+  "rationale": [
+    "No single module accounts for the majority of model-resolvable divergence.",
+    "Upstream Spatial Motif Composer initiates ~36% of the discriminative signal, Early Motif reasoning (Layers 1-2) contributes +21%, Mid/Late Motif reasoning (Layers 3-5) adds +14%, and Motif Readout pooling captures +18%.",
+    "Swapping intermediate representations reproducibly transfers correctness in both directions (reaching 90.6% at Fusion).",
+    "Pixel readout alone accounts for virtually zero rescue (<2.2%), and the classifier head accounts for only +1.2% marginal change.",
+    "Interventions must target distributed representation preservation across composition, relational propagation, and multi-token pooling."
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "public": {
+    "v1": {
+      "standard_fer2013_accuracy": 0.6898857620507105,
+      "standard_fer2013_macro_f1": 0.6697244830702219,
+      "duplicate_excluded_accuracy": 0.6663644605621033,
+      "duplicate_excluded_macro_f1": 0.6276793186030554,
+      "accuracy_delta_excluded_minus_standard": -0.023521301488607205,
+      "macro_f1_delta_excluded_minus_standard": -0.04204516446716655
+    },
+    "v2": {
+      "standard_fer2013_accuracy": 0.6845918083031485,
+      "standard_fer2013_macro_f1": 0.6600868691583611,
+      "duplicate_excluded_accuracy": 0.6630401934119069,
+      "duplicate_excluded_macro_f1": 0.6227521718660427,
+      "accuracy_delta_excluded_minus_standard": -0.021551614891241577,
+      "macro_f1_delta_excluded_minus_standard": -0.03733469729231842
+    },
+    "v21": {
+      "standard_fer2013_accuracy": 0.6946224575090555,
+      "standard_fer2013_macro_f1": 0.6729156135303379,
+      "duplicate_excluded_accuracy": 0.6736174070716229,
+      "duplicate_excluded_macro_f1": 0.6362017205989344,
+      "accuracy_delta_excluded_minus_standard": -0.021005050437432615,
+      "macro_f1_delta_excluded_minus_standard": -0.03671389293140348
+    },
+    "v22": {
+      "standard_fer2013_accuracy": 0.6965728615213151,
+      "standard_fer2013_macro_f1": 0.6770556292084536,
+      "duplicate_excluded_accuracy": 0.6751284375944394,
+      "duplicate_excluded_macro_f1": 0.6403427230274426,
+      "accuracy_delta_excluded_minus_standard": -0.021444423926875733,
+      "macro_f1_delta_excluded_minus_standard": -0.036712906181011085
+    }
+  },
+  "private": {
+    "v1": {
+      "standard_fer2013_accuracy": 0.6940651992198384,
+      "standard_fer2013_macro_f1": 0.6874484877663491,
+      "duplicate_excluded_accuracy": 0.6713117237200849,
+      "duplicate_excluded_macro_f1": 0.6493712040924147,
+      "accuracy_delta_excluded_minus_standard": -0.022753475499753595,
+      "macro_f1_delta_excluded_minus_standard": -0.03807728367393448
+    },
+    "v2": {
+      "standard_fer2013_accuracy": 0.694343828364447,
+      "standard_fer2013_macro_f1": 0.6911829654492045,
+      "duplicate_excluded_accuracy": 0.6734322932444714,
+      "duplicate_excluded_macro_f1": 0.6576912536757942,
+      "accuracy_delta_excluded_minus_standard": -0.020911535119975566,
+      "macro_f1_delta_excluded_minus_standard": -0.03349171177341037
+    },
+    "v21": {
+      "standard_fer2013_accuracy": 0.6974087489551407,
+      "standard_fer2013_macro_f1": 0.6897430908119043,
+      "duplicate_excluded_accuracy": 0.6761587397758255,
+      "duplicate_excluded_macro_f1": 0.655139657454242,
+      "accuracy_delta_excluded_minus_standard": -0.021250009179315188,
+      "macro_f1_delta_excluded_minus_standard": -0.03460343335766236
+    },
+    "v22": {
+      "standard_fer2013_accuracy": 0.6946224575090555,
+      "standard_fer2013_macro_f1": 0.6846576006007062,
+      "duplicate_excluded_accuracy": 0.6719176007270524,
+      "duplicate_excluded_macro_f1": 0.6459461792103476,
+      "accuracy_delta_excluded_minus_standard": -0.02270485678200307,
+      "macro_f1_delta_excluded_minus_standard": -0.03871142139035866
+    }
+  },
+  "descriptive_notice": "DUPLICATE-EXCLUDED DESCRIPTIVE METRICS \u2014 NOT REPLACEMENT BENCHMARK RESULTS. Provided solely to quantify apparent performance inflation from exact Train duplicates."
+}

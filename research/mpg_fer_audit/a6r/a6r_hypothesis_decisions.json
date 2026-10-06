@@ -1,0 +1,64 @@
+{
+  "audit": "MPG-FER A6-R",
+  "hypotheses": {
+    "H-A6R-COMPOSER": {
+      "name": "Composer Subrepresentation Functional Attribution",
+      "question": "Can the S1 functional transfer be localized to a particular Composer subrepresentation?",
+      "status": "COMBINED_WHAT_WHERE",
+      "evidence": {
+        "what_only_rescue": "15.01% (V21->V22) and 13.91% (V22->V21)",
+        "type_only_rescue": "2.87% (V21->V22) and 3.48% (V22->V21)",
+        "where_only_rescue": "2.19% (V21->V22) and 1.99% (V22->V21)",
+        "what_where_rescue": "34.74% (V21->V22) and 34.27% (V22->V21)",
+        "full_pre_proj_rescue": "36.26% (V21->V22) and 35.76% (V22->V21)",
+        "full_s1_rescue": "36.42% (V21->V22) and 35.93% (V22->V21)",
+        "finding": "WHAT+WHERE alone reproduces 34.7% of the total 36.4% S1 rescue (~95% of S1 transfer). TYPE-only rescue is weak (2.9%-3.5%), perfectly confirming A1 evidence that TYPE adds little incremental signal over WHAT+WHERE."
+      }
+    },
+    "H-A6R-READOUT": {
+      "name": "Motif Readout Operator vs. Node State Attribution",
+      "question": "Does the Motif Readout operator itself materially determine correctness when Layer-5 node states are held fixed?",
+      "status": "NODE_STATE_DOMINANT",
+      "evidence": {
+        "node_states_only_rescue": "71.13% (V21->V22) and 72.85% (V22->V21)",
+        "readout_operator_only_rescue": "20.07% (V21->V22) and 20.70% (V22->V21)",
+        "both_combined_s7_rescue": "89.38% (V21->V22) and 89.24% (V22->V21)",
+        "finding": "When holding the receiver's readout operator fixed, donor node states alone rescue 71.1%, exactly reproducing S6 rescue. The S6->S7 jump (+18.1%) represents the interaction between donor node states and the donor readout projection. Node-state representation information is the dominant driver."
+      }
+    },
+    "H-A6R-ROUTING-LINK": {
+      "name": "Sample-Level Routing Divergence Association",
+      "status": "MIXED",
+      "evidence": {
+        "point_biserial_correlation": "r = +0.22 to +0.34 (p < 1e-7 across Layers 1-5)",
+        "finding": "Routing support divergence is statistically associated with representation margin divergence, but does not establish an isolated single-layer causal threshold. Routing functions as an integrated mechanism of GNN propagation."
+      }
+    },
+    "H-A6R-GENERALIZATION": {
+      "name": "Depth-Dependent Specialization Gap",
+      "question": "Does representation specialization increase with depth more rapidly on Train than held-out data?",
+      "status": "SUPPORTED",
+      "evidence": {
+        "generalization_gap_growth": "Train-Public gap expands monotonically: R1 (5.1%) -> R2 (13.9%) -> R3 (21.7%) -> R6 (26.3%) -> R7 (30.0%) -> R8 (31.1%)",
+        "finding": "Linear separability on Train grows to ~98% by late layers while held-out test separability plateaus at ~67%, reflecting a progressively widening depth-dependent specialization / generalization gap."
+      }
+    },
+    "H-A6R-SINGLE-TARGET": {
+      "name": "Single Targeted Intervention Viability",
+      "question": "Is there one sufficiently precise representation target for a single v2.3 intervention?",
+      "status": "NOT_SUPPORTED",
+      "evidence": {
+        "pipeline_distribution": "Divergence is distributed: WHAT+WHERE composition (35%), Early Motif propagation (21%), Mid/Late Motif (14%), Readout interaction (18%).",
+        "finding": "No single module or layer explains the failure mode. Interventions must target distributed representation preservation."
+      }
+    }
+  },
+  "final_mechanistic_decision": "DISTRIBUTED_INFORMATION_PRESERVATION_TARGET",
+  "verdict": "A6R_COMPLETE_V23_TARGET_READY",
+  "justified_target_class": "DISTRIBUTED_INFORMATION_PRESERVATION",
+  "forbidden_interventions": [
+    "DO NOT optimize graph topology density or Top-K further (ruled out in A4 and confirmed in A6-R).",
+    "DO NOT tune the classifier head architecture or loss (ruled out in A4 and confirmed in A6).",
+    "DO NOT tune prototype count or TYPE projection in isolation (A6-R proves TYPE adds <3% rescue over WHAT+WHERE)."
+  ]
+}

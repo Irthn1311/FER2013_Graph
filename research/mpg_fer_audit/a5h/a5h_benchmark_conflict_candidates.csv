@@ -1,0 +1,17 @@
+group_id,sha256,held_out_split,held_out_row_index,held_out_label,held_out_class,train_labels_for_same_image,status_note
+16,07bf9353246651f0900b52bc0816efd5687ed426faaee1ae59763f80ce889f47,public,82,1,Disgust,Angry,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+31,6d9be468fa6ff4006e872ac19dd2d094f75da9ada6b4e532eb7c57aab8682529,public,3555,4,Sad,Angry,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+60,a4e7624b31c539b04884105aa610772a58a52cd834f12593bb7bebaf9df60312,private,3454,0,Angry,Fear,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+92,6c031f4b2f9a22da5141900311d47030508684e789659d0e5c8ff0fa01db6de4,private,2317,2,Fear,Angry,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+237,b698d1150aecf8f720371fb9b36c2a53f4c729a5a44804966195b5c6be6f0699,public,405,4,Sad,Neutral,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+281,39c494fe1714e9a2b11a594e03f944486918ac9fb7aedcbab624a7fd6b7ce089,public,2898,5,Surprise,Fear,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+341,bf8b69eefc26fc4e3210a55dddbe4e50b73932c002af71f57b89cca333f3d1fa,private,1047,5,Surprise,Fear,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+378,d364ee1f4a392adea168b7cf2a3104dac3c6e07619cf6d02d71f72cad0e91326,private,1754,3,Happy,Surprise,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+985,2911d45666e7325d068ad24daeaa88cbd3a98b1b5c56c9da3d4b78ea2e9892b9,private,1268,6,Neutral,Sad,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+997,b0d4e8e1cc8cf17bd7e4678a597b100decce0c9f35254604202261ebb49a35f6,private,1499,0,Angry,Fear,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+1017,eff8d5e83eb3608363e092a1e91cbe35637b8d383fb76d6c049f1a77b5b3c2e7,private,467,0,Angry,Sad,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+1148,6b2657eb1a58761e7a4a1f574cb3795cb96841ee677276d18391b524b92aa609,public,950,2,Fear,Surprise,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+1223,dbc4ff28009c9ac7b7afc9232a27a9759a6494bcca01ce8b39cc575f446cfecd,public,1377,2,Fear,Neutral,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+1363,d7080ea23c801d2097fbd8d044b4e583256d56198e286d408075014b38926259,public,1018,3,Happy,Neutral,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+1398,bd137cc46660c118b4052b5ccaaa6b839d85edabafe8f6dc593d998b8c0755d0,private,1714,5,Surprise,Happy,Byte-identical 48x48 pixel array present in Train with different emotion annotation
+1424,1f201be7f20e7b99f01197daf6a1041b7335cf30404c1692635f06e987b06323,private,3398,4,Sad,Fear,Byte-identical 48x48 pixel array present in Train with different emotion annotation

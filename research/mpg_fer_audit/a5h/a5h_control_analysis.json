@@ -1,0 +1,39 @@
+{
+  "bucket": "ALL_CORRECT",
+  "sample_count": 50,
+  "single_reviewer_breakdowns": {
+    "claude": {
+      "dataset_match_count": 24,
+      "dataset_match_rate": 0.48,
+      "model_match_count": 0,
+      "model_match_rate": 0.0,
+      "third_class_count": 22,
+      "third_class_rate": 0.44,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 3
+    },
+    "gemini_r2": {
+      "dataset_match_count": 34,
+      "dataset_match_rate": 0.68,
+      "model_match_count": 0,
+      "model_match_rate": 0.0,
+      "third_class_count": 16,
+      "third_class_rate": 0.32,
+      "ambiguous_count": 0,
+      "cannot_judge_count": 0
+    }
+  },
+  "strict_two_reviewer_consensus": {
+    "consensus_supports_dataset_count": 20,
+    "consensus_supports_dataset_rate": 0.4,
+    "consensus_supports_model_count": 0,
+    "consensus_supports_model_rate": 0.0,
+    "consensus_supports_third_class_count": 9,
+    "consensus_supports_third_class_rate": 0.18,
+    "no_reviewer_consensus_count": 21,
+    "no_reviewer_consensus_rate": 0.42,
+    "total_strict_consensus_count": 29,
+    "total_strict_consensus_rate": 0.58
+  },
+  "control_context": "On the ALL_CORRECT control anchor, Claude visually selected the dataset label in 24/50 cases (48.0%), Gemini selected it in 34/50 cases (68.0%), and both strictly agreed on the dataset label in 20/50 cases (40.0%). In 9 cases (18.0%), both reviewers agreed on an alternative emotion class, and in 21 cases (42.0%), no consensus was reached. This establishes the empirical upper bound of blinded AI agreement on low-resolution 48x48 FER faces."
+}

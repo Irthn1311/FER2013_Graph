@@ -1,0 +1,68 @@
+{
+  "public": {
+    "mcnemar_test": {
+      "v21_correct_v22_wrong": 230,
+      "v21_wrong_v22_correct": 246,
+      "discordant_total": 476,
+      "mcnemar_exact_p_value": 0.4917928769000019,
+      "net_accuracy_delta": 0.004458066313736417
+    },
+    "paired_bootstrap_tta": {
+      "bootstrap_samples": 2000,
+      "seed": 42,
+      "accuracy_delta_v22_minus_v21": {
+        "estimate": 0.004458066313736464,
+        "ci_95_lower": -0.007522986904430207,
+        "ci_95_upper": 0.0161604903872945
+      },
+      "macro_f1_delta_v22_minus_v21": {
+        "estimate": 0.006695445872133887,
+        "ci_95_lower": -0.009104370590144892,
+        "ci_95_upper": 0.022540705016094068
+      },
+      "nll_delta_v22_minus_v21": {
+        "estimate": 0.035961031913757324,
+        "ci_95_lower": 0.0036417320370674138,
+        "ci_95_upper": 0.06774493008852005
+      },
+      "brier_delta_v22_minus_v21": {
+        "estimate": 0.003315359354019165,
+        "ci_95_lower": -0.010870365798473359,
+        "ci_95_upper": 0.01786897405982017
+      }
+    }
+  },
+  "private": {
+    "mcnemar_test": {
+      "v21_correct_v22_wrong": 267,
+      "v21_wrong_v22_correct": 253,
+      "discordant_total": 520,
+      "mcnemar_exact_p_value": 0.5686602079340485,
+      "net_accuracy_delta": -0.003900808024519365
+    },
+    "paired_bootstrap_tta": {
+      "bootstrap_samples": 2000,
+      "seed": 42,
+      "accuracy_delta_v22_minus_v21": {
+        "estimate": -0.003900808024519309,
+        "ci_95_lower": -0.016446085260518346,
+        "ci_95_upper": 0.008365840066870947
+      },
+      "macro_f1_delta_v22_minus_v21": {
+        "estimate": -0.002853860014099152,
+        "ci_95_lower": -0.01919517966569288,
+        "ci_95_upper": 0.012281049367526548
+      },
+      "nll_delta_v22_minus_v21": {
+        "estimate": 0.058098793029785156,
+        "ci_95_lower": 0.028320243954658507,
+        "ci_95_upper": 0.0899562895298004
+      },
+      "brier_delta_v22_minus_v21": {
+        "estimate": 0.01732867956161499,
+        "ci_95_lower": 0.00380866602063179,
+        "ci_95_upper": 0.03177115097641945
+      }
+    }
+  }
+}

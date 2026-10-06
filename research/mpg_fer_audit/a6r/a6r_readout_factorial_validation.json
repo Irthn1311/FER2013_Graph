@@ -1,0 +1,10 @@
+{
+  "v2.1": {
+    "readout_identity_max_abs_error": 4.76837158203125e-07,
+    "valid": true
+  },
+  "v2.2": {
+    "readout_identity_max_abs_error": 4.76837158203125e-07,
+    "valid": true
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "public": {
+    "DYNAMIC_TOPK": {
+      "tta_acc": 0.6915575369183616,
+      "delta_acc": -0.0011145165784340882
+    },
+    "STATIC_GEOMETRIC_NEAREST": {
+      "tta_acc": 0.6427974366118696,
+      "delta_acc": -0.049874616884926115
+    },
+    "STATIC_GEOMETRIC_FARTHEST": {
+      "tta_acc": 0.5748119253273892,
+      "delta_acc": -0.1178601281694065
+    },
+    "STATIC_RANDOM": {
+      "tta_acc": 0.6857063248815826,
+      "delta_acc": -0.0069657286152131626
+    },
+    "TRAIN_MEAN_TOPK": {
+      "tta_acc": 0.5820562830872109,
+      "delta_acc": -0.11061577040958481
+    }
+  },
+  "private": {
+    "DYNAMIC_TOPK": {
+      "tta_acc": 0.6990805238227918,
+      "delta_acc": -0.00027862914460852206
+    },
+    "STATIC_GEOMETRIC_NEAREST": {
+      "tta_acc": 0.653106714962385,
+      "delta_acc": -0.04625243800501533
+    },
+    "STATIC_GEOMETRIC_FARTHEST": {
+      "tta_acc": 0.5586514349400947,
+      "delta_acc": -0.14070771802730564
+    },
+    "STATIC_RANDOM": {
+      "tta_acc": 0.6993591529674004,
+      "delta_acc": 0.0
+    },
+    "TRAIN_MEAN_TOPK": {
+      "tta_acc": 0.5764837001950404,
+      "delta_acc": -0.12287545277236
+    }
+  }
+}

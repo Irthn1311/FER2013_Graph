@@ -1,0 +1,46 @@
+{
+  "H-A5H-LABEL-INCONSISTENCY": {
+    "name": "Dataset Label Inconsistency & Cross-Split Contamination",
+    "status": "SUPPORTED",
+    "evidence": {
+      "cryptographic_proof": "57 exact duplicate groups have mutually conflicting ground-truth emotion labels across FER2013.",
+      "cross_split_leakage": "280 Public rows (7.80%) and 288 Private rows (8.02%) have byte-identical copies in Train; 28 of these cross-split pairs have conflicting labels.",
+      "conditioned_accuracy_collapse": "On conflicting duplicate rows, model accuracy collapses to 13.3%-38.5% because models learned the Train label."
+    }
+  },
+  "H-A5H-VISUAL-AMBIGUITY": {
+    "name": "Visual Ambiguity as a Material Error Factor",
+    "status": "SUPPORTED_AS_MATERIAL_FACTOR",
+    "evidence": {
+      "inter_rater_agreement": "Blind inter-rater exact agreement across all 9 states is 47.0% (Cohen's kappa = 0.3811). On 7 FER classes, agreement is 53.7% (kappa = 0.4432).",
+      "abstention_and_discordance": "In 106 of 200 reviewed samples (53.0%), independent blind reviewers disagreed on the expression or flagged visual ambiguity / multiple plausible emotions.",
+      "control_anchor_ambiguity": "Even on ALL_CORRECT samples where models and labels agree, reviewers failed to reach consensus in 42.0% of cases, proving high intrinsic ambiguity in 48x48 web faces."
+    }
+  },
+  "H-A5H-SYSTEMATIC-LABEL-MISMATCH": {
+    "name": "Systematic Label Mismatch in Shared High-Confidence Errors",
+    "status": "SUPPORTED_FOR_SUBSET",
+    "evidence": {
+      "strict_two_reviewer_consensus": "In the HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL bucket (N=50), strict consensus supported the model's prediction nearly 3x more often than the dataset label (34.0% [17/50] vs 12.0% [6/50]).",
+      "exploratory_binomial_p": 0.0347,
+      "label_mismatch_candidates": "17 strict candidates cataloged (10 Tier A, 7 Tier B)."
+    }
+  },
+  "H-A5H-COMMON-REPRESENTATION-FAILURE": {
+    "name": "Common MPG Representation Failure",
+    "status": "SUPPORTED_FOR_SUBSET",
+    "evidence": {
+      "strict_candidates": "11 samples across mutual error buckets have strict two-reviewer consensus supporting the nominal dataset label while all four MPG models unanimously failed.",
+      "finding": "MPG models possess demonstrable representational blind spots on specific valid expressions (e.g. subtle disgust wrinkles or faint smiles) that blind AI adjudicators clearly identify."
+    }
+  },
+  "H-A5H-COMPLEMENTARITY": {
+    "name": "Model Family Architectural Complementarity",
+    "status": "MEANINGFUL",
+    "evidence": {
+      "two_model_oracle": "76.51% (Public), 76.71% (Private) (+7.1% over individual models).",
+      "four_model_oracle": "81.75% (Public), 82.06% (Private) (+12.3% over individual models).",
+      "finding": "Over 12% of total test error is model-specific and resolvable by architectural variation, confirming that model errors are not exclusively shared or intrinsic."
+    }
+  }
+}

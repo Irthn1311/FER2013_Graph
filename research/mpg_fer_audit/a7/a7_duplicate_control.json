@@ -1,0 +1,102 @@
+{
+  "v22": {
+    "L5+L5": {
+      "name": "L5+L5",
+      "dim": 384,
+      "baseline_stage": "L5",
+      "train_acc": 0.9525584311539935,
+      "train_macro_f1": 0.952230211234605,
+      "public_acc": 0.6547784898300362,
+      "public_macro_f1": 0.6378720498438414,
+      "delta_acc_vs_late": -0.0008358874338256772,
+      "delta_f1_vs_late": -0.0024827908575963953,
+      "iterations": 464
+    },
+    "L5+L5+L5": {
+      "name": "L5+L5+L5",
+      "dim": 576,
+      "baseline_stage": "L5",
+      "train_acc": 0.9523842697411962,
+      "train_macro_f1": 0.952254986745323,
+      "public_acc": 0.6547784898300362,
+      "public_macro_f1": 0.6385757417698094,
+      "delta_acc_vs_late": -0.0008358874338256772,
+      "delta_f1_vs_late": -0.00177909893162842,
+      "iterations": 624
+    },
+    "Motif Readout+Motif Readout": {
+      "name": "Motif Readout+Motif Readout",
+      "dim": 768,
+      "baseline_stage": "Motif Readout",
+      "train_acc": 0.9793444564422307,
+      "train_macro_f1": 0.9806074164893662,
+      "public_acc": 0.6687099470604625,
+      "public_macro_f1": 0.6540658648145341,
+      "delta_acc_vs_late": -0.00027862914460852206,
+      "delta_f1_vs_late": 0.0004305033183786833,
+      "iterations": 1130
+    },
+    "Fusion+Fusion": {
+      "name": "Fusion+Fusion",
+      "dim": 1024,
+      "baseline_stage": "Fusion",
+      "train_acc": 0.9838378208924031,
+      "train_macro_f1": 0.9852138424199414,
+      "public_acc": 0.6634159933129006,
+      "public_macro_f1": 0.640437421874805,
+      "delta_acc_vs_late": -0.003900808024519309,
+      "delta_f1_vs_late": -0.005959073747111243,
+      "iterations": 1506
+    }
+  },
+  "v23": {
+    "L5+L5": {
+      "name": "L5+L5",
+      "dim": 384,
+      "baseline_stage": "L5",
+      "train_acc": 0.9592810616879724,
+      "train_macro_f1": 0.9593008569223589,
+      "public_acc": 0.6617442184452493,
+      "public_macro_f1": 0.6539736902089661,
+      "delta_acc_vs_late": -0.0013931457230427213,
+      "delta_f1_vs_late": -0.0021361105856103624,
+      "iterations": 701
+    },
+    "L5+L5+L5": {
+      "name": "L5+L5+L5",
+      "dim": 576,
+      "baseline_stage": "L5",
+      "train_acc": 0.959176564840294,
+      "train_macro_f1": 0.9594909965770579,
+      "public_acc": 0.6625801058790749,
+      "public_macro_f1": 0.6546963457296532,
+      "delta_acc_vs_late": -0.0005572582892171551,
+      "delta_f1_vs_late": -0.0014134550649232969,
+      "iterations": 973
+    },
+    "Motif Readout+Motif Readout": {
+      "name": "Motif Readout+Motif Readout",
+      "dim": 768,
+      "baseline_stage": "Motif Readout",
+      "train_acc": 0.9747814274269393,
+      "train_macro_f1": 0.9758589989692982,
+      "public_acc": 0.6664809139035943,
+      "public_macro_f1": 0.650240018790743,
+      "delta_acc_vs_late": -0.0008358874338255662,
+      "delta_f1_vs_late": 0.00025389349827897867,
+      "iterations": 1306
+    },
+    "Fusion+Fusion": {
+      "name": "Fusion+Fusion",
+      "dim": 1024,
+      "baseline_stage": "Fusion",
+      "train_acc": 0.9786826430736006,
+      "train_macro_f1": 0.9799707226938733,
+      "public_acc": 0.6611869601560323,
+      "public_macro_f1": 0.6438928047868436,
+      "delta_acc_vs_late": -0.0005572582892170441,
+      "delta_f1_vs_late": 0.0015401625264933605,
+      "iterations": 1734
+    }
+  }
+}

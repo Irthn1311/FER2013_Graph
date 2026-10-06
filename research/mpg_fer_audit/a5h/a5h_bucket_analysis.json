@@ -1,0 +1,146 @@
+{
+  "A_high_conf_error": {
+    "sample_count": 50,
+    "within_bucket_kappa_7_fer": 0.45679012345679015,
+    "reviewer_c_claude": {
+      "dataset_match_count": 11,
+      "dataset_match_rate": 0.22,
+      "model_match_count": 21,
+      "model_match_rate": 0.42,
+      "third_class_count": 13,
+      "third_class_rate": 0.26,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 4
+    },
+    "reviewer_g_gemini_r2": {
+      "dataset_match_count": 11,
+      "dataset_match_rate": 0.22,
+      "model_match_count": 28,
+      "model_match_rate": 0.56,
+      "third_class_count": 10,
+      "third_class_rate": 0.2,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 0
+    },
+    "strict_two_reviewer_consensus": {
+      "consensus_supports_dataset_count": 6,
+      "consensus_supports_dataset_rate": 0.12,
+      "consensus_supports_model_count": 17,
+      "consensus_supports_model_rate": 0.34,
+      "consensus_supports_third_class_count": 2,
+      "consensus_supports_third_class_rate": 0.04,
+      "no_reviewer_consensus_count": 25,
+      "no_reviewer_consensus_rate": 0.5,
+      "total_strict_consensus_count": 25,
+      "total_strict_consensus_rate": 0.5
+    }
+  },
+  "B_mixed_error": {
+    "sample_count": 50,
+    "within_bucket_kappa_7_fer": 0.28848641655886165,
+    "reviewer_c_claude": {
+      "dataset_match_count": 13,
+      "dataset_match_rate": 0.26,
+      "model_match_count": 11,
+      "model_match_rate": 0.22,
+      "third_class_count": 21,
+      "third_class_rate": 0.42,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 4
+    },
+    "reviewer_g_gemini_r2": {
+      "dataset_match_count": 14,
+      "dataset_match_rate": 0.28,
+      "model_match_count": 15,
+      "model_match_rate": 0.3,
+      "third_class_count": 20,
+      "third_class_rate": 0.4,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 0
+    },
+    "strict_two_reviewer_consensus": {
+      "consensus_supports_dataset_count": 5,
+      "consensus_supports_dataset_rate": 0.1,
+      "consensus_supports_model_count": 7,
+      "consensus_supports_model_rate": 0.14,
+      "consensus_supports_third_class_count": 7,
+      "consensus_supports_third_class_rate": 0.14,
+      "no_reviewer_consensus_count": 31,
+      "no_reviewer_consensus_rate": 0.62,
+      "total_strict_consensus_count": 19,
+      "total_strict_consensus_rate": 0.38
+    }
+  },
+  "C_model_disagreement": {
+    "sample_count": 50,
+    "within_bucket_kappa_7_fer": 0.42008486562942005,
+    "reviewer_c_claude": {
+      "dataset_match_count": 14,
+      "dataset_match_rate": 0.28,
+      "model_match_count": 8,
+      "model_match_rate": 0.16,
+      "third_class_count": 19,
+      "third_class_rate": 0.38,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 8
+    },
+    "reviewer_g_gemini_r2": {
+      "dataset_match_count": 25,
+      "dataset_match_rate": 0.5,
+      "model_match_count": 8,
+      "model_match_rate": 0.16,
+      "third_class_count": 17,
+      "third_class_rate": 0.34,
+      "ambiguous_count": 0,
+      "cannot_judge_count": 0
+    },
+    "strict_two_reviewer_consensus": {
+      "consensus_supports_dataset_count": 9,
+      "consensus_supports_dataset_rate": 0.18,
+      "consensus_supports_model_count": 5,
+      "consensus_supports_model_rate": 0.1,
+      "consensus_supports_third_class_count": 7,
+      "consensus_supports_third_class_rate": 0.14,
+      "no_reviewer_consensus_count": 29,
+      "no_reviewer_consensus_rate": 0.58,
+      "total_strict_consensus_count": 21,
+      "total_strict_consensus_rate": 0.42
+    }
+  },
+  "D_all_correct_control": {
+    "sample_count": 50,
+    "within_bucket_kappa_7_fer": 0.5599324704558244,
+    "reviewer_c_claude": {
+      "dataset_match_count": 24,
+      "dataset_match_rate": 0.48,
+      "model_match_count": 0,
+      "model_match_rate": 0.0,
+      "third_class_count": 22,
+      "third_class_rate": 0.44,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 3
+    },
+    "reviewer_g_gemini_r2": {
+      "dataset_match_count": 34,
+      "dataset_match_rate": 0.68,
+      "model_match_count": 0,
+      "model_match_rate": 0.0,
+      "third_class_count": 16,
+      "third_class_rate": 0.32,
+      "ambiguous_count": 0,
+      "cannot_judge_count": 0
+    },
+    "strict_two_reviewer_consensus": {
+      "consensus_supports_dataset_count": 20,
+      "consensus_supports_dataset_rate": 0.4,
+      "consensus_supports_model_count": 0,
+      "consensus_supports_model_rate": 0.0,
+      "consensus_supports_third_class_count": 9,
+      "consensus_supports_third_class_rate": 0.18,
+      "no_reviewer_consensus_count": 21,
+      "no_reviewer_consensus_rate": 0.42,
+      "total_strict_consensus_count": 29,
+      "total_strict_consensus_rate": 0.58
+    }
+  }
+}

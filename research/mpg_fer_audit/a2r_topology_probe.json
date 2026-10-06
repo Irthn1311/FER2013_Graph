@@ -1,0 +1,10 @@
+{
+  "feature_dim": 240,
+  "train_raw_acc": 0.839,
+  "public_tta_acc": 0.6280300919476177,
+  "public_tta_f1": 0.5787901668658939,
+  "private_tta_acc": 0.6358317079966564,
+  "private_tta_f1": 0.5920064170105618,
+  "resub_gap_pub": 0.21096990805238225,
+  "resub_gap_priv": 0.20316829200334352
+}

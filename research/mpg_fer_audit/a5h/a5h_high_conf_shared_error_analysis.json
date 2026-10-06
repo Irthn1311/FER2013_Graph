@@ -1,0 +1,70 @@
+{
+  "bucket": "HIGH_CONFIDENCE_ALL_WRONG_SAME_LABEL",
+  "sample_count": 50,
+  "single_reviewer_breakdowns": {
+    "claude": {
+      "dataset_match_count": 11,
+      "dataset_match_rate": 0.22,
+      "model_match_count": 21,
+      "model_match_rate": 0.42,
+      "third_class_count": 13,
+      "third_class_rate": 0.26,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 4
+    },
+    "gemini_r2": {
+      "dataset_match_count": 11,
+      "dataset_match_rate": 0.22,
+      "model_match_count": 28,
+      "model_match_rate": 0.56,
+      "third_class_count": 10,
+      "third_class_rate": 0.2,
+      "ambiguous_count": 1,
+      "cannot_judge_count": 0
+    }
+  },
+  "strict_two_reviewer_consensus_with_bootstrap_95_ci": {
+    "consensus_supports_dataset": {
+      "count": 6,
+      "total": 50,
+      "proportion": 0.12,
+      "ci_95_lower": 0.04,
+      "ci_95_upper": 0.22
+    },
+    "consensus_supports_model": {
+      "count": 17,
+      "total": 50,
+      "proportion": 0.34,
+      "ci_95_lower": 0.2,
+      "ci_95_upper": 0.48
+    },
+    "consensus_supports_third_class": {
+      "count": 2,
+      "total": 50,
+      "proportion": 0.04,
+      "ci_95_lower": 0.0,
+      "ci_95_upper": 0.1
+    },
+    "no_reviewer_consensus": {
+      "count": 25,
+      "total": 50,
+      "proportion": 0.5,
+      "ci_95_lower": 0.36,
+      "ci_95_upper": 0.64
+    }
+  },
+  "exploratory_binomial_comparison": {
+    "description": "Exploratory two-sided exact binomial test comparing model-favoring vs dataset-favoring cases among decided consensus cases",
+    "model_favoring_count": 17,
+    "dataset_favoring_count": 6,
+    "total_decided": 23,
+    "model_favoring_ratio": 0.7391304347826086,
+    "exact_binomial_two_sided_p_value": 0.03468966484069824,
+    "caveats": [
+      "Not preregistered as a standalone confirmatory hypothesis.",
+      "AI reviewers may share internet/foundation-model visual priors with the broader visual expression domain.",
+      "P-value alone does not establish ground truth; it indicates that blind visual perception significantly favored the model prediction over the nominal label."
+    ]
+  },
+  "scientific_statement": "Among 50 unanimous high-confidence MPG errors, independent blind AI visual reviewers agreed on an FER class in 25 cases (50.0%). Of these, 17 cases (34.0% [95% CI: 22.0%-48.0%]) visually favored the four-model consensus wrong prediction, while only 6 cases (12.0% [95% CI: 4.0%-22.0%]) visually supported the nominal dataset label. In 25 cases, visual ambiguity or reviewer disagreement prevented consensus."
+}

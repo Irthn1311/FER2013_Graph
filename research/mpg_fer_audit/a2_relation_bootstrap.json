@@ -1,0 +1,566 @@
+{
+  "v1": {
+    "public": {
+      "H1_REL_LOCAL_vs_FAR": {
+        "comparison": "REL_LOCAL vs REL_FAR",
+        "delta_accuracy_point": 0.0005572582892170441,
+        "delta_accuracy_ci_95": [
+          -0.014781276121482317,
+          0.016446085260518252
+        ],
+        "delta_macro_f1_point": 0.007485656553063019,
+        "delta_macro_f1_ci_95": [
+          -0.007928625717556394,
+          0.022707327543573783
+        ]
+      },
+      "H1_NODE_PLUS_LOCAL_vs_NODE": {
+        "comparison": "NODE_PLUS_LOCAL vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.00027862914460852206,
+        "delta_accuracy_ci_95": [
+          -0.006408470325996118,
+          0.006408470325996118
+        ],
+        "delta_macro_f1_point": 0.0002425821973435216,
+        "delta_macro_f1_ci_95": [
+          -0.006399540241666321,
+          0.007528122407099023
+        ]
+      },
+      "H1_NODE_PLUS_FAR_vs_NODE": {
+        "comparison": "NODE_PLUS_FAR vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": -0.0027862914460852206,
+        "delta_accuracy_ci_95": [
+          -0.00808024519364725,
+          0.0027862914460853316
+        ],
+        "delta_macro_f1_point": -0.004518987796899188,
+        "delta_macro_f1_ci_95": [
+          -0.01386713533068223,
+          0.004869484237592747
+        ]
+      },
+      "H1_NODE_PLUS_ALL_vs_NODE_PLUS_LOCAL": {
+        "comparison": "NODE_PLUS_ALL vs NODE_PLUS_LOCAL",
+        "delta_accuracy_point": -0.0005572582892170441,
+        "delta_accuracy_ci_95": [
+          -0.006687099470604532,
+          0.00529395374756203
+        ],
+        "delta_macro_f1_point": 0.0004883660337249296,
+        "delta_macro_f1_ci_95": [
+          -0.007623756164720111,
+          0.009147738722810581
+        ]
+      },
+      "H2_CONTENT_vs_GEOM": {
+        "comparison": "NODE_PLUS_CONTENT_ONLY vs NODE_PLUS_GEOM_ONLY",
+        "delta_accuracy_point": -0.00390080802451942,
+        "delta_accuracy_ci_95": [
+          -0.010030649205906905,
+          0.0027862914460852206
+        ],
+        "delta_macro_f1_point": -0.007959499321421148,
+        "delta_macro_f1_ci_95": [
+          -0.018800665696810374,
+          0.002053854857192076
+        ]
+      },
+      "H2_DIRECTED_vs_NODE": {
+        "comparison": "NODE_PLUS_DIRECTED vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": -0.0013931457230426103,
+        "delta_accuracy_ci_95": [
+          -0.007522986904430207,
+          0.004736695458344986
+        ],
+        "delta_macro_f1_point": -0.0017773025372319617,
+        "delta_macro_f1_ci_95": [
+          -0.014386931012023083,
+          0.010750449346032583
+        ]
+      },
+      "H2_DIRECTED_vs_SYMMETRIC": {
+        "comparison": "NODE_PLUS_DIRECTED vs NODE_PLUS_SYMMETRIC",
+        "delta_accuracy_point": -0.00027862914460852206,
+        "delta_accuracy_ci_95": [
+          -0.004458066313736356,
+          0.00390080802451942
+        ],
+        "delta_macro_f1_point": -0.0007849583641360569,
+        "delta_macro_f1_ci_95": [
+          -0.0047376401514926895,
+          0.0034181772366936084
+        ]
+      }
+    },
+    "private": {
+      "H1_REL_LOCAL_vs_FAR": {
+        "comparison": "REL_LOCAL vs REL_FAR",
+        "delta_accuracy_point": -0.0013931457230426103,
+        "delta_accuracy_ci_95": [
+          -0.01727500696572859,
+          0.015045973808860413
+        ],
+        "delta_macro_f1_point": 0.0037686064072834646,
+        "delta_macro_f1_ci_95": [
+          -0.011398974980502005,
+          0.019318976448455594
+        ]
+      },
+      "H1_NODE_PLUS_LOCAL_vs_NODE": {
+        "comparison": "NODE_PLUS_LOCAL vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": -0.0011145165784340882,
+        "delta_accuracy_ci_95": [
+          -0.007801616049038729,
+          0.004743661186960158
+        ],
+        "delta_macro_f1_point": -0.002275879754694232,
+        "delta_macro_f1_ci_95": [
+          -0.012842795493490756,
+          0.00797306327147656
+        ]
+      },
+      "H1_NODE_PLUS_FAR_vs_NODE": {
+        "comparison": "NODE_PLUS_FAR vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": -0.0022290331568681765,
+        "delta_accuracy_ci_95": [
+          -0.00808024519364725,
+          0.0030649205906938537
+        ],
+        "delta_macro_f1_point": -0.0023000426066843715,
+        "delta_macro_f1_ci_95": [
+          -0.013154617161783205,
+          0.007568952498176728
+        ]
+      },
+      "H1_NODE_PLUS_ALL_vs_NODE_PLUS_LOCAL": {
+        "comparison": "NODE_PLUS_ALL vs NODE_PLUS_LOCAL",
+        "delta_accuracy_point": 0.0033435497353022647,
+        "delta_accuracy_ci_95": [
+          -0.003622178879910898,
+          0.010037614934522189
+        ],
+        "delta_macro_f1_point": 0.0029430366516310924,
+        "delta_macro_f1_ci_95": [
+          -0.008187957482289432,
+          0.014235502187284334
+        ]
+      },
+      "H2_CONTENT_vs_GEOM": {
+        "comparison": "NODE_PLUS_CONTENT_ONLY vs NODE_PLUS_GEOM_ONLY",
+        "delta_accuracy_point": 0.0016717748676511324,
+        "delta_accuracy_ci_95": [
+          -0.004736695458344875,
+          0.00808024519364725
+        ],
+        "delta_macro_f1_point": 0.004576691034171243,
+        "delta_macro_f1_ci_95": [
+          -0.011119809061269376,
+          0.02050057815940163
+        ]
+      },
+      "H2_DIRECTED_vs_NODE": {
+        "comparison": "NODE_PLUS_DIRECTED vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.0013931457230426103,
+        "delta_accuracy_ci_95": [
+          -0.00529395374756203,
+          0.007244357759821685
+        ],
+        "delta_macro_f1_point": 0.004439355172686565,
+        "delta_macro_f1_ci_95": [
+          -0.010947277391807328,
+          0.019304803117006195
+        ]
+      },
+      "H2_DIRECTED_vs_SYMMETRIC": {
+        "comparison": "NODE_PLUS_DIRECTED vs NODE_PLUS_SYMMETRIC",
+        "delta_accuracy_point": 0.00027862914460852206,
+        "delta_accuracy_ci_95": [
+          -0.004458066313736464,
+          0.005015324602953508
+        ],
+        "delta_macro_f1_point": -0.000721865258102472,
+        "delta_macro_f1_ci_95": [
+          -0.009677278705272787,
+          0.008870296771331807
+        ]
+      }
+    }
+  },
+  "v2": {
+    "public": {
+      "H1_REL_LOCAL_vs_FAR": {
+        "comparison": "REL_LOCAL vs REL_FAR",
+        "delta_accuracy_point": -0.006129841181387596,
+        "delta_accuracy_ci_95": [
+          -0.022011702424073576,
+          0.009201727500696567
+        ],
+        "delta_macro_f1_point": -0.012196016805509469,
+        "delta_macro_f1_ci_95": [
+          -0.02787804886020208,
+          0.0025999748155776867
+        ]
+      },
+      "H1_NODE_PLUS_LOCAL_vs_NODE": {
+        "comparison": "NODE_PLUS_LOCAL vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": -0.0013931457230426103,
+        "delta_accuracy_ci_95": [
+          -0.00808024519364725,
+          0.005572582892170552
+        ],
+        "delta_macro_f1_point": 0.004963460373698436,
+        "delta_macro_f1_ci_95": [
+          -0.004388205288192959,
+          0.0158709011329823
+        ]
+      },
+      "H1_NODE_PLUS_FAR_vs_NODE": {
+        "comparison": "NODE_PLUS_FAR vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.0027862914460852206,
+        "delta_accuracy_ci_95": [
+          -0.003622178879910787,
+          0.009473390916689861
+        ],
+        "delta_macro_f1_point": 0.005927905302760772,
+        "delta_macro_f1_ci_95": [
+          -0.004720998483128472,
+          0.016137635317339655
+        ]
+      },
+      "H1_NODE_PLUS_ALL_vs_NODE_PLUS_LOCAL": {
+        "comparison": "NODE_PLUS_ALL vs NODE_PLUS_LOCAL",
+        "delta_accuracy_point": 0.0025076623014766986,
+        "delta_accuracy_ci_95": [
+          -0.004179437169127831,
+          0.009194761772081339
+        ],
+        "delta_macro_f1_point": 0.0004426648444633141,
+        "delta_macro_f1_ci_95": [
+          -0.010048145844205575,
+          0.009315947910867949
+        ]
+      },
+      "H2_CONTENT_vs_GEOM": {
+        "comparison": "NODE_PLUS_CONTENT_ONLY vs NODE_PLUS_GEOM_ONLY",
+        "delta_accuracy_point": -0.005015324602953397,
+        "delta_accuracy_ci_95": [
+          -0.011145165784341104,
+          0.0013931457230426131
+        ],
+        "delta_macro_f1_point": -0.0015557717965666296,
+        "delta_macro_f1_ci_95": [
+          -0.009032702135581999,
+          0.007353009477533946
+        ]
+      },
+      "H2_DIRECTED_vs_NODE": {
+        "comparison": "NODE_PLUS_DIRECTED vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.005572582892170552,
+        "delta_accuracy_ci_95": [
+          -0.0008358874338255662,
+          0.012259682362775193
+        ],
+        "delta_macro_f1_point": 0.006111098108635082,
+        "delta_macro_f1_ci_95": [
+          -0.003988294066934489,
+          0.016905516785289856
+        ]
+      },
+      "H2_DIRECTED_vs_SYMMETRIC": {
+        "comparison": "NODE_PLUS_DIRECTED vs NODE_PLUS_SYMMETRIC",
+        "delta_accuracy_point": 0.0022290331568682875,
+        "delta_accuracy_ci_95": [
+          -0.0030649205906937427,
+          0.007522986904430207
+        ],
+        "delta_macro_f1_point": 0.0014485868000918556,
+        "delta_macro_f1_ci_95": [
+          -0.003567912386228955,
+          0.006874045976110513
+        ]
+      }
+    },
+    "private": {
+      "H1_REL_LOCAL_vs_FAR": {
+        "comparison": "REL_LOCAL vs REL_FAR",
+        "delta_accuracy_point": -0.0039008080245193644,
+        "delta_accuracy_ci_95": [
+          -0.01895374756199499,
+          0.011702424073558093
+        ],
+        "delta_macro_f1_point": -0.007857425937725093,
+        "delta_macro_f1_ci_95": [
+          -0.022791631122790135,
+          0.006991745255797961
+        ]
+      },
+      "H1_NODE_PLUS_LOCAL_vs_NODE": {
+        "comparison": "NODE_PLUS_LOCAL vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.0066870994706046405,
+        "delta_accuracy_ci_95": [
+          0.00027862914460852206,
+          0.012816940651992237
+        ],
+        "delta_macro_f1_point": 0.013612209680738285,
+        "delta_macro_f1_ci_95": [
+          -0.0005492969498976012,
+          0.027380141461629943
+        ]
+      },
+      "H1_NODE_PLUS_FAR_vs_NODE": {
+        "comparison": "NODE_PLUS_FAR vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.0008358874338255662,
+        "delta_accuracy_ci_95": [
+          -0.006129841181387596,
+          0.00725132348843686
+        ],
+        "delta_macro_f1_point": 0.005318728666899419,
+        "delta_macro_f1_ci_95": [
+          -0.008189304428880873,
+          0.01889025889647456
+        ]
+      },
+      "H1_NODE_PLUS_ALL_vs_NODE_PLUS_LOCAL": {
+        "comparison": "NODE_PLUS_ALL vs NODE_PLUS_LOCAL",
+        "delta_accuracy_point": -0.0022290331568681765,
+        "delta_accuracy_ci_95": [
+          -0.008916132627472817,
+          0.004736695458344986
+        ],
+        "delta_macro_f1_point": 0.002520850293814214,
+        "delta_macro_f1_ci_95": [
+          -0.006420288223428846,
+          0.01428620424475583
+        ]
+      },
+      "H2_CONTENT_vs_GEOM": {
+        "comparison": "NODE_PLUS_CONTENT_ONLY vs NODE_PLUS_GEOM_ONLY",
+        "delta_accuracy_point": 0.0013931457230427213,
+        "delta_accuracy_ci_95": [
+          -0.00529395374756203,
+          0.00808024519364725
+        ],
+        "delta_macro_f1_point": 0.0094725345451675,
+        "delta_macro_f1_ci_95": [
+          0.00024928327363592516,
+          0.019853201310815225
+        ]
+      },
+      "H2_DIRECTED_vs_NODE": {
+        "comparison": "NODE_PLUS_DIRECTED vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.0008358874338255662,
+        "delta_accuracy_ci_95": [
+          -0.006129841181387596,
+          0.007801616049038729
+        ],
+        "delta_macro_f1_point": 0.0005543278172752686,
+        "delta_macro_f1_ci_95": [
+          -0.014292602617405583,
+          0.014592669120756147
+        ]
+      },
+      "H2_DIRECTED_vs_SYMMETRIC": {
+        "comparison": "NODE_PLUS_DIRECTED vs NODE_PLUS_SYMMETRIC",
+        "delta_accuracy_point": -0.0011145165784340882,
+        "delta_accuracy_ci_95": [
+          -0.0066870994706046405,
+          0.004458066313736464
+        ],
+        "delta_macro_f1_point": -0.003587447671533295,
+        "delta_macro_f1_ci_95": [
+          -0.012000171069749193,
+          0.0035593483520079605
+        ]
+      }
+    }
+  },
+  "v2_1": {
+    "public": {
+      "H1_REL_LOCAL_vs_FAR": {
+        "comparison": "REL_LOCAL vs REL_FAR",
+        "delta_accuracy_point": -0.011423794928949571,
+        "delta_accuracy_ci_95": [
+          -0.026748397882418506,
+          0.0039008080245193644
+        ],
+        "delta_macro_f1_point": -0.019260103037944398,
+        "delta_macro_f1_ci_95": [
+          -0.03465235530471749,
+          -0.004278337432481285
+        ]
+      },
+      "H1_NODE_PLUS_LOCAL_vs_NODE": {
+        "comparison": "NODE_PLUS_LOCAL vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": -0.0005572582892170441,
+        "delta_accuracy_ci_95": [
+          -0.0066870994706046405,
+          0.005851212036779074
+        ],
+        "delta_macro_f1_point": 0.005853512410484596,
+        "delta_macro_f1_ci_95": [
+          -0.007389260039780498,
+          0.01914035112982005
+        ]
+      },
+      "H1_NODE_PLUS_FAR_vs_NODE": {
+        "comparison": "NODE_PLUS_FAR vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": -0.0019504040122597655,
+        "delta_accuracy_ci_95": [
+          -0.00808024519364725,
+          0.004179437169127942
+        ],
+        "delta_macro_f1_point": 0.003677707139419062,
+        "delta_macro_f1_ci_95": [
+          -0.00880673434224655,
+          0.0151665029578145
+        ]
+      },
+      "H1_NODE_PLUS_ALL_vs_NODE_PLUS_LOCAL": {
+        "comparison": "NODE_PLUS_ALL vs NODE_PLUS_LOCAL",
+        "delta_accuracy_point": 0.0027862914460852206,
+        "delta_accuracy_ci_95": [
+          -0.004179437169127831,
+          0.009752020061298494
+        ],
+        "delta_macro_f1_point": 0.000839348239572768,
+        "delta_macro_f1_ci_95": [
+          -0.008891713337832724,
+          0.009975317566014413
+        ]
+      },
+      "H2_CONTENT_vs_GEOM": {
+        "comparison": "NODE_PLUS_CONTENT_ONLY vs NODE_PLUS_GEOM_ONLY",
+        "delta_accuracy_point": 0.0022290331568682875,
+        "delta_accuracy_ci_95": [
+          -0.003900808024519309,
+          0.00808024519364725
+        ],
+        "delta_macro_f1_point": -0.00376735923278515,
+        "delta_macro_f1_ci_95": [
+          -0.017735116200841887,
+          0.00896961141136682
+        ]
+      },
+      "H2_DIRECTED_vs_NODE": {
+        "comparison": "NODE_PLUS_DIRECTED vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.0008358874338255662,
+        "delta_accuracy_ci_95": [
+          -0.005015324602953508,
+          0.0069657286152131626
+        ],
+        "delta_macro_f1_point": 0.00430167298262607,
+        "delta_macro_f1_ci_95": [
+          -0.009617118691938393,
+          0.017063424390711814
+        ]
+      },
+      "H2_DIRECTED_vs_SYMMETRIC": {
+        "comparison": "NODE_PLUS_DIRECTED vs NODE_PLUS_SYMMETRIC",
+        "delta_accuracy_point": 0.00390080802451942,
+        "delta_accuracy_ci_95": [
+          -0.00027862914460852206,
+          0.008358874338255773
+        ],
+        "delta_macro_f1_point": 0.00275855601289976,
+        "delta_macro_f1_ci_95": [
+          -0.006992618792183764,
+          0.012487871862441605
+        ]
+      }
+    },
+    "private": {
+      "H1_REL_LOCAL_vs_FAR": {
+        "comparison": "REL_LOCAL vs REL_FAR",
+        "delta_accuracy_point": -0.0019504040122596544,
+        "delta_accuracy_ci_95": [
+          -0.017275006965728645,
+          0.013374198941209225
+        ],
+        "delta_macro_f1_point": -0.008194321063393684,
+        "delta_macro_f1_ci_95": [
+          -0.022561717813243256,
+          0.007067103637782287
+        ]
+      },
+      "H1_NODE_PLUS_LOCAL_vs_NODE": {
+        "comparison": "NODE_PLUS_LOCAL vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.0030649205906937427,
+        "delta_accuracy_ci_95": [
+          -0.0033435497353022647,
+          0.008916132627472928
+        ],
+        "delta_macro_f1_point": 0.007094216901734507,
+        "delta_macro_f1_ci_95": [
+          -0.007688396322348937,
+          0.02057856732506269
+        ]
+      },
+      "H1_NODE_PLUS_FAR_vs_NODE": {
+        "comparison": "NODE_PLUS_FAR vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.005572582892170441,
+        "delta_accuracy_ci_95": [
+          -0.0011145165784340882,
+          0.01198105321816656
+        ],
+        "delta_macro_f1_point": 0.003703811614105712,
+        "delta_macro_f1_ci_95": [
+          -0.010439715619229021,
+          0.016969554191566736
+        ]
+      },
+      "H1_NODE_PLUS_ALL_vs_NODE_PLUS_LOCAL": {
+        "comparison": "NODE_PLUS_ALL vs NODE_PLUS_LOCAL",
+        "delta_accuracy_point": 0.0011145165784340882,
+        "delta_accuracy_ci_95": [
+          -0.005022290331568718,
+          0.007801616049038729
+        ],
+        "delta_macro_f1_point": -0.005830713960497058,
+        "delta_macro_f1_ci_95": [
+          -0.016556478346640476,
+          0.0036937604263204537
+        ]
+      },
+      "H2_CONTENT_vs_GEOM": {
+        "comparison": "NODE_PLUS_CONTENT_ONLY vs NODE_PLUS_GEOM_ONLY",
+        "delta_accuracy_point": 0.0,
+        "delta_accuracy_ci_95": [
+          -0.006408470325996118,
+          0.006408470325996118
+        ],
+        "delta_macro_f1_point": 0.009496641613249035,
+        "delta_macro_f1_ci_95": [
+          -0.0015619079933602924,
+          0.02108849572436645
+        ]
+      },
+      "H2_DIRECTED_vs_NODE": {
+        "comparison": "NODE_PLUS_DIRECTED vs PRE_MOTIF_SUMMARY",
+        "delta_accuracy_point": 0.005293953747561919,
+        "delta_accuracy_ci_95": [
+          -0.0005572582892170441,
+          0.011423794928949627
+        ],
+        "delta_macro_f1_point": 0.010020123330858,
+        "delta_macro_f1_ci_95": [
+          -0.0030035595876702456,
+          0.022016565546238265
+        ]
+      },
+      "H2_DIRECTED_vs_SYMMETRIC": {
+        "comparison": "NODE_PLUS_DIRECTED vs NODE_PLUS_SYMMETRIC",
+        "delta_accuracy_point": 0.005293953747561919,
+        "delta_accuracy_ci_95": [
+          0.0008358874338256772,
+          0.010030649205906905
+        ],
+        "delta_macro_f1_point": 0.004988158596347159,
+        "delta_macro_f1_ci_95": [
+          -0.0016405330733895497,
+          0.012909371831383487
+        ]
+      }
+    }
+  }
+}

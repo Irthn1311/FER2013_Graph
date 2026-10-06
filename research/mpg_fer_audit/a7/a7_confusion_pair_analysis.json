@@ -1,0 +1,114 @@
+{
+  "v22": {
+    "Fear->Sad": {
+      "true_class": "Fear",
+      "confused_as": "Sad",
+      "L5_probe_confusions": 86,
+      "L2_L5_raw_confusions": 90,
+      "L2_L5_pca_confusions": 87,
+      "delta_raw_vs_l5": 4,
+      "delta_pca_vs_l5": 1
+    },
+    "Fear->Neutral": {
+      "true_class": "Fear",
+      "confused_as": "Neutral",
+      "L5_probe_confusions": 57,
+      "L2_L5_raw_confusions": 56,
+      "L2_L5_pca_confusions": 58,
+      "delta_raw_vs_l5": -1,
+      "delta_pca_vs_l5": 1
+    },
+    "Fear->Angry": {
+      "true_class": "Fear",
+      "confused_as": "Angry",
+      "L5_probe_confusions": 51,
+      "L2_L5_raw_confusions": 46,
+      "L2_L5_pca_confusions": 48,
+      "delta_raw_vs_l5": -5,
+      "delta_pca_vs_l5": -3
+    },
+    "Sad->Neutral": {
+      "true_class": "Sad",
+      "confused_as": "Neutral",
+      "L5_probe_confusions": 85,
+      "L2_L5_raw_confusions": 80,
+      "L2_L5_pca_confusions": 82,
+      "delta_raw_vs_l5": -5,
+      "delta_pca_vs_l5": -3
+    },
+    "Neutral->Sad": {
+      "true_class": "Neutral",
+      "confused_as": "Sad",
+      "L5_probe_confusions": 106,
+      "L2_L5_raw_confusions": 95,
+      "L2_L5_pca_confusions": 96,
+      "delta_raw_vs_l5": -11,
+      "delta_pca_vs_l5": -10
+    },
+    "Angry->Sad": {
+      "true_class": "Angry",
+      "confused_as": "Sad",
+      "L5_probe_confusions": 59,
+      "L2_L5_raw_confusions": 57,
+      "L2_L5_pca_confusions": 60,
+      "delta_raw_vs_l5": -2,
+      "delta_pca_vs_l5": 1
+    }
+  },
+  "v23": {
+    "Fear->Sad": {
+      "true_class": "Fear",
+      "confused_as": "Sad",
+      "L5_probe_confusions": 100,
+      "L2_L5_raw_confusions": 89,
+      "L2_L5_pca_confusions": 93,
+      "delta_raw_vs_l5": -11,
+      "delta_pca_vs_l5": -7
+    },
+    "Fear->Neutral": {
+      "true_class": "Fear",
+      "confused_as": "Neutral",
+      "L5_probe_confusions": 51,
+      "L2_L5_raw_confusions": 53,
+      "L2_L5_pca_confusions": 50,
+      "delta_raw_vs_l5": 2,
+      "delta_pca_vs_l5": -1
+    },
+    "Fear->Angry": {
+      "true_class": "Fear",
+      "confused_as": "Angry",
+      "L5_probe_confusions": 50,
+      "L2_L5_raw_confusions": 51,
+      "L2_L5_pca_confusions": 46,
+      "delta_raw_vs_l5": 1,
+      "delta_pca_vs_l5": -4
+    },
+    "Sad->Neutral": {
+      "true_class": "Sad",
+      "confused_as": "Neutral",
+      "L5_probe_confusions": 88,
+      "L2_L5_raw_confusions": 89,
+      "L2_L5_pca_confusions": 93,
+      "delta_raw_vs_l5": 1,
+      "delta_pca_vs_l5": 5
+    },
+    "Neutral->Sad": {
+      "true_class": "Neutral",
+      "confused_as": "Sad",
+      "L5_probe_confusions": 96,
+      "L2_L5_raw_confusions": 92,
+      "L2_L5_pca_confusions": 94,
+      "delta_raw_vs_l5": -4,
+      "delta_pca_vs_l5": -2
+    },
+    "Angry->Sad": {
+      "true_class": "Angry",
+      "confused_as": "Sad",
+      "L5_probe_confusions": 60,
+      "L2_L5_raw_confusions": 58,
+      "L2_L5_pca_confusions": 56,
+      "delta_raw_vs_l5": -2,
+      "delta_pca_vs_l5": -4
+    }
+  }
+}
